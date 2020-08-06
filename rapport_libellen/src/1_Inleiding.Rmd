@@ -1,0 +1,11 @@
+# Inleiding
+
+Betrouwbare informatie over de toestand en trends van dier- en plantensoorten in Vlaanderen is van
+groot belang voor de onderbouwing van het Vlaamse soortenbeleid en voor de 6-jaarlijkse rapportage in kader van de Europese Habitat- en Vogelrichtlijn [@Adriaens2011]. Om aan deze informatiebehoefte te voldoen gingen in de periode 2016-2018 nieuwe meetnetten van start voor de monitoring van 65 Vlaamse en Europees prioritaire soorten. Elk meetnet bestaat uit een aantal vooraf vastgelegde locaties, waar een of meerdere soorten via een gestandaardiseerde methode geteld worden. Het Instituut voor Natuur- en Bosonderzoek (INBO) ontwierp de meetnetten [@DeKnijf2014] op basis van de leidraad voor beleidsgerichte meetnetten [@Wouters2008]. 
+
+Voor het uitvoeren van de meetnettellingen doen we beroep op citizen science. Het zijn dus vrijwilligers die, onder coördinatie van Natuurpunt Studie, de meetnetlocaties bezoeken en de tellingen uitvoeren volgens het opgelegde veldprotocol. Om dit allemaal in goede banen te leiden werd het webportaal [meetnetten.be](https://www.meetnetten.be) ontwikkeld.
+
+Het doel van dit rapport is 
+
+`r ifelse(doc.type != "html", "Dit rapport bevat enkele interactieve figuren die enkel kunnen bekeken worden op de [website versie](https://inbo.github.io/soortenmeetnetten_progress/) van dit rapport.", "")`
+

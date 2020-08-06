@@ -1,0 +1,180 @@
+
+## Verkenning getelde aantallen
+
+
+```{r}
+counts <- get_counts_smp("libellen", count_aggregation = "individuals")
+
+summary_counts <- get_summary_counts("libellen")
+summary_distribution <- get_summary_distribution("libellen")
+
+summary_counts_individuals <- summary_counts$individuals
+summary_distribution_individuals <- summary_distribution$individuals
+
+summary_table <- summary_counts_individuals %>%
+  left_join(summary_distribution_individuals, by = c("primaire_soort", "soortgroep", "jaar", "soort_nl", "soort_wet")) %>%
+  group_by(primaire_soort, soort_nl) %>%
+  mutate(tot = sum(aantal_totaal)) %>%
+  ungroup()
+  
+```
+
+### Doelsoorten
+
+```{r, fig.height = 8}
+counts %>% 
+  filter(primaire_soort) %>%
+  ggplot(aes(x= jaar, y = aantal)) +  
+  #geom_point(alpha = 0.6, colour = inbo.grijs) +
+  stat_summary(fun.data = "mean_cl_boot", colour = INBOred, size = 1, alpha = 0.8) +
+  facet_wrap(~ soort_nl, scale = "free_y") +
+  labs(y = "Aantal getelde individuen", x = "Jaar") +
+  theme(legend.position = "bottom") +
+  ylim(0, NA)
+```
+
+
+```{r}
+summary_table %>% 
+  select(-bezoeken, -locaties_geteld, - aantal_maximum) %>%
+   gather(aantal_totaal, aantal_gemiddeld, locaties_aanwezig, proportie_locaties_aanwezig, key = "karakteristiek", value = "waarde") %>%
+  spread(key = "jaar", value = "waarde") %>%
+  filter(!is.na(soort_nl)) %>%
+  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+  filter(primaire_soort) %>%
+  arrange(desc(tot)) %>%
+  select(soort_nl, soort_wet, karakteristiek, "2016", "2017", "2018", "2019", "2020") %>%
+  # select(-soortgroep, -soort_nl) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "condensed")) %>%
+    collapse_rows(c(1,2,3)) %>%
+  scroll_box(width = "100%", height = "600px")
+```
+  
+
+### Overige soorten
+
+```{r, fig.height = 8, eval = FALSE}
+counts %>% 
+  group_by(soort_nl) %>%
+  mutate(tot = sum(aantal)) %>%
+  ungroup() %>%
+  filter(tot > 100) %>%
+  filter(!primaire_soort) %>%
+  ggplot(aes(x= jaar, y = aantal)) +  
+  #geom_point(alpha = 0.6, colour = inbo.grijs) +
+  stat_summary(fun.data = "mean_cl_boot", colour = INBOred, size = 1, alpha = 0.8) +
+  facet_wrap(~ soort_nl, scale = "free_y") +
+  labs(y = "Aantal getelde individuen", x = "Jaar") +
+  theme(legend.position = "bottom") +
+  ylim(0, NA)
+``` 
+
+```{r}
+summary_table %>% 
+  select(-bezoeken, -locaties_geteld, - aantal_maximum) %>%
+   gather(aantal_totaal, aantal_gemiddeld, locaties_aanwezig, proportie_locaties_aanwezig, key = "karakteristiek", value = "waarde") %>%
+  spread(key = "jaar", value = "waarde", fill = 0) %>%
+  filter(!is.na(soort_nl)) %>%
+  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+  filter(!primaire_soort) %>%
+  arrange(desc(tot)) %>%
+  select( soort_nl, soort_wet, karakteristiek, "2016", "2017", "2018", "2019", "2020") %>%
+  # select(-soortgroep, -soort_nl) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "condensed")) %>%
+    collapse_rows(c(1,2,3)) %>%
+  scroll_box(width = "100%", height = "600px")
+```
+
+### Doelsoorten details
+
+```{r}
+
+summary_counts_target <- summary_counts$details %>%
+  filter(primaire_soort) %>%
+  group_by(soort_nl, geslacht, activiteit, levensstadium) %>%
+  mutate(aantal_totaal = sum(totaal)) %>%
+  ungroup() %>%
+  filter(aantal_totaal > 0) 
+```
+
+```{r}
+summary_counts_target %>%
+  select(-bezoeken) %>%
+  gather(totaal, gemiddeld, maximum, key = "aantal", value = "waarde") %>%
+  spread(key = "jaar", value = "waarde") %>%
+  mutate(type_waarneming = ifelse(activiteit == "copula", "copula",
+                                  ifelse(activiteit == "eiafzettend", "eiafzettend",
+                                         ifelse(levensstadium == "imago (niet uitgekleurd)", "imago (niet uitgekleurd)",
+                                                str_c(levensstadium, geslacht, sep = " "))))) %>%
+  arrange(soort_nl, type_waarneming) %>%
+  select( soort_nl, soort_wet, "type waarneming" = type_waarneming, aantal, "2016", "2017", "2018", "2019", "2020") %>%
+  # select(-soortgroep, -soort_nl) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "condensed")) %>%
+    collapse_rows(c(1,2,3)) %>%
+  scroll_box(width = "100%", height = "600px")
+```
+
+
+### Overige soorten details
+
+```{r}
+summary_counts_nonetarget <- summary_counts$details %>%
+  filter(!primaire_soort) %>%
+  group_by(soort_nl, geslacht, activiteit, levensstadium) %>%
+  mutate(aantal_totaal = sum(totaal)) %>%
+  ungroup() %>%
+  filter(aantal_totaal > 0) 
+```
+
+```{r}
+summary_counts_nonetarget %>%
+  select(-bezoeken, -gemiddeld, - maximum) %>%
+  spread(key = "jaar", value = "totaal", fill = 0) %>%
+  mutate(type_waarneming = ifelse(activiteit == "copula", "copula",
+                                  ifelse(activiteit == "eiafzettend", str_c(activiteit, geslacht, sep = " "),
+                                         ifelse(levensstadium == "imago (niet uitgekleurd)", "imago (niet uitgekleurd)",
+                                                str_c(levensstadium, geslacht, sep = " "))))) %>%
+  arrange(soort_nl, type_waarneming) %>%
+  select( soort_nl, soort_wet, "type waarneming" = type_waarneming, "2016", "2017", "2018", "2019", "2020") %>%
+  # select(-soortgroep, -soort_nl) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "condensed")) %>%
+    collapse_rows(c(1,2)) %>%
+  scroll_box(width = "100%", height = "600px")
+```
+
+```{r}
+aantallen_bezoek <- get_counts_smp("libellen") %>%
+  group_by(soortgroep, meetnet, protocol, locatie, visit_id, checklist, jaar, datum, soort_nl, soort_wet, primaire_soort, geslacht, activiteit, levensstadium) %>%
+  summarise(aantal = sum(aantal, na.rm = TRUE),
+            n_subsamples = n()) %>%
+  ungroup() %>%
+  mutate(geslacht = ifelse(geslacht == "M", "mannelijk", 
+                           ifelse(geslacht == "F", "vrouwelijk", "onbekend")))
+
+diversity <- aantallen_bezoek %>% 
+  group_by(soortgroep, meetnet, protocol, locatie, visit_id, checklist, soort_nl, soort_wet) %>%
+  summarise(aanwezig = sum(aantal) > 0) %>%
+  ungroup() %>%
+  filter(aanwezig) %>%
+  group_by(meetnet, protocol, locatie) %>%
+  summarise(n_soorten = n_distinct(soort_wet),
+            n_bezoeken = n_distinct(visit_id)) %>%
+  ungroup()
+
+checklists <- aantallen_bezoek %>%
+  distinct(soortgroep, meetnet, protocol, locatie, visit_id, checklist) %>%
+  group_by(meetnet, protocol, locatie) %>%
+  summarise(n_checklists = sum(checklist)) %>%
+  ungroup()
+  
+diversity <- diversity %>%
+  left_join(checklists, by = c("meetnet", "protocol", "locatie"))
+
+```
+
+
+
