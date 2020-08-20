@@ -1,5 +1,5 @@
 
-## Verkenning getelde aantallen
+# Verkenning getelde aantallen
 
 
 ```{r}
@@ -19,22 +19,42 @@ summary_table <- summary_counts_individuals %>%
   
 ```
 
-### Doelsoorten
+## Doelsoorten
 
-```{r, fig.height = 8}
+### Aantal getelde individuen {.tabset}
+
+Onderstaande grafiek geeft het gemiddelde aantal getelelde individuen per bezoek weer met 95% betrouwbaarheidsinterval. 
+
+- Tellen larvehuidjes mee voor totaal aantal individuen?
+- Een 'copula' en een 'eiafzettend U' telt mee voor 2 individuen? ('eiafzettend F' telt voor 1 individu)
+
+#### Grafiek {-}
+
+Hieronder een grafiek voor alle soorten. Ook mogelijk om te tonen via een tabs met 1 grafiek per soort.
+
+```{r, fig.height = 7}
 counts %>% 
   filter(primaire_soort) %>%
   ggplot(aes(x= jaar, y = aantal)) +  
   #geom_point(alpha = 0.6, colour = inbo.grijs) +
-  stat_summary(fun.data = "mean_cl_boot", colour = INBOred, size = 1, alpha = 0.8) +
-  facet_wrap(~ soort_nl, scale = "free_y") +
+  stat_summary(fun.data = "mean_cl_boot", colour = inbo.groen, alpha = 1) +
+  facet_wrap(~ soort_nl, scale = "free_y", ncol = 3) +
   labs(y = "Aantal getelde individuen", x = "Jaar") +
   theme(legend.position = "bottom") +
   ylim(0, NA)
 ```
 
+#### Tabel {-}
 
-```{r}
+Onderstaande tabel toont:
+
+- Gemiddeld aantal getelde individuen per bezoek
+- Totaal aantal getelde individuen
+- Aantal locaties waar soort werd waargenomen
+- Proportie van de bezochten locaties waar soort werd waargenomen
+
+
+```{r, eval=FALSE}
 summary_table %>% 
   select(-bezoeken, -locaties_geteld, - aantal_maximum) %>%
    gather(aantal_totaal, aantal_gemiddeld, locaties_aanwezig, proportie_locaties_aanwezig, key = "karakteristiek", value = "waarde") %>%
@@ -50,11 +70,115 @@ summary_table %>%
     collapse_rows(c(1,2,3)) %>%
   scroll_box(width = "100%", height = "600px")
 ```
-  
 
-### Overige soorten
+**Optie 1: tabel waarin je kan filteren op soort en jaar of sorteren volgens getelde aantallen; gegevens kunnen gedownload worden**
 
-```{r, fig.height = 8, eval = FALSE}
+```{r, eval=TRUE}
+summary_table %>% 
+  select(-bezoeken, -locaties_geteld, - aantal_maximum) %>%
+  filter(!is.na(soort_nl)) %>%
+  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+  filter(primaire_soort) %>%
+  arrange(desc(tot)) %>%
+  mutate(jaar = factor(jaar),
+         soort_nl = factor(soort_nl)) %>%
+  select(soort_nl, soort_wet, jaar, "totaal aantal" = aantal_totaal, "gemiddeld aantal" = aantal_gemiddeld, locaties = locaties_aanwezig, "proportie locaties (%)" = proportie_locaties_aanwezig) %>%
+  # select(-soortgroep, -soort_nl) %>%
+  datatable(rownames = FALSE,
+            filter = 'top',
+            extensions = 'Buttons', 
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'pdf', 'csv', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              initComplete = JS(
+                            "function(settings, json) {",
+                            "$(this.api().table().header()).css({'background-color': '#959B38'});",
+                            "}")
+              )
+            )
+
+
+```
+
+**optie 2: geen interactie mogelijk maar wel iets mooiere layout** 
+
+```{r, eval=TRUE}
+summary_table %>% 
+  select(-bezoeken, -locaties_geteld, - aantal_maximum) %>%
+  filter(!is.na(soort_nl)) %>%
+  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+  filter(primaire_soort) %>%
+  arrange(desc(tot)) %>%
+  mutate(jaar = factor(jaar),
+         soort_nl = factor(soort_nl)) %>%
+  select(soort_nl, soort_wet, jaar, "totaal aantal" = aantal_totaal, "gemiddeld aantal" = aantal_gemiddeld, locaties = locaties_aanwezig, "proportie locaties (%)" = proportie_locaties_aanwezig) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "condensed")) %>%
+    collapse_rows(c(1,2)) %>%
+  scroll_box(width = "100%", height = "600px")
+```
+
+### Getelde aantallen opgesplitst per levenststadium, activitiet en geslacht
+
+```{r}
+
+summary_counts_type <- summary_counts$details %>%
+  group_by(primaire_soort, soort_nl, geslacht, activiteit, levensstadium) %>%
+  mutate(aantal_totaal_type_allyears = sum(aantal_totaal)) %>%
+  ungroup() %>%
+  group_by(primaire_soort, soort_nl) %>%
+  mutate(aantal_totaal_allyears = sum(aantal_totaal)) %>%
+  ungroup() %>%
+  filter(aantal_totaal_type_allyears > 0) %>%
+  select(-bezoeken) %>%
+  # gather(aantal_totaal, aantal_gemiddeld, aantal_maximum, key = "aantal", value = "waarde") %>%
+  # spread(key = "jaar", value = "waarde") %>%
+  mutate(type_waarneming = ifelse(activiteit == "copula", "copula",
+                                  ifelse(activiteit == "eiafzettend", str_c(activiteit, geslacht, sep = " "),
+                                         ifelse(levensstadium == "imago (niet uitgekleurd)", "imago (niet uitgekleurd)",
+                                                str_c(levensstadium, geslacht, sep = " ")))),
+         type_waarneming = factor(type_waarneming, levels = c("imago F", "imago M", "imago U", "imago (niet uitgekleurd)", "eiafzettend F", "eiafzettend U", "copula", "larvenhuidje F", "larvenhuidje M", "larvenhuidje U"))) %>%
+  mutate(jaar = factor(jaar),
+         soort_nl = factor(soort_nl)) %>%
+  arrange(desc(aantal_totaal_allyears), primaire_soort, soort_nl, jaar, type_waarneming) %>%
+  select( primaire_soort, soort_nl, soort_wet, jaar, "type waarneming" = type_waarneming, "aantal totaal" = aantal_totaal, "aantal gemiddeld" = aantal_gemiddeld)
+```
+
+
+Hier tabel:
+
+```{r tabelDetail}
+summary_counts_type %>%
+  filter(primaire_soort) %>%
+  select(-primaire_soort) %>%
+  datatable(rownames = FALSE,
+            filter = 'top',
+            extensions = 'Buttons', 
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'pdf', 'csv', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              initComplete = JS(
+                            "function(settings, json) {",
+                            "$(this.api().table().header()).css({'background-color': '#959B38'});",
+                            "}")
+              )
+            )
+
+```
+
+## Overige soorten
+
+Naast de doelsoorten kunnen optioneel ook andere libellen geteld worden.
+
+### Aantal getelde individuen {.tabset}
+
+De tellingen van de overige soorten bevatten geen nulwaarnemingen! De tellocaties zijn ook niet representatief voor de soort.
+
+#### Grafiek {-}
+
+```{r, fig.height = 20}
 counts %>% 
   group_by(soort_nl) %>%
   mutate(tot = sum(aantal)) %>%
@@ -63,88 +187,66 @@ counts %>%
   filter(!primaire_soort) %>%
   ggplot(aes(x= jaar, y = aantal)) +  
   #geom_point(alpha = 0.6, colour = inbo.grijs) +
-  stat_summary(fun.data = "mean_cl_boot", colour = INBOred, size = 1, alpha = 0.8) +
-  facet_wrap(~ soort_nl, scale = "free_y") +
+  stat_summary(fun.data = "mean_cl_boot", colour = inbo.groen) +
+  facet_wrap(~ soort_nl, scale = "free_y", ncol = 3) +
   labs(y = "Aantal getelde individuen", x = "Jaar") +
   theme(legend.position = "bottom") +
   ylim(0, NA)
 ``` 
 
+
+#### Tabel {-}
+
 ```{r}
 summary_table %>% 
   select(-bezoeken, -locaties_geteld, - aantal_maximum) %>%
-   gather(aantal_totaal, aantal_gemiddeld, locaties_aanwezig, proportie_locaties_aanwezig, key = "karakteristiek", value = "waarde") %>%
-  spread(key = "jaar", value = "waarde", fill = 0) %>%
   filter(!is.na(soort_nl)) %>%
   mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
   filter(!primaire_soort) %>%
   arrange(desc(tot)) %>%
-  select( soort_nl, soort_wet, karakteristiek, "2016", "2017", "2018", "2019", "2020") %>%
+  mutate(jaar = factor(jaar),
+         soort_nl = factor(soort_nl)) %>%
+  select(soort_nl, soort_wet, jaar, "totaal aantal" = aantal_totaal, "gemiddeld aantal" = aantal_gemiddeld, locaties = locaties_aanwezig, "proportie locaties (%)" = proportie_locaties_aanwezig) %>%
   # select(-soortgroep, -soort_nl) %>%
-  kable() %>%
-  kable_styling(bootstrap_options = c("hover", "condensed")) %>%
-    collapse_rows(c(1,2,3)) %>%
-  scroll_box(width = "100%", height = "600px")
-```
-
-### Doelsoorten details
-
-```{r}
-
-summary_counts_target <- summary_counts$details %>%
-  filter(primaire_soort) %>%
-  group_by(soort_nl, geslacht, activiteit, levensstadium) %>%
-  mutate(aantal_totaal = sum(totaal)) %>%
-  ungroup() %>%
-  filter(aantal_totaal > 0) 
-```
-
-```{r}
-summary_counts_target %>%
-  select(-bezoeken) %>%
-  gather(totaal, gemiddeld, maximum, key = "aantal", value = "waarde") %>%
-  spread(key = "jaar", value = "waarde") %>%
-  mutate(type_waarneming = ifelse(activiteit == "copula", "copula",
-                                  ifelse(activiteit == "eiafzettend", "eiafzettend",
-                                         ifelse(levensstadium == "imago (niet uitgekleurd)", "imago (niet uitgekleurd)",
-                                                str_c(levensstadium, geslacht, sep = " "))))) %>%
-  arrange(soort_nl, type_waarneming) %>%
-  select( soort_nl, soort_wet, "type waarneming" = type_waarneming, aantal, "2016", "2017", "2018", "2019", "2020") %>%
-  # select(-soortgroep, -soort_nl) %>%
-  kable() %>%
-  kable_styling(bootstrap_options = c("hover", "condensed")) %>%
-    collapse_rows(c(1,2,3)) %>%
-  scroll_box(width = "100%", height = "600px")
+  datatable(rownames = FALSE,
+            filter = 'top',
+            extensions = 'Buttons', 
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'pdf', 'csv', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              initComplete = JS(
+                            "function(settings, json) {",
+                            "$(this.api().table().header()).css({'background-color': '#959B38'});",
+                            "}")
+              )
+            )
 ```
 
 
-### Overige soorten details
+### Getelde aantallen opgesplitst per levenststadium, activitiet en geslacht
 
 ```{r}
-summary_counts_nonetarget <- summary_counts$details %>%
+summary_counts_type %>%
   filter(!primaire_soort) %>%
-  group_by(soort_nl, geslacht, activiteit, levensstadium) %>%
-  mutate(aantal_totaal = sum(totaal)) %>%
-  ungroup() %>%
-  filter(aantal_totaal > 0) 
+  select(-primaire_soort) %>%
+  datatable(rownames = FALSE,
+            filter = 'top',
+            extensions = 'Buttons', 
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'pdf', 'csv', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              initComplete = JS(
+                            "function(settings, json) {",
+                            "$(this.api().table().header()).css({'background-color': '#959B38'});",
+                            "}")
+              )
+            )
+
 ```
 
-```{r}
-summary_counts_nonetarget %>%
-  select(-bezoeken, -gemiddeld, - maximum) %>%
-  spread(key = "jaar", value = "totaal", fill = 0) %>%
-  mutate(type_waarneming = ifelse(activiteit == "copula", "copula",
-                                  ifelse(activiteit == "eiafzettend", str_c(activiteit, geslacht, sep = " "),
-                                         ifelse(levensstadium == "imago (niet uitgekleurd)", "imago (niet uitgekleurd)",
-                                                str_c(levensstadium, geslacht, sep = " "))))) %>%
-  arrange(soort_nl, type_waarneming) %>%
-  select( soort_nl, soort_wet, "type waarneming" = type_waarneming, "2016", "2017", "2018", "2019", "2020") %>%
-  # select(-soortgroep, -soort_nl) %>%
-  kable() %>%
-  kable_styling(bootstrap_options = c("hover", "condensed")) %>%
-    collapse_rows(c(1,2)) %>%
-  scroll_box(width = "100%", height = "600px")
-```
+
 
 ```{r}
 aantallen_bezoek <- get_counts_smp("libellen") %>%

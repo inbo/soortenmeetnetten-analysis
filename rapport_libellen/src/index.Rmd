@@ -9,8 +9,6 @@ ordernr: "Rapporten van het Instituut voor Natuur- en Bosonderzoek 2020 (xx)"
 reportnr: "xxx"
 link-citations: TRUE
 always_allow_html: yes
-bibliography: references.bib
-csl: methods-in-ecology-and-evolution.csl
 site: bookdown::bookdown_site
 output:
   bookdown::word_document2:
@@ -65,26 +63,27 @@ opts_chunk$set(
 )
 
 
-# library(extrafont)
-# loadfonts(device = "win", quiet = TRUE)
+library(extrafont)
+#font_import()
+loadfonts(device = "win", quiet = TRUE)
 
 library(tidyverse)
 library(INBOtheme)
-# theme_set(
-#   theme_inbo(
-#     base_family = "Calibri", # "Flanders Art Sans",
-#     base_size = 12
-#   )
-# )
-# if (!interactive() && opts_knit$get("rmarkdown.pandoc.to") != "html") {
-#   opts_chunk$set(dev = "cairo_pdf")
-#   theme_set(
-#     theme_inbo(
-#       base_family = "Calibri", # "Flanders Art Sans",
-#       base_size = 8
-#     )
-#   )
-# }
+theme_set(
+  theme_inbo(
+    base_family = "Calibri", # "Flanders Art Sans",
+    base_size = 12
+  )
+)
+if (!interactive() && opts_knit$get("rmarkdown.pandoc.to") != "html") {
+  opts_chunk$set(dev = "cairo_pdf")
+  theme_set(
+    theme_inbo(
+      base_family = "Calibri", # "Flanders Art Sans",
+      base_size = 8
+    )
+  )
+}
 
 doc.type <- knitr::opts_knit$get('rmarkdown.pandoc.to')
 
