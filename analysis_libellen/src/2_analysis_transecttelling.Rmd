@@ -1,12 +1,13 @@
 
 
-# Libellen - Populatietelling per locatie"
+# Libellen - Transecttelling"
 
 ```{r}
 
 species_group <- "libellen"
-protocol_selection <- "Libellen - Populatietelling per locatie"
-name_analysis <- "libellen_gebiedstelling"
+protocol_selection <- c("Libellen - Transect", "Libellen - Larvenhuidjes", "Libellen - Larvenhuidjes Beekrombout")
+
+name_analysis <- "libellen_transecten"
 
 set.seed(47830)
 ```
@@ -15,16 +16,20 @@ set.seed(47830)
 
 ```{r select data, warning = FALSE}
 
-protocol_selection <- "Libellen - Populatietelling per locatie"
-
 locatie_detail <- get_locations_smp() %>%
   st_drop_geometry() %>%
   filter(locatie_type == "locatie") %>%
   select(meetnet, locatie, is_active, is_sample)
 
 visits <- get_visits_smp("libellen")
+
 counts <- get_counts_smp(species_group = "libellen", count_aggregation = "individuals") %>%
   filter(primaire_soort)
+
+covars <- get_covariates_smp(species_group = "libellen") %>%
+  filter(protocol %in% protocol_selection) %>%
+  select(visit_id, lengte_transect = waarde, eenheid) %>%
+  mutate(lengte_transect = as.numeric(lengte_transect))
 
 count_period <- get_characteristics_smp(species_group = "libellen") %>%
   mutate(doy_min = as.numeric(format(start_telperiode, "%j")),
@@ -51,23 +56,89 @@ visits_selection <- visits %>%
 
 counts_selection <- visits_selection %>%
   select(soortgroep, meetnet, protocol, locatie, jaar, datum, doy, doy_scaled, doy_min, doy_max, doy_mid, visit_id, n_obs, voor_analyse, is_active, is_sample, bezoek_status, bezoek_status_oud) %>%
-  left_join(select(counts, visit_id, soort_nl, soort_wet, aantal), by = "visit_id")
+  left_join(select(counts, visit_id, soort_nl, soort_wet, aantal), by = "visit_id") %>%
+  left_join(covars, by = "visit_id")
 
+```
+
+### Transectlengte
+
+Voor Rivierrombout komt de transectlengte overeen met de lengte van de locatie (=lijn) in meetnetten.be
+
+```{r}
+transect_Rivierrombout <- get_locations_smp() %>% 
+  filter(meetnet == "Rivierrombout") %>%
+  st_transform(crs = 31370) %>%
+  group_by(locatie) %>%
+  mutate(lengte_locatie = round(drop_units(st_length(geom)), 0)) %>%
+  ungroup() %>%
+  st_drop_geometry() %>%
+  select(meetnet, locatie, lengte_locatie)
+
+```
+
+Voor andere soorten wordt de transectlengte ingegevoerd.
+
+```{r}
+# aandeel ontbrekende waardes
+
+proportion_missing <- counts_selection %>%
+  group_by(meetnet) %>%
+  summarise(n_missing = sum(is.na(lengte_transect)),
+            n_tot = n(),
+            prop_missiing  = n_missing/n_tot) %>%
+  ungroup()
+  
+
+transect_other <- counts_selection %>%
+  filter(meetnet != "Rivierrombout") %>%
+  distinct(meetnet, locatie, datum, visit_id, lengte_transect) %>%
+  group_by(meetnet) %>%
+  mutate(mean_meetnet = mean(lengte_transect, na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_by(locatie) %>%
+  mutate(mean_locatie = mean(lengte_transect, na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_by(locatie, datum) %>%
+  mutate(mean_locatie_datum = mean(lengte_transect, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(lengte_transect_est = ifelse(!is.na(lengte_transect), lengte_transect,
+                                      ifelse(!is.nan(mean_locatie_datum), mean_locatie_datum,
+                                             ifelse(!is.na(mean_locatie), mean_locatie, mean_meetnet)))) %>%
+  select(meetnet, locatie, datum, visit_id, lengte_transect = lengte_transect_est)
+
+```
+
+```{r}
+counts_selection_rivierrombout <- counts_selection %>%
+  filter(meetnet == "Rivierrombout") %>%
+  left_join(transect_Rivierrombout, by = c("meetnet", "locatie")) %>%
+  mutate(lengte_transect = ifelse(is.na(lengte_transect), lengte_locatie, lengte_transect)) %>%
+  select(-lengte_locatie)
+
+counts_selection_other <- counts_selection %>%
+  filter(meetnet != "Rivierrombout") %>%
+  select(-lengte_transect) %>%
+  inner_join(transect_other, by = c("meetnet", "locatie", "datum", "visit_id"))
+  
+counts_selection2 <- bind_rows(counts_selection_rivierrombout,
+                              counts_selection_other)    
+  
 ```
 
 
 ```{r}
 
-counts_analysis <- counts_selection %>%
-  filter(meetnet != "Hoogveenglanslibel") %>%
-  group_by(meetnet, locatie) %>%
-  mutate(n_jaren = n_distinct(jaar),
-            max_count = max(aantal)) %>%
-  ungroup() %>%
-  filter(n_jaren > 1 & max_count > 0) %>%
+counts_analysis <- counts_selection2 %>%
+  # group_by(meetnet, locatie) %>%
+  # mutate(n_jaren = n_distinct(jaar),
+  #           max_count = max(aantal)) %>%
+  # ungroup() %>%
+  # filter(n_jaren > 1 & max_count > 0) %>%
   mutate(fjaar = factor(jaar),
          locatie = factor(locatie),
-         doy_scaled_2 = doy_scaled * doy_scaled)
+         doy_scaled_2 = doy_scaled * doy_scaled,
+         log_section_100 = log(lengte_transect/100))
   
 analyseset_by_species <- counts_analysis %>%
   group_by(meetnet) %>%
@@ -89,48 +160,64 @@ write_vc(counts_analysis, file = "analyseset", root = here(str_c("analysis_", sp
 ```{r test, eval = FALSE}
 
 analyseset_species <- counts_analysis %>%
-  filter(meetnet == "Gevlekte witsnuitlibel")
+  filter(meetnet == "Bosbeekjuffer")
 
+indexmodel_nbinom_inla_offset <- fit_indexmodel_nbinom_inla(analyseset_species = analyseset_species, offset_var = "log_section_100")
 indexmodel_nbinom_inla <- fit_indexmodel_nbinom_inla(analyseset_species = analyseset_species)
-indexmodel_nbinom_inla$summary.fixed
-indexmodel_nbinom_inla$summary.hyperpar
+
+bind_rows(indexmodel_nbinom_inla$summary.fixed,
+indexmodel_nbinom_inla_offset$summary.fixed)
+
+indexmodel_nbinom_inla$waic
+test <- get_waic_inlabru(analyseset_species, indexmodel_nbinom_inla_offset)
 
 indexmodel_nbinom_inlabru <- fit_indexmodel_nbinom_inlabru(analyseset_species)
 indexmodel_nbinom_inla$summary.fixed
 indexmodel_nbinom_inla$summary.hyperpar
 
-trendmodel_nbinom_inlabru <- fit_trendmodel_nbinom_inlabru(analyseset_species = analyseset_species)
+trendmodel_nbinom_inla <- fit_trendmodel_nbinom_inla(analyseset_species = analyseset_species)
+trendmodel_nbinom_inla_offset <- fit_trendmodel_nbinom_inla(analyseset_species = analyseset_species, offset_var = "log_section_100")
 
-index <- derive_index_inla(analyseset_species, indexmodel_nbinom_inla)
+index <- derive_index_inla(analyseset_species, indexmodel_nbinom_inla) %>%
+  mutate(offset = "nee")
+index_offset <- derive_index_inla(analyseset_species, indexmodel_nbinom_inla_offset) %>%
+  mutate(offset = "ja")
+index_vergelijk <- bind_rows(index, index_offset) %>%
+  select(offset, everything())
 
-max_count <- derive_max_count_inla(analyseset_species, indexmodel_nbinom_inla)
+max_count <- derive_max_count_inla(analyseset_species, indexmodel_nbinom_inla)%>%
+  mutate(offset = "nee")
+max_count_offset <- derive_max_count_inla(analyseset_species, indexmodel_nbinom_inla_offset) %>%
+  mutate(offset = "ja")
+max_count_vergelijk <- bind_rows(max_count, max_count_offset) %>%
+  select(offset, everything())
 
-trend <- derive_trend_inlabru(analyseset_species, trendmodel_nbinom_inlabru)
-
-plot(dispersion_check(indexmodel_nbinom_inla))
-
-plot(distribution_check(indexmodel_nbinom_inla))
-
-
+trend <- derive_trend(analyseset_species, trendmodel_nbinom_inla) %>%
+  mutate(offset = "nee")
+trend_offset <- derive_trend(analyseset_species, trendmodel_nbinom_inla_offset) %>%
+  mutate(offset = "ja")
+trend_vergelijk <- bind_rows(trend, trend_offset) %>%
+  select(offset, everything())
 
 ```
 
 
 
 ```{r}
-models_inlabru <- analyseset_by_species %>% 
-  mutate(indexmodel = map(data, fit_indexmodel_nbinom_inlabru),
-         trendmodel = map(data, fit_trendmodel_nbinom_inlabru))
+# models_inlabru <- analyseset_by_species %>% 
+#   mutate(indexmodel = map(data, fit_indexmodel_nbinom_inlabru),
+#          trendmodel = map(data, fit_trendmodel_nbinom_inlabru))
 
 models_inla <- analyseset_by_species %>%
-  mutate(indexmodel = map(data, fit_indexmodel_nbinom_inla))
+  mutate(indexmodel = map2(data, "log_section_100", fit_indexmodel_nbinom_inla),
+         trendmodel = map2(data, "log_section_100", fit_trendmodel_nbinom_inla))
 
 results_indexmodel <- models_inla %>%
   transmute(index = map2(data, indexmodel, derive_index_inla),
             max_count = map2(data, indexmodel, derive_max_count_inla))
 
-results_trendmodel <- models_inlabru %>%
-  transmute(trend = map2(data, trendmodel, derive_trend_inlabru),
+results_trendmodel <- models_inla %>%
+  transmute(trend = map2(data, trendmodel, derive_trend),
             waic_index =  map2(data, indexmodel, get_waic_inlabru),
             waic_trend = map2(data, trendmodel, get_waic_inlabru))
 
@@ -274,15 +361,7 @@ iid_checked_plot %>%
     
 ```
 
-```{r}
-iid_checked_plot %>%
-  filter(meetnet == "Speerwaterjuffer") %>%
-  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
-  ggplot(aes(x = y)) +
-      geom_density() +
-      scale_x_continuous("relative effect", labels = scales::percent) +
-      facet_wrap(~meetnet + sigma_tekst, scales = "free")
-```
+
 
 
 
@@ -309,51 +388,6 @@ ggplot(data = results_data_simulated, aes(x = doy)) +
   facet_grid(soort_nl ~ jaar, scales = "free") +
   theme(legend.position = "none")
 ```
-
-### Maanwaterjuffer
-
-```{r, fig.height= 9}
-
-
-ggplot(data = filter(results_data_simulated, meetnet == "Maanwaterjuffer"), aes(x = doy)) + 
-  geom_line(aes(y = mean, group = loc_id, colour = factor(loc_id)), linetype = 2 ) +
-  geom_point(aes(y = y_obs), alpha = 0.5, size = 1) +
-  geom_line(aes(y = mean_year), size = 1, colour = "black") +
-  geom_ribbon(aes(ymin = lci_0.95_year, ymax = uci_0.95_year), alpha = 0.3) +
-  facet_wrap( ~ jaar) +
-  theme(legend.position = "none")
-```
-
-### Speerwaterjuffer
-
-```{r, fig.height= 9}
-
-ggplot(data = filter(results_data_simulated, meetnet == "Speerwaterjuffer"), aes(x = doy)) + 
-  geom_line(aes(y = mean, group = loc_id, colour = factor(loc_id)), linetype = 2, alpha = 0.2) +
-  geom_point(aes(y = y_obs), alpha = 0.5, size = 1) +
-  geom_line(aes(y = mean_year), size = 1, colour = "black") +
-  geom_ribbon(aes(ymin = lci_0.95_year, ymax = uci_0.95_year), alpha = 0.3) +
-  facet_wrap( ~ jaar) +
-  theme(legend.position = "none")
-```
-```{r, fig.width= 9}
-# analyseset_species <- counts_analysis %>%
-#   filter(meetnet == "Speerwaterjuffer")
-# 
-# analyseset_species %>%
-#   ggplot(aes(x = jaar, y = aantal)) +
-#   geom_point() +
-#   facet_wrap(~locatie)
-
-counts_analysis %>%
-  ggplot(aes(x = locatie, y =aantal)) +
-  geom_point(alpha = 0.4, size = 2) +
-  coord_flip() +
-  facet_wrap(~meetnet, scales = "free_y", ncol = 1)
-  
-
-```
-
 
 
 ## Documenteer analyse

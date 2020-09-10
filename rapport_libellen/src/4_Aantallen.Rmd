@@ -23,14 +23,22 @@ summary_table <- summary_counts_individuals %>%
 
 ### Aantal getelde individuen {.tabset}
 
-Onderstaande grafiek geeft het gemiddelde aantal getelelde individuen per bezoek weer met 95% betrouwbaarheidsinterval. 
-
 - Tellen larvehuidjes mee voor totaal aantal individuen?
 - Een 'copula' en een 'eiafzettend U' telt mee voor 2 individuen? ('eiafzettend F' telt voor 1 individu)
 
+In het tabblad 'Grafiek' tonen we het gemiddelde aantal getelde individuen per bezoek weer met 95% betrouwbaarheidsinterval.   
+
+De tabel in het tablad 'Tabel' geeft een overzicht van het:
+
+- Gemiddeld aantal getelde individuen per bezoek
+- Totaal aantal getelde individuen
+- Aantal locaties waar soort werd waargenomen
+- Proportie van de bezochten locaties waar soort werd waargenomen
+
+
 #### Grafiek {-}
 
-Hieronder een grafiek voor alle soorten. Ook mogelijk om te tonen via een tabs met 1 grafiek per soort.
+*Dit is een een grafiek voor alle soorten. Ook mogelijk om te tonen via een tabs met 1 grafiek per soort.*
 
 ```{r, fig.height = 7}
 counts %>% 
@@ -46,12 +54,6 @@ counts %>%
 
 #### Tabel {-}
 
-Onderstaande tabel toont:
-
-- Gemiddeld aantal getelde individuen per bezoek
-- Totaal aantal getelde individuen
-- Aantal locaties waar soort werd waargenomen
-- Proportie van de bezochten locaties waar soort werd waargenomen
 
 
 ```{r, eval=FALSE}
@@ -71,7 +73,7 @@ summary_table %>%
   scroll_box(width = "100%", height = "600px")
 ```
 
-**Optie 1: tabel waarin je kan filteren op soort en jaar of sorteren volgens getelde aantallen; gegevens kunnen gedownload worden**
+*Optie 1: tabel waarin je kan filteren op soort en jaar of sorteren volgens getelde aantallen; gegevens kunnen gedownload worden*
 
 ```{r, eval=TRUE}
 summary_table %>% 
@@ -101,7 +103,7 @@ summary_table %>%
 
 ```
 
-**optie 2: geen interactie mogelijk maar wel iets mooiere layout** 
+*optie 2: geen interactie mogelijk maar wel iets mooiere layout*
 
 ```{r, eval=TRUE}
 summary_table %>% 
@@ -114,16 +116,16 @@ summary_table %>%
          soort_nl = factor(soort_nl)) %>%
   select(soort_nl, soort_wet, jaar, "totaal aantal" = aantal_totaal, "gemiddeld aantal" = aantal_gemiddeld, locaties = locaties_aanwezig, "proportie locaties (%)" = proportie_locaties_aanwezig) %>%
   kable() %>%
-  kable_styling(bootstrap_options = c("hover", "condensed")) %>%
-    collapse_rows(c(1,2)) %>%
-  scroll_box(width = "100%", height = "600px")
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed")) %>%
+    kableExtra::collapse_rows(c(1,2)) %>%
+  kableExtra::scroll_box(width = "100%", height = "600px")
 ```
 
 ### Getelde aantallen opgesplitst per levenststadium, activitiet en geslacht
 
-```{r}
+```{r countsLevensstadium}
 
-summary_counts_type <- summary_counts$details %>%
+summary_counts_type_primair <- summary_counts$details %>%
   group_by(primaire_soort, soort_nl, geslacht, activiteit, levensstadium) %>%
   mutate(aantal_totaal_type_allyears = sum(aantal_totaal)) %>%
   ungroup() %>%
@@ -143,13 +145,20 @@ summary_counts_type <- summary_counts$details %>%
          soort_nl = factor(soort_nl)) %>%
   arrange(desc(aantal_totaal_allyears), primaire_soort, soort_nl, jaar, type_waarneming) %>%
   select( primaire_soort, soort_nl, soort_wet, jaar, "type waarneming" = type_waarneming, "aantal totaal" = aantal_totaal, "aantal gemiddeld" = aantal_gemiddeld)
+
 ```
 
+Tijdens het tellen van libellen wordt er onderscheidt gemaakt tussen het geslacht (mannelijk of M, vrouwelijk of F, onbekend of U), het levensstadium (imago, larvenhuidje) en de activiteit (ter plaatse, copula, eiafzettend). In onderstaande tabel, tonen we het gemiddelde getelde aantal:
 
-Hier tabel:
+- imago F, imago M en imago U
+- imago (niet uitgekleurd)
+- larvenhuidje F, larvenhuidje M en larvenhuidje U
+- eiafzettend F en eiafzettend U
+- copula 
 
-```{r tabelDetail}
-summary_counts_type %>%
+
+```{r tabel}
+summary_counts_type_primair %>%
   filter(primaire_soort) %>%
   select(-primaire_soort) %>%
   datatable(rownames = FALSE,
@@ -227,7 +236,7 @@ summary_table %>%
 ### Getelde aantallen opgesplitst per levenststadium, activitiet en geslacht
 
 ```{r}
-summary_counts_type %>%
+summary_counts_type_primair %>%
   filter(!primaire_soort) %>%
   select(-primaire_soort) %>%
   datatable(rownames = FALSE,
@@ -277,6 +286,7 @@ diversity <- diversity %>%
   left_join(checklists, by = c("meetnet", "protocol", "locatie"))
 
 ```
+
 
 
 

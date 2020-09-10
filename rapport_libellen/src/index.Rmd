@@ -15,6 +15,7 @@ output:
     toc: true
   bookdown::html_document2:
     keep_md: TRUE
+    fig_retina: 1
     toc: TRUE
     toc_float:
       collapsed: FALSE
@@ -52,7 +53,7 @@ options(knitr.kable.NA = '')
 opts_chunk$set(
   echo = FALSE, 
   eval = TRUE,
-  cache = TRUE,
+  cache = FALSE,
   dpi = 300,
   fig.width = 150 / 25.4,
   fig.height = 100 / 25.4,
@@ -75,15 +76,15 @@ theme_set(
     base_size = 12
   )
 )
-if (!interactive() && opts_knit$get("rmarkdown.pandoc.to") != "html") {
-  opts_chunk$set(dev = "cairo_pdf")
-  theme_set(
-    theme_inbo(
-      base_family = "Calibri", # "Flanders Art Sans",
-      base_size = 8
-    )
-  )
-}
+# if (!interactive() && opts_knit$get("rmarkdown.pandoc.to") != "html") {
+#   opts_chunk$set(dev = "cairo_pdf")
+#   theme_set(
+#     theme_inbo(
+#       base_family = "Calibri", # "Flanders Art Sans",
+#       base_size = 8
+#     )
+#   )
+# }
 
 doc.type <- knitr::opts_knit$get('rmarkdown.pandoc.to')
 
@@ -96,7 +97,7 @@ doc.type <- knitr::opts_knit$get('rmarkdown.pandoc.to')
 library(sf)
 library(crosstalk)
 library(leaflet)
-library(plotly)
+#library(plotly)
 library(DT)
 # library(googlesheets)
 library(effectclass)
