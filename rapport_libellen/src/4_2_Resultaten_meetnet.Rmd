@@ -158,7 +158,7 @@ trend_total_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` zien we een gemiddelde jaarlijkse trend van `r trend_average_meetnet$mean` % met een 90%-betrouwbaarheidsinterval tussen `r trend_average_meetnet$lcl_0.90` en `r trend_average_meetnet$ucl_0.90`. We kunnen dus spreken van een duidelijke **afname** (klasse `-`). 
+Over de periode `r trend_average_meetnet$periode_tekst` zien we een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` en `r round(trend_average_meetnet$ucl_0.90, 0)`. We kunnen dus spreken van een duidelijke **afname** (klasse `-`). 
 
 
 
@@ -188,8 +188,7 @@ summary_table_m %>%
   kable(caption = "Totaal aantal getelde imago's van andere libellensoorten in het meetnet Maanwaterjuffer") %>%
   kable_styling(bootstrap_options = c( "condensed"), font_size = 10) %>%
   column_spec(2, italic = TRUE) %>%
-  collapse_rows(c(1,2, 3), target = 1) %>%
-  scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
+  collapse_rows(c(1,2, 3), target = 1) 
 ```
 
 
