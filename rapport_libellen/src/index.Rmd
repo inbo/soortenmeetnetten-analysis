@@ -7,6 +7,8 @@ author:
 subtitle: "Resultaten voor de periode 2016 - 2020"
 ordernr: "Rapporten van het Instituut voor Natuur- en Bosonderzoek 2020 (xx)"
 reportnr: "xxx"
+bibliography: references.bib
+csl: research-institute-for-nature-and-forest.csl
 link-citations: TRUE
 always_allow_html: yes
 site: bookdown::bookdown_site
@@ -57,6 +59,7 @@ opts_chunk$set(
   dpi = 300,
   fig.width = 150 / 25.4,
   fig.height = 100 / 25.4,
+  fig.align = "center",
   warning = FALSE,
   error = TRUE,
   message = FALSE,
@@ -73,7 +76,7 @@ library(INBOtheme)
 theme_set(
   theme_inbo(
     base_family = "Calibri", # "Flanders Art Sans",
-    base_size = 12
+    base_size = 10
   )
 )
 # if (!interactive() && opts_knit$get("rmarkdown.pandoc.to") != "html") {
@@ -97,7 +100,7 @@ doc.type <- knitr::opts_knit$get('rmarkdown.pandoc.to')
 library(sf)
 library(crosstalk)
 library(leaflet)
-#library(plotly)
+library(plotly)
 library(DT)
 # library(googlesheets)
 library(effectclass)
@@ -107,7 +110,7 @@ library(INLA)
 library(git2rdata)
 library(here)
 library(n2khab)
-# library(webshot)
+library(webshot)
 # library(flextable)
 # library(pander)
 

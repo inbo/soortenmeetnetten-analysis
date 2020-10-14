@@ -1,11 +1,29 @@
 # Inleiding
 
+```{r}
+
+libellen_taxonomy <- get_taxonomy_smp() %>%
+  select(genus, meetnet = soort_nl, soort_wet, species_order)
+
+meetnet_characteristics <- get_characteristics_smp(species_group = "libellen") %>%
+  left_join(libellen_taxonomy, by = "meetnet")  %>%
+  filter(is_sample) %>%
+  arrange(species_order) %>%
+  mutate(protocol = ifelse(meetnet %in% c("Beekrombout", "Rivierrombout"), "Transecttelling Larvendhuidjes",
+                           ifelse(protocol == "Libellen - Transect", "Transecttelling imago's",
+                                  ifelse(protocol == "Libellen - Populatietelling per locatie", "Gebiedstelling imago's", NA))))
+
+meetnetten_links <- str_c(str_c("[", meetnet_characteristics$meetnet, "]", collapse = ", "))
+
+```
+
+
 Betrouwbare informatie over de toestand en trends van dier- en plantensoorten in Vlaanderen is van
-groot belang voor de onderbouwing van het Vlaamse soortenbeleid en voor de 6-jaarlijkse rapportage in kader van de Europese Habitat- en Vogelrichtlijn [@Adriaens2011]. Om aan deze informatiebehoefte te voldoen gingen in de periode 2016-2018 nieuwe meetnetten van start voor de monitoring van 65 Vlaamse en Europees prioritaire soorten. Elk meetnet bestaat uit een aantal vooraf vastgelegde locaties, waar een of meerdere soorten via een gestandaardiseerde methode geteld worden. Het Instituut voor Natuur- en Bosonderzoek (INBO) ontwierp de meetnetten [@DeKnijf2014] op basis van de leidraad voor beleidsgerichte meetnetten [@Wouters2008]. 
+groot belang voor de onderbouwing van het Vlaamse soortenbeleid en voor de rapportage over Natura 2000-soorten aan Europa [@Adriaens2011]. Daarom gingen in de periode 2016-2018 nieuwe soortenmeetnetten van start voor de monitoring van 65 Vlaamse en Europees prioritaire soorten. Elk soortenmeetnet bestaat uit een aantal vooraf vastgelegde locaties, waar een of meerdere soorten via een gestandaardiseerde methode geteld worden. 
 
-Voor het uitvoeren van de meetnettellingen doen we beroep op citizen science. Het zijn dus vrijwilligers die, onder coördinatie van Natuurpunt Studie, de meetnetlocaties bezoeken en de tellingen uitvoeren volgens het opgelegde veldprotocol. Om dit allemaal in goede banen te leiden werd het webportaal [meetnetten.be](https://www.meetnetten.be) ontwikkeld.
+De soortenmeetnetten zijn een samenwerking tussen het Instituut voor Natuur- en Bosonderzoek (INBO), het Agentschap voor Natuur en Bos (ANB), Natuurpunt Studie en vele vrijwilligers. Het merendeel van de tellingen gebeurt door vrijwilligers onder coördinatie van Natuurpunt Studie. De kwaliteitscontrole en gegevensanalyse gebeuren door het INBO en het ANB faciliteert de tellingen op het terrein. Voor de planning van de tellingen en het invoeren van gegevens werd het webportaal [meetnetten.be](https://www.meetnetten.be) ontwikkeld. 
 
-Het doel van dit rapport is 
+In dit rapport stellen we de eerste resultaten voor van de libellenmeetnetten [@DeKnijf2019b]. We geven eerst wat achtergrond over het [ontwerp van de libellenmeetnetten] en de [analyse van de telgegevens]. Daarna maken we een [verkenning van de getelde aantallen] en geven we een [overzicht van de resultaten] van de statistische analyses. Vervolgens geven we een gedetailleerde bespreking van de resultaten voor elk meetnet (`r meetnetten_links`).     
 
 `r ifelse(doc.type != "html", "Dit rapport bevat enkele interactieve figuren die enkel kunnen bekeken worden op de [website versie](https://inbo.github.io/soortenmeetnetten_progress/) van dit rapport.", "")`
 

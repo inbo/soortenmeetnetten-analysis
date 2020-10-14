@@ -2,7 +2,7 @@
 ## Resultaten analyse transecttelling
 
 ```{r}
-name_analysis_date <- "libellen_transecten_2020-09-10"
+name_analysis_date <- "libellen_transecten_2020-10-01"
 
 results_analysis <- get_results_analysis(name_analysis = name_analysis_date)
 

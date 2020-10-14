@@ -27,23 +27,20 @@ options(knitr.kable.NA = '')
 library(showtext)
 
 showtext_auto()
-font_add("arial unicode", "ARIALUNI.TTF")
+font_add("Calibri", "Calibri.TTF")
 ```
 
 
 ```{r, cache = FALSE}
 
-# loadfonts(device = "win")
-# font_import(paths = NULL, recursive = TRUE, prompt = TRUE,pattern = NULL)
-
 library(tidyverse)
 library(INBOtheme)
+library(INBOmd)
 library(sf)
 library(crosstalk)
 library(leaflet)
 library(plotly)
 library(DT)
-# library(googlesheets)
 library(effectclass)
 library(kableExtra)
 library(inlabru)
@@ -54,10 +51,6 @@ library(n2khab)
 library(inlatools)
 library(openssl)
 library(units)
-# library(webshot)
-# library(flextable)
-# library(pander)
-
 
 ```
 

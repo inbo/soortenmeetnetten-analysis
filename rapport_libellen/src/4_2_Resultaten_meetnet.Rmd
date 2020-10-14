@@ -1,0 +1,234 @@
+# Resultaten per meetnet
+
+## Bosbeekjuffer
+
+
+
+
+## Speerwaterjuffer
+
+## Maanwaterjuffer
+
+### Monitoringsinspanning
+
+```{r}
+m <- "Maanwaterjuffer"
+```
+
+Figuur \@ref(fig:moneff-mj) toont de monitoringsinspanning voor het meetnet `r m` uitgedrukt in het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties.
+
+```{r moneff-mj, fig.cap= str_c("Monitoringisnpanning voor het meetnet ", m)}
+
+monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+```
+
+### Locaties
+
+```{r}
+
+details_locatie_m <- locaties_utm %>%
+  filter(meetnet == m) %>%
+  select(meetnet, locatie, tag_utm) %>%
+  mutate(tag_utm = as.character(tag_utm)) %>%
+  group_by(tag_utm) %>%
+  mutate(tag_locatie = str_c(tag_utm, "-", rank(locatie))) %>%
+  ungroup() %>%
+  left_join(filter(summary_counts_locatie, soort_nl == m), by = c("meetnet", "locatie")) %>%
+  filter(levensstadium == "imago") %>%
+  group_by(tag_utm, meetnet) %>%
+  mutate(meetnetlocaties_utm = n_distinct(locatie),
+           # voorkomen_utm = sum(aantal_totaal) > 0,
+           # aantal_totaal_utm = sum(aantal_totaal),
+          label = str_c("Meetnet ", m, ": ", str_c(unique(tag_locatie), collapse = ", "))) %>%
+  ungroup() %>%
+  group_by(tag_locatie, meetnet) %>%
+  mutate(aantal_totaal_overall = sum(aantal_totaal),
+         aantal_gemiddeld_overall = round(sum(aantal_totaal)/sum(visits), 1)) %>%
+  ungroup()
+  
+details_locatie_m_tabel <- details_locatie_m %>%
+  select("Soort (Nl.)" = meetnet, "Locatie code" = tag_locatie, jaar, aantal_gemiddeld, aantal_gemiddeld_overall, label) %>%
+  spread(key = "jaar", value = "aantal_gemiddeld") %>%
+  mutate(radiusCircle = 500 + (5000 - 500) * sqrt(aantal_gemiddeld_overall)/max(sqrt(aantal_gemiddeld_overall)) ,
+         radiusCircleMarker = 4 + (20 - 4) * sqrt(aantal_gemiddeld_overall)/max(sqrt(aantal_gemiddeld_overall))) %>%
+  rename("Volledige periode" = aantal_gemiddeld_overall)
+  
+
+utm10_meetnet <- utm10_vl %>%
+  filter(tag_utm %in% details_locatie_m$tag_utm)
+```
+
+In onderstaande kaart en bijhorende tabel geven we een overzicht van het gemiddeld getelde aantal imago's per meetnetlocatie. De meetnetlocaties worden weergegeven in de centroïde van het 10km x 10 km UTM-hok waarin de locatie gelegen is. De grootte van de punten is evenredig met het gemiddeld getelde aantal imago's per bezoek over de volledige periode (2016 - 2020). In de bijhorende tabel geven we ook het gemiddeld getelde aantal imago's per bezoek voor elk jaar. Gezien we de exacte locaties niet weergeven in dit rapport, kennen we hier aan elke locatie een code toe die refereert naar het overeenkomstige UTM-hok. Als je in de tabel een rij selecteert, krijg je in de kaart de (vervaagde) locatie te zien.         
+
+
+```{r}
+sd_locaties <- SharedData$new(details_locatie_m_tabel)
+
+
+bscols(list(leaflet(sd_locaties, options = leafletOptions(maxZoom = 11)) %>%
+              addTiles() %>%
+              #addCircles(stroke = FALSE,  radius = ~radiusCircle,  label = ~label, fillOpacity = 0.4) %>%
+              addCircleMarkers(stroke = FALSE,  radius = ~radiusCircleMarker,  label = ~label, fillOpacity = 0.4) %>%
+              addPolygons(data = utm10_meetnet, weight = 1, color = "blue", fill = FALSE, opacity = 0.5),
+            datatable(sd_locaties, 
+                    rownames = FALSE, 
+                    extensions="Scroller", 
+                    style="bootstrap",
+                    class="compact", 
+                    width="100%",
+                    options=list(columnDefs = list(list(visible=FALSE, targets= c( 3, 4, 10, 11)))),
+                    caption = str_c("Gemiddeld getelde aantallen per bezoek voor de verschillende locaties van het meetnet ", m)) %>%
+            formatStyle(columns = c(1, 2, 3, 4, 5), fontSize = '10 pt')
+        )
+)
+
+# 
+# plot_ly(sd_locaties, x = ~jaar, y = ~aantal_gemiddeld) %>%
+#           add_lines(linetype = ~tag_locatie) 
+```
+
+
+
+### Vergelijking tussen de jaren
+
+Figuur \@ref(fig:figmax-mj) toont het geschatte gemiddelde getelde aantal in de piek van het telseizoen en het 90% betrouwbaarheidsinterval.
+
+```{r figmax-mj, fig.height=3, fig.cap= str_c("Modelschatting voor het gemiddelde getelde aantal in de piek van het telseizoen voor het meetnet ", m)}
+
+result_indexmodel %>%
+  filter(parameter == "max_count") %>%
+  filter(meetnet== m) %>%
+  ggplot( aes(x = jaar, y = mean, ymin = lcl_0.90, ymax = ucl_0.90)) +
+  # geom_errorbar(width = 0.1) +
+  geom_line( colour = inbo.steun.blauw, size = 1) +
+  geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  # geom_ribbon(aes(ymin = lcl_0.60, ymax = ucl_0.60 ), alpha = 0.2, fill = inbo.steun.blauw) + 
+  # geom_ribbon(aes(ymin = lcl_0.30, ymax = ucl_0.30 ), alpha = 0.2, fill = inbo.steun.blauw) + 
+  labs(y = "Maximum aantal") +
+  ylim(0, NA) +
+  facet_wrap(~ meetnet, ncol = 2, scales = "free_y")
+
+```
+
+Figuur \@ref(fig:changes-mj) toont de jaarlijkse index t.o.v. referentiejaar. De index voor het referentiejaar is gelijk aan 100. 
+
+```{r changes-mj,  fig.height= 3, fig.cap= str_c("Jaarlijkse index en 90% betrouwbaarheidsinterval voor meetnet ", m)}
+
+result_indexmodel %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar - 1)) %>%
+  filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean, ymin = lcl_0.90, ymax = ucl_0.90, x = as.character(jaar), group = meetnet, label = klasse)) +
+  #geom_errorbar(width = 0.1) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = 0.75, linetype = 3) +
+  geom_hline(yintercept = 1.33, linetype = 3) +
+  geom_line( colour = inbo.steun.blauw, size = 1) +
+  geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) +  
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Jaarlijkse index", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst, ncol = 2) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` zien we een gemiddelde jaarlijkse trend van `r trend_average_meetnet$mean` % met een 90%-betrouwbaarheidsinterval tussen `r trend_average_meetnet$lcl_0.90` en `r trend_average_meetnet$ucl_0.90`. We kunnen dus spreken van een duidelijke **afname** (klasse `-`). 
+
+
+
+### Andere waargenomen libellensoorten in het meetnet
+
+```{r, eval=TRUE}
+summary_table_m <- summary_table %>%
+  filter(!is.na(soort_nl)) %>%
+  filter(meetnet == m) %>%
+  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+  filter(!primaire_soort) %>%
+  group_by(primaire_soort, soort_nl, soort_wet, levensstadium) %>%
+  summarise(aantal_totaal = sum(aantal_totaal)) %>%
+  ungroup() %>%
+  arrange(desc(aantal_totaal))
+
+top_5 <- summary_table_m %>%
+  slice_max(order_by = aantal_totaal, n = 5)
+
+```
+
+In Tabel \@ref(tab:overige-mj) geven we het totaal aantal getelde imago's van de overige soorten in het meetnet Maanwaterjuffer. Van de 5 meest getelde soorten geven we in Figuur \@ref(fig:overigefig-mj) het gemiddeld aantal getelde imago's per bezoek voor de verschillende jaren. Let wel dat enkel de telling van de prioritaire soort verplicht is en de overige soorten optioneel geteld mogen worden. De verschillen tussen de jaren kan dus deels afhangen van voor welke locaties de overige soorten geteld werden. De teller kan aangeven dat alles soorten geteld werden (een zogenaamde checklist). In dat geval genereren we nullen voor de soorten die niet werden waargenomen. Ter info tonen we ook het aantal bezoeken met checklists per jaar (Figuur \@ref(fig:checklist-mj)).
+
+```{r overige-mj, eval=TRUE}
+summary_table_m %>% 
+  select("Soort (nl.)" = soort_nl, "Soort (wet.)" = soort_wet, "Totaal aantal" = aantal_totaal) %>%
+  kable(caption = "Totaal aantal getelde imago's van andere libellensoorten in het meetnet Maanwaterjuffer") %>%
+  kable_styling(bootstrap_options = c( "condensed"), font_size = 10) %>%
+  column_spec(2, italic = TRUE) %>%
+  collapse_rows(c(1,2, 3), target = 1) %>%
+  scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
+```
+
+
+
+
+```{r overigefig-mj, fig.cap = "Gemiddeld aantal getelde imago's per bezoek voor Maanwaterjuffer en de vijf meest voorkomende andere libellensoorten van het meetnet Maanwaterjuffer"}
+summary_table %>% 
+  filter(meetnet == m) %>%
+  filter(soort_nl %in% top_5$soort_nl | soort_nl == m) %>%
+  ggplot(aes(x = jaar, y = aantal_gemiddeld, colour = soort_nl, shape = soort_nl)) +
+  geom_point() +
+  geom_line() + 
+  ylim(0, NA) +
+  labs(x = "Jaar", y = "Gemiddeld aantal per bezoek", colour = "Soort", shape = "Soort")
+```
+
+```{r checklist-mj, fig.cap = "Aantal bezoeken met checklist per jaar in het meetnet Maanwaterjuffer"}
+summary_table %>% 
+  filter(meetnet == m) %>%
+  distinct(jaar , visits_checklist) %>%
+  ggplot(aes(x = jaar, y = visits_checklist)) +
+  geom_point() +
+  geom_line() + 
+  ylim(0, NA) +
+  labs(x = "Jaar", y = "Aantal bezoeken met checklist")
+```
+
+## Variabele waterjuffer
+
+## Vroege glazenmaker
+
+## Rivierrombout
+
+## Beekrombout
+
+## Gevlekte witsnuitlibel
+
+## Kempense heidelibel
+
+## Hoogveenglanslibel
+
+## Sierlijke witsnuitlibel
