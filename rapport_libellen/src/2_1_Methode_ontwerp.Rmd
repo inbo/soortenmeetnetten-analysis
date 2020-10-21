@@ -18,14 +18,31 @@ niveau wel sterk onder druk staan. Voor deze soorten speelt Vlaanderen bovendien
 
 In Tabel \@ref(tab:tabsoorten) tonen we de geselecteerde libellensoorten, de beleidsrelevantie van de soorten en het jaar waarin de meetnetten van start gingen. 
 
+
+
 ```{r tabsoorten}
-meetnet_characteristics %>%
+
+if (doc.type == "docx") {
+  meetnet_characteristics %>%
+  select("Soort (Nl.)" = meetnet, "Soort (wet.)" = soort_wet, Beleidsrelevantie = type_soort, "Start meetnet" = opstartjaar) %>%
+  kable(caption = "Overzicht van de libellen waarvoor een meetnet bestaat met onderscheid tussen Europees prioritaire (EPS) en Vlaams prioritaire soorten (VPS), en met het jaar waarin de monitoring werd opgestart",
+        format = "simple",
+        booktabs = TRUE,
+        align = c("l", "l", "c", "c"))
+} else {
+  meetnet_characteristics %>%
   select("Soort (Nl.)" = meetnet, "Soort (wet.)" = soort_wet, Beleidsrelevantie = type_soort, "Start meetnet" = opstartjaar) %>%
   kbl(caption = "Overzicht van de libellen waarvoor een meetnet bestaat met onderscheid tussen Europees prioritaire (EPS) en Vlaams prioritaire soorten (VPS), en met het jaar waarin de monitoring werd opgestart",
+        #format = "latex",
+        booktabs = TRUE,
         align = c("l", "l", "c", "c")) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), font_size = 10) %>%
-  column_spec(2, italic = TRUE)
+  kable_styling(font_size = 10) %>%
+  column_spec(2, italic = TRUE) 
+}
+
+
 ```
+
 
 
 ### Telmethode
@@ -53,8 +70,10 @@ meetnet_characteristics %>%
   select(Meetnet = meetnet, Veldprotocol =  protocol, "Bezoeken (per jaar)" = bezoeken, 'Begin telperiode' = start_telperiode, 'Einde telperiode' = einde_telperiode, "Selectie locaties" = type, "Aantal locaties" = n_locaties , "Duur meetcyclus (jaar)"= duur_meetcyclus) %>%
   unique() %>%
   kable(caption = "Overzicht van de karakteristieken van de libellenmeetnetten: aantal bezoeken per jaar, begin en einde van de telperiode", 
-        align = c("l", "l", "c", "c", "c", "c", "c" , "c")) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), font_size = 10)
+        align = c("l", "l", "c", "c", "c", "c", "c" , "c"),
+        booktabs = TRUE,
+        format = select_format) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), font_size = 8)
 ```
 
 ### Selectie van de meetnetlocaties

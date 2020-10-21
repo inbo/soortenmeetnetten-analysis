@@ -389,7 +389,8 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
   counts_visit <- get_counts_smp(species_group = species_group) %>%
     group_by(soortgroep, meetnet, protocol, locatie, visit_id, jaar, datum, soort_nl, soort_wet, primaire_soort, geslacht, activiteit, levensstadium, checklist) %>%
     summarise(aantal = sum(aantal, na.rm = TRUE)) %>%
-    ungroup()
+    ungroup() %>%
+    filter(!is.na(primaire_soort))
   
   if (aggregation == "meetnet") {
 
@@ -400,10 +401,14 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
       ungroup()
     
     summary_effort <- counts_visit %>% #meetnetspecifiek
-      distinct(meetnet, protocol, jaar, locatie, visit_id, checklist) %>%
+      distinct(meetnet, protocol, jaar, locatie, visit_id, checklist, primaire_soort) %>%
+      group_by(meetnet, protocol, jaar, locatie, visit_id, checklist) %>%
+      summarise(count_overige = sum(primaire_soort == FALSE) > 0) %>%
+      ungroup() %>%
       group_by(meetnet, protocol, jaar) %>%
       summarise(visits_checklist = sum(checklist),
-                visits = n_distinct(visit_id)) %>%
+                visits = n_distinct(visit_id),
+                visits_overige = sum(count_overige)) %>%
       ungroup()
     
     summary_counts_details <- counts_visit %>%

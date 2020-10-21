@@ -44,7 +44,8 @@ verschillen_jaren <- result_indexmodel %>%
 ```{r tabelverschil}
 verschillen_jaren %>%
   rename("Soort (Nl.)" = soort_nl, "Soort (wet.)" = soort_wet, Referentiejaar = ref_jaar) %>%
-  kable(caption = str_c("Verschil in aantallen t.o.v. referentiejaar (", legend_klasses, ")")) %>%
+  kbl(caption = str_c("Verschil in aantallen t.o.v. referentiejaar (", legend_klasses, ")"),
+      format = select_format) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), font_size = 10) %>%
   column_spec(2, italic = TRUE) %>%
   add_header_above(c(" " = 3, "Verschil t.o.v. referentiejaar" = 4))
@@ -53,7 +54,7 @@ verschillen_jaren %>%
 
 ## Trends
 
-```{r figtrend-resultaat, fig.width = 6, fig.height= 3, fig.cap= "Gemiddelde jaarlijkse trend en 90%-betrouwbaarheidsinterval"}
+```{r}
 
 result_trendmodel <- bind_rows(
   results_analysis_gebiedstelling$trendmodel,
@@ -107,13 +108,14 @@ overzicht_trend_tabel <- trend %>%
 ```{r tabtrendresultaat}
 
 overzicht_trend_tabel %>%
-  kable(align = c("l", "l", "c", "l"),
-        caption = str_c("Jaarlijkse wijziging en wijziging over de looptijd (", legend_klasses, ")"))  %>%
+  kbl(align = c("l", "l", "c", "l"),
+        caption = str_c("Jaarlijkse wijziging en wijziging over de looptijd (", legend_klasses, ")"),
+      format = select_format)  %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), font_size = 10) %>%
   column_spec(2, italic = TRUE)
 ```
 
-```{r figtrend, fig.cap= str_c("Gemiddelde jaarlijkse trend met 90% betrouwbaarheidsinterval (", legend_klasses, ")")}
+```{r figtrend, fig.cap= str_c("Gemiddelde jaarlijkse trend met 90 procent betrouwbaarheidsinterval (", legend_klasses, ")")}
 
 order_trend <- (trend %>%
   filter(parameter == "trend_average") %>%

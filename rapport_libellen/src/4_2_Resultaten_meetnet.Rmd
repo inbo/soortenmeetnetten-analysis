@@ -7,12 +7,14 @@
 
 ## Speerwaterjuffer
 
-## Maanwaterjuffer
+## Maanwaterjuffer (*Coenagrion lunulatum*) {#h:Maanwaterjuffer}
 
-### Monitoringsinspanning
+### Aantal tellingen, tellers en getelde locaties
 
 ```{r}
 m <- "Maanwaterjuffer"
+l <- "imago"
+
 ```
 
 Figuur \@ref(fig:moneff-mj) toont de monitoringsinspanning voor het meetnet `r m` uitgedrukt in het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties.
@@ -29,7 +31,43 @@ monitoring_effort %>%
     labs(x = "Jaar", y = "Aantal")
 ```
 
-### Locaties
+### Getelde aantallen
+
+Figuur \@ref(fig:figaantalmj) geeft een overzicht van de getelde aantallen van Maanwaterjuffer. De punten geven de gemiddelde getelde aantallen per bezoek weer. De lijnen geven het 95 % betrouwbaarheidsinterval weer. Hoe breder het betrouwbaarheidsinterval, hoe groter de variatie in getelde aantallen tussen verschillende locaties en verschillende tijdstippen.  
+
+```{r figaantalmj, fig.cap = "Gemiddelde getelde aantallen per bezoek en 95% betrouwbaarheidsinterval voor Maanwaterjuffer"}
+
+counts_tot <- counts %>% 
+  filter(primaire_soort) %>%
+  filter(meetnet == m) %>%
+  filter(levensstadium == l) %>%
+  select(soort_nl, levensstadium, aantal, jaar) %>%
+  mutate(type_waarneming = "imago totaal")
+
+counts_det <- counts_details %>%
+  filter(primaire_soort) %>%
+  filter(meetnet == m) %>%
+  select(soort_nl, levensstadium, type_waarneming, aantal, jaar)
+  
+counts_fig <- bind_rows(counts_tot,
+                        counts_det) %>%
+  group_by(type_waarneming) %>%
+  mutate(tot = sum(aantal)) %>%
+  ungroup()
+  
+counts_fig %>% 
+  filter(levensstadium != "larvenhuidje") %>%
+  filter(tot > 0) %>%
+  ggplot(aes(x= jaar, y = aantal)) +  
+  #geom_point(alpha = 0.6, colour = inbo.grijs) +
+  stat_summary(fun.data = "mean_cl_boot", colour = inbo.groen, alpha = 1, ) +
+  facet_wrap(~ type_waarneming, scale = "free_y", ncol = 3) +
+  labs(y = "Getelde aantallen", x = "Jaar") +
+  theme(legend.position = "bottom") +
+  ylim(0, NA)
+```
+
+
 
 ```{r}
 
@@ -54,7 +92,7 @@ details_locatie_m <- locaties_utm %>%
   ungroup()
   
 details_locatie_m_tabel <- details_locatie_m %>%
-  select("Soort (Nl.)" = meetnet, "Locatie code" = tag_locatie, jaar, aantal_gemiddeld, aantal_gemiddeld_overall, label) %>%
+  select("Soort" = meetnet, "Locatie code" = tag_locatie, jaar, aantal_gemiddeld, aantal_gemiddeld_overall, label) %>%
   spread(key = "jaar", value = "aantal_gemiddeld") %>%
   mutate(radiusCircle = 500 + (5000 - 500) * sqrt(aantal_gemiddeld_overall)/max(sqrt(aantal_gemiddeld_overall)) ,
          radiusCircleMarker = 4 + (20 - 4) * sqrt(aantal_gemiddeld_overall)/max(sqrt(aantal_gemiddeld_overall))) %>%
@@ -65,7 +103,7 @@ utm10_meetnet <- utm10_vl %>%
   filter(tag_utm %in% details_locatie_m$tag_utm)
 ```
 
-In onderstaande kaart en bijhorende tabel geven we een overzicht van het gemiddeld getelde aantal imago's per meetnetlocatie. De meetnetlocaties worden weergegeven in de centroïde van het 10km x 10 km UTM-hok waarin de locatie gelegen is. De grootte van de punten is evenredig met het gemiddeld getelde aantal imago's per bezoek over de volledige periode (2016 - 2020). In de bijhorende tabel geven we ook het gemiddeld getelde aantal imago's per bezoek voor elk jaar. Gezien we de exacte locaties niet weergeven in dit rapport, kennen we hier aan elke locatie een code toe die refereert naar het overeenkomstige UTM-hok. Als je in de tabel een rij selecteert, krijg je in de kaart de (vervaagde) locatie te zien.         
+In onderstaande kaart en bijhorende tabel geven we een overzicht van het gemiddeld getelde aantal imago's per meetnetlocatie. De meetnetlocaties worden weergegeven in de centroïde van het 10 km x 10 km UTM-hok waarin de locatie gelegen is. De grootte van de punten is evenredig met het gemiddeld getelde aantal imago's per bezoek over de volledige periode (2016 - 2020). In de bijhorende tabel geven we ook het gemiddeld getelde aantal imago's per bezoek voor elk jaar. Gezien we de exacte locaties niet weergeven in dit rapport, kennen we hier aan elke locatie een code toe die refereert naar het overeenkomstige UTM-hok. Als je in de tabel een rij selecteert, krijg je in de kaart de (vervaagde) locatie te zien.         
 
 
 ```{r}
@@ -98,9 +136,8 @@ bscols(list(leaflet(sd_locaties, options = leafletOptions(maxZoom = 11)) %>%
 
 ### Vergelijking tussen de jaren
 
-Figuur \@ref(fig:figmax-mj) toont het geschatte gemiddelde getelde aantal in de piek van het telseizoen en het 90% betrouwbaarheidsinterval.
 
-```{r figmax-mj, fig.height=3, fig.cap= str_c("Modelschatting voor het gemiddelde getelde aantal in de piek van het telseizoen voor het meetnet ", m)}
+```{r figmax-mj, eval = FALSE, fig.height=3, fig.cap= str_c("Modelschatting voor het gemiddelde getelde aantal in de piek van het telseizoen voor het meetnet ", m)}
 
 result_indexmodel %>%
   filter(parameter == "max_count") %>%
@@ -117,9 +154,9 @@ result_indexmodel %>%
 
 ```
 
-Figuur \@ref(fig:changes-mj) toont de jaarlijkse index t.o.v. referentiejaar. De index voor het referentiejaar is gelijk aan 100. 
+Figuur \@ref(fig:changes-mj) toont de jaarlijkse index t.o.v. referentiejaar. De index voor het referentiejaar (2016) is gelijk aan 100 %. De stippellijnen vormen de grenswaarden tussen een matige en een sterke toename/afname (zie de eerder besproken [classificaties van verschillen](#h:classtrend)). 
 
-```{r changes-mj,  fig.height= 3, fig.cap= str_c("Jaarlijkse index en 90% betrouwbaarheidsinterval voor meetnet ", m)}
+```{r changes-mj,  fig.height= 3, fig.cap= str_c("Jaarlijkse index en 90% betrouwbaarheidsinterval voor", m, " (", legend_klasses, ")")}
 
 result_indexmodel %>%
   mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar - 1)) %>%
@@ -128,7 +165,7 @@ result_indexmodel %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
   ggplot(aes(y = mean, ymin = lcl_0.90, ymax = ucl_0.90, x = as.character(jaar), group = meetnet, label = klasse)) +
   #geom_errorbar(width = 0.1) +
-  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = 1, linetype = 1) +
   geom_hline(yintercept = 0.75, linetype = 3) +
   geom_hline(yintercept = 1.33, linetype = 3) +
   geom_line( colour = inbo.steun.blauw, size = 1) +
@@ -158,7 +195,7 @@ trend_total_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` zien we een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` en `r round(trend_average_meetnet$ucl_0.90, 0)`. We kunnen dus spreken van een duidelijke **afname** (klasse `-`). 
+Over de periode `r trend_average_meetnet$periode_tekst` zien we een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. We kunnen dus spreken van een duidelijke **afname** (klasse `-`). 
 
 
 
@@ -180,12 +217,13 @@ top_5 <- summary_table_m %>%
 
 ```
 
-In Tabel \@ref(tab:overige-mj) geven we het totaal aantal getelde imago's van de overige soorten in het meetnet Maanwaterjuffer. Van de 5 meest getelde soorten geven we in Figuur \@ref(fig:overigefig-mj) het gemiddeld aantal getelde imago's per bezoek voor de verschillende jaren. Let wel dat enkel de telling van de prioritaire soort verplicht is en de overige soorten optioneel geteld mogen worden. De verschillen tussen de jaren kan dus deels afhangen van voor welke locaties de overige soorten geteld werden. De teller kan aangeven dat alles soorten geteld werden (een zogenaamde checklist). In dat geval genereren we nullen voor de soorten die niet werden waargenomen. Ter info tonen we ook het aantal bezoeken met checklists per jaar (Figuur \@ref(fig:checklist-mj)).
+In Tabel \@ref(tab:overige-mj) geven we het totaal aantal getelde imago's van de overige soorten op de tellocaties van Maanwaterjuffer. Van de 5 meest getelde soorten geven we in Figuur \@ref(fig:overigefig-mj) het gemiddeld aantal getelde imago's per bezoek voor de verschillende jaren. Let wel dat enkel de telling van de prioritaire soort verplicht is en de overige soorten optioneel geteld mogen worden. De verschillen tussen de jaren kan dus deels afhangen van voor welke locaties de overige soorten geteld werden. De teller kan aangeven dat alle soorten geteld werden (een zogenaamde streeplijst). In dat geval genereren we nullen voor de soorten die niet werden waargenomen. Ter info tonen we ook het aantal bezoeken met een streeplijst en het aantal bezoeken waarvoor er minstens één ander libellensoort werd geteld en ingevoerd (Figuur \@ref(fig:checklist-mj)).
 
 ```{r overige-mj, eval=TRUE}
 summary_table_m %>% 
   select("Soort (nl.)" = soort_nl, "Soort (wet.)" = soort_wet, "Totaal aantal" = aantal_totaal) %>%
-  kable(caption = "Totaal aantal getelde imago's van andere libellensoorten in het meetnet Maanwaterjuffer") %>%
+  kable(caption = "Totaal aantal getelde imago's van andere libellensoorten in het meetnet Maanwaterjuffer",
+        format = select_format) %>%
   kable_styling(bootstrap_options = c( "condensed"), font_size = 10) %>%
   column_spec(2, italic = TRUE) %>%
   collapse_rows(c(1,2, 3), target = 1) 
@@ -205,15 +243,19 @@ summary_table %>%
   labs(x = "Jaar", y = "Gemiddeld aantal per bezoek", colour = "Soort", shape = "Soort")
 ```
 
-```{r checklist-mj, fig.cap = "Aantal bezoeken met checklist per jaar in het meetnet Maanwaterjuffer"}
+
+```{r checklist-mj, fig.cap = "Aantal bezoeken met streeplijst en aantal bezoeken waarbij andere soorten werden waargenomen dan Maanwaterjuffer"}
 summary_table %>% 
   filter(meetnet == m) %>%
-  distinct(jaar , visits_checklist) %>%
-  ggplot(aes(x = jaar, y = visits_checklist)) +
+  distinct(jaar, visits, visits_checklist, visits_overige) %>%
+  gather(visits, visits_checklist, visits_overige, key = "type_bezoek", value = "aantal_bezoek") %>%
+  mutate(type_bezoek = ifelse(type_bezoek == "visits", "totaal",
+                              ifelse(type_bezoek == "visits_checklist", "met streeplijst", "met waarneming andere libellensoort"))) %>%
+  ggplot(aes(x = jaar, y = aantal_bezoek, colour = type_bezoek, shape = type_bezoek)) +
   geom_point() +
   geom_line() + 
   ylim(0, NA) +
-  labs(x = "Jaar", y = "Aantal bezoeken met checklist")
+  labs(x = "Jaar", y = "Aantal bezoeken", colour = "Bezoeken", shape = "Bezoeken")
 ```
 
 ## Variabele waterjuffer

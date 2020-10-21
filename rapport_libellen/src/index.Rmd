@@ -30,27 +30,14 @@ output:
   bookdown::epub_book:
     stylesheet: "css/inbo_rapport.css"
     template: !expr INBOmd::inbo_rapport_css("epub")
-header-includes:
-- \usepackage{booktabs}
-- \usepackage{longtable}
-- \usepackage{array}
-- \usepackage{multirow}
-- \usepackage{wrapfig}
-- \usepackage{float}
-- \usepackage{colortbl}
-- \usepackage{pdflscape}
-- \usepackage{tabu}
-- \usepackage{threeparttable}
-- \usepackage{threeparttablex}
-- \usepackage[normalem]{ulem}
-- \usepackage{makecell}
+
+
 ---
 
 
 ```{r setup, include = FALSE}
 library(knitr)
 options(knitr.kable.NA = '')
-
 
 opts_chunk$set(
   echo = FALSE, 
@@ -91,11 +78,25 @@ theme_set(
 
 doc.type <- knitr::opts_knit$get('rmarkdown.pandoc.to')
 
+# options(kableExtra.auto_format
+# = FALSE) 
+# 
+if ( doc.type == "docx" ) {
+
+  options(knitr.table.format = "simple")
+  select_format = "simple"
+
+} else if(doc.type == "html") {
+  select_format = "html"
+}
+
+
+
+
 ```
 
 
 ```{r, cache = FALSE}
-
 
 library(sf)
 library(crosstalk)
@@ -114,7 +115,6 @@ library(webshot)
 # library(flextable)
 # library(pander)
 
-
 ```
 
 
@@ -130,11 +130,13 @@ We wensen in de eerste plaats alle vrijwilligers te bedanken voor de vele tellin
 
 # Samenvatting {-}
 
+samenvatting...
 
 # English abstract {-}
 
 \benglish
 
+abstract...
 
 \eenglish
 

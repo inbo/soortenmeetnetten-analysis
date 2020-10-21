@@ -125,7 +125,8 @@ Ook de klassen 'mogelijke toename' en 'mogelijke afname' geven een meerwaarde. Z
   select(Code = klasse_markdown, Klasse = klasse_naam, Beschrijving = klasse_beschrijving) %>%
   kable(align = c("c", "l", "l"),
         caption = "Classificatie van trends of verschillen",
-        booktabs = TRUE) %>%
+        booktabs = TRUE,
+        format = select_format) %>%
     kable_styling(font_size = 10) 
   
 ```
