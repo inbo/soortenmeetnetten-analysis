@@ -3,12 +3,12 @@
 
 ## Ontwerp van de libellenmeetnetten
 
-Voor de monitoring van prioritaire libellensoorten maken we gebruik van meetnetten. In een meetnet tellen vrijwilligers specifieke soorten op vastgelegde locaties via een gestandaardiseerde telmethode. Een dergelijke gestructureerde monitoring geeft de beste garantie op betrouwbare informatie over de toestand en trends van soorten. Het ontwerp van de libellenmeetnetten is in detail beschreven in het monitoringsprotocol libellen [@DeKnijf2019b]. We vatten de belangrijkste onderdelen nog eens kort samen.    
+Voor de monitoring van prioritaire libellensoorten maken we gebruik van meetnetten. In een meetnet tellen vrijwilligers specifieke soorten op vastgelegde locaties via een gestandaardiseerde telmethode. Een dergelijke gestructureerde monitoring geeft de beste garantie op betrouwbare informatie over de toestand en trends van soorten op schaal Vlaanderen. Het ontwerp van de libellenmeetnetten is in detail beschreven in het monitoringsprotocol libellen [@DeKnijf2019b]. We vatten de belangrijkste onderdelen nog eens kort samen.    
 
 
 ### Selectie van de soorten
 
-Voor twee type soorten streven we naar een monitoring op basis van meetnetten: Europees prioritaire soorten en Vlaamse prioritaire soorten [@Westra2014].
+Voor twee groepen van soorten streven we naar een monitoring op basis van meetnetten: Europees prioritaire soorten en Vlaamse prioritaire soorten [@Westra2014].
 
 De **Europees prioritaire soorten** (EPS) zijn de zogenaamde **Natura 2000 - soorten** die op Bijlage II en/of Bijlage IV van de Europese Habitatrichtlijn (HRL) staan.  
 
@@ -24,14 +24,14 @@ In Tabel \@ref(tab:tabsoorten) tonen we de geselecteerde libellensoorten, de bel
 
 if (doc.type == "docx") {
   meetnet_characteristics %>%
-  select("Soort (Nl.)" = meetnet, "Soort (wet.)" = soort_wet, Beleidsrelevantie = type_soort, "Start meetnet" = opstartjaar) %>%
+  select("Nederlandse naam" = meetnet, "Wetenschappelijke naam" = soort_wet, Beleidsrelevantie = type_soort, "Start meetnet" = opstartjaar) %>%
   kable(caption = "Overzicht van de libellen waarvoor een meetnet bestaat met onderscheid tussen Europees prioritaire (EPS) en Vlaams prioritaire soorten (VPS), en met het jaar waarin de monitoring werd opgestart",
         format = "simple",
         booktabs = TRUE,
         align = c("l", "l", "c", "c"))
 } else {
   meetnet_characteristics %>%
-  select("Soort (Nl.)" = meetnet, "Soort (wet.)" = soort_wet, Beleidsrelevantie = type_soort, "Start meetnet" = opstartjaar) %>%
+  select("Nederlandse naam" = meetnet, "Wetenschappelijke naam" = soort_wet, Beleidsrelevantie = type_soort, "Start meetnet" = opstartjaar) %>%
   kbl(caption = "Overzicht van de libellen waarvoor een meetnet bestaat met onderscheid tussen Europees prioritaire (EPS) en Vlaams prioritaire soorten (VPS), en met het jaar waarin de monitoring werd opgestart",
         #format = "latex",
         booktabs = TRUE,
@@ -47,15 +47,18 @@ if (doc.type == "docx") {
 
 ### Telmethode
 
-De libellen worden geteld op basis van drie verschillende veldprotocols: 
+De libellen worden geteld op basis van drie verschillende veldprotocollen: 
 
-+ Bosbeekjuffer, Variabele waterjuffer en Vroege glazenaker worden geteld via *Transecttellingen van imago's*. Hierbij worden imago's (adulten) van libellen op een een vaste route (van 100 meter tot maximaal 500 meter lang) langsheen het water geteld.
+*Transecttelling van imago's*
+Hierbij worden imago’s (adulten) van libellen l een vaste route (van 100 meter tot maximaal 500 meter lang) langsheen het water geteld. Dit is het geval voor de Bosbeekjuffer, Variabele waterjuffer en Vroege glazenaker
 
-+ Voor Speerwaterjuffer, Maanwaterjuffer, Hoogveenglanslibel, Sierlijke witsnuitlibel, Gevlekte witsnuitlibel en Kempense heidelibel gebruiken we het veldprotocol *Gebiedstelling imago's*. Hierbij wordt een telgebied afgebakend waarbinnen imago's geteld worden gedurende en vastgelegde tijd van bv. 1 uur.
+*Transecttelling larvenhuidjes*
+Bij deze methode worden larvenhuidjes geteld en verzameld langs een transect aan het water. Dit protocol gebruiken we om de populaties van de Beekrombout en de Rivierrombout op te volgen. Bij de Beekrombout tellen we de huidjes op een oeverlengte van ongeveer 100 meter en bij de Rivierrombout hanteren we een lengte van 500 meter. 
 
-+ Voor Beekrombout en Rivierrombout maken we gebruik van *Transecttellingen van larvenhuidjes*. Bij dit veldprotocol worden larvenhuidjes verzameld en geteld lans een route van bij benadering 100 meter voorBeekrombout en bij benadering 500 meter voor Rivierrombout. 
+*Gebiedstelling imago's*
+Binnen een vooral afgebakend  telgebied  worden de imago’s geteld gedurende een vastgelegde tijd van bv. 1 uur. Deze methode laat toe om ook verder weg van het water te zoeken naar de betreffende soort of moeilijker toegankelijke gebieden te tellen, bijvoorbeeld al wadend in het water. Dit veldprotocol passen we toe bij de Speerwaterjuffer, Maanwaterjuffer, Hoogveenglanslibel, Sierlijke witsnuitlibel, Gevlekte witsnuitlibel en Kempense heidelibel.
 
-Tabel \@ref(tab:tabkarakteristieken) geeft aan welk veldprotocol gebruikt wordt in de verschillende libellenmeetnetten. Voor elk meetnet geldt ook een minimaal aantal bezoeken die moeten uitgevoerd worden en een vaste telperiode waarbinnen die bezoeken moeten gebeuren (\@ref(tab:tabkarakteristieken)). 
+Een overzicht van welk veldprotocol gebruikt wordt per soort vind je in Tabel \@ref(tab:tabkarakteristieken). Voor elke soort vermelden we het aantal bezoeken die moeten plaatsvinden, de telperiode waarin dit moet gebeuren, het aantal locaties en met welke cyclus dat er moet geteld worden . 
 
 Het meetnet Beekrombout zit momenteel nog in een overgangsfase. We weten momenteel in grote lijnen waar de populaties zich bevinden, maar de geschikte locaties voor het leggen van de transecten moeten nog deels vastgelegd worden. Voor dit meetnet kunnen we dus voorlopig nog geen resultaten tonen.
 
@@ -66,8 +69,9 @@ meetnet_characteristics %>%
          einde_telperiode = format(einde_telperiode, "%d/%m"),
          einde_telperiode = ifelse(meetnet == "Sierlijke witsnuitlibel", "20/06", einde_telperiode),
          start_telperiode = ifelse(meetnet == "Maanwaterjuffer", "20/04", start_telperiode),
+         telperiode = str_c(start_telperiode, " - ", einde_telperiode),
          n_locaties = ifelse(meetnet == "Vroege glazenmaker", 30, n_locaties)) %>%
-  select(Meetnet = meetnet, Veldprotocol =  protocol, "Bezoeken (per jaar)" = bezoeken, 'Begin telperiode' = start_telperiode, 'Einde telperiode' = einde_telperiode, "Selectie locaties" = type, "Aantal locaties" = n_locaties , "Duur meetcyclus (jaar)"= duur_meetcyclus) %>%
+  select(Meetnet = meetnet, Veldprotocol =  protocol, "Aantal bezoeken (per jaar)" = bezoeken, Telperiode = telperiode, "Selectie locaties" = type, "Aantal locaties" = n_locaties , "Duur meetcyclus (jaar)"= duur_meetcyclus) %>%
   unique() %>%
   kable(caption = "Overzicht van de karakteristieken van de libellenmeetnetten: aantal bezoeken per jaar, begin en einde van de telperiode", 
         align = c("l", "l", "c", "c", "c", "c", "c" , "c"),
@@ -78,9 +82,9 @@ meetnet_characteristics %>%
 
 ### Selectie van de meetnetlocaties
 
-Wanneer een soort op minder dan 30 locaties voorkomt, worden alle locatie opgenomen in het meetnet. We spreken dan van een integrale selectie van locaties. Wanneer er meer dan 30 locaties zijn, is het niet meer haalbaar om al die locaties te tellen en nemen we een willekeurige steekproef van 30 locaties. Tabel \@ref(tab:tabkarakteristieken) geeft voor elk meetnet het aantal locaties en hoe de selectie van die locaties gebeurde. De tabel geeft ook de duur van de meetcyclus weer. Dit is de periode waarin alle meetnetlocaties geteld worden. Een meetcyclus van drie jaar betekent dus dat al de locaties om de drie jaar geteld worden. Voor de alle soorten met een integrale selectie, uitgezonderd Hoogveenglanslibel, worden de locaties jaarlijks geteld.
+Wanneer er van een bepaalde soort minder dan 30 locaties voorkomen in Vlaanderen, worden alle locaties opgenomen in het meetnet. We spreken dan van een integrale monitoring. Wanneer er meer dan 30 locatie zijn, is het niet meer haalbaar om al die locaties te tellen. We selecteren dan 30 locaties via een willekeurige steekproef. Tabel \@ref(tab:tabkarakteristieken) geeft voor elk meetnet het aantal locaties en of de soort integraal dan wel via een steekproef wordt geteld. De tabel geeft ook de duur van de meetcyclus weer. Dit is de periode waarin alle meetnetlocaties geteld worden. Een meetcyclus van drie jaar betekent dus dat al de locaties om de drie jaar geteld worden. Voor de alle soorten met een integrale selectie, uitgezonderd Hoogveenglanslibel, worden de locaties jaarlijks geteld.
 
-Omdat het om kwetsbare soorten gaat, wordt de exacte ligging van de meetnetlocaties niet publiek gemaakt. De kaart hieronder geeft wel de *vervaagde* ligging van de meetnetlocaties weer. De meetnetlocaties worden hierin weergegeven in het centrum van het 10 x 10 km UTM-hok waarin de locatie is gelegen. Sommige UTM-hokken bevatten meerdere meetnetlocaties. Hoe donkerder de blauwe kleur van de punten, hoe meer meetnetlocaties. Elk punt heeft een label dat aangeeft hoeveel meetnetlocaties per meetnet het UTM-hok bevat. De label wordt getoond als je met de muis over de punten gaat. Je kan ook een of meerdere meetnetten selecteren via het selectievenster.
+Omdat al deze soorten in min of meerdere mate bedreigd zijn en sommige in zeer kwestbare vegetaties en biotopen voorkomen, vaak in niet toegankelijke militaire domeinen, wordt de exacte ligging van de meetnetlocaties niet publiek gemaakt. De kaart hieronder geeft wel de *vervaagde* ligging van de meetnetlocaties weer. De meetnetlocaties worden hierin weergegeven in het centrum van het 10 x 10 km UTM-hok waarin de locatie is gelegen. Sommige UTM-hokken bevatten meerdere meetnetlocaties. Hoe donkerder de blauwe kleur van de punten, hoe meer meetnetlocaties. Elk punt heeft een label dat aangeeft hoeveel meetnetlocaties per meetnet het UTM-hok bevat. De label wordt getoond als je met de muis over de punten gaat. Je kan ook een of meerdere meetnetten selecteren via het selectievenster.
 
 ```{r }
 
@@ -203,7 +207,7 @@ monitoring_effort <- monitoring_effort_meetnet %>%
 ```
 
 Tellers voeren de telgegevens in via [meetnetten.be](https://www.meetnetten.be/) of via de[meetnetten-app](https://play.google.com/store/apps/details?id=nl.zostera.meetnetten&hl=nl).
- In de periode 2016 - 2020 voerden `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellers", "aantal"]` tellers `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellingen", "aantal"]` libellentellingen uit op `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellocaties", "aantal"]` meetnetlocaties. In Figuur \@ref(fig:figinspanning) zien we de evolutie van de tellingen in de tijd voor alle libellenmeetnetten samen. We zien een duidelijke stijgen van 2016 tot 2018 tijdens de opstartfase van de meetnetten, waarna een stagnatie volgde. De tellers blijven hun jaarlijkse inspanningen dus goed volhouden. 
+Tussen 2016 en 2020 voerden `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellers", "aantal"]` tellers `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellingen", "aantal"]` libellentellingen uit op `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellocaties", "aantal"]` meetnetlocaties. In Figuur \@ref(fig:figinspanning) zien we de evolutie van de tellingen in de tijd voor alle libellenmeetnetten samen. Het aantal getelde locaties nam toe in de periode 2016 tot 2018, wat te verklaren is doordat er jaarlijks een aantal nieuwe meetnetten werden opgestart. Sinds 2018 zijn alle libellenmeetnetten opgestart en zien we een stagnatie. De ogenschijnlijke lichte achteruitgang kan verklaard worden doordat bepaalde soorten en locaties in een driejarige cyclus worden opgevolgd. Het ziet er naar uit dat alle tellers hun locaties jaarlijkse blijven opvolgen en dus goed volhouden. 
 
 ```{r, results = "asis", fig.height= 3, eval = FALSE}
 

@@ -19,11 +19,11 @@ meetnetten_links <- str_c(str_c("[", meetnet_characteristics$meetnet, "]", colla
 
 
 Betrouwbare informatie over de toestand en trends van dier- en plantensoorten in Vlaanderen is van
-groot belang voor de onderbouwing van het Vlaamse soortenbeleid en voor de rapportage over Natura 2000-soorten aan Europa [@Adriaens2011]. Daarom gingen in de periode 2016-2018 nieuwe soortenmeetnetten van start voor de monitoring van 65 Vlaamse en Europees prioritaire soorten. Elk soortenmeetnet bestaat uit een aantal vooraf vastgelegde locaties, waar een of meerdere soorten via een gestandaardiseerde methode geteld worden. 
+groot belang voor de onderbouwing van het Vlaamse soortenbeleid en voor de rapportage over de Natura 2000-soorten aan Europa [@Adriaens2011]. Daarom werden in de periode 2016-2018 soortenmeetnetten opgestart voor de monitoring van 65 Vlaamse en Europees prioritaire soorten. Elk soortenmeetnet bestaat uit een aantal vooraf vastgelegde locaties, waar een of meerdere soorten via een gestandaardiseerde methode geteld worden. 
 
 De soortenmeetnetten zijn een samenwerking tussen het Instituut voor Natuur- en Bosonderzoek (INBO), het Agentschap voor Natuur en Bos (ANB), Natuurpunt Studie en vele vrijwilligers. Het merendeel van de tellingen gebeurt door vrijwilligers onder coördinatie van Natuurpunt Studie. De kwaliteitscontrole en gegevensanalyse gebeuren door het INBO en het ANB faciliteert de tellingen op het terrein. Voor de planning van de tellingen en het invoeren van gegevens werd het webportaal [meetnetten.be](https://www.meetnetten.be) ontwikkeld. 
 
-In dit rapport stellen we de eerste resultaten voor van de libellenmeetnetten [@DeKnijf2019b]. We geven eerst wat achtergrond over het [ontwerp van de libellenmeetnetten] en de [analyse van de telgegevens]. Daarna maken we een [verkenning van de getelde aantallen] en geven we een [overzicht van de resultaten] van de statistische analyses. Vervolgens geven we een gedetailleerde bespreking van de resultaten voor elk meetnet (`r meetnetten_links`).     
+In dit rapport stellen we de eerste resultaten voor van de verschillende libellenmeetnetten [@DeKnijf2019b]. We geven eerst wat achtergrond over het [ontwerp van de libellenmeetnetten] en de [analyse van de telgegevens]. Daarna maken we een [verkenning van de getelde aantallen] en geven we een [overzicht van de resultaten] van de statistische analyses. Ten slotte bespreken we de resultaten voor elk meetnet (`r meetnetten_links`).     
 
 `r ifelse(doc.type != "html", "Dit rapport bevat enkele interactieve figuren die enkel kunnen bekeken worden op de [website versie](https://inbo.github.io/soortenmeetnetten_progress/) van dit rapport.", "")`
 
