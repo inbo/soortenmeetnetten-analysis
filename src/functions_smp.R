@@ -26,10 +26,21 @@ get_characteristics_smp <- function(species_group = NULL,
       
     }
   }
+
   
   return(characteristics_smp)
   
 }
+
+get_date_export_smp <- function(file = "raw/date_export",
+                                path = fileman_up("soortenmeetnetten-data")) {
+  
+  version <- read_vc(file = file, 
+                     root = path)
+  
+  return(version$date_export)
+}
+
 
 get_taxonomy_smp <- function(file = "metadata/extern/checklist.csv",
                                     path = fileman_up("soortenmeetnetten-data")) {
@@ -77,24 +88,26 @@ get_counts_smp <- function(species_group = NULL,
                            file = "raw/aantallen",
                            path = fileman_up("soortenmeetnetten-data")) {
   
-  counts_smp <- read_vc(file = file, 
-                        root = path)
-  
-  if (!is.null(species_group)) {
+  if (is.null(species_group)) {
     
-    if (species_group %in% counts_smp$soortgroep) {
-      
-      counts_smp <- counts_smp %>%
-        filter(.data$soortgroep == species_group)
-      
-    }
+    counts_smp <- read_vc(file = file, 
+                          root = path)
     
-    else {
-      
-      warning(str_c("Selecteer een van volgende soortgroepen: ", 
-                    str_c(unique(counts_smp$soortgroep), collapse = ", ")))
-      
-    }
+  } else if (str_to_lower(species_group) %in% c("planten", "vaatplanten")) {
+    
+    counts_smp <- read_vc(file = "raw/aantallen_planten", 
+                          root = path)
+    
+  } else if (str_to_lower(species_group) %in% counts_smp$soortgroep) {
+        
+    counts_smp <- counts_smp %>%
+      filter(.data$soortgroep == str_to_lower(species_group))
+        
+  } else {
+        
+        warning(str_c("Selecteer een van volgende soortgroepen: ", 
+                      str_c(unique(counts_smp$soortgroep), collapse = ", ")))
+    
   }
   
   if (!is.null(count_aggregation)) {
@@ -179,6 +192,48 @@ get_covariates_smp <- function(species_group = NULL,
   return(covariates_smp)
   
 }
+
+
+get_workpackages_smp <- function(file = "raw/werkpakketten",
+                               path = fileman_up("soortenmeetnetten-data")) {
+  
+  workpackages_smp <- read_vc(file = file, 
+                            root = path)
+  
+  return(workpackages_smp)
+  
+}
+
+get_tasks_smp <- function(file = "raw/taken",
+                                 path = fileman_up("soortenmeetnetten-data")) {
+  
+  tasks_smp <- read_vc(file = file, 
+                              root = path)
+  
+  return(tasks_smp)
+  
+}
+
+get_locations_notes_smp <- function(file = "raw/locatie_opm",
+                          path = fileman_up("soortenmeetnetten-data")) {
+  
+  locations_notes_smp <- read_vc(file = file, 
+                       root = path)
+  
+  return(locations_notes_smp)
+  
+}
+
+get_monitoring_targets_smp <- function(file = "metadata/monitoring_targets",
+                                    path = fileman_up("soortenmeetnetten-data")) {
+  
+  monitoring_targets_smp <- read_vc(file = file, 
+                                 root = path)
+  
+  return(monitoring_targets_smp)
+  
+}
+
 
 get_locations_smp <- function(species_group = NULL,
                               only_active = TRUE,
@@ -314,8 +369,11 @@ read_provincies <- function(file = "gis/provincies",
 
 calculate_monitoring_effort <- function(species_group = NULL, aggregation_level = "meetnet"){
   
-  visits <- get_visits_smp(species_group)
-  observers <- get_observers_smp(species_group)
+  visits <- get_visits_smp(species_group) %>%
+    filter(meetnet != "Algemene Vlindermonitoring")
+  
+  observers <- get_observers_smp(species_group) %>%
+    filter(meetnet != "Algemene Vlindermonitoring")
   
   if (aggregation_level == "meetnet") {
     
@@ -364,6 +422,25 @@ calculate_monitoring_effort <- function(species_group = NULL, aggregation_level 
       group_by(soortgroep) %>%
       summarise(n_tellers = n_distinct(naam_teller)) %>%
       ungroup()
+  } else if (aggregation_level %in% c("all_species")) {
+    
+    visits_summary <- visits %>%
+      group_by(jaar) %>%
+      summarise(n_tellingen = n_distinct(visit_id)) %>%
+      ungroup() %>%
+      mutate(soortgroep = "alle soorten")
+    
+    locations_summary <- visits %>%
+      group_by(jaar) %>%
+      summarise(n_telgebieden = n_distinct(locatie)) %>%
+      ungroup() %>%
+      mutate(soortgroep = "alle soorten")
+    
+    observers_summary <- observers %>%
+      group_by(jaar) %>%
+      summarise(n_tellers = n_distinct(naam_teller)) %>%
+      ungroup() %>%
+      mutate(soortgroep = "alle soorten")
   }
   
   monitoring_effort_long <- bind_rows(
