@@ -449,5 +449,93 @@ cov_soort <- covariabelen_soortgroep_wide %>%
 
 ```
 
+## Steekproef Kamsalamander
+
+```{r}
+steekproefkader_kamsalamander <- read_sf(dsn = file.path(fileman_up("soortenmeetnetten-data"), "raw/steekproefkader_locaties.gpkg"), 
+                                         layer = "kamsalamander", crs = 31370) %>%
+  select(-locatie, -meetnet) %>%
+  st_buffer(dist = 1)
+```
+
+
+
+```{r}
+
+locaties_kamsalamander <- locaties %>%
+  st_transform(crs = 31370) %>%
+  filter(meetnet == "Kamsalamander") %>%
+  select(meetnet, locatie, is_active, is_sample) %>%
+  st_join(steekproefkader_kamsalamander) %>%
+  st_drop_geometry()
+  
+protocollen <- data.frame(meetnet = "Kamsalamander",
+                    protocol_short = c("fuiken",
+                                 "scheppen"))
+
+kamsalamander_geteld <- evaluatie_locaties %>%
+  filter(meetnet == "Kamsalamander") %>%
+  filter(is_active) %>%
+  group_by(locatie, protocol) %>%
+  summarise(voldoende_data = ifelse(sum(voldoende_data) > 0, 1, 0)) %>%
+  ungroup() %>%
+  mutate(protocol_short = ifelse(protocol == "Amfibieën - Fuiken", "fuiken", "scheppen")) %>%
+  select(-protocol) 
+
+overzicht_kamsalamander <- locaties_kamsalamander %>%
+  left_join(protocollen, by = "meetnet") %>%
+  left_join(kamsalamander_geteld, by = c( "protocol_short", "locatie")) %>%
+  mutate( voldoende_data = ifelse(is.na(voldoende_data), 0, voldoende_data)) %>%
+  spread(key = "protocol_short", value = "voldoende_data") %>%
+  mutate(afgewerkt = scheppen == 1 & fuiken == 1)
+
+n_geteld <- overzicht_kamsalamander %>%
+  group_by(is_sample) %>%
+  summarise(n_afgewerkt = sum(afgewerkt),
+            n_fuikvangst = sum(fuiken),
+            n_locaties = n()) %>%
+  ungroup()
+
+
+check <- overzicht_kamsalamander %>%
+  filter((is_sample & steekproef_punt != 1) | ((!is_sample) & steekproef_punt == 1))
+```
+
+Dheide Poel 4 vervangt Dheide Poel 3!
+
+```{r}
+vervangpunten <- overzicht_kamsalamander %>%
+  filter(!is.na(gebied_code)) %>%
+  group_by(gebied_code) %>%
+  mutate(n_geteld_gebied_sample = sum(afgewerkt & (is_sample == 1)),
+         n_geteld_gebied_extra = sum(afgewerkt & (is_sample == 0))) %>%
+  ungroup() %>%
+  mutate(n_tekort_gebied = n_steekproef_gebied * steekproef_gebied - n_geteld_gebied_sample) %>%
+  filter(steekproef_gebied == 1) %>%
+  mutate(extra_locatie_pot = afgewerkt & (is_sample == 0) & (n_tekort_gebied > 0)) %>%
+  filter(extra_locatie_pot) %>%
+  group_by(gebied_code) %>%
+  mutate(volgorde_vervanging = rank(volgorde_punt)) %>%
+  ungroup() %>%
+  mutate(vervangpunt = volgorde_vervanging <= n_tekort_gebied) %>%
+  filter(vervangpunt)
+
+vervangpunten_gebied <- vervangpunten %>%
+  filter(steekproef_punt == 1)
+
+te_vervangen_binnen_gebied <- overzicht_kamsalamander %>%
+  filter(gebied_code %in% vervangpunten$gebied_code) %>%
+  filter(is_sample == 1) %>%
+  filter(!afgewerkt) %>%
+  group_by(gebied_code) %>%
+  top_n(n = 1, wt = volgorde_punt) %>%
+  ungroup()
+
+te_vervangen_gebied_klein <- overzicht_kamsalamander %>%
+  filter(is_sample == 1) %>%
+  filter(!afgewerkt) %>%
+  filter(stratum == "Klein") %>%
+  top_n(n = 2, wt = volgorde_gebied)
+```
 
 
