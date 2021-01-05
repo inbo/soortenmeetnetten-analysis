@@ -101,10 +101,11 @@ n_extra <- tabel_rapport %>%
 if (n_extra > 0) {
   
   tabel_rapport %>%
+    arrange(meetnet) %>%
     filter(soortgroep %in% soortgroep_sel,
           jaar == year_evaluation) %>%
     filter(type_locatie == "Extra locatie") %>%
-    select(meetnet,  protocol,  "tellingen conform protocol",  "locaties voldoende geteld - totaal") %>%
+    select(meetnet,  protocol,  "tellingen conform protocol", "tellingen niet uitvoerbaar",  "locaties voldoende geteld - totaal") %>%
     kable(booktabs = TRUE, 
         caption = "Overzicht van tellingen in extra locaties", 
         align = c("l", "l", "l","c","c", "c", "c", "c", "c", "c", "c")) %>%
@@ -223,12 +224,14 @@ bezoeken_dubbels_soortgroep <- bezoeken_dubbels %>%
   filter(soortgroep %in% soortgroep_sel) %>%
   select(meetnet, protocol, locatie, datum, bezoeken = n_bezoeken_datum, "zelfde begintijdstip" = start_time_identiek, taak1, taak2) %>% 
   arrange(meetnet, protocol)
+
+temp <- nrow(bezoeken_dubbels_soortgroep) > 0
 ```
 
 `r if (nrow(bezoeken_dubbels_soortgroep) > 0) {"Onderstaande tabel geeft mogelijks dubbel ingevoerde bezoeken weer (bezoeken = aantal bezoeken voor ingevoerd voor eenzelfde dag en eenzelfde locatie; zelfde begintijdstip = is het begintijdstip van de bezoeken identiek?)"} else {"Geen bezoeken die dubbel ingevoerd werden"}`
 
 
-```{r}
+```{r, eval = temp}
 bezoeken_dubbels_soortgroep %>%
   datatable(
         rownames = FALSE,
@@ -312,6 +315,13 @@ overzicht_rugstreeppad %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 ```
 
+```{r}
+check <- evaluatie_locaties %>%
+  filter(meetnet == "Rugstreeppad") %>%
+  filter(jaar > 2018) %>%
+  filter(aantal_tellingen_cp > 0) %>%
+  anti_join(overzicht_rugstreeppad, by = c("jaar", "locatie"))
+```
 
 
 ## Verkenning ingevoerde waarden voor de kwaliteit van het leefgebied
@@ -454,6 +464,10 @@ cov_soort <- covariabelen_soortgroep_wide %>%
 ```{r}
 steekproefkader_kamsalamander <- read_sf(dsn = file.path(fileman_up("soortenmeetnetten-data"), "raw/steekproefkader_locaties.gpkg"), 
                                          layer = "kamsalamander", crs = 31370) %>%
+  st_drop_geometry()
+
+steekproefkader_kamsalamander_buffer <- read_sf(dsn = file.path(fileman_up("soortenmeetnetten-data"), "raw/steekproefkader_locaties.gpkg"), 
+                                         layer = "kamsalamander", crs = 31370) %>%
   select(-locatie, -meetnet) %>%
   st_buffer(dist = 1)
 ```
@@ -465,8 +479,10 @@ steekproefkader_kamsalamander <- read_sf(dsn = file.path(fileman_up("soortenmeet
 locaties_kamsalamander <- locaties %>%
   st_transform(crs = 31370) %>%
   filter(meetnet == "Kamsalamander") %>%
+  mutate(is_sample = ifelse(locatie == "Dheide - Poel 4", TRUE, is_sample)) %>% #NOG AANPASSEN
+  mutate(is_active = ifelse(locatie == "Dheide - Poel 3", FALSE, is_active)) %>%
   select(meetnet, locatie, is_active, is_sample) %>%
-  st_join(steekproefkader_kamsalamander) %>%
+  st_join(steekproefkader_kamsalamander_buffer) %>%
   st_drop_geometry()
   
 protocollen <- data.frame(meetnet = "Kamsalamander",
@@ -476,23 +492,34 @@ protocollen <- data.frame(meetnet = "Kamsalamander",
 kamsalamander_geteld <- evaluatie_locaties %>%
   filter(meetnet == "Kamsalamander") %>%
   filter(is_active) %>%
+  filter(voldoende_data == 1) %>%
   group_by(locatie, protocol) %>%
-  summarise(voldoende_data = ifelse(sum(voldoende_data) > 0, 1, 0)) %>%
+  summarise(voldoende_data_jaar = str_c(jaar, collapse = "; ")) %>%
   ungroup() %>%
   mutate(protocol_short = ifelse(protocol == "Amfibieën - Fuiken", "fuiken", "scheppen")) %>%
   select(-protocol) 
 
+kamsalamander_aanwezig <- aantallen %>%
+  filter(meetnet == "Kamsalamander") %>%
+  filter(primaire_soort) %>%
+  group_by(locatie, levensstadium) %>%
+  summarise(totaal = sum(aantal, na.rm = TRUE)) %>%
+  ungroup() %>%
+  filter(!is.na(levensstadium)) %>%
+  spread(key = "levensstadium", value = "totaal")
+
 overzicht_kamsalamander <- locaties_kamsalamander %>%
   left_join(protocollen, by = "meetnet") %>%
   left_join(kamsalamander_geteld, by = c( "protocol_short", "locatie")) %>%
-  mutate( voldoende_data = ifelse(is.na(voldoende_data), 0, voldoende_data)) %>%
-  spread(key = "protocol_short", value = "voldoende_data") %>%
-  mutate(afgewerkt = scheppen == 1 & fuiken == 1)
+  mutate( voldoende_data_jaar = ifelse(is.na(voldoende_data_jaar), "", voldoende_data_jaar)) %>%
+  spread(key = "protocol_short", value = "voldoende_data_jaar") %>%
+  mutate(afgewerkt = scheppen != "" & fuiken != "") %>%
+  left_join(kamsalamander_aanwezig, by = "locatie")
 
 n_geteld <- overzicht_kamsalamander %>%
   group_by(is_sample) %>%
   summarise(n_afgewerkt = sum(afgewerkt),
-            n_fuikvangst = sum(fuiken),
+            n_fuikvangst = sum(fuiken != ""),
             n_locaties = n()) %>%
   ungroup()
 
@@ -501,10 +528,10 @@ check <- overzicht_kamsalamander %>%
   filter((is_sample & steekproef_punt != 1) | ((!is_sample) & steekproef_punt == 1))
 ```
 
-Dheide Poel 4 vervangt Dheide Poel 3!
 
-```{r}
+```{r, eval = FALSE}
 vervangpunten <- overzicht_kamsalamander %>%
+  filter(is_active) %>%
   filter(!is.na(gebied_code)) %>%
   group_by(gebied_code) %>%
   mutate(n_geteld_gebied_sample = sum(afgewerkt & (is_sample == 1)),
@@ -538,4 +565,57 @@ te_vervangen_gebied_klein <- overzicht_kamsalamander %>%
   top_n(n = 2, wt = volgorde_gebied)
 ```
 
+Onderstaande tabel bevat de steekproeflocaties van Kamsalamander en geeft aan in welk jaar er (een voldoende aantal) fuiktellingen en larvetellingen zijn gebeurd. De tabel geeft ook het totaal aantal geobserveerde individuen per levensstadium.
 
+
+```{r tabelcyclus1}
+cyclus1 <- overzicht_kamsalamander %>%
+  filter(is_sample) %>%
+  arrange(locatie) %>%
+  select(locatie, fuiken, scheppen, adult, larve, juveniel, metamorf) 
+
+cyclus1 %>%
+  datatable(
+        rownames = FALSE,
+        filter = 'top',
+        extensions = c('Buttons', 'Scroller'),
+        options = list(
+          dom = 'Bfrtip',
+          buttons = c('copy', 'excel'),
+          language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+          deferRender = TRUE,
+          autoWidth = TRUE,
+          columnDefs = list(list(width = '40%', targets = c(0)))
+          )
+        )
+
+```
+
+Onderstaande tabel geeft een overzicht van de tellingen in de voldoende getelde extra locatie.
+
+
+```{r tabelcyclus1extra}
+cyclus1_extra <- overzicht_kamsalamander %>%
+  filter(afgewerkt) %>%
+  filter(!is_sample) %>%
+  filter(is_active) %>%
+  # filter(is.na(steekproef_gebied) | !steekproef_gebied) %>%
+  arrange(locatie) %>%
+  select(locatie, fuiken, scheppen, adult, larve, juveniel, metamorf) 
+
+cyclus1_extra %>%
+  datatable(
+        rownames = FALSE,
+        filter = 'top',
+        extensions = c('Buttons', 'Scroller'),
+        options = list(
+          dom = 'Bfrtip',
+          buttons = c('copy', 'excel'),
+          language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+          deferRender = TRUE,
+          autoWidth = TRUE,
+          columnDefs = list(list(width = '40%', targets = c(0)))
+          )
+        )
+
+```

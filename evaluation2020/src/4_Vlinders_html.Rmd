@@ -18,7 +18,10 @@ tabel_meetnetkarakteristieken %>%
   mutate(telperiode = str_c(start_telperiode, " - ", einde_telperiode)) %>%
   filter(soortgroep %in% soortgroep_sel,
          is_sample) %>%
-  select(meetnet, protocol, type, opstartjaar, 'duur meetcyclus'= duur_meetcyclus,  'bezoeken (/jaar)' = bezoeken, telperiode) %>%
+  group_by(meetnet, protocol, is_sample) %>%
+  mutate(bezoeken_tot = sum(bezoeken)) %>%
+  ungroup() %>%
+  select(meetnet, protocol, type, opstartjaar, 'duur meetcyclus'= duur_meetcyclus,  'bezoeken (/jaar)' = bezoeken_tot, telperiode) %>%
   unique() %>%
   arrange(meetnet) %>%
   kable(caption = "Overzicht van de karakteristieken van de vlindersmeetnetten: veldprotocol, type meetnet (integraal of steekproef), aantal meetnetlocaties en de meetcyclus in jaren",
@@ -254,6 +257,7 @@ Onderstaande tabel geeft een overzicht van de opmerkingen bij actieve locaties.
 ```{r}
 
 locaties_opm %>%
+  arrange(desc(datum_opmerking)) %>%
   filter(meetnet != "Algemene Vlindermonitoring") %>%
   filter(soortgroep %in% soortgroep_sel,
          is_active) %>%

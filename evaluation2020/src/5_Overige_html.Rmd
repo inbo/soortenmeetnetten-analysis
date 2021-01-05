@@ -281,7 +281,88 @@ Zie [deze website](https://inbo.github.io/soortenmeetnetten-dataexploration/#ove
 
 Zie [deze website](https://inbo.github.io/soortenmeetnetten-dataexploration/#overige).
 
+## Evaluatie inhaalslag Gerande oeverspin
 
+```{r}
+data_oeverspinnen_extern <- read_vc(file = "processed/data_oeverspinnen",
+                             root = fileman_up("soortenmeetnetten-data")) %>%
+  filter(validatie == "goedgekeurd") %>%
+  filter(str_to_lower(naam_nl) == "gerande oeverspin") %>%
+  select(id, meetnet, jaar, datum, locatie, aantal, x, y, gebied) %>%
+  mutate(nieuwe_locatie = is.na(locatie),
+         locatie = ifelse(is.na(locatie),
+                          ifelse(gebied != "  ", gebied, str_c("nieuw_", id)),
+                          locatie)) %>%
+  group_by(meetnet, locatie, nieuwe_locatie, jaar, datum) %>%
+  summarise(aantal = sum(aantal)) %>%
+  ungroup() %>%
+  mutate(bron = "waarnemingen.be")
+
+data_oeverspinnen_meetnetten <- aantallen %>%
+  filter(meetnet == "Gerande oeverspin") %>%
+  filter(primaire_soort) %>%
+  group_by(visit_id, meetnet, datum, locatie, jaar) %>%
+  summarise(aantal = sum(aantal)) %>%
+  ungroup() %>%
+  mutate(nieuwe_locatie = FALSE,
+         bron = "meetnetten.be")
+
+locaties_prioritair <- read_vc(root = fileman_up("soortenmeetnetten-data"),
+                               file =  "raw/werkpakketten_locaties") %>%
+  filter(meetnet == "Gerande oeverspin",
+         werkpakket == "veldwerk 2020")
+
+
+data_oeverspinnen <- bind_rows(
+  data_oeverspinnen_extern,
+  data_oeverspinnen_meetnetten
+) %>%
+  mutate(locatie_prioritair = locatie %in% locaties_prioritair$locatie) %>%
+  group_by(meetnet, locatie, nieuwe_locatie, locatie_prioritair) %>%
+  arrange(jaar, bron) %>%
+  summarise(aantal = sum(aantal),
+            aantal_bezoeken = n(),
+            jaar = str_c(unique(jaar), collapse = "; "),
+            bron = str_c(unique(bron), collapse = "; ")) %>%
+  ungroup()
+
+```
+
+Deze tabel geeft een overzicht van de onderzochte locaties, zowel op basis van gegevens uit meetnetten.be als gegevens uit waarnemingen.be.
+
+```{r}
+overzicht_oeverspinnen <- data_oeverspinnen %>%
+  group_by(nieuwe_locatie, locatie_prioritair) %>%
+  summarise(n_locaties = n(),
+            n_locaties_aanwezig = sum(aantal > 0),
+            n_locaties_afwezig = sum(aantal == 0)) %>%
+  ungroup()
+```
+
+```{r}
+overzicht_oeverspinnen %>%
+    mutate(pot_leefgebied = ifelse(nieuwe_locatie, "Nee", "Ja"),
+         locatie_prioritair = ifelse(locatie_prioritair, "Ja", "Nee")) %>%
+   select(-nieuwe_locatie) %>%
+  select(pot_leefgebied, everything()) %>%
+  rename("potentieel leefgebied" = pot_leefgebied) %>%
+  kable() %>%
+  kable_styling()
+```
+
+
+Onderstaande tabel geeft een overzicht van de onderzochte locaties in kader van de inhaalslag voor Gerande oeverspin. 
+
+```{r}
+data_oeverspinnen %>%
+  mutate(pot_leefgebied = ifelse(nieuwe_locatie, "Nee", "Ja"),
+         locatie_prioritair = ifelse(locatie_prioritair, "Ja", "Nee")) %>%
+   select(-meetnet, -nieuwe_locatie) %>%
+  rename("potentieel leefgebied" = pot_leefgebied) %>%
+  datatable(rownames = FALSE,
+            filter = 'top')
+
+```
 
 
 

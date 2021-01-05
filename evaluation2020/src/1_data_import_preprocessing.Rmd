@@ -43,7 +43,8 @@ covariabelen <- get_covariates_smp()
 
 metadata <- get_characteristics_smp() %>%
   filter(protocol != "Lentevuurspin - Gebiedstelling") %>%
-  mutate(protocol = ifelse(meetnet == "Lentevuurspin", "Lentevuurspin - Transect + Gebiedstelling", protocol))
+  mutate(protocol = ifelse(meetnet == "Lentevuurspin", "Lentevuurspin - Transect + Gebiedstelling", protocol)) %>%
+  mutate(duur_meetcyclus = ifelse(meetnet == "Kamsalamander", 4, duur_meetcyclus))
 
 metadata_overzicht <- metadata %>%
   filter(is_sample) %>%
@@ -52,14 +53,17 @@ metadata_overzicht <- metadata %>%
   ungroup() %>%
   mutate(n_bezoeken_doel = ifelse(meetnet == "Argusvlinder", 5 , n_bezoeken_doel))
 
-locaties <- get_locations_smp(only_active = FALSE)
+locaties <- get_locations_smp(only_active = FALSE) %>%
+  mutate(is_sample = ifelse(locatie == "Dheide - Poel 4", TRUE, is_sample)) %>% #NOG AANPASSEN
+  mutate(is_active = ifelse(locatie == "Dheide - Poel 3", FALSE, is_active)) %>%
+  mutate(is_sample = ifelse(meetnet == "Boomkikker" & str_sub(locatie, 1, 7) == "Merkske", FALSE, is_sample)) %>% #NOG AANPASSEN IN MEETNETTEN.BE
+  mutate(is_sample = ifelse(meetnet == "Kamsalamander" & locatie %in% c("Antitankgracht Haacht - Poel 15", "De Brand - Poel 6", "Vallei van de Mark - Poel 1"), TRUE, is_sample)) %>% #NOG AANPASSEN IN MEETNETTEN.BE
+   mutate(is_sample = ifelse(meetnet == "Kamsalamander" & locatie %in% c("Antitankgracht Haacht - Poel 16", "De Brand - Poel n31", "Lo-Relinge - Poel 3"), FALSE, is_sample))
 
 locaties_metadata <- locaties %>%
   st_drop_geometry() %>%
   filter(locatie_type == "locatie") %>%
   distinct(meetnet, locatie, is_active, is_sample) %>%
-  mutate(is_sample = ifelse(meetnet == "Boomkikker" & str_sub(locatie, 1, 7) == "Merkske", FALSE, is_sample)) %>% #NOG AANPASSEN IN MEETNETTEN.BE
-  mutate(is_sample = ifelse(meetnet == "Kamsalamander" & locatie %in% c("Antitankgracht Haacht - Poel 15", "De Brand - Poel 6", "Kleine Struisbeekvallei - poel 2", "Vallei van de Mark - Poel 1"), TRUE, is_sample)) %>% #NOG AANPASSEN IN MEETNETTEN.BE
   mutate(is_sample_history = is_sample | (!is_active)) #huidige en historische meetnetlocaties
 
 soortgroepen <- bezoeken %>%
@@ -311,7 +315,7 @@ write.csv2(overzicht_bezoeken, "../output/plantenmeetnetten_bezoeken_2020_versie
 
 ```{r meetnetDas, message= FALSE, warning= FALSE}
 
-data_das <- read.csv2(file.path(path, "data_extern/das/meetnet_das_2016_2018.csv"), stringsAsFactors = FALSE)
+data_das <- read.csv2(file.path(path, "data_extern/count_data/das/meetnet_das_2016_2018.csv"), stringsAsFactors = FALSE)
 
 burchten_das <- data_das %>%
   rename(jaar = Jaar, gebied = Gebied) %>%
