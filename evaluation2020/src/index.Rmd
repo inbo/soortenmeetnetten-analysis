@@ -38,6 +38,8 @@ opts_chunk$set(
   message = FALSE
 )
 
+#devtools::install_github("dmurdoch/leaflet@crosstalk4")
+
 library(sf)
 library(kableExtra)
 library(DT)

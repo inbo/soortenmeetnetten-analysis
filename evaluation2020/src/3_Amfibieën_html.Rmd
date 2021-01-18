@@ -45,6 +45,8 @@ In Tabel \@ref(tab:overzichtTellingenamfibieen1) evalueren we de jaardoelen. In 
 * het aantal voldoende getelde meetnetlocaties: dit zijn de locaties waar het aantal tellingen werd gehaald binnen de afgesproken telperiode, conform het protocol. Ook de tellingen die niet konden uitgevoerd worden door overmacht worden hiervoor meegrekend.
 * het aantal nieuw getelde meetnetlocaties binnen een meetcyclus: dit zijn het aantal voldoende getelde locaties die voor de eerste maal geteld werden in de meetcyclus.  
 
+Voor Kamsalamander is 2020 een overgangsjaar tussen meetcyclus 1 (jaar 4 in 1ste meetcyclus) en meetcyclus 2 (jaar 1 in 2de meetcyclus). Alle getelde locaties worden daarom als nieuw getelde locaties beschouwd.
+
 ```{r overzichtTellingenamfibieen1}
 
 tabel_rapport %>%
@@ -52,7 +54,7 @@ tabel_rapport %>%
    filter(soortgroep %in% soortgroep_sel,
           jaar == year_evaluation) %>%
   filter(type_locatie == "Meetnetlocatie") %>%
-  select(meetnet,  protocol, jaardoel, "doelbereik jaar (%)", "tellingen conform protocol", "tellingen niet uitvoerbaar",  "locaties voldoende geteld - totaal", "locaties voldoende geteld - nieuw") %>%
+  select(meetnet,  protocol, "aantal locaties", jaardoel, "doelbereik jaar (%)", "tellingen conform protocol", "tellingen niet uitvoerbaar",  "locaties voldoende geteld - totaal", "locaties voldoende geteld - nieuw") %>%
   kable(caption = "Evaluatie van de jaardoelen", 
         align = c("l", "l", "l","c","c", "c", "c", "c", "c", "c", "c")) %>%
  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
@@ -121,7 +123,7 @@ if (n_extra > 0) {
 
 Figuur \@ref(fig:figuurBezoekenamfibieen) geeft een overzicht van de tijdstippen van de bezoeken.  
 
-```{r figuurBezoekenamfibieen, fig.height= 9, fig.width= 6.5,  fig.cap = "Overzicht tijdstippen waarop tellingen werden uitgevoerd in 2018" }
+```{r figuurBezoekenamfibieen, fig.height= 6, fig.width= 6.5,  fig.cap = "Overzicht tijdstippen waarop tellingen werden uitgevoerd in 2020" }
 
 bezoeken_figuur <- bezoeken %>% 
   left_join(telperiode, by = c("meetnet", "protocol")) %>%
@@ -141,15 +143,13 @@ ggplot(data = bezoeken_figuur, aes(x = datum, fill = bezoek_status_detail)) +
          legend.direction = "vertical")
 ```
 
-Onderstaande tabel geeft een overzicht van de tellingen buiten de telperiode. De kolom 'verschil_dagen' geeft (de absolute waarde van) het verschil in dagen t.o.v. de telperiode volgens het veldprotocol.
+Onderstaande tabel geeft een overzicht van de tellingen buiten de telperiode. De kolom 'verschil_dagen' geeft het verschil in dagen t.o.v. de telperiode volgens het veldprotocol.
 
 ```{r}
 
 bezoeken_buiten_telperiode %>%
   filter(soortgroep %in% soortgroep_sel) %>%
-  arrange(desc(verschil_dagen)) %>%
-  select(-soortgroep,-taak, -hoofdteller, -conform_taak, -notes) %>% 
-  rename("bezoek status" = bezoek_status_detail, "verschil dagen" = verschil_dagen) %>%
+  select(-soortgroep) %>%
  #  kable(booktabs = TRUE,
  #        caption = "Bezoeken buiten telperiode",
  #        align = c("l", "l", "c","c","c", "c", "c", "c", "c", "c", "c")) %>%
@@ -360,6 +360,12 @@ covariabelen_soortgroep_wide <- covariabelen_soortgroep %>%
   select( -eenheid)  %>%
   spread(key = bezoekvariabele, value = waarde)
 
+check_cat <- covariabelen_soortgroep %>%
+  distinct(meetnet, visit_id, locatie, datum, bezoekvariabele, waarde) %>%
+  filter(waarde %in% c("no shade", "average", "good", "unknown", "U", "-4"))
+
+write.csv2(check_cat, "../output/covariabelen_leefgebied.csv", row.names = FALSE)
+
 # covariabelen_amfibie_wide$`aanwezigheid vis` <- factor(covariabelen_amfibie_wide$`aanwezigheid vis`, levels = c("ja","nee", "niet bekeken/niet van toepassing","niet ingevuld", "U"))
 # covariabelen_amfibie_wide$`permanente waterkolom` <- factor(covariabelen_amfibie_wide$`permanente waterkolom`, levels = c("ja","nee", "niet bekeken/niet van toepassing", "niet ingevuld"))
 # covariabelen_amfibie_wide$beschaduwing <- factor(covariabelen_amfibie_wide$beschaduwing, levels =c("geen schaduw", "<30%", "30-60%", ">60%", "onbekend", "niet bekeken/niet van toepassing", "niet ingevuld", "no shade"))
@@ -513,12 +519,14 @@ overzicht_kamsalamander <- locaties_kamsalamander %>%
   left_join(kamsalamander_geteld, by = c( "protocol_short", "locatie")) %>%
   mutate( voldoende_data_jaar = ifelse(is.na(voldoende_data_jaar), "", voldoende_data_jaar)) %>%
   spread(key = "protocol_short", value = "voldoende_data_jaar") %>%
-  mutate(afgewerkt = scheppen != "" & fuiken != "") %>%
+  mutate(status = ifelse(scheppen != "" & fuiken != "", "afgewerkt",
+                         ifelse(scheppen != "", "to do fuiken",
+                                ifelse(fuiken != "", "to do scheppen", "to do fuiken en scheppen")))) %>%
   left_join(kamsalamander_aanwezig, by = "locatie")
 
 n_geteld <- overzicht_kamsalamander %>%
   group_by(is_sample) %>%
-  summarise(n_afgewerkt = sum(afgewerkt),
+  summarise(n_afgewerkt = sum(status == "afgewerkt"),
             n_fuikvangst = sum(fuiken != ""),
             n_locaties = n()) %>%
   ungroup()
@@ -572,7 +580,7 @@ Onderstaande tabel bevat de steekproeflocaties van Kamsalamander en geeft aan in
 cyclus1 <- overzicht_kamsalamander %>%
   filter(is_sample) %>%
   arrange(locatie) %>%
-  select(locatie, fuiken, scheppen, adult, larve, juveniel, metamorf) 
+  select(locatie, status, fuiken, scheppen, adult, larve, juveniel, metamorf) 
 
 cyclus1 %>%
   datatable(
@@ -591,12 +599,12 @@ cyclus1 %>%
 
 ```
 
-Onderstaande tabel geeft een overzicht van de tellingen in de voldoende getelde extra locatie.
+Onderstaande tabel geeft een overzicht van de tellingen in de voldoende getelde extra locaties.
 
 
 ```{r tabelcyclus1extra}
 cyclus1_extra <- overzicht_kamsalamander %>%
-  filter(afgewerkt) %>%
+  filter(status == "afgewerkt") %>%
   filter(!is_sample) %>%
   filter(is_active) %>%
   # filter(is.na(steekproef_gebied) | !steekproef_gebied) %>%

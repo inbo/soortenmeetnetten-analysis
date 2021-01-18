@@ -52,7 +52,7 @@ tabel_rapport %>%
    filter(soortgroep %in% soortgroep_sel,
           jaar == year_evaluation) %>%
   filter(type_locatie == "Meetnetlocatie") %>%
-  select(meetnet,  protocol, jaardoel, "doelbereik jaar (%)", "tellingen conform protocol", "tellingen niet uitvoerbaar",  "locaties voldoende geteld - totaal", "locaties voldoende geteld - nieuw") %>%
+  select(meetnet,  protocol, "aantal locaties", jaardoel, "doelbereik jaar (%)", "tellingen conform protocol", "tellingen niet uitvoerbaar",  "locaties voldoende geteld - totaal", "locaties voldoende geteld - nieuw") %>%
   kable(caption = "Evaluatie van de jaardoelen", 
         align = c("l", "l", "l","c","c", "c", "c", "c", "c", "c", "c")) %>%
  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
@@ -119,7 +119,7 @@ if (n_extra > 0) {
 
 Figuur \@ref(fig:figuurBezoekenlibellen) geeft een overzicht van de tijdstippen van de bezoeken.  
 
-```{r figuurBezoekenlibellen, fig.height= 9, fig.width= 6.5,  fig.cap = "Overzicht tijdstippen waarop tellingen werden uitgevoerd in 2018" }
+```{r figuurBezoekenlibellen, fig.height= 9, fig.width= 6.5,  fig.cap = "Overzicht tijdstippen waarop tellingen werden uitgevoerd in 2020" }
 
 bezoeken_figuur <- bezoeken %>% 
   left_join(telperiode, by = c("meetnet", "protocol")) %>%
@@ -139,15 +139,13 @@ ggplot(data = bezoeken_figuur, aes(x = datum, fill = bezoek_status_detail)) +
          legend.direction = "vertical")
 ```
 
-Onderstaande tabel geeft een overzicht van de tellingen buiten de telperiode. De kolom 'verschil_dagen' geeft (de absolute waarde van) het verschil in dagen t.o.v. de telperiode volgens het veldprotocol.
+Onderstaande tabel geeft een overzicht van de tellingen buiten de telperiode. De kolom 'verschil_dagen' geeft het verschil in dagen t.o.v. de telperiode volgens het veldprotocol.
 
 ```{r}
 
 bezoeken_buiten_telperiode %>%
   filter(soortgroep %in% soortgroep_sel) %>%
-  arrange(desc(verschil_dagen)) %>%
-  select(-soortgroep,-taak, -hoofdteller, -conform_taak, -notes) %>% 
-  rename("bezoek status" = bezoek_status_detail, "verschil dagen" = verschil_dagen) %>%
+  select(-soortgroep, -protocol) %>%
  #  kable(booktabs = TRUE,
  #        caption = "Bezoeken buiten telperiode",
  #        align = c("l", "l", "c","c","c", "c", "c", "c", "c", "c", "c")) %>%

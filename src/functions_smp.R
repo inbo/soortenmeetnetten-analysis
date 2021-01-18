@@ -217,8 +217,25 @@ get_tasks_smp <- function(file = "raw/taken",
 get_locations_notes_smp <- function(file = "raw/locatie_opm",
                           path = fileman_up("soortenmeetnetten-data")) {
   
+  locations <- get_locations_smp(only_active = FALSE, only_sample = FALSE) %>%
+    st_drop_geometry()
+  
+  locations_parent_id <- locations %>%
+    select(locatie_type, id, parent_id)
+  
+  locations_hoofdlocaties <- locations %>%
+    filter(locatie_type == "locatie") %>%
+    select(hoofdlocatie = locatie, id)
+  
   locations_notes_smp <- read_vc(file = file, 
-                       root = path)
+                                 root = path) %>%
+    left_join(locations_parent_id, by = "id") %>%
+    mutate(sublocatie = ifelse(locatie_type == "sublocatie", locatie, NA)) %>%
+    left_join(locations_hoofdlocaties, by = c("parent_id" = "id")) %>%
+    mutate(locatie = ifelse(locatie_type == "sublocatie", as.character(hoofdlocatie), as.character(locatie))) %>%
+    select(-hoofdlocatie) %>%
+    select(soortgroep, meetnet, locatie, id, sublocatie, is_sample, is_active, datum_opmerking, opmerking_locatie)
+  
   
   return(locations_notes_smp)
   
