@@ -1,0 +1,38 @@
+soortgroep;meetnet;protocol;n_locaties;duur_meetcyclus;jaar_in_meetcyclus;steekproeflocatie;jaar;jaardoel;cyclusdoel;eenheid;aantal_tellingen_cp;aantal_taken_nu;aantal_voldoende_geteld;oppervlakte_geteld;aantal_voldoende_geteld_nieuw;aantal_voldoende_geteld_cyclus
+zoogdieren;Hamster;burchtentelling;;1;1;1;2016;50;;Hectare;4;0;1;82,8;;
+zoogdieren;Hamster;burchtentelling;;1;1;1;2017;50;;Hectare;5;0;1;73,4;;
+zoogdieren;Hamster;burchtentelling;;1;1;1;2018;50;;Hectare;3;0;1;69,9;;
+overige;Schavertje;Sprinkhanen - Wegvangst;;1;1;1;2017;3;;Locaties;4;0;4;;;
+overige;Schavertje;Sprinkhanen - Wegvangst;;1;1;1;2018;3;;Locaties;4;0;4;;;
+overige;Schavertje;Sprinkhanen - Wegvangst;;1;1;1;2019;3;;Locaties;4;0;4;;;
+dagvlinders;Bruine eikenpage;Vlinders - Eitellingen;;1;1;1;2017;3;;Locaties;7;0;7;;;
+mollusken;;inhaalslag;;6;1;1;2017;10;;Bezoeken;20;0;;;;
+libellen;Beekrombout;Libellen - Larvenhuidjes;;1;;1;2018;5;;Locaties;14;14;5;;;
+overige;Gerande oeverspin;inhaalslag;;6;;1;2018;10;;Bezoeken;39;0;27;;;
+overige;Gerande oeverspin;inhaalslag;;6;;0;2018;;;;16;;12;;;
+overige;Vliegend hert;Vliegend Hert -inhaalslag;;6;;1;2018;15;;Bezoeken;12;0;;;;
+overige;Vliegend hert;Vliegend Hert -inhaalslag;;6;;0;2018;;;;50;;;;;
+overige;Vliegend hert;Vliegend Hert - Transecten;;1;1;1;2019;15;;Bezoeken;15;0;3;;;
+mollusken;;inhaalslag;;6;;1;2018;15;;Bezoeken;11;;;;;
+mollusken;;inhaalslag;;6;;0;2018;;;;15;;;;;
+libellen;Beekrombout;Libellen - Larvenhuidjes;;1;1;1;2019;2;;Locaties;9;0;3;;;
+libellen;Beekrombout;Beekrombout - pilootbezoeken;;1;2;1;2019;5;;Bezoeken;7;0;;;;
+dagvlinders;Gentiaanblauwtje;Vlinders - Eitellingen;;1;1;1;2019;13;;Bezoeken;13;0;13;;;
+overige;Gerande oeverspin;inhaalslag;;6;2;1;2019;10;;Bezoeken;19;0;14;;;
+overige;Gerande oeverspin;inhaalslag;;6;2;0;2019;;;;30;;16;;;
+zoogdieren;Hamster;burchtentelling;;1;1;1;2019;50;;Hectare;9;0;1;62;;
+overige;Roestbruine kniptor;inhaalslag;;6;2;1;2019;15;;Bezoeken;50;0;29;;;
+overige;Roestbruine kniptor;inhaalslag;;6;2;0;2019;;;;41;0;23;;;
+mollusken;alle mollusken;inhaalslag;;6;3;1;2019;15;;Bezoeken;15;0;;;;
+vaatplanten;alle planten;Vaatplanten;;3;1;1;2019;75;223;Nieuwe locaties;;;88;;88;88
+vaatplanten;alle planten;Vaatplanten;;3;1;0;2019;;;;;;23;;23;23
+vaatplanten;alle planten;Vaatplanten - trajecten;;3;1;1;2019;45;;Trajecten;;;44;;;
+mollusken;alle mollusken;inhaalslag;;6;3;1;2020;15;;Bezoeken;14;0;;;;
+libellen;Beekrombout;Beekrombout - pilootbezoeken;;1;1;1;2020;2;;Bezoeken;15;0;;;;
+zoogdieren;Hamster;burchtentelling;1;1;1;1;2020;50;;Hectare;4;0;1;63,75;;
+overige;Roestbruine kniptor;Kevers - Feromoonval;;6;2;1;2020;21;;Locaties;51;0;25;;;
+overige;Roestbruine kniptor;Kevers - Feromoonval;;6;2;0;2020;;;;47;0;25;;;
+overige;Vliegend hert;Vliegend Hert - Transecten;;1;1;1;2020;4;;Locaties;39;0;5;;;
+overige;Vliegend hert;Vliegend Hert - Transecten;;1;1;1;2020;7;;Nieuwe transecten;;;4;;;
+vaatplanten;alle planten;Vaatplanten;219;3;2;1;2020;75;223;Nieuwe locaties;78;;66;;59;146
+libellen;Hoogveenglanslibel;Libellen - Populatietelling per locatie;12;1;1;1;2020;7;;Locaties;9;0;6;;;

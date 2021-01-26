@@ -1,12 +1,12 @@
 
 ```{r}
 year_evaluation <- 2020
-versie <- get_date_export_smp()
+versie <- get_date_export_smp(path = "../data_evaluatie")
 ```
 
 ```{r data import}
 
-bezoeken_orig <- get_visits_smp()
+bezoeken_orig <- get_visits_smp(path = "../data_evaluatie")
 
 bezoeken <- bezoeken_orig %>%
   filter(meetnet != "Algemene Vlindermonitoring") %>%
@@ -30,18 +30,18 @@ bezoeken <- bezoeken_orig %>%
 bezoeken <- bezoeken %>%
   filter(!((jaar == 2019) & !jaardoel & !voor_analyse))
 
-taken <- get_tasks_smp()
+taken <- get_tasks_smp(path = "../data_evaluatie")
 
-aantallen <- get_counts_smp()
+aantallen <- get_counts_smp(path = "../data_evaluatie")
 
-tellers <- get_observers_smp() %>%
+tellers <- get_observers_smp(path = "../data_evaluatie") %>%
   filter(meetnet != "Algemene Vlindermonitoring")
 
-locaties_opm <- get_locations_notes_smp()
+locaties_opm <- get_locations_notes_smp(path = "../data_evaluatie")
 
-covariabelen <- get_covariates_smp()
+covariabelen <- get_covariates_smp(path = "../data_evaluatie")
 
-metadata <- get_characteristics_smp() %>%
+metadata <- get_characteristics_smp(path = "../data_evaluatie") %>%
   filter(protocol != "Lentevuurspin - Gebiedstelling") %>%
   mutate(protocol = ifelse(meetnet == "Lentevuurspin", "Lentevuurspin - Transect + Gebiedstelling", protocol)) %>%
   mutate(duur_meetcyclus = ifelse(meetnet == "Kamsalamander", 4, duur_meetcyclus))
@@ -53,7 +53,7 @@ metadata_overzicht <- metadata %>%
   ungroup() %>%
   mutate(n_bezoeken_doel = ifelse(meetnet == "Argusvlinder", 5 , n_bezoeken_doel))
 
-locaties <- get_locations_smp(only_active = FALSE) 
+locaties <- get_locations_smp(only_active = FALSE, path = "../data_evaluatie") 
   # mutate(is_sample = ifelse(locatie == "Dheide - Poel 4", TRUE, is_sample)) %>% #NOG AANPASSEN --> OK
   # mutate(is_active = ifelse(locatie == "Dheide - Poel 3", FALSE, is_active)) %>%
   # mutate(is_sample = ifelse(meetnet == "Boomkikker" & str_sub(locatie, 1, 7) == "Merkske", FALSE, is_sample)) %>% #NOG AANPASSEN IN MEETNETTEN.BE
@@ -64,6 +64,9 @@ locaties_metadata <- locaties %>%
   st_drop_geometry() %>%
   filter(locatie_type == "locatie") %>%
   distinct(meetnet, locatie, is_active, is_sample) %>%
+  group_by(meetnet, locatie) %>%
+  summarise(is_active = any(is_active),
+            is_sample = any(is_sample)) %>% #soms locatie actief en incatief met zelfde naam
   mutate(is_sample_history = is_sample | (!is_active)) #huidige en historische meetnetlocaties
 
 soortgroepen <- bezoeken %>%
@@ -75,11 +78,11 @@ soortgroepen <- bezoeken %>%
 path <- fileman_up("soortenmeetnetten-data")
 file <- "processed/data_burchten"
                   
-data_extern <-  read_vc(file = file, root = path)
+data_extern <-  read_vc(file = file, root = "../data_evaluatie")
 
 # jaardoelen
 
-jaardoelen <- get_monitoring_targets_smp()
+jaardoelen <- get_monitoring_targets_smp(path = "../data_evaluatie")
 
 # taken niet uitvoerbaar: een aantal taken waren niet uitvoorbaar door overmacht
 
@@ -147,6 +150,7 @@ evaluatie_locaties <- overzicht_locaties %>%
         voldoende_geteld = ifelse(is_sample_history, 
                                   ifelse(aantal_tellingen_jaardoel >= n_bezoeken_doel, 1, 0),
                                   ifelse(aantal_tellingen_cp + aantal_tellingen_gvm >= n_bezoeken_doel, 1, 0)),
+        voldoende_geteld = ifelse(aantal_tellingen_gvm >= 1, 1, voldoende_geteld), 
         voldoende_data = ifelse(aantal_tellingen_cp >= n_bezoeken_doel, 1, 0))
 
 # voor meetnetten met een cyclus langer dan 1 jaar, wordt ook het aantal voldoende getelde locaties binnen de duur_meetcyclus geteld
@@ -238,7 +242,7 @@ check <- overzicht_meetnetten %>%
 
 
 ```{r}
-aantallen_planten_bezoek_meetnetten <- get_counts_smp(species_group = "planten") %>%
+aantallen_planten_bezoek_meetnetten <- get_counts_smp(species_group = "planten", path = "../data_evaluatie") %>%
    mutate(locatie = ifelse(locatie == "Dolaag (d5-56-41)", "Walenbos - Dolaag (d5-56-41)", locatie)) %>% #AAN TE PASSEN in MEETNETTEN
   filter(puntlocatie == 1) %>%
   filter(validatie != -1) %>%
@@ -247,7 +251,7 @@ aantallen_planten_bezoek_meetnetten <- get_counts_smp(species_group = "planten")
   ungroup() %>%
   mutate(bron = "meetnetten.be")
 
-aantallen_planten_extern <- read_vc(file = "processed/data_plantenmeetnetten_2020", root = fileman_up("soortenmeetnetten-data")) %>%
+aantallen_planten_extern <- read_vc(file = "processed/data_plantenmeetnetten_2020", root = "../data_evaluatie") %>%
   filter(!is.na(visit_id)) %>%
   filter(! visit_id %in% aantallen_planten_bezoek_meetnetten$visit_id) %>%
   group_by(meetnet, locatie, datum, visit_id) %>%
@@ -334,7 +338,7 @@ overzicht_locaties_planten <- evaluatie_locaties_planten %>%
   select(meetnet, jaar, locatie, n_bezoeken_totaal, n_bezoeken_meetnetten, n_bezoeken_waarnemingen, n_bezoeken_track, voldoende_geteld_totaal_nieuw) %>%
   arrange(meetnet, locatie)
 
-write.csv2(overzicht_locaties_planten, "../output/plantenmeetnetten_locaties_2019_2020_versie2020-01-18.csv", row.names = FALSE)
+#write.csv2(overzicht_locaties_planten, "../output/plantenmeetnetten_locaties_2019_2020_versie2020-01-18.csv", row.names = FALSE)
 
 overzicht_alle_locaties_planten <- locaties %>%
   filter(soortgroep == "planten") %>%
@@ -345,7 +349,7 @@ overzicht_alle_locaties_planten <- locaties %>%
   left_join(overzicht_locaties_planten, by = c("meetnet", "locatie")) %>%
   arrange(meetnet, locatie, jaar)
 
-write.csv2(overzicht_alle_locaties_planten, "../output/plantenmeetnetten_locaties_2019_2020_versie2020-01-18.csv", row.names = FALSE)
+write.csv2(overzicht_alle_locaties_planten, "../output/plantenmeetnetten_locaties_2019_2020_versie2020-01-19.csv", row.names = FALSE)
 
 overzicht_bezoeken_planten <- bezoeken_planten %>%
   filter(jaar == 2020) %>%
@@ -353,7 +357,7 @@ overzicht_bezoeken_planten <- bezoeken_planten %>%
          track_geregistreerd = ifelse(is.na(track), 0, track)) %>%
   select( meetnet, protocol, jaar, locatie, datum, hoofdteller, status = bezoek_status_detail, aantallen_ingevoerd, track_geregistreerd)
 
-write.csv2(overzicht_bezoeken_planten, "../output/plantenmeetnetten_bezoeken_2020_versie2020-01-11.csv", row.names = FALSE)
+#write.csv2(overzicht_bezoeken_planten, "../output/plantenmeetnetten_bezoeken_2020_versie2020-01-11.csv", row.names = FALSE)
 
 ```
 
@@ -361,7 +365,7 @@ write.csv2(overzicht_bezoeken_planten, "../output/plantenmeetnetten_bezoeken_202
 
 ```{r meetnetDas, message= FALSE, warning= FALSE}
 
-data_das <- read.csv2(file.path(path, "data_extern/count_data/das/meetnet_das_2016_2018.csv"), stringsAsFactors = FALSE)
+data_das <- read.csv2(file.path( "../data_evaluatie", "data_extern/count_data/das/meetnet_das_2016_2018.csv"), stringsAsFactors = FALSE)
 
 burchten_das <- data_das %>%
   rename(jaar = Jaar, gebied = Gebied) %>%
@@ -598,6 +602,13 @@ tabel_meetnetten <- overzicht_meetnetten %>%
 
 write.csv2(tabel_meetnetten, paste("../output/evaluatie_meetnetten_", versie,".csv", sep=""))
 
+tabel_bosbeekjuffer <- evaluatie_locaties %>%
+  filter(meetnet == "Bosbeekjuffer") %>%
+  mutate(type_locatie = ifelse(is_sample, "meetnetlocatie", "extra locatie")) %>%
+  select(meetnet, locatie, jaar, starts_with("aantal"), n_bezoeken_doel, voldoende_geteld, voldoende_geteld_nieuw)
+
+write.csv2(tabel_bosbeekjuffer, "../output/evaluatie_locaties_bosbeekjuffer.csv", row.names = FALSE)
+
 ```
 
 ```{r}
@@ -628,3 +639,5 @@ In dit rapport geven we een overzicht van de uitgevoerde tellingen in kader van 
 Het merendeel van de data komt uit de databank gekoppeld aan de meetnetten.be applicatie. We maken gebruik van een data-export die dateert van `r versie`. Voor een aantal meetnetten is het nog niet mogelijk om de data in te voeren via meetnetten.be. In deze gevallen wordt de data jaarlijks aangeleverd aan het INBO, meestal onder de vorm van een excel-bestand. 
 
 Voor elk meetnet worden jaardoelen gedefinieerd. Dit zijn afspraken over de te leveren inspanning uitgedrukt in aantal tellingen of het aantal locaties met een voldoende aantal tellingen (conform het protocol). Voor de evaluatie van de jaardoelen rekenen we de tellingen conform protocol en de tellingen waarvoor geen veldwerk mogelijk is mee. Voor de verkenning van de aantallen selecteren we enkel de tellingen conform protocol. 
+
+De data waarop de evaluatie gebaseerd is kan je terugvinden in [deze google drive folder](https://drive.google.com/drive/folders/1-FQJpmhgZvj_rwjnVsHWJy8SqaD-SmEH). De R-code die gebruikt werd voor de evaluatie vind je in [deze repository](https://github.com/inbo/soortenmeetnetten-analysis/tree/master/evaluation2020).

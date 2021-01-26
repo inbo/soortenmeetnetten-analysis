@@ -1,0 +1,462 @@
+# Planning 2021
+
+```{r}
+evaluatie_locaties_2020 <- evaluatie_locaties %>%
+  group_by(meetnet, locatie, protocol, meetcyclus) %>%
+  summarise(voldoende_geteld_cyclus = sum(voldoende_geteld) > 0,
+         voldoende_data_cyclus = sum(voldoende_data) > 0) %>%
+  ungroup() %>%
+  filter(meetcyclus == 2) %>%
+  select(meetnet, locatie, protocol, voldoende_geteld_cyclus, voldoende_data_cyclus)
+```
+
+
+## Vlinders
+
+### Heivlinder en Argusvlinder
+
+```{r}
+
+locaties_cyclus <- read_vc(root = fileman_up("soortenmeetnetten-data"),
+                               file =  "raw/werkpakketten_locaties") %>%
+  filter(meetnet %in% c("Argusvlinder", "Oranje zandoogje", "Heivlinder"),
+         werkpakket %in% c("veldwerk 2019", "veldwerk 2020", "veldwerk 2021", "veldwerk 2022")) %>%
+  mutate(jaar = as.numeric(str_sub(werkpakket, start = 10))) %>%
+  left_join(locaties_metadata, by = c("meetnet", "locatie"))
+
+locaties_heivlinder <- locaties_cyclus %>%
+  filter(meetnet == "Heivlinder") %>%
+  group_by(meetnet, locatie, is_active, is_sample) %>%
+  summarise(werkpakketten = str_c(werkpakket, collapse = ";")) %>%
+  ungroup()
+
+locaties_oz <- locaties_cyclus %>%
+  filter(meetnet == "Oranje zandoogje",
+         werkpakket %in% c("veldwerk 2020", "veldwerk 2021", "veldwerk 2022"))  %>%
+  group_by(meetnet, locatie, is_active, is_sample) %>%
+  summarise(werkpakketten = str_c(werkpakket, collapse = ";")) %>%
+  ungroup()
+
+locaties_oz_geen_sample <- locaties_metadata %>%
+  filter(meetnet == "Oranje zandoogje") %>%
+  anti_join(locaties_oz, by = c("meetnet", "locatie")) %>%
+  filter(is_sample) %>%
+  select(meetnet, locatie)
+
+write.csv2(locaties_oz_geen_sample, "../output/oranje_zandoogje_geen_steekproeflocatie.csv", row.names = FALSE)
+
+vlinders_niet_afgewerkt <- locaties_cyclus %>%
+  filter(meetnet %in% c("Heivlinder", "Argusvlinder"))  %>%
+  left_join(evaluatie_locaties_2020, by = c("meetnet", "locatie")) %>%
+  filter()
+  
+write.csv2(heivlinder_argus_wp_2019_niet_afgewerkt, "../../output/heivlinder_argus_wp_2019_niet_afgewerkt.csv", row.names = FALSE)
+```
+
+## Libellen
+
+### Bosbeekjuffer
+
+```{r}
+soort <- "Bosbeekjuffer"
+
+locaties_soort <- locaties %>%
+  st_drop_geometry() %>%
+  filter(meetnet %in% soort) %>%
+  select(meetnet, locatie, is_active, is_sample)
+
+evaluatie_locaties_soort <- evaluatie_locaties %>%
+  filter(meetnet %in% soort) %>%
+  filter(voldoende_data == 1) %>%
+  group_by(locatie, protocol) %>%
+  summarise(voldoende_data_jaar = str_c(jaar, collapse = "; ")) %>%
+  ungroup() %>%
+
+
+kamsalamander_aanwezig <- aantallen %>%
+  filter(meetnet == "Kamsalamander") %>%
+  filter(primaire_soort) %>%
+  group_by(locatie, levensstadium) %>%
+  summarise(totaal = sum(aantal, na.rm = TRUE)) %>%
+  ungroup() %>%
+  filter(!is.na(levensstadium)) %>%
+  spread(key = "levensstadium", value = "totaal")
+```
+
+
+
+
+## Amfibieën
+
+### Kamsalamander
+
+```{r}
+steekproefkader_kamsalamander <- st_read("../../data/steekproefkader", "Kamsalamander_steekproefkader_WGS84_versie2019-03-07")
+
+steekproefkader_details <- steekproefkader_kamsalamander %>%
+  st_drop_geometry() %>%
+  select(naam = Naam, gebied = GebiedCode, stratum = Stratum, steekproef = Steekproef, vlg_geb = Vlg_geb, vlg_punt = Vlg_punt, nStkpr_geb) %>%
+  mutate(naam = str_to_lower(naam)) %>%
+  group_by(gebied) %>%
+  mutate(gebied_in_steekproef = sum(steekproef) > 0) %>%
+  ungroup() %>%
+  mutate(naam = ifelse(naam == "de brand - poel n31" & steekproef == 0, "de brand - poel n31bis", naam),
+         naam = ifelse(naam == "antitankgracht haacht - poel 16c" & steekproef == 0, "antitankgracht haacht - poel 16cbis", naam))
+  
+
+steekproef_kamsalamander <- steekproefkader_kamsalamander %>%
+  filter(Steekproef >= 1)
+```
+
+
+```{r}
+
+locaties_kamsalamander <- locaties %>%
+  filter(meetnet == "Kamsalamander") %>%
+  filter(is_active) %>%
+  select(meetnet, locatie, is_sample) %>%
+  st_drop_geometry()
+
+# jaren <- data.frame(meetnet = "Kamsalamander",
+#                     jaar = c(2017, 2018, 2019))
+
+protocollen <- data.frame(meetnet = "Kamsalamander",
+                    protocol = c("Amfibieën - Fuiken",
+                                 "Amfibieën - Larven en metamorfen"))
+
+overzicht_meetcyclus <- locaties_kamsalamander %>%
+  # left_join(jaren, by = "meetnet") %>%
+  left_join(protocollen, by = "meetnet")
+
+```
+
+#### To do cyclus 2017-2019
+
+```{r}
+
+evaluatie_kamsalamander <-  evaluatie_locaties %>%
+  filter(is_active == 1) %>%
+  filter(meetnet == "Kamsalamander") %>%
+  group_by(meetnet, protocol, is_sample, locatie) %>%
+  summarise(voldoende_data_cyclus= sum(voldoende_data) > 0,
+            voldoende_geteld_cyclus = sum(voldoende_geteld) > 0 ) %>%
+  ungroup()
+
+overzicht_uitvoer <- overzicht_meetcyclus %>%
+  left_join(evaluatie_kamsalamander, by = c("meetnet","locatie", "protocol", "is_sample")) %>%
+  mutate(voldoende_data_cyclus = ifelse(is.na(voldoende_data_cyclus), 0, voldoende_data_cyclus),
+         voldoende_geteld_cyclus = ifelse(is.na(voldoende_geteld_cyclus), 0, voldoende_geteld_cyclus)
+         ) %>%
+  arrange(desc(is_sample), locatie, protocol) 
+  
+overzicht_uitvoer_wide <- overzicht_uitvoer %>%
+  select(-voldoende_geteld_cyclus) %>%
+  mutate(protocol = ifelse(protocol == "Amfibieën - Fuiken", "fuiken",
+                           ifelse(protocol == "Amfibieën - Larven en metamorfen", "larventelling", NA))) %>%
+  spread(key = "protocol", value = "voldoende_data_cyclus") %>%
+  filter(!(is_sample == 0 & fuiken == 0 & larventelling == 0)) %>%
+  arrange(is_sample, locatie) 
+
+overzicht_uitvoer_wide2 <- overzicht_uitvoer %>%
+  select(-voldoende_data_cyclus) %>%
+  mutate(protocol = ifelse(protocol == "Amfibieën - Fuiken", "fuiken_vg",
+                           ifelse(protocol == "Amfibieën - Larven en metamorfen", "larventelling_vg", NA))) %>%
+  spread(key = "protocol", value = "voldoende_geteld_cyclus") %>%
+  filter(!(is_sample == 0 & fuiken_vg == 0 & larventelling_vg == 0)) %>%
+  arrange(is_sample, locatie) %>%
+  select(-fuiken_vg)
+
+overzicht_uitvoer_wide3 <- overzicht_uitvoer_wide %>%
+  left_join(overzicht_uitvoer_wide2, by = c("is_sample","meetnet", "locatie")) %>%
+  mutate(larventelling_gvm = ifelse(larventelling == 0 & larventelling_vg == 1, 1, 0)) %>%
+  select(-larventelling_vg)
+  
+```
+
+
+```{r}
+check_extra <- overzicht_uitvoer_wide3 %>%
+  mutate(locatie = str_replace(locatie, "poel", "Poel"),
+         temp = str_detect(locatie, "Poel"),
+         temp2 = str_sub(locatie, -1, -1) %in% as.character(c(0:50)),
+         naam = ifelse(temp, locatie, 
+                       ifelse(temp2, str_c(str_sub(locatie, 1, -2), "- Poel ", str_sub(locatie, -1, -1)),
+                              str_c(locatie, " - Poel 1"))),
+         naam = str_to_lower(naam),
+         afgewerkt = (fuiken == 1) & (larventelling == 1)) %>%
+  select(-temp, -temp2) %>%
+  left_join(steekproefkader_details, by = "naam") %>%
+  filter(!is.na(gebied)) %>%
+  group_by(gebied) %>%
+  mutate(n_geteld_gebied_sample = sum(afgewerkt & (is_sample == 1)),
+         n_geteld_gebied_extra = sum(afgewerkt & (is_sample == 0))) %>%
+  ungroup() %>%
+  mutate(n_tekort_gebied =nStkpr_geb * gebied_in_steekproef - n_geteld_gebied_sample) %>%
+  filter(gebied_in_steekproef == 1) %>%
+  mutate(extra_locatie_pot = afgewerkt & (is_sample == 0) & (n_tekort_gebied > 0))
+    
+    
+vervangpunten <- check_extra %>%
+  filter(extra_locatie_pot) %>%
+  group_by(gebied) %>%
+  mutate(volgorde_vervanging = rank(vlg_punt)) %>%
+  ungroup() %>%
+  mutate(vervangpunt = volgorde_vervanging <= n_tekort_gebied) %>%
+  filter(vervangpunt)
+
+te_vervangen_binnen_gebied <- check_extra %>%
+  filter(gebied %in% vervangpunten$gebied) %>%
+  filter(is_sample == 1) %>%
+  filter(!afgewerkt) %>%
+  group_by(gebied) %>%
+  mutate(volgorde_vervanging = rank(desc(vlg_punt))) %>%
+  ungroup()
+
+te_vervangen_gebied_klein <- check_extra %>%
+  filter(is_sample == 1) %>%
+  filter(!afgewerkt) %>%
+  filter(stratum == "Klein") %>%
+  arrange(desc(vlg_geb), desc(vlg_punt))
+
+```
+
+
+```{r}
+to_do <- overzicht_uitvoer_wide3 %>%
+  filter(is_sample == 1) %>%
+  filter(fuiken == 0 | larventelling == 0) %>%
+  filter(!locatie %in% c("Antitankgracht Haacht - Poel 16",
+                      "De Brand - Poel n31",
+                      "Kleine Struisbeekvallei - Poel 1",
+                      "Lo-Relinge - Poel 3")) %>%
+  mutate(todo = ifelse(fuiken == 0 & larventelling == 0, "fuiken + larventelling",
+                       ifelse(fuiken == 0, "enkel fuiken",
+                              "enkel larventelling"))) 
+
+sum(to_do$fuiken == 0)
+sum(to_do$larventelling == 0)
+sum(to_do$larventelling_gvm == 1)
+
+write.csv2(to_do, "../../output/todo_kamsalamander.csv")
+
+
+to_do_corr <- to_do %>%
+  filter(!(fuiken == 1 & larventelling_gvm == 1))
+```
+
+#### Cyclus 2020-2024
+
+```{r}
+
+overzicht_cyclus1 <- evaluatie_locaties %>%
+  filter(meetnet == "Kamsalamander") %>%
+  filter(voldoende_data == 1 | (protocol == "Amfibieën - Larven en metamorfen" & voldoende_geteld == 1)) %>%
+  filter(is_sample == 1 | locatie %in% c("Antitankgracht Haacht - Poel 15", "De Brand - Poel 6", "Kleine Struisbeekvallei - poel 2", "Vallei van de Mark - Poel 1")) %>%
+  select(meetnet, protocol, locatie, jaar, voldoende_geteld, voldoende_data) %>%
+  group_by(locatie) %>%
+  mutate(afgewerkt = n_distinct(protocol) == 2) %>%
+  ungroup() %>%
+  filter(afgewerkt)
+
+overzicht_cyclus1_wide <- overzicht_cyclus1 %>%
+  select(meetnet, protocol, locatie, jaar, afgewerkt) %>%
+  group_by(meetnet, protocol, locatie, afgewerkt) %>%
+  summarise(jaar = str_c(jaar, collapse = " + ")) %>%
+  ungroup() %>%
+  spread(key = "protocol", value = "jaar") %>%
+  arrange(`Amfibieën - Fuiken`)
+
+write.csv2(overzicht_cyclus1_wide, "../../output/kamsalamander_2017_2019.csv", row.names = FALSE)
+
+```
+
+### Rugstreeppad
+
+```{r}
+overzicht_cyclus1_rugstreeppad <- evaluatie_locaties %>%
+  filter(meetnet == "Rugstreeppad") %>%
+  filter(jaar >= 2019) %>%
+  group_by(meetnet, is_sample, protocol, locatie) %>%
+  summarise(jaar = str_c(jaar, collapse = " + "),
+            voldoende_data = sum(voldoende_data) >= 1,
+            voldoende_geteld = sum(voldoende_geteld) >= 1) %>%
+  ungroup() %>%
+  group_by(meetnet) %>%
+  mutate(n = n_distinct(locatie)) %>%
+  ungroup() %>%
+  arrange(meetnet, jaar, locatie)
+```
+
+### Boomkikker
+
+```{r}
+
+boomkikker_wp_2019_niet_afgewerkt <-taken %>%
+  filter(meetnet == "Boomkikker",
+         jaar >= 2019) %>%
+  distinct(meetnet, protocol, werkpakket, jaar,  locatie) %>%
+  left_join( select( evaluatie_locaties, meetnet, protocol, jaar, locatie, voldoende_geteld), by = c("meetnet", "protocol", "jaar", "locatie")) %>%
+  mutate(voldoende_geteld = ifelse(is.na(voldoende_geteld), 0, voldoende_geteld),
+         protocol = ifelse(protocol == "Padden en kikkers - Roepkoren", "roepkoren", "larven")) %>%
+  spread(key = "protocol", value = "voldoende_geteld") %>%
+  filter(roepkoren == 0 | larven == 0) %>%
+  rename(roepkoren_vold_geteld = roepkoren, larven_vold_geteld = larven)
+  
+write.csv2(boomkikker_wp_2019_niet_afgewerkt, "../../output/boomkikker_wp_2019_niet_afgewerkt.csv", row.names = FALSE)
+
+```
+
+
+
+## Libellen
+
+```{r}
+overzicht_cyclus1_libellen <- evaluatie_locaties %>%
+  filter(protocol == "Libellen - Transecten") %>%
+  group_by(meetnet, is_sample, protocol, locatie) %>%
+  summarise(jaar = str_c(jaar, collapse = " + "),
+            voldoende_data = sum(voldoende_data) >= 1) %>%
+  ungroup() %>%
+  group_by(meetnet) %>%
+  mutate(n = n_distinct(locatie)) %>%
+  ungroup() %>%
+  arrange(meetnet, jaar, locatie)
+```
+
+### Te vervangen locaties
+
+#### Variabele waterjuffer
+
+In het meetnet Variabele waterjuffer moeten de locaties 'Oude Scheldearm Coupure' en 'Waterschei Stiemerbeekvallei' vervangen worden. Het leefgebied in de locatie 'Oude Scheldearm Coupure' is niet geschikt en wordt vervangen door 'Coupure Avelgem' (Z0004). Voor de vervanging van de andere locatie baseren we ons op GRTS-ranking. De eerstvolgende gebieden op basis van de ranking zijn deelgebiedjes van grotere gebieden die al in de steekproef zitten (Z0076, Z0083, Z0064) en selecteren we daarom niet. Het eerstvolgende gebied dat een afzonderlijke populatie bevat, is 'Oudbroekpolder' (Z0038).   
+
+```{r}
+
+steekproef_vw <- locaties %>%
+  filter(meetnet == "Variabele waterjuffer")
+
+steekproef_vw_orig <- read_sf("../../data/steekproefkader/steekproefvariabelewaterjuffer/variabele_selectie._dissolve.shp") %>%
+   st_drop_geometry()
+
+steekproefkader_vw_orig <- read_sf("../../data/steekproefkader/steekproefvariabelewaterjuffer/variabele_steekproefkader_dissolve.shp", crs = 31370) 
+  
+steekproefkader_vw <- steekproefkader_vw_orig %>%
+  st_transform(crs = 4326) %>%
+  left_join(steekproef_vw_orig, by =c("GRTS", "Zoekzone")) %>%
+  mutate(Steekproef = ifelse(is.na(Steekproef), 0, Steekproef),
+         toponiem = ifelse(is.na(toponiem), "", toponiem))
+
+steekproefkader_vw_update <- steekproefkader_vw %>%
+  mutate(Steekproef = ifelse(toponiem %in% c("Oude Scheldearm Coupure", "Waterschei Stiemerbeekvallei"), 0, Steekproef),
+         Steekproef = ifelse(Zoekzone %in% c("Z0004", "Z0021"), 1, Steekproef),
+         toponiem = ifelse(Zoekzone == "Z0004", "Coupure Avelgem", toponiem),
+         toponiem = ifelse(Zoekzone == "Z0021", "Tenhaagdoornheide", toponiem),
+         toponiem = ifelse(toponiem == "Doode Bemde", "Oud-Heverlee vijvers", toponiem)) %>%
+  select(zoekzone = Zoekzone, grts = GRTS, naam = toponiem, steekproef = Steekproef, geometry)
+
+nieuwe_locaties <- steekproefkader_vw_update %>%
+  filter(naam %in% c("Coupure Avelgem", "Tenhaagdoornheide"))  %>%
+  st_transform(31370) %>%
+  st_buffer(dist = 10) %>%
+  st_buffer(dist = -10) %>%
+  st_transform(4326)
+
+st_write(steekproefkader_vw_update, dsn =  "../../data/steekproefkader", layer =  "variabele-waterjuffer_steekproefkader_versie2020-04-07", driver = "ESRI Shapefile", update = TRUE)
+
+st_write(nieuwe_locaties, "../../output/update_meetnetten", "wariabele-waterjuffer_addLocations_2020-04-07", driver = "ESRI Shapefile", update = TRUE)
+```
+
+#### Vroege glazenmaker
+
+In het meetnet Vroege glazenmaker vervangen we de locatie 'Grootbroek' door de locatie 'Doode Bemde' die al deel uitmaakt van het meetnet Variabele waterjuffer. In het meetnet Vroege glazenmaker is dit gebied opgesplitst in twee meetnetlocaties. Om de synergie tussen beide meetnetten te verhogen, vervangen we deze twee meetnetlocatie door de meetnetlocatie zoals afgelijnd in het meetnet Variabele waterjuffer.
+
+```{r}
+
+steekproef_vg_orig <- read_sf("../../data/steekproefkader/steekproefvroegeglazenmaker/VroegeGlazenmaker_SteekproefGebieden.shp") %>%
+   st_drop_geometry() %>%
+  rename(GRTS = GRTS_gbd) %>%
+  mutate(Steekproef = 1)
+
+steekproefkader_vg_orig <- read_sf("../../data/steekproefkader/steekproefvroegeglazenmaker/vroege_steekproefkader_dissolve.shp", crs = 31370) 
+  
+steekproefkader_vg <- steekproefkader_vg_orig %>%
+  st_transform(crs = 4326) %>%
+  left_join(steekproef_vg_orig, by =c("GRTS", "Zoekzone")) %>%
+  mutate(Steekproef = ifelse(is.na(Steekproef), 0, Steekproef),
+         toponiem = ifelse(is.na(Toponiem), "", Toponiem))
+
+vijvers_vw <- steekproefkader_vw_update %>%
+  filter(naam == "Oud-Heverlee vijvers")
+
+steekproefkader_vg_update <- steekproefkader_vg %>%
+  mutate(Steekproef = ifelse(toponiem %in% c("Grootbroek"), 0, Steekproef)) %>%
+  select(zoekzone = Zoekzone, grts = GRTS, naam = toponiem, steekproef = Steekproef, geometry) %>%
+  filter(!zoekzone %in% c("Z0007", "Z0095")) %>%
+  rbind(vijvers_vw) %>%
+  mutate(steekproef = ifelse(naam %in% c("Oud-Heverlee vijvers"), 1, steekproef)) 
+  
+nieuwe_locaties <- steekproefkader_vg_update %>%
+  filter(naam %in% c("Oud-Heverlee vijvers")) %>%
+  st_transform(31370) %>%
+  st_buffer(dist = 10) %>%
+  st_buffer(dist = -10) %>%
+  st_transform(4326)
+
+st_write(steekproefkader_vg_update, "../../data/steekproefkader", "vroege-glazenmaker_steekproefkader_versie2020-03-10_2", driver = "ESRI Shapefile", update = TRUE)
+
+st_write(nieuwe_locaties, "../../output/update_meetnetten", "vroege-glazenmaker_addLocations_2020-03-10_3", driver = "ESRI Shapefile", update = TRUE)
+```
+
+### Hoogveenglanslibel
+
+```{r}
+hoogveenglanslibel_niet_afgewerkt <- taken %>%
+  filter(meetnet == "Hoogveenglanslibel",
+         jaar >= 2018) %>%
+  distinct(meetnet, protocol, werkpakket, jaar,  locatie) %>%
+  left_join( select( evaluatie_locaties, meetnet, protocol, jaar, locatie, voldoende_geteld, voldoende_data), by = c("meetnet", "protocol", "jaar", "locatie")) %>%
+  mutate(voldoende_geteld = ifelse(is.na(voldoende_geteld), 0, voldoende_geteld),
+         voldoende_data = ifelse(is.na(voldoende_data), 0, voldoende_data)) 
+
+write.csv2(hoogveenglanslibel_niet_afgewerkt, "../output/hoogveenglanslibel_vw2019.csv", row.names = FALSE)
+```
+
+## Vlinders
+
+### Oranje zandoogje
+
+```{r}
+overzicht_cyclus1_oz <- evaluatie_locaties %>%
+  filter(meetnet == "Oranje zandoogje") %>%
+  group_by(meetnet, is_sample, protocol, locatie) %>%
+  summarise(jaar = str_c(jaar, collapse = " + "),
+            voldoende_data = sum(voldoende_data) >= 1,
+            voldoende_geteld = sum(voldoende_geteld) >= 1) %>%
+  ungroup() %>%
+  group_by(meetnet) %>%
+  mutate(n = n_distinct(locatie)) %>%
+  ungroup() %>%
+  arrange(meetnet, jaar, locatie)
+```
+
+
+
+
+## Roestbruine kniptor
+
+
+```{r}
+overzicht_geteld_kniptor <- evaluatie_locaties %>%
+  filter(meetnet == "Roestbruine kniptor") %>%
+  filter(voldoende_geteld == 1) %>%
+  distinct( meetnet, locatie, voldoende_geteld)
+
+locaties_niet_geteld <- locaties %>%
+  filter(meetnet == "Roestbruine kniptor") %>%
+  filter(is_active) %>%
+  anti_join(overzicht_geteld_kniptor, by = c("locatie")) %>%
+  select(meetnet, locatie) %>%
+  st_drop_geometry()
+
+write.csv2(locaties_niet_geteld, "../../output/roestbruine_kniptor_niet_geteld.csv", row.names = FALSE)
+```
+
