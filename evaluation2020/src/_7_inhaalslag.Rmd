@@ -1,0 +1,249 @@
+# Inhaalslagen
+
+## Evaluatie inhaalslag Gerande oeverspin
+
+```{r}
+data_oeverspinnen_extern <- read_vc(file = "processed/data_oeverspinnen",
+                             root = fileman_up("soortenmeetnetten-data")) %>%
+  filter(validatie == "goedgekeurd") %>%
+  filter(str_to_lower(naam_nl) == "gerande oeverspin") %>%
+  select(id, meetnet, jaar, datum, locatie, aantal, x, y, gebied) %>%
+  mutate(nieuwe_locatie = is.na(locatie),
+         locatie = ifelse(is.na(locatie),
+                          ifelse(gebied != "  ", gebied, str_c("nieuw_", id)),
+                          locatie)) %>%
+  group_by(meetnet, locatie, nieuwe_locatie, jaar, datum) %>%
+  summarise(aantal = sum(aantal)) %>%
+  ungroup() %>%
+  mutate(bron = "waarnemingen.be")
+
+data_oeverspinnen_meetnetten <- aantallen %>%
+  filter(meetnet == "Gerande oeverspin") %>%
+  filter(primaire_soort) %>%
+  group_by(visit_id, meetnet, datum, locatie, jaar) %>%
+  summarise(aantal = sum(aantal)) %>%
+  ungroup() %>%
+  mutate(nieuwe_locatie = FALSE,
+         bron = "meetnetten.be")
+
+locaties_prioritair <- read_vc(root = fileman_up("soortenmeetnetten-data"),
+                               file =  "raw/werkpakketten_locaties") %>%
+  filter(meetnet == "Gerande oeverspin",
+         werkpakket == "veldwerk 2020")
+
+
+data_oeverspinnen <- bind_rows(
+  data_oeverspinnen_extern,
+  data_oeverspinnen_meetnetten
+) %>%
+  mutate(locatie_prioritair = locatie %in% locaties_prioritair$locatie) %>%
+  group_by(meetnet, locatie, nieuwe_locatie, locatie_prioritair) %>%
+  arrange(jaar, bron) %>%
+  summarise(aantal = sum(aantal),
+            aantal_bezoeken = n(),
+            jaar = str_c(unique(jaar), collapse = "; "),
+            bron = str_c(unique(bron), collapse = "; ")) %>%
+  ungroup()
+
+```
+
+Deze tabel geeft een overzicht van de onderzochte locaties, zowel op basis van gegevens uit meetnetten.be als gegevens uit waarnemingen.be.
+
+```{r}
+overzicht_oeverspinnen <- data_oeverspinnen %>%
+  group_by(nieuwe_locatie, locatie_prioritair) %>%
+  summarise(n_locaties = n(),
+            n_locaties_aanwezig = sum(aantal > 0),
+            n_locaties_afwezig = sum(aantal == 0)) %>%
+  ungroup()
+```
+
+```{r}
+overzicht_oeverspinnen %>%
+    mutate(pot_leefgebied = ifelse(nieuwe_locatie, "Nee", "Ja"),
+         locatie_prioritair = ifelse(locatie_prioritair, "Ja", "Nee")) %>%
+   select(-nieuwe_locatie) %>%
+  select(pot_leefgebied, everything()) %>%
+  rename("potentieel leefgebied" = pot_leefgebied) %>%
+  kable() %>%
+  kable_styling()
+```
+
+
+Onderstaande tabel geeft een overzicht van de onderzochte locaties in kader van de inhaalslag voor Gerande oeverspin. 
+
+```{r}
+data_oeverspinnen %>%
+  mutate(pot_leefgebied = ifelse(nieuwe_locatie, "Nee", "Ja"),
+         locatie_prioritair = ifelse(locatie_prioritair, "Ja", "Nee")) %>%
+   select(-meetnet, -nieuwe_locatie) %>%
+  rename("potentieel leefgebied" = pot_leefgebied) %>%
+  datatable(rownames = FALSE,
+            filter = 'top')
+
+```
+
+## Mollusken
+
+```{r}
+data_mollusken_extern <- read_vc(file = "processed/data_mollusken",
+                             root = fileman_up("soortenmeetnetten-data")) %>%
+  select(id, meetnet, jaar, datum, locatie, aantal, x, y, gebied, validatie) %>%
+  mutate(nieuwe_locatie = is.na(locatie),
+         locatie = ifelse(is.na(locatie),
+                          ifelse(gebied != "" & !is.na(gebied), gebied, str_c("nieuw_", id)),
+                          locatie)) %>%
+  group_by(meetnet, locatie, nieuwe_locatie, jaar, datum, validatie) %>%
+  summarise(aantal = sum(aantal),
+            n_punten = n_distinct(x)) %>%
+  ungroup() %>%
+  mutate(bron = "waarnemingen.be")
+
+data_mollusken_meetnetten <- aantallen %>%
+  filter(soortgroep == "mollusken") %>%
+  filter(primaire_soort) %>%
+  group_by(visit_id, meetnet, datum, locatie, jaar) %>%
+  summarise(aantal = sum(aantal),
+            n_punten = n_distinct(sample_id)) %>%
+  ungroup() %>%
+  mutate(nieuwe_locatie = FALSE,
+         bron = "meetnetten.be",
+         validatie = "niet beoordeeld")
+
+locaties_prioritair <- locaties %>%
+  filter(soortgroep == "mollusken")
+
+data_mollusken_bezoeken <- bind_rows(
+  data_mollusken_extern,
+  data_mollusken_meetnetten
+) %>%
+  mutate(locatie_prioritair = locatie %in% locaties_prioritair$locatie) %>%
+  arrange(meetnet, locatie, jaar)
+
+data_mollusken_locatie <- data_mollusken_bezoeken %>%
+  group_by(meetnet, locatie, nieuwe_locatie, locatie_prioritair) %>%
+  arrange(jaar, bron, validatie) %>%
+  summarise(aantal_individuen_goedgekeurd = sum(aantal * (validatie == "goedgekeurd")),
+            aantal_individuen_niet_beoordeeld = sum(aantal * (validatie == "niet beoordeeld")),
+            aantal_bezoeken = n(),
+            n_punten = sum(n_punten),
+            bron = str_c(unique(bron), collapse = "; "),
+            jaar = str_c(unique(jaar), collapse = "; "),
+            validatie = sum(validatie == "goedgekeurd") > 0 ) %>%
+  ungroup() %>%
+  mutate(validatie = ifelse(validatie, "goedgekeurd", "niet beoordeeld"))
+
+
+```
+
+### Bezoeken in 2020
+
+Volgende tabel geeft een overzicht van de bezoeken uitgevoerd in 2020 die mogelijks meegerekend kunnen worden voor de inhaalslag van de mollusken.
+
+```{r}
+bezoeken_2020 <- data_mollusken_bezoeken %>%
+  mutate(locatie_meetnetten = ifelse(nieuwe_locatie, "Nee", "Ja")) %>%
+  group_by(meetnet, locatie, locatie_meetnetten, jaar, datum, aantal,validatie) %>%
+  summarise(bron = str_c(bron, collapse = "; "),
+            n_punten = max(n_punten)) %>%
+  ungroup() %>%
+  arrange(meetnet, locatie) %>%
+  filter(jaar == 2020) 
+
+bezoeken_2020 %>%
+  select(meetnet, locatie, "locatie meetnetten.be" = locatie_meetnetten, datum, "aantal individuen"= aantal, "aantal punten bezocht" = n_punten, validatie, bron) %>%
+  kable() %>%
+  kable_styling() %>%
+    collapse_rows(c(1,2))
+```
+
+
+
+```{r}
+overzicht_mollusken <- data_mollusken_locatie %>%
+  group_by(meetnet, locatie_prioritair) %>%
+  summarise(n_locaties_bezocht = n(),
+            n_locaties_aanwezig_goedgekeurd = sum(aantal_individuen_goedgekeurd > 0),
+            n_locaties_aanwezig_niet_beoordeeld = sum((aantal_individuen_niet_beoordeeld > 0) & (aantal_individuen_goedgekeurd == 0)), 
+            n_locaties_afwezig = sum((aantal_individuen_goedgekeurd + aantal_individuen_niet_beoordeeld) == 0)) %>%
+  ungroup()
+```
+
+### Overzicht op basis van alle aangeleverde data
+
+Onderstaande tabel geeft een overzicht van het aantal onderzochte locaties op basis van alle aangeleverde data (zowel meetnetten.be en waarnemingen.be).
+
+```{r}
+overzicht_mollusken %>%
+    mutate(locatie_prioritair = ifelse(locatie_prioritair, "Ja", "Nee")) %>%
+  arrange(meetnet, locatie_prioritair) %>%
+  select(meetnet, "locatie meetnetten.be" = locatie_prioritair, "bezocht" = n_locaties_bezocht, "aanwezigheid goedgekeurd" = n_locaties_aanwezig_goedgekeurd, "aanwezigheid niet beoordeeld" = n_locaties_aanwezig_niet_beoordeeld, "afwezig" = n_locaties_afwezig) %>%
+  kable() %>%
+  kable_styling() %>%
+    collapse_rows(c(1,2)) %>%
+    add_header_above(c(" " = 2, "Aantal locaties" = 4))  
+```
+
+### Stand van zake locaties in meetnetten.be
+
+Hieronder vind je een kaart met alle locaties die in meetnetten.be zitten voor de inhaalslagen van de mollusken, met de status per locatie
+
+```{r}
+
+shapes_to_filter <- locaties_prioritair %>%
+  left_join(data_mollusken_locatie, by = c("meetnet", "locatie")) %>%
+  mutate(locatie_status = ifelse(is.na(aantal_bezoeken), "niet onderzocht",
+                                 ifelse(aantal_individuen_goedgekeurd > 0, "aanwezig - goedgekeurd",
+                                        ifelse(aantal_individuen_niet_beoordeeld > 0, "aanwezig - niet beoordeeld", "afwezig")))
+         ) %>%
+  select(meetnet, locatie, locatie_status, bron, jaar, aantal_bezoeken, n_punten, aantal_individuen_goedgekeurd, aantal_individuen_niet_beoordeeld, jaar) %>%
+  as_Spatial()
+
+
+```
+
+```{r}
+sd_map <- SharedData$new(shapes_to_filter)
+sd_df <- SharedData$new(as.data.frame(shapes_to_filter@data), group = sd_map$groupName())
+
+colorpal <- c(INBOgreen, "yellow", INBOred, INBOblue)
+factpal <- colorFactor(colorpal, sd_map$locatie_status)
+
+#Create crosstalk filters using sd_df:
+
+bscols(filter_select("meetnet",  "Selecteer inhaalslag", sd_df, ~meetnet),
+       filter_checkbox("locatie_status",  "Locatiestatus", sd_df, ~locatie_status)
+)
+
+#Create the map using the sd_map object:
+
+leaflet(sd_map) %>%
+  addProviderTiles("OpenStreetMap") %>%
+  addPolygons( color = ~factpal(locatie_status), label = ~locatie) %>%
+  addLegend(pal = factpal, values = ~locatie_status)
+
+datatable(sd_df,
+          rownames = FALSE,
+            filter = 'top')
+```
+
+### Overzicht alle onderzochte locaties
+
+Hieronder vind je een overzicht met de stand van zake voor alle locaties, ook deze die niet in meetnetten.be zitten.
+
+```{r}
+data_mollusken_locatie %>%
+  mutate(locatie_prioritair = ifelse(locatie_prioritair, "Ja", "Nee")) %>%
+  select(-nieuwe_locatie) %>%
+  select(meetnet, locatie, "locatie meetnetten.be" = locatie_prioritair, "aantal individuen goedgekeurd" = aantal_individuen_goedgekeurd, "aantal individuen niet beoordeeld" = aantal_individuen_niet_beoordeeld, "aantal bezoeken" = aantal_bezoeken, "aantal punten bezocht" = n_punten, jaar, bron) %>%
+  datatable(rownames = FALSE,
+            filter = 'top',
+            extensions = c('Buttons', 'Scroller'),
+            options = list(
+             dom = 'Bfrtip',
+            buttons = c('copy', 'excel'),
+            language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+            deferRender = TRUE)
+          )
+
+```
