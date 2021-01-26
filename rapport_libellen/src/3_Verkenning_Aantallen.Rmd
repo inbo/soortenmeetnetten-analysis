@@ -1,0 +1,321 @@
+
+# Verkenning van de getelde aantallen
+
+In dit onderdeel geven we een overzicht van de getelde aantallen.
+
+```{r}
+
+counts <- get_counts_smp("libellen", count_aggregation = "lifestage") %>%
+  mutate(jaar = factor(jaar)) # 'imago' and 'imago (uitgekleurd)' are agregated
+
+counts_details <- get_counts_smp("libellen") %>%
+  mutate(type_waarneming = ifelse(activiteit == "copula", "copula",
+                                  ifelse(activiteit == "eiafzettend", str_c(activiteit, geslacht, sep = " "),
+                                         ifelse(levensstadium == "imago (niet uitgekleurd)", "imago (niet uitgekleurd)",
+                                                str_c(levensstadium, geslacht, sep = " ")))),
+         type_waarneming = factor(type_waarneming, levels = c("imago F", "imago M", "imago U", "imago (niet uitgekleurd)", "eiafzettend F", "eiafzettend U", "copula", "larvenhuidje F", "larvenhuidje M", "larvenhuidje U"))) %>%
+  mutate(jaar = factor(jaar),
+         soort_nl = factor(soort_nl)) %>%
+  left_join(select(libellen_taxonomy, meetnet, species_order), by = "meetnet")  %>%
+  arrange(species_order, jaar, type_waarneming)
+
+summary_counts <- get_summary_counts("libellen") 
+
+summary_distribution <- get_summary_distribution("libellen")
+
+summary_table <- summary_counts$lifestage %>%
+  left_join(summary_distribution, by = c("primaire_soort", "soortgroep", "meetnet", "protocol", "jaar", "soort_nl", "soort_wet", "levensstadium")) %>%
+  group_by(primaire_soort, soort_nl, levensstadium) %>%
+  mutate(tot = sum(aantal_totaal)) %>%
+  ungroup() %>%
+  filter(((protocol %in% c("Libellen - Larvenhuidjes Beekrombout", "Libellen - Larvenhuidjes")) & (levensstadium == "larvenhuidje")) |
+           ((protocol %in% c("Libellen - Transect", "Libellen - Populatietelling per locatie")) & (levensstadium == "imago"))) %>%
+  left_join(select(libellen_taxonomy, meetnet, species_order), by = "meetnet")  %>%
+  arrange(species_order)
+  
+
+summary_counts_locatie <- get_summary_counts("libellen", "locatie")
+
+summary_counts_locatie <- summary_counts_locatie$lifestage
+```
+
+## Aantal imago's of larvehuidjes van de prioritaire soorten 
+
+De Tabel \@ref(tab:tabaantaltot) toont per soort en per jaar:
+
+- het gemiddeld aantal getelde imago's of larvenhuidjes per bezoek;
+- het totaal aantal getelde imago's of larvenhuidjes; 
+- het aantal meetnetlocaties waar imago's of larvenhuidjes werden waargenomen;
+- de proportie van de bezochte meetnetlocaties waar imago's of larvenhuidjes werden waargenomen.
+
+```{r tabaantaltot, eval=TRUE}
+#library(formattable)
+
+summary_table %>% 
+  # mutate(aantal_gemiddeld = color_bar("lightgreen")(aantal_gemiddeld),
+  #        proportie_locaties_aanwezig = color_bar("lightgreen")(proportie_locaties_aanwezig)) %>%
+  filter(!is.na(soort_nl)) %>%
+  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+  filter(primaire_soort) %>%
+  mutate(jaar = factor(jaar),
+         soort_nl = factor(soort_nl)) %>%
+  select("Soort (nl.)" = soort_nl, "Soort (wet.)" = soort_wet, Levensstadium = levensstadium, Jaar = jaar, "Totaal aantal" = aantal_totaal, "Gemiddeld aantal" = aantal_gemiddeld, "Locaties waargenomen" = locaties_aanwezig, "Proportie locaties waargenomen (%)" = proportie_locaties_aanwezig) %>%
+  kbl(caption = "Overzicht getelde aantallen voor de prioritaire soorten",
+      format = select_format) %>%
+  kable_styling(bootstrap_options = c( "condensed"), font_size = 10) %>%
+  column_spec(2, italic = TRUE) %>%
+  collapse_rows(c(1,2, 3), target = 1) %>%
+  scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
+```
+
+
+```{r, fig.height = 7, eval=FALSE}
+counts %>% 
+  filter(primaire_soort) %>%
+  ggplot(aes(x= jaar, y = aantal)) +  
+  #geom_point(alpha = 0.6, colour = inbo.grijs) +
+  stat_summary(fun.data = "mean_cl_boot", colour = inbo.groen, alpha = 1) +
+  facet_wrap(~ soort_nl, scale = "free_y", ncol = 3) +
+  labs(y = "Aantal getelde individuen", x = "Jaar") +
+  theme(legend.position = "bottom") +
+  ylim(0, NA)
+```
+
+
+```{r, eval=FALSE}
+
+summary_table %>% 
+  select(-bezoeken, -locaties_geteld, - aantal_maximum) %>%
+  filter(!is.na(soort_nl)) %>%
+  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+  filter(primaire_soort) %>%
+  arrange(desc(tot)) %>%
+  mutate(jaar = factor(jaar),
+         soort_nl = factor(soort_nl)) %>%
+  select(soort_nl, soort_wet, jaar, "totaal aantal" = aantal_totaal, "gemiddeld aantal" = aantal_gemiddeld, locaties = locaties_aanwezig, "proportie locaties (%)" = proportie_locaties_aanwezig) %>%
+  # select(-soortgroep, -soort_nl) %>%
+  datatable(rownames = FALSE,
+            filter = 'top',
+            extensions = 'Buttons', 
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'pdf', 'csv', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              initComplete = JS(
+                            "function(settings, json) {",
+                            "$(this.api().table().header()).css({'background-color': '#959B38'});",
+                            "}")
+              )
+            )
+
+
+```
+
+## Getelde aantallen van de prioritaire soorten opgesplitst per levenststadium, activitiet en geslacht
+
+Tijdens het tellen van libellen wordt er onderscheidt gemaakt tussen het geslacht (mannelijk of M, vrouwelijk of F, onbekend of U), het levensstadium (imago, imago (niet uitgekleurd) en larvenhuidje) en de activiteit (ter plaatse, copula, eiafzettend). In \@ref(tab:tabaantaldetail) tonen we het gemiddelde getelde aantal voor volgende type waarnemingen:
+
+- imago F, imago M en imago U;
+- imago (niet uitgekleurd);
+- larvenhuidje F, larvenhuidje M en larvenhuidje U;
+- eiafzettend F en eiafzettend U;
+- copula .
+
+```{r countsLevensstadium}
+
+summary_counts_type <- summary_counts$details %>%
+  mutate(type_waarneming = ifelse(activiteit == "copula", "copula",
+                                  ifelse(activiteit == "eiafzettend", str_c(activiteit, geslacht, sep = " "),
+                                         ifelse(levensstadium == "imago (niet uitgekleurd)", "imago (niet uitgekleurd)",
+                                                str_c(levensstadium, geslacht, sep = " ")))),
+         type_waarneming = factor(type_waarneming, levels = c("imago F", "imago M", "imago U", "imago (niet uitgekleurd)", "eiafzettend F", "eiafzettend U", "copula", "larvenhuidje F", "larvenhuidje M", "larvenhuidje U"))) %>%
+  mutate(jaar = factor(jaar),
+         soort_nl = factor(soort_nl)) %>%
+  left_join(select(libellen_taxonomy, meetnet, species_order), by = "meetnet")  %>%
+  arrange(species_order, jaar, type_waarneming)
+
+```
+
+
+
+```{r tabaantaldetail}
+summary_counts_type %>% 
+  filter(!is.na(soort_nl)) %>%
+  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+  filter(primaire_soort) %>%
+  group_by(meetnet, soort_nl, type_waarneming) %>%
+  mutate(totaal_type = sum(aantal_totaal)) %>%
+  ungroup() %>%
+  filter(totaal_type > 0) %>%
+  mutate(jaar = factor(jaar),
+         soort_nl = factor(soort_nl)) %>%
+  select("Soort (nl.)" = soort_nl, "Soort (wet.)" = soort_wet, Jaar = jaar, "Type waarneming" = type_waarneming, "Totaal aantal" = aantal_totaal, "Gemiddeld aantal" = aantal_gemiddeld) %>%
+  kbl(caption = "Overzicht getelde aantallen voor de prioritaire soorten met onderscheid tussen geslacht, levensstadium en activiteit",
+      format = select_format) %>%
+  kable_styling(bootstrap_options = c( "condensed"), font_size = 10) %>%
+  column_spec(2, italic = TRUE) %>%
+  collapse_rows(c(1,2, 3), target = 1) %>%
+  scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
+```
+
+
+
+```{r tabelaantaldetailinteractief, eval = FALSE}
+summary_counts_type_primair %>%
+  filter(primaire_soort) %>%
+  select(-primaire_soort) %>%
+  datatable(rownames = FALSE,
+            filter = 'top',
+            extensions = 'Buttons', 
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'pdf', 'csv', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              initComplete = JS(
+                            "function(settings, json) {",
+                            "$(this.api().table().header()).css({'background-color': '#959B38'});",
+                            "}")
+              )
+            )
+
+```
+
+## Totaal aantal getelde imago's en larvenhuidjes voor overige soorten
+
+Naast de waarnemingen van prioritaire soorten kunnen optioneel ook waarnemingen van andere soorten ingevoerd worden in [meetnetten.be](https://www.meetnetten.be/). Deze gegevens kunnen zeker een meerwaarde zijn, maar we moeten wel voorzichtig zijn bij het interpreteren of analyseren van deze gegevens. De tellingen zijn immers gebeurd op locaties die specifiek geselecteerd werden voor een van de prioritaire soorten. Die locaties zijn dus mogelijks niet representatief voor de (niet-meetnet) soort in kwestie. Ook het tijdstip van de telling is steeds geoptimaliseerd in functie van de prioritaire soort waarvoor het meetnet ontworpen werd en is mogelijks minder optimaal voor de (niet-meetnet) soort in kwestie. 
+
+In Tabel \@ref(tab:tabaantaltotoverige) geven we het totaal aantal getelde larvenhuidjes en imago's van de overige soorten voor alle libellenmeetnetten samen. De soorten worden gerangschikt volgens getelde aantallen van hoog naar laag. Azuurwaterjuffer is dus de meest getelde soort. De tabel bevat ook prioritaire soorten, maar dit zijn dan de aantallen die geteld werden in locaties van andere meetnetten.  
+
+
+```{r tabaantaltotoverige, eval=TRUE}
+
+summary_table_all_years <- summary_table %>%
+  filter(!is.na(soort_nl)) %>%
+  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+  filter(!primaire_soort) %>%
+  group_by(primaire_soort, soort_nl, soort_wet, levensstadium) %>%
+  summarise(aantal_totaal = sum(aantal_totaal),
+            bezoeken = sum(visits)) %>%
+  ungroup() %>%
+  group_by(primaire_soort, soort_nl, soort_wet) %>%
+  mutate(aantal_sort = sum(aantal_totaal)) %>%
+  ungroup() %>%
+  arrange(desc(aantal_sort))
+
+summary_table_all_years %>% 
+  select("Soort (nl.)" = soort_nl, "Soort (wet.)" = soort_wet, Levensstadium = levensstadium,  "Totaal aantal" = aantal_totaal) %>%
+  kbl(caption = "Totaal aantal getelde overige soorten voor alle libellenmeetnetten samen",
+      format = select_format) %>%
+  kable_styling(bootstrap_options = c( "condensed"), font_size = 10) %>%
+  column_spec(2, italic = TRUE) %>%
+  collapse_rows(c(1,2, 3), target = 1) %>%
+  scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
+```
+
+
+
+
+
+
+```{r, fig.height = 20, eval = FALSE}
+counts %>% 
+  group_by(soort_nl) %>%
+  mutate(tot = sum(aantal)) %>%
+  ungroup() %>%
+  filter(tot > 100) %>%
+  filter(!primaire_soort) %>%
+  ggplot(aes(x= jaar, y = aantal)) +  
+  #geom_point(alpha = 0.6, colour = inbo.grijs) +
+  stat_summary(fun.data = "mean_cl_boot", colour = inbo.groen) +
+  facet_wrap(~ soort_nl, scale = "free_y", ncol = 3) +
+  labs(y = "Aantal getelde individuen", x = "Jaar") +
+  theme(legend.position = "bottom") +
+  ylim(0, NA)
+``` 
+
+
+
+
+```{r, eval = FALSE}
+summary_table %>% 
+  select(-bezoeken, -locaties_geteld, - aantal_maximum) %>%
+  filter(!is.na(soort_nl)) %>%
+  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+  filter(!primaire_soort) %>%
+  arrange(desc(tot)) %>%
+  mutate(jaar = factor(jaar),
+         soort_nl = factor(soort_nl)) %>%
+  select(soort_nl, soort_wet, jaar, "totaal aantal" = aantal_totaal, "gemiddeld aantal" = aantal_gemiddeld, locaties = locaties_aanwezig, "proportie locaties (%)" = proportie_locaties_aanwezig) %>%
+  # select(-soortgroep, -soort_nl) %>%
+  datatable(rownames = FALSE,
+            filter = 'top',
+            extensions = 'Buttons', 
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'pdf', 'csv', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              initComplete = JS(
+                            "function(settings, json) {",
+                            "$(this.api().table().header()).css({'background-color': '#959B38'});",
+                            "}")
+              )
+            )
+```
+
+
+
+```{r, eval = FALSE}
+summary_counts_type_primair %>%
+  filter(!primaire_soort) %>%
+  select(-primaire_soort) %>%
+  datatable(rownames = FALSE,
+            filter = 'top',
+            extensions = 'Buttons', 
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'pdf', 'csv', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              initComplete = JS(
+                            "function(settings, json) {",
+                            "$(this.api().table().header()).css({'background-color': '#959B38'});",
+                            "}")
+              )
+            )
+
+```
+
+
+
+```{r, eval = FALSE}
+aantallen_bezoek <- get_counts_smp("libellen") %>%
+  group_by(soortgroep, meetnet, protocol, locatie, visit_id, checklist, jaar, datum, soort_nl, soort_wet, primaire_soort, geslacht, activiteit, levensstadium) %>%
+  summarise(aantal = sum(aantal, na.rm = TRUE),
+            n_subsamples = n()) %>%
+  ungroup() %>%
+  mutate(geslacht = ifelse(geslacht == "M", "mannelijk", 
+                           ifelse(geslacht == "F", "vrouwelijk", "onbekend")))
+
+diversity <- aantallen_bezoek %>% 
+  group_by(soortgroep, meetnet, protocol, locatie, visit_id, checklist, soort_nl, soort_wet) %>%
+  summarise(aanwezig = sum(aantal) > 0) %>%
+  ungroup() %>%
+  filter(aanwezig) %>%
+  group_by(meetnet, protocol, locatie) %>%
+  summarise(n_soorten = n_distinct(soort_wet),
+            n_bezoeken = n_distinct(visit_id)) %>%
+  ungroup()
+
+checklists <- aantallen_bezoek %>%
+  distinct(soortgroep, meetnet, protocol, locatie, visit_id, checklist) %>%
+  group_by(meetnet, protocol, locatie) %>%
+  summarise(n_checklists = sum(checklist)) %>%
+  ungroup()
+  
+diversity <- diversity %>%
+  left_join(checklists, by = c("meetnet", "protocol", "locatie"))
+
+```
+
+
+
+

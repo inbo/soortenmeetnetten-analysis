@@ -1,0 +1,143 @@
+---
+title: "Libellenmeetnetten"
+author: 
+  -
+    name: "Toon Westra, Geert De Knijf, Hannes Ledegen, Sam Van De Poel,  Frederic Piesschaert, Thierry Onkelinx, "
+    email: "Toon.Westra@inbo.be"
+subtitle: "Resultaten voor de periode 2016 - 2020"
+ordernr: "Rapporten van het Instituut voor Natuur- en Bosonderzoek 2020 (xx)"
+reportnr: "xxx"
+bibliography: references.bib
+csl: research-institute-for-nature-and-forest.csl
+link-citations: TRUE
+always_allow_html: yes
+site: bookdown::bookdown_site
+output:
+  bookdown::word_document2:
+    toc: true
+  bookdown::html_document2:
+    keep_md: TRUE
+    fig_retina: 1
+    toc: TRUE
+    toc_float:
+      collapsed: FALSE
+      smooth_scroll: FALSE
+  bookdown::gitbook:
+    split_by: "chapter+number"
+    template: !expr INBOmd::inbo_rapport_css("html")
+  bookdown::pdf_book:
+    base_format: INBOmd::inbo_rapport
+  bookdown::epub_book:
+    stylesheet: "css/inbo_rapport.css"
+    template: !expr INBOmd::inbo_rapport_css("epub")
+
+
+---
+
+
+```{r setup, include = FALSE}
+library(knitr)
+options(knitr.kable.NA = '')
+
+opts_chunk$set(
+  echo = FALSE, 
+  eval = TRUE,
+  cache = FALSE,
+  dpi = 300,
+  fig.width = 150 / 25.4,
+  fig.height = 100 / 25.4,
+  fig.align = "center",
+  warning = FALSE,
+  error = TRUE,
+  message = FALSE,
+  dev = 'png'
+)
+
+
+library(extrafont)
+#font_import()
+loadfonts(device = "win", quiet = TRUE)
+
+library(tidyverse)
+library(INBOtheme)
+theme_set(
+  theme_inbo(
+    base_family = "Calibri", # "Flanders Art Sans",
+    base_size = 10
+  )
+)
+# if (!interactive() && opts_knit$get("rmarkdown.pandoc.to") != "html") {
+#   opts_chunk$set(dev = "cairo_pdf")
+#   theme_set(
+#     theme_inbo(
+#       base_family = "Calibri", # "Flanders Art Sans",
+#       base_size = 8
+#     )
+#   )
+# }
+
+doc.type <- knitr::opts_knit$get('rmarkdown.pandoc.to')
+
+# options(kableExtra.auto_format
+# = FALSE) 
+# 
+if ( doc.type == "docx" ) {
+
+  options(knitr.table.format = "simple")
+  select_format = "simple"
+
+} else if(doc.type == "html") {
+  select_format = "html"
+}
+
+
+
+
+```
+
+
+```{r, cache = FALSE}
+
+library(sf)
+library(crosstalk)
+library(leaflet)
+library(plotly)
+library(DT)
+# library(googlesheets)
+library(effectclass)
+library(kableExtra)
+library(inlabru)
+library(INLA)
+library(git2rdata)
+library(here)
+library(n2khab)
+library(webshot)
+# library(flextable)
+# library(pander)
+
+```
+
+
+
+```{r}
+source(here("src", "functions_smp.R"))
+```
+
+# Dankwoord {-}
+
+We wensen in de eerste plaats alle vrijwilligers te bedanken voor de vele tellingen die ze hebben uitgevoerd voor de libellenmeetnetten. We willen ook de leden van de stuurgroep bedanken: Bernard Van Elegem, Veronique Verbist, Wouter Vanreusel, Marc Herremans, Koen Van Keer, Marc Pollet, Maurice Hoffman, Hannes Ledegen, Sam Van de Poel, Toon Westra.
+
+
+# Samenvatting {-}
+
+samenvatting...
+
+# English abstract {-}
+
+\benglish
+
+abstract...
+
+\eenglish
+
+

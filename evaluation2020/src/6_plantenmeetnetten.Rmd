@@ -1,0 +1,296 @@
+# Vaatplanten
+
+
+```{r}
+soortgroep_sel <- c("planten", "Planten", "vaatplanten")
+```
+
+
+## Meetnetkarakteristieken
+
+Tabel \@ref(tab:MeetnKaraktplanten1) geeft een overzicht van de karakteristieken van de plantenmeetnetten.
+
+```{r MeetnKaraktplanten1}
+
+bezoeken_soortgroep <- filter(bezoeken, soortgroep %in% soortgroep_sel)
+species_list <- unique(bezoeken_soortgroep$meetnet)
+
+tabel_meetnetkarakteristieken %>%
+  mutate(telperiode = str_c(start_telperiode, " - ", einde_telperiode)) %>%
+  filter(soortgroep %in% soortgroep_sel,
+         is_sample) %>%
+  group_by(meetnet, protocol, is_sample) %>%
+  mutate(bezoeken_tot = sum(bezoeken)) %>%
+  ungroup() %>%
+  select(meetnet, protocol, type, opstartjaar, 'duur meetcyclus'= duur_meetcyclus,  'bezoeken (/jaar)' = bezoeken_tot, telperiode) %>%
+  unique() %>%
+  arrange(meetnet) %>%
+  kable(caption = "Overzicht van de karakteristieken van de plantenmeetnetten: veldprotocol, type meetnet (integraal of steekproef), aantal meetnetlocaties en de meetcyclus in jaren",
+        align = c("l", "l", "l", "c", "c", "c", "c")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                font_size = 11) %>%
+  column_spec(5, width = "2cm")
+  
+```
+
+## Overzicht van de uitgevoerde tellingen
+
+### Evaluatie per meetnet voor het jaar 2020
+
+In Tabel \@ref(tab:tabplant1) geven we een overzicht van de tellingen van 2020 per meetnet.
+
+```{r tabplant1}
+
+overzicht_meetnetten_planten %>%
+  filter(jaar == "2020") %>%
+  select(meetnet, 
+         "aantal meetnetlocaties" = n_locaties,
+         meetnetten = n_bezoeken_meetnetten, 
+         waarnemingen = n_bezoeken_waarnemingen,
+         totaal = voldoende_geteld_totaal,
+         "nieuw in meetcyclus" = voldoende_geteld_totaal_nieuw,
+         "met track" = voldoende_geteld_track) %>%
+  kable(align = c("l", "c", "c", "c", "c", "c", "c"),
+        caption = "Tellingen plantenmeetnetten in 2020") %>%
+  kable_styling() %>%
+  add_header_above(c(" " = 2, "aantal tellingen" = 2, "aantal getelde locaties" = 3))
+  
+```
+
+### Evaluatie per meetnet voor de meetcyclus
+
+In Tabel \@ref(tab:tabplanten2) geven we een stand van zaken voor de meetcyclus. 2020 was het tweede jaar van de driejarie cyclus.
+
+```{r tabplanten2}
+overzicht_meetnetten_planten %>%
+  filter(jaar == "2020") %>%
+  select(meetnet, 
+         "aantal meetnetlocaties" = n_locaties,
+         "totaal in meetcyclus" = voldoende_geteld_totaal_cyclus,
+         "totaal in meetcyclus met track" = voldoende_geteld_track_cyclus) %>%
+  kable(align = c("l", "c", "c", "c"),
+        caption = "Tellingen plantenmeetnetten voor de meetcyclus") %>%
+  kable_styling() %>%
+  add_header_above(c(" " = 2, "aantal getelde locaties" = 2))
+```
+
+
+### Evaluatie voor alle plantenmeetnetten samen voor 2020
+
+In Tabel \@ref(tab:plant3) geven we een overzicht van het totaal aantal tellingen voor de plantenmeetnetten in 2019 en 2020.
+
+```{r plant3}
+
+locaties_planten <- locaties %>%
+  filter(soortgroep == "planten") %>%
+  filter(is_active)
+
+n_locaties_planten <- nrow(locaties_planten)
+
+overzicht_planten %>%
+  filter(is_sample_history) %>%
+  filter(jaar >= "2019") %>%
+  mutate(meetnet = "alle plantenmeetnetten",
+         n_locaties = n_locaties_planten) %>%
+  select(jaar, meetnet,
+         "aantal meetnetlocaties" = n_locaties,
+         meetnetten = n_bezoeken_meetnetten, 
+         waarnemingen = n_bezoeken_waarnemingen,
+         totaal = voldoende_geteld_totaal,
+         "nieuw in meetcyclus" = voldoende_geteld_totaal_nieuw,
+         "met track" = voldoende_geteld_track) %>%
+  kable(align = "c",
+        caption = "Tellingen voor alle plantenmeetnetten samen in 2019 en 2020") %>%
+   kable_styling() %>%
+  add_header_above(c(" " = 3, "aantal tellingen" = 2, "aantal getelde locaties" = 3))
+
+```
+
+### Evaluatie voor alle plantenmeetnetten samen voor de meetcyclus
+
+```{r}
+overzicht_planten %>%
+  filter(jaar == "2020") %>%
+  mutate(meetnet = "alle plantenmeetnetten",
+         n_locaties = n_locaties_planten) %>%
+  select(meetnet, 
+         "aantal meetnetlocaties" = n_locaties,
+         "totaal in meetcyclus" = voldoende_geteld_totaal_cyclus,
+         "totaal in meetcyclus met track" = voldoende_geteld_track_cyclus) %>%
+  kable(align = "c",
+        caption = "Tellingen voor alle plantenmeetnetten voor de volledige meetcyclus") %>%
+  kable_styling() %>%
+  add_header_above(c(" " = 2, "aantal getelde locaties" = 2))
+```
+
+```{r}
+extra_tellingen <-  read_vc(file = "processed/data_plantenmeetnetten_2020", root = fileman_up("soortenmeetnetten-data")) %>%
+  filter(is.na(visit_id)) %>%
+  filter(locatie != "" & !is.na(locatie)) %>%
+  group_by(meetnet) %>%
+  summarise(locaties_geteld = n_distinct(locatie)) %>%
+  ungroup() 
+```
+
+
+### Tijdstippen van de tellingen
+
+Figuur \@ref(fig:figplant) geeft een overzicht van de tijdstippen van de bezoeken.  
+
+```{r figplant, fig.height= 9, fig.width= 6.5,  fig.cap = "Overzicht tijdstippen waarop tellingen werden uitgevoerd in 2020" }
+
+bezoeken_figuur <- bezoeken %>% 
+  left_join(telperiode, by = c("meetnet", "protocol")) %>%
+  filter(soortgroep %in% soortgroep_sel) %>% 
+  filter(jaar == year_evaluation) %>% 
+  select(meetnet,locatie, datum,  bezoek_status_detail, start_telperiode, einde_telperiode) %>%
+  unique()
+
+ggplot(data = bezoeken_figuur, aes(x = datum, fill = bezoek_status_detail)) + 
+  geom_histogram(binwidth = 7, colour = "white") +
+  geom_vline(aes(xintercept = start_telperiode), data = bezoeken_figuur, linetype = 2) +
+  geom_vline(aes(xintercept = einde_telperiode), data = bezoeken_figuur, linetype = 2) +
+  facet_wrap( ~ meetnet, ncol = 3) + 
+  labs(x = "Datum bezoek", y = "Aantal bezoeken", fill = "Bezoek status")  + 
+  theme( axis.text.x = element_text(angle = 90, hjust = 1),
+         legend.position = "bottom",
+         legend.direction = "vertical")
+```
+
+Onderstaande tabel geeft een overzicht van de tellingen buiten de telperiode. De kolom 'verschil_dagen' geeft (de absolute waarde van) het verschil in dagen t.o.v. de telperiode volgens het veldprotocol.
+
+```{r}
+
+bezoeken_buiten_telperiode %>%
+  filter(soortgroep %in% soortgroep_sel) %>%
+  select(-soortgroep, -protocol) %>%
+ #  kable(booktabs = TRUE,
+ #        caption = "Bezoeken buiten telperiode",
+ #        align = c("l", "l", "c","c","c", "c", "c", "c", "c", "c", "c")) %>%
+ # kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+ #               font_size = 11) %>%
+ #  collapse_rows(columns = 1 )
+  datatable(rownames = FALSE,
+            filter = 'top',
+            extensions = c('Buttons', 'Scroller'),
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              autoWidth = TRUE,
+              columnDefs = list(list(width = '8%', targets = c(4, 5)))
+              )
+            )
+
+
+```
+
+
+
+### Afwijkingen van het protocol
+
+```{r}
+bezoeken_afwijkingen <- bezoeken %>% 
+  filter(soortgroep %in% soortgroep_sel) %>% 
+  filter(jaar == year_evaluation) %>% 
+  filter(bezoek_status_detail != "Conform protocol") %>% 
+  select(meetnet, protocol, datum, locatie, "bezoek status" = bezoek_status_detail, opmerkingen = notes) %>%
+  mutate(opmerkingen = gsub("\n", ". ", opmerkingen))
+```
+
+
+`r if (nrow(bezoeken_afwijkingen) > 0) {"De volgende tabel geeft een overzicht van de afwijkingen van het protocol"} else {"Er zijn geen bezoeken met afwijkingen van het protocol."}`
+
+```{r afwijkingenProtocolplanten}
+
+if (nrow(bezoeken_afwijkingen) > 0) {
+  
+  bezoeken_afwijkingen %>%
+  # kable(booktabs = TRUE, escape = TRUE) %>%
+  # kable_styling(latex_options =  c( "hold_position"),
+  #               bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  #   column_spec(5, width = "6cm") %>%
+  #  column_spec(2, width = "3cm")
+    datatable(
+            rownames = FALSE,
+            filter = 'top',
+            extensions = c('Buttons', 'Scroller'),
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              deferRender = TRUE,
+              autoWidth = TRUE,
+              columnDefs = list(list(width = '40%', targets = c(4)))
+              )
+            )
+  
+}
+  
+```
+
+
+### Opmerkingen bij bezoeken
+
+```{r}
+bezoeken_opmerkingen <- bezoeken %>% 
+  filter(jaar == 2020) %>%
+  filter(soortgroep %in% soortgroep_sel) %>% 
+  filter(jaar == year_evaluation) %>% 
+  filter(bezoek_status_detail == "Conform protocol") %>%
+  filter(!is.na(notes)) %>%
+  filter(notes != "") %>%
+  select(meetnet, protocol, datum, locatie, "bezoek status" = bezoek_status_detail, opmerkingen = notes) %>%
+  mutate(opmerkingen = gsub("\n", ". ", opmerkingen))
+```
+
+```{r}
+bezoeken_opmerkingen %>%
+    datatable(
+            rownames = FALSE,
+            filter = 'top',
+            extensions = c('Buttons', 'Scroller'),
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              deferRender = TRUE,
+              autoWidth = TRUE,
+              columnDefs = list(list(width = '40%', targets = c(2, 5)))
+              )
+            )
+```
+
+
+### Mogelijke dubbele invoer
+
+
+```{r}
+bezoeken_dubbels_soortgroep <- bezoeken_dubbels %>%
+  filter(soortgroep %in% soortgroep_sel) %>%
+  select(meetnet, protocol, locatie, datum, bezoeken = n_bezoeken_datum, "zelfde begintijdstip" = start_time_identiek, taak1, taak2) %>% 
+  arrange(meetnet, protocol)
+```
+
+`r if (nrow(bezoeken_dubbels_soortgroep) > 0) {"Onderstaande tabel geeft mogelijks dubbel ingevoerde bezoeken weer (bezoeken = aantal bezoeken voor ingevoerd voor eenzelfde dag en eenzelfde locatie; zelfde begintijdstip = is het begintijdstip van de bezoeken identiek?)"} else {"Geen bezoeken die dubbel ingevoerd werden"}`
+
+
+```{r, eval = nrow(bezoeken_dubbels_soortgroep) > 0}
+bezoeken_dubbels_soortgroep %>%
+  datatable(
+        rownames = FALSE,
+        filter = 'top',
+        extensions = c('Buttons', 'Scroller'),
+        options = list(
+          dom = 'Bfrtip',
+          buttons = c('copy', 'excel'),
+          language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+          deferRender = TRUE,
+          autoWidth = TRUE,
+          columnDefs = list(list(width = '15%', targets = c(1)))
+          )
+  )
+  
+```
+
+

@@ -1,0 +1,236 @@
+
+## Resultaten analyse transecttelling
+
+```{r}
+name_analysis_date <- "libellen_transecten_2020-10-01"
+
+results_analysis <- get_results_analysis(name_analysis = name_analysis_date)
+
+index <- results_analysis$indexmodel %>%
+  filter(parameter == "index")
+```
+
+
+### Modelschatting voor het gemiddelde getelde aantal per 100 meter in de piek van het telseizoen
+
+Figuur \@ref(fig:figmaxtransect) toont de modelschatting en 90% betrouwbaarheidsinterval voor het gemiddelde getelde aantal per 100 meter in de piek van het telseizoen.
+
+```{r figmaxtransect, fig.height=5, fig.cap= "Modelschatting voor het gemiddelde getelde aantal per 100 meter in de piek van het telseizoen"}
+
+results_analysis$indexmodel %>%
+  filter(parameter == "max_count") %>%
+  filter(meetnet!= "Hoogveenglanslibel") %>%
+  ggplot( aes(x = jaar, y = mean, ymin = lcl_0.90, ymax = ucl_0.90)) +
+  # geom_errorbar(width = 0.1) +
+  geom_line( colour = inbo.steun.blauw, size = 1) +
+  geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  # geom_ribbon(aes(ymin = lcl_0.60, ymax = ucl_0.60 ), alpha = 0.2, fill = inbo.steun.blauw) + 
+  # geom_ribbon(aes(ymin = lcl_0.30, ymax = ucl_0.30 ), alpha = 0.2, fill = inbo.steun.blauw) + 
+  labs(y = "Maximum aantal") +
+  ylim(0, NA) +
+  facet_wrap(~ meetnet, ncol = 2, scales = "free_y")
+
+```
+
+*Alternatief (naar voorbeeld ABV-rapport): 30%-, 60%- en 90%-betrouwbaarheidsintervallen*
+
+```{r, fig.height=5}
+
+results_analysis$indexmodel %>%
+  filter(parameter == "max_count") %>%
+  filter(meetnet!= "Hoogveenglanslibel") %>%
+  ggplot( aes(x = jaar, y = mean, ymin = lcl_0.90, ymax = ucl_0.90)) +
+  # geom_errorbar(width = 0.1) +
+  geom_line( colour = inbo.steun.blauw, size = 1) +
+  geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_ribbon(aes(ymin = lcl_0.60, ymax = ucl_0.60 ), alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_ribbon(aes(ymin = lcl_0.30, ymax = ucl_0.30 ), alpha = 0.2, fill = inbo.steun.blauw) + 
+  labs(y = "Maximum aantal") +
+  ylim(0, NA) +
+  facet_wrap(~ meetnet, ncol = 2, scales = "free_y")
+```
+
+
+
+### Jaarlijkse index
+
+Figuur \@ref(fig:indextransect) toont de jaarlijkse index t.o.v. referentiejaar. De index voor het referentiejaar is gelijk aan 100. 
+
+```{r indextransect,  fig.height= 5, fig.cap="Jaarlijkse index en 90% betrouwbaarheidsinterval"}
+
+results_analysis$indexmodel %>%
+  mutate(ref_jaar_tekst = str_c("ref. jaar = ", ref_jaar - 1)) %>%
+  filter(parameter == "index") %>%
+  filter(meetnet != "Hoogveenglanslibel") %>%
+  ggplot(aes(y = mean, ymin = lcl_0.90, ymax = ucl_0.90, x = as.character(jaar), group = meetnet)) +
+  #geom_errorbar(width = 0.1) +
+  geom_hline(yintercept = 1, linetype = 3) +
+  geom_line( colour = inbo.steun.blauw, size = 1) +
+  geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) +  
+  labs(y = "Jaarlijkse index", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst, ncol = 2, scales = "free_y")
+
+```
+
+
+*Alternatief (naar voorbeeld ABV-rapport): 30%-, 60%- en 90%-betrouwbaarheidsintervallen*
+
+```{r, fig.height= 5}
+
+results_analysis$indexmodel %>%
+  mutate(ref_jaar_tekst = str_c("ref. jaar = ", ref_jaar - 1)) %>%
+  filter(parameter == "index") %>%
+  filter(meetnet != "Hoogveenglanslibel") %>%
+  ggplot(aes(y = mean, ymin = lcl_0.90, ymax = ucl_0.90, x = as.character(jaar), group = meetnet)) +
+  #geom_errorbar(width = 0.1) +
+  geom_hline(yintercept = 1, linetype = 3) +
+  geom_line( colour = inbo.steun.blauw, size = 1) +
+  geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+    geom_ribbon(aes(ymin = lcl_0.60, ymax = ucl_0.60 ), alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_ribbon(aes(ymin = lcl_0.30, ymax = ucl_0.30 ), alpha = 0.2, fill = inbo.steun.blauw) + 
+  labs(y = "Jaarlijkse index", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst, ncol = 2, scales = "free_y")
+```
+
+### Relatieve verschillen t.o.v. referntiejaar
+
+Figuur \@ref(fig:changestransect) toont het relatieve verschil t.o.v. het referentiejaar en het 90%-betrouwbaarheidsinterval. De figuur toont eveneens de classificatie van de verschillen. 
+
+```{r changestransect, fig.height= 5, fig.cap = "Relatieve verschillen t.o.v. referentiejaar en 90% betrouwbaarheidsinterval"}
+
+indexmodel_log <- results_analysis$indexmodel %>%
+  filter(parameter == "index") %>%
+  filter(meetnet != "Hoogveenglanslibel") %>%
+  mutate(ref_jaar_tekst = str_c("ref. jaar = ", ref_jaar - 1)) %>%
+  mutate(mean_log = log(mean),
+         lcl_log = log(lcl_0.90),
+         ucl_log = log(ucl_0.90),
+         klasse_log = classification(lcl_log, ucl_log, threshold = c(log(0.75), log(1.33)), reference = 0)) 
+  
+labels <- c(- 90, -75, -50, 0, 100, 250, 500)
+breaks <- log(labels/ 100 + 1)
+
+indexmodel_log %>%
+  ggplot(aes(y = mean_log, ymin = lcl_log, ymax = ucl_log, x = as.character(jaar), group = meetnet, label = klasse_log)) +
+  #geom_errorbar(width = 0.1) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  #geom_errorbar(aes(ymin = log(lcl_0.60), ymax = log(ucl_0.60)), width = 0, size = 10, alpha = 0.3) +
+  geom_hline(yintercept = 0, linetype = 1, colour = inbo.steun.blauw) +
+  geom_hline(yintercept = log(33/ 100 + 1), linetype = 2) +
+  geom_hline(yintercept = log(-25/ 100 + 1), linetype = 2) +
+  geom_point(size = 7, colour = inbo.grijsblauw) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Relatief verschil", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  scale_y_continuous(breaks = breaks, labels = sprintf("%+.0f%%", labels)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst, ncol = 2, scales = "free_y")
+
+```
+
+
+
+### Trends
+
+```{r}
+
+n_jaar <- 5
+
+treshold_low <- round((exp(log(0.75)/(n_jaar - 1)) - 1) *100, 1)
+
+treshold_high <- round((exp(log(1.33)/(n_jaar - 1)) - 1) *100, 1)
+```
+
+
+Figuur \@ref(fig:figtrendtransect) toont de gemiddelde jaarlijkse trend over de meetnetperiode. Voor de classificatie van de trends gebruiken we hier een jaarlijkse trend van  `r treshold_low`% als onderste  drempelwaarde en van `r treshold_high` % als bovenste drempelwaarde. Beide drempelwaarden komen overeen met eenzelfde relatief effect: (100 - `r abs(treshold_low)`)/100 = 100/(100 + `r treshold_high`). Over de volledige meetnetperiode (`r n_jaar` jaar) komt dit overeen met een respectievelijk een afname van -25% en een toename van +33%.
+
+```{r figtrendtransect, fig.width = 6, fig.height= 3, fig.cap= "Gemiddelde jaarlijkse trend en 90%-betrouwbaarheidsinterval"}
+
+
+trend <- results_analysis$trendmodel %>%
+  mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
+         n_jaar = jaar_max - jaar_min + 1,
+         treshold_low = ifelse(parameter == "trend_average", 
+                               round((exp(log(0.75)/(n_jaar - 1)) - 1) *100, 1),
+                               -25),
+         treshold_high = ifelse(parameter == "trend_average", 
+                                round((exp(log(1.33)/(n_jaar - 1)) - 1) *100, 1),
+                                33)) %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
+
+trend %>%
+  filter(parameter == "trend_average") %>%
+  filter(meetnet != "Hoogveenglanslibel") %>%
+  ggplot( aes(x = soort_nl, y = mean/100, ymin = lcl_0.90/100, ymax = ucl_0.90/100, label = klasse)) +
+  geom_hline(aes(yintercept = max(treshold_low/100)), linetype = 3) +
+  geom_hline(aes(yintercept = min(treshold_high/100)), linetype = 3) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  # geom_errorbar(aes(ymin = lcl_0.60/100, ymax = ucl_0.60/100), width = 0, size = 10, alpha = 0.3) +
+  # geom_errorbar(aes(ymin = lcl_0.30/100, ymax = ucl_0.30/100), width = 0, size = 10, alpha = 0.3) +
+  # stat_effect(threshold = c(treshold_low/100, treshold_high/100), reference = 0, size = 3) +
+  # scale_effect() +
+  geom_point(size = 7, alpha = 0.6, colour = inbo.grijsblauw) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Gemiddelde jaarlijkse trend (%)", x = "Soort") +
+  scale_y_continuous(breaks = c(-50, -25, 0, 33, 100)/100, labels = scales::percent) +
+ # theme(axis.text.x = element_text(angle = 90)) +
+  coord_flip() 
+
+```
+
+In Tabel \@ref(tab:tabtrendresultaattransect) geven we een overzicht van de gemiddelde jaarlijkse trend en de totale trend over de looptijd van het meetnet. We duiden ook aan of de trend al dan niet lineair is. Een lineaire trend betekent dat de jaarlijkse daling of stijging relatief constant is. Bij een niet-lineaire trend fluctueren de aantallen sterk jaar per jaar, maar hebben we gemiddeld gezien over de hele tijdsperiode wel een stijging of een daling
+
+```{r tabtrendresultaattransect}
+
+waic <- results_analysis$waic %>%
+  select(meetnet, type_trend)
+
+overzicht_trend_tabel <- trend %>%
+  left_join(waic, by = "meetnet") %>%
+  mutate(trend = round(mean, 0),
+         trend_lcl = round(lcl_0.90, 0),
+         trend_ucl = round(ucl_0.90, 0),
+         trend_tbl = str_c(ifelse(trend > 0, "+", ""),
+                           trend, "% (",
+                           ifelse(trend_lcl > 0, "+", ""),
+                           trend_lcl, "%; ",
+                           ifelse(trend_ucl > 0, "+", ""),
+                           trend_ucl, "%)")
+         ) %>%
+  select(parameter, soort_nl, periode_tekst, klasse, trend_tbl, type_trend) %>%
+  spread(key = "parameter", value = "trend_tbl") %>%
+  arrange(klasse) %>%
+  mutate(klasse = str_c("\`", klasse, "\`")) %>%
+  select(soort = soort_nl, periode = periode_tekst, klasse, interpretatie = type_trend, "jaarlijkse wijziging" = trend_average, "wijziging over de looptijd" = trend_total)
+
+# if(doc.type == "html"){
+#   overzicht_trend_tabel <- overzicht_trend_tabel %>%
+#     mutate(klasse = str_c("\\", klasse))
+# }
+# 
+# 
+# if(doc.type == "docx"){
+#   
+#   overzicht_trend_tabel %>%
+#   kable(fotmat = "pandoc",
+#         caption = "Gemiddelde jaarlijkse trend")
+#   
+# } else{
+
+  overzicht_trend_tabel %>%
+  kable(align = c("l", "l", "c", "l"),
+        caption = "Jaarlijkse wijziging en wijziging over de looptijd",
+       booktabs = TRUE)  %>%
+  kable_styling(full_width = FALSE, latex_options = "HOLD_position")
+
+# }
+
+  
+```
+
+
+

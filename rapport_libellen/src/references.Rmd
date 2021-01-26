@@ -1,0 +1,1 @@
+`r ifelse(doc.type == "html", "# Referenties {-}", "") `

@@ -1,0 +1,76 @@
+---
+title: "Meetnetevaluatie 2020"
+author: 
+  -
+    name: "Toon Westra"
+    email: "Toon.Westra@inbo.be"
+  -
+link-citations: TRUE
+site: bookdown::bookdown_site
+output:
+  bookdown::html_document2:
+    keep_md: TRUE
+    toc: TRUE
+    toc_float:
+      collapsed: FALSE
+      smooth_scroll: FALSE
+    number_sections: TRUE
+    split_by: "chapter+number"
+  bookdown::gitbook:
+    split_by: "chapter+number"
+    template: !expr INBOmd::inbo_rapport_css("html")
+  bookdown::pdf_book:
+    base_format: INBOmd::inbo_rapport
+
+---
+
+
+```{r setup, include = FALSE}
+library(knitr)
+
+options(knitr.kable.NA = '')
+opts_chunk$set(
+  echo = FALSE, 
+  eval = TRUE,
+  cache = FALSE,
+  warning = FALSE,
+  error = TRUE,
+  message = FALSE
+)
+
+#devtools::install_github("dmurdoch/leaflet@crosstalk4")
+
+library(sf)
+library(kableExtra)
+library(DT)
+library(gridExtra)
+library(crosstalk)
+library(leaflet)
+library(tidyverse)
+library(INBOtheme)
+library(here)
+library(git2rdata)
+library(n2khab)
+
+source("../../src/functions_smp.R")
+
+
+# theme_set(
+#   theme_inbo(
+#     base_family = "Calibri", # "Flanders Art Sans",
+#     base_size = 12
+#   )
+# )
+# if (!interactive() && opts_knit$get("rmarkdown.pandoc.to") != "html") {
+#   opts_chunk$set(dev = "cairo_pdf")
+#   theme_set(
+#     theme_inbo(
+#       base_family = "Calibri", # "Flanders Art Sans",
+#       base_size = 8
+#     )
+#   )
+# }
+```
+
+
+

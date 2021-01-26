@@ -1,0 +1,629 @@
+# Amfibieën
+
+```{r}
+soortgroep_sel <- c("amfibieën", "Amfibieën", "amfibieen")
+```
+
+
+## Meetnetkarakteristieken
+
+Tabel \@ref(tab:MeetnKaraktamfibieen1) geeft een overzicht van de karakteristieken van de amfibieënmeetnetten.
+
+```{r MeetnKaraktamfibieen1}
+
+bezoeken_soortgroep <- filter(bezoeken, soortgroep %in% soortgroep_sel)
+species_list <- unique(bezoeken_soortgroep$meetnet)
+
+tabel_meetnetkarakteristieken %>%
+  mutate(telperiode = str_c(start_telperiode, " - ", einde_telperiode)) %>%
+  filter(soortgroep %in% soortgroep_sel,
+         is_sample) %>%
+  select(meetnet, protocol, type, opstartjaar, 'duur meetcyclus'= duur_meetcyclus,  'bezoeken (/jaar)' = bezoeken, telperiode) %>%
+  unique() %>%
+  arrange(meetnet) %>%
+  kable(caption = "Overzicht van de karakteristieken van de amfibieenmeetnetten: veldprotocol, type meetnet (integraal of steekproef), aantal meetnetlocaties en de meetcyclus in jaren",
+        align = c("l", "l", "l", "c", "c", "c", "c")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                font_size = 11) %>%
+  column_spec(5, width = "2cm")
+  
+```
+
+
+## Overzicht van de uitgevoerde tellingen
+
+### Evaluatie jaardoelen en doelen meetnetcyclus
+
+In bijlage \@ref(h:bijlage) wordt per meetnetloctie een overzicht gegeven van de uitgevoerde tellingen.
+
+In Tabel \@ref(tab:overzichtTellingenamfibieen1) evalueren we de jaardoelen. In de tabel onderscheiden we: 
+
+* de jaardoelen: het aantal te tellen locaties voor een bepaald jaar; 
+* doelbereik jaar: de mate waarin de jaardoelen gehaald werden;
+* het aantal tellingen conform protocol;
+* het aantal tellingen dat niet kon worden uitgevoerd door overmacht;
+* het aantal voldoende getelde meetnetlocaties: dit zijn de locaties waar het aantal tellingen werd gehaald binnen de afgesproken telperiode, conform het protocol. Ook de tellingen die niet konden uitgevoerd worden door overmacht worden hiervoor meegrekend.
+* het aantal nieuw getelde meetnetlocaties binnen een meetcyclus: dit zijn het aantal voldoende getelde locaties die voor de eerste maal geteld werden in de meetcyclus.  
+
+Voor Kamsalamander is 2020 een overgangsjaar tussen meetcyclus 1 (jaar 4 in 1ste meetcyclus) en meetcyclus 2 (jaar 1 in 2de meetcyclus). Alle getelde locaties worden daarom als nieuw getelde locaties beschouwd.
+
+```{r overzichtTellingenamfibieen1}
+
+tabel_rapport %>%
+  arrange(meetnet) %>%
+   filter(soortgroep %in% soortgroep_sel,
+          jaar == year_evaluation) %>%
+  filter(type_locatie == "Meetnetlocatie") %>%
+  select(meetnet,  protocol, "aantal locaties", jaardoel, "doelbereik jaar (%)", "tellingen conform protocol", "tellingen niet uitvoerbaar",  "locaties voldoende geteld - totaal", "locaties voldoende geteld - nieuw") %>%
+  kable(caption = "Evaluatie van de jaardoelen", 
+        align = c("l", "l", "l","c","c", "c", "c", "c", "c", "c", "c")) %>%
+ kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+               font_size = 11) %>%
+  collapse_rows(columns = c(1))
+  
+```
+
+In Tabel \@ref(tab:overzichtTellingenamfibieen3) evalueren we de doelen voor de meetcyclus. De tabel geeft volgende informatie: 
+
+* jaar in meetcyclus: het hoeveelste jaar binnen de meetcyclus t.o.v. de duur van de meetcyclus; 
+* de doelen voor de meetcyclus: het aantal te tellen locaties voor de volledige meetcyclus; 
+* doelbereik meetcyclus: de mate waarin de doelen voor de meetcyclus gehaald werden; 
+* het totaal aantal getelde locaties binnen een meetcyclus.
+
+```{r overzichtTellingenamfibieen3}
+
+tabel_rapport %>%
+  arrange(meetnet) %>%
+  filter(soortgroep %in% soortgroep_sel) %>%
+  filter(type_locatie == "Meetnetlocatie") %>%
+  filter(jaar == year_evaluation) %>%
+  filter(duur_meetcyclus > 1) %>%
+  select(meetnet, protocol,  "jaar in meetcyclus", "doel meetcyclus", "doelbereik cyclus (%)", "locaties voldoende geteld - cyclus", "locaties voldoende data - cyclus") %>%
+  kable(caption = "Evaluatie van de doelen voor de meetcyclus", 
+        align = c("l", "l", "c","c","c", "c", "c", "c", "c", "c", "c")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+               font_size = 11) %>%
+  collapse_rows(columns = c(1))
+  
+```
+
+```{r}
+n_extra <- tabel_rapport %>%
+   filter(soortgroep %in% soortgroep_sel,
+          jaar == year_evaluation) %>%
+  filter(type_locatie == "Extra locatie") %>%
+  nrow()
+```
+
+
+`r if (n_extra > 0) {"Ten slotte geven we een overzicht van de tellingen in 'extra locaties' die niet tot de steekproef behoren. Hiervoor worden geen doelen gesteld."}` 
+
+```{r overzichtTellingenamfibieen2}
+
+if (n_extra > 0) {
+  
+  tabel_rapport %>%
+    arrange(meetnet) %>%
+    filter(soortgroep %in% soortgroep_sel,
+          jaar == year_evaluation) %>%
+    filter(type_locatie == "Extra locatie") %>%
+    select(meetnet,  protocol,  "tellingen conform protocol", "tellingen niet uitvoerbaar",  "locaties voldoende geteld - totaal") %>%
+    kable(booktabs = TRUE, 
+        caption = "Overzicht van tellingen in extra locaties", 
+        align = c("l", "l", "l","c","c", "c", "c", "c", "c", "c", "c")) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+               font_size = 11) %>%
+    collapse_rows(columns = c(1))
+  
+}
+
+```
+
+### Tijdstippen van de tellingen
+
+Figuur \@ref(fig:figuurBezoekenamfibieen) geeft een overzicht van de tijdstippen van de bezoeken.  
+
+```{r figuurBezoekenamfibieen, fig.height= 6, fig.width= 6.5,  fig.cap = "Overzicht tijdstippen waarop tellingen werden uitgevoerd in 2020" }
+
+bezoeken_figuur <- bezoeken %>% 
+  left_join(telperiode, by = c("meetnet", "protocol")) %>%
+  filter(soortgroep %in% soortgroep_sel) %>% 
+  filter(jaar == year_evaluation) %>% 
+  select(meetnet,locatie, datum,  bezoek_status_detail, start_telperiode, einde_telperiode) %>%
+  unique()
+
+ggplot(data = bezoeken_figuur, aes(x = datum, fill = bezoek_status_detail)) + 
+  geom_histogram(binwidth = 7, colour = "white") +
+  geom_vline(aes(xintercept = start_telperiode), data = bezoeken_figuur, linetype = 2) +
+  geom_vline(aes(xintercept = einde_telperiode), data = bezoeken_figuur, linetype = 2) +
+  facet_wrap( ~ meetnet, ncol = 3) + 
+  labs(x = "Datum bezoek", y = "Aantal bezoeken", fill = "Bezoek status")  + 
+  theme( axis.text.x = element_text(angle = 90, hjust = 1),
+         legend.position = "bottom",
+         legend.direction = "vertical")
+```
+
+Onderstaande tabel geeft een overzicht van de tellingen buiten de telperiode. De kolom 'verschil_dagen' geeft het verschil in dagen t.o.v. de telperiode volgens het veldprotocol.
+
+```{r}
+
+bezoeken_buiten_telperiode %>%
+  filter(soortgroep %in% soortgroep_sel) %>%
+  select(-soortgroep) %>%
+ #  kable(booktabs = TRUE,
+ #        caption = "Bezoeken buiten telperiode",
+ #        align = c("l", "l", "c","c","c", "c", "c", "c", "c", "c", "c")) %>%
+ # kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+ #               font_size = 11) %>%
+ #  collapse_rows(columns = 1 )
+  datatable(rownames = FALSE,
+            filter = 'top',
+            extensions = c('Buttons', 'Scroller'),
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              autoWidth = TRUE,
+              columnDefs = list(list(width = '8%', targets = c(4, 5)))
+              )
+            )
+
+
+```
+
+
+
+### Afwijkingen van het protocol
+
+```{r}
+bezoeken_afwijkingen <- bezoeken %>% 
+  filter(soortgroep %in% soortgroep_sel) %>% 
+  filter(jaar == year_evaluation) %>% 
+  filter(bezoek_status_detail != "Conform protocol") %>% 
+  select(meetnet, protocol, datum, locatie, "bezoek status" = bezoek_status_detail, opmerkingen = notes) %>%
+  mutate(opmerkingen = gsub("\n", ". ", opmerkingen))
+```
+
+
+`r if (nrow(bezoeken_afwijkingen) > 0) {"De volgende tabel geeft een overzicht van de afwijkingen van het protocol"} else {"Er zijn geen bezoeken met afwijkingen van het protocol."}`
+
+```{r afwijkingenProtocolamfibieen}
+
+if (nrow(bezoeken_afwijkingen) > 0) {
+  
+  bezoeken_afwijkingen %>%
+  # kable(booktabs = TRUE, escape = TRUE) %>%
+  # kable_styling(latex_options =  c( "hold_position"),
+  #               bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  #   column_spec(5, width = "6cm") %>%
+  #  column_spec(2, width = "3cm")
+    datatable(
+            rownames = FALSE,
+            filter = 'top',
+            extensions = c('Buttons', 'Scroller'),
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              deferRender = TRUE,
+              autoWidth = TRUE,
+              columnDefs = list(list(width = '40%', targets = c(4)))
+              )
+            )
+  
+}
+  
+```
+
+
+### Mogelijke dubbele invoer
+
+
+```{r}
+bezoeken_dubbels_soortgroep <- bezoeken_dubbels %>%
+  filter(soortgroep %in% soortgroep_sel) %>%
+  select(meetnet, protocol, locatie, datum, bezoeken = n_bezoeken_datum, "zelfde begintijdstip" = start_time_identiek, taak1, taak2) %>% 
+  arrange(meetnet, protocol)
+
+temp <- nrow(bezoeken_dubbels_soortgroep) > 0
+```
+
+`r if (nrow(bezoeken_dubbels_soortgroep) > 0) {"Onderstaande tabel geeft mogelijks dubbel ingevoerde bezoeken weer (bezoeken = aantal bezoeken voor ingevoerd voor eenzelfde dag en eenzelfde locatie; zelfde begintijdstip = is het begintijdstip van de bezoeken identiek?)"} else {"Geen bezoeken die dubbel ingevoerd werden"}`
+
+
+```{r, eval = temp}
+bezoeken_dubbels_soortgroep %>%
+  datatable(
+        rownames = FALSE,
+        filter = 'top',
+        extensions = c('Buttons', 'Scroller'),
+        options = list(
+          dom = 'Bfrtip',
+          buttons = c('copy', 'excel'),
+          language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+          deferRender = TRUE,
+          autoWidth = TRUE,
+          columnDefs = list(list(width = '15%', targets = c(1)))
+          )
+  )
+  
+```
+
+## Opmerkingen bij meetnetlocaties
+
+Onderstaande tabel geeft een overzicht van de opmerkingen bij actieve locaties.
+
+```{r}
+
+locaties_opm %>%
+  filter(soortgroep %in% soortgroep_sel,
+         is_active) %>%
+  arrange(meetnet) %>%
+  select(-soortgroep, -id, -is_active) %>%
+  datatable(
+        rownames = FALSE,
+        filter = 'top',
+        extensions = c('Buttons', 'Scroller'),
+        options = list(
+          dom = 'Bfrtip',
+          buttons = c('copy', 'excel'),
+          language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+          deferRender = TRUE,
+          autoWidth = TRUE,
+          columnDefs = list(list(width = '40%', targets = c(4)))
+          )
+        )
+```
+
+
+## Monitoringsinspanning
+
+Zie [deze website](https://inbo.github.io/soortenmeetnetten-dataexploration/#amfibieen).
+
+## Verkenning van de ingevoerde aantallen
+
+Zie [deze website](https://inbo.github.io/soortenmeetnetten-dataexploration/#amfibieen).
+
+## Verkenning ingevoerde telling voor Rugstreeppad
+
+```{r}
+
+overzicht_rugstreeppad <- aantallen %>%
+  filter(jaar >= 2019,
+         meetnet == "Rugstreeppad") %>%
+  #group_by(visit_id, sample_id) %>%
+  filter(primaire_soort) %>%
+  mutate(type_wnm = ifelse(levensstadium == "adult" & activiteit == "roepend", "adult_roepend",
+                           ifelse(levensstadium == "adult" & activiteit == "ter plaatse", "adult_zichtwnm",
+                                  levensstadium))) %>%
+  group_by(jaar, locatie, type_wnm) %>%
+  summarise(n_bezoeken = n_distinct(visit_id),
+            n_telpunten = n_distinct(sample_id),
+            n_waarnemingen = sum(aantal > 0)) %>%
+  ungroup() %>%
+  spread(key = "type_wnm", value = "n_waarnemingen")
+
+
+#write.csv2(overzicht_rugstreeppad, "../output/rugstreeppad_overzicht2019.csv", row.names = FALSE)
+
+```
+
+
+```{r}
+overzicht_rugstreeppad %>%
+  kable(caption = "Overzicht van de Rugstreeppadtellingen waarbij per levensstadium wordt aangegeven hoe vaak het werd waargenomen (dus exlusief nulwaarnemingen") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+```{r}
+check <- evaluatie_locaties %>%
+  filter(meetnet == "Rugstreeppad") %>%
+  filter(jaar > 2018) %>%
+  filter(aantal_tellingen_cp > 0) %>%
+  anti_join(overzicht_rugstreeppad, by = c("jaar", "locatie"))
+```
+
+
+## Verkenning ingevoerde waarden voor de kwaliteit van het leefgebied
+
+Om de kwaliteit van het leefgebied van de Boomkikker en de Kamsalamander te beoordelen bepalen de vrijwilligers voor elke poel in het meetnet volgende karakteristieken:
+
+* aanwezigheid vis,
+* beschaduwing,
+* permanente waterkolom,
+* waterkwaliteit,
+* pH,
+* maximale diepte poel,
+* oppervlakte poel.
+
+\@ref(fig:figuurCovariabelenBK1) toont de karakteristieken die worden ingeschat a.d.h.v. een aantal vaste categorieën waaruit de vrijwilliger een selectie moet maken. We zien dat er nog vaak 'Onbekend' wordt ingegeven voor de karakteristieken. Mogelijks kan dit verholpen worden door duidelijkere richtlijnen op te nemen in de handleiding over hoe de karakteristieken bepaald moeten worden.
+
+
+
+```{r verkenningCovariabelenAmfibie}
+
+covariabelen_soortgroep <- covariabelen %>%
+  filter(meetnet != "") %>%
+ # mutate(visit_id = as.factor(visit_id)) %>%
+  left_join(select(bezoeken, visit_id, soortgroep, taak, locatie, bezoek_status_detail, datum, jaar), by = "visit_id")  %>%
+  filter(soortgroep %in% soortgroep_sel) %>%
+  filter(bezoekvariabele != "") %>%
+  mutate(waarde = ifelse(waarde == "" , "niet ingevuld", waarde),
+         waarde = ifelse(waarde == "goed (helder water, typische oever en/of waterplanten, weinig verlanding, niet zichtbaar vervuild)", "goed", waarde),
+         waarde = ifelse(waarde == "middelmatig (tussen slecht en goed)", "middelmatig", waarde),
+         waarde = ifelse(waarde == "slecht (verwaarloosde poel met eutroof water (algen, kroos), anders vervuild of verregaand verland)", "slecht", waarde),
+         waarde = ifelse(waarde == "FALSE", "nee", waarde),
+         waarde = ifelse(waarde == "TRUE", "ja", waarde)) %>%
+  filter(protocol %in% c("Amfibieën - Larven", "Amfibieën - Larven en metamorfen"))
+
+covariabelen_soortgroep_wide <- covariabelen_soortgroep %>%
+  select( -eenheid)  %>%
+  spread(key = bezoekvariabele, value = waarde)
+
+check_cat <- covariabelen_soortgroep %>%
+  distinct(meetnet, visit_id, locatie, datum, bezoekvariabele, waarde) %>%
+  filter(waarde %in% c("no shade", "average", "good", "unknown", "U", "-4"))
+
+write.csv2(check_cat, "../output/covariabelen_leefgebied.csv", row.names = FALSE)
+
+# covariabelen_amfibie_wide$`aanwezigheid vis` <- factor(covariabelen_amfibie_wide$`aanwezigheid vis`, levels = c("ja","nee", "niet bekeken/niet van toepassing","niet ingevuld", "U"))
+# covariabelen_amfibie_wide$`permanente waterkolom` <- factor(covariabelen_amfibie_wide$`permanente waterkolom`, levels = c("ja","nee", "niet bekeken/niet van toepassing", "niet ingevuld"))
+# covariabelen_amfibie_wide$beschaduwing <- factor(covariabelen_amfibie_wide$beschaduwing, levels =c("geen schaduw", "<30%", "30-60%", ">60%", "onbekend", "niet bekeken/niet van toepassing", "niet ingevuld", "no shade"))
+# covariabelen_amfibie_wide$waterkwaliteit <- factor(covariabelen_amfibie_wide$waterkwaliteit, levels = c("slecht", "middelmatig", "average", "goed", "plas verdwenen of volledig verland", "onbekend", "niet bekeken/niet van toepassing", "niet ingevuld", "3"))
+# #covariabelen_amfibie_wide$`oppervlakte waterpartij` <- factor(covariabelen_amfibie_wide$`oppervlakte waterpartij`)
+# covariabelen_amfibie_wide$`oppervlakte waterpartij` <- factor(covariabelen_amfibie_wide$`oppervlakte waterpartij`, levels = c( "10-100","101-250", "251-400", ">400","onbekend", "niet bekeken/niet van toepassing", "niet ingevuld"))
+# covariabelen_amfibie_wide$`pH (zuurtegraad)` <- factor(covariabelen_amfibie_wide$`pH (zuurtegraad)`)
+# covariabelen_amfibie_wide$`maximale diepte` <- factor(covariabelen_amfibie_wide$`maximale diepte`, levels=c("<0.5","0.5-1",">1",">1.5","onbekend",  "niet bekeken/niet van toepassing", "niet ingevuld"))
+
+```
+
+
+```{r}
+figuur_kwaliteit_leefgebied <- function(data_covariabelen){
+  
+  p1 <- data_covariabelen %>%
+  ggplot(aes(x= `aanwezigheid vis`, fill = bezoek_status_detail)) +
+  geom_bar() +
+  facet_wrap(~ jaar) +
+  labs(y= "Aantal poelen") +
+  coord_flip() +
+  theme(legend.position = "hide") 
+
+p2 <- data_covariabelen %>%
+  ggplot(aes(x= `permanente waterkolom`, fill = bezoek_status_detail)) +
+  geom_bar() +
+  facet_wrap(~ jaar) +
+  labs(y= "Aantal poelen") +
+  coord_flip() +
+  theme(legend.position = "hide")
+
+p3 <- data_covariabelen %>%
+  ggplot(aes(x= beschaduwing, fill = bezoek_status_detail)) +
+  geom_bar() +
+  facet_wrap(~ jaar) +
+  labs(y= "Aantal poelen") +
+  coord_flip() +
+  theme(legend.position = "hide")
+
+p4 <- data_covariabelen %>%
+  ggplot(aes(x= waterkwaliteit, fill = bezoek_status_detail)) +
+  geom_bar() +
+  facet_wrap(~ jaar) +
+  labs(y= "Aantal poelen") +
+  coord_flip() +
+  theme(legend.position = "hide") 
+
+p5 <- data_covariabelen %>%
+  ggplot(aes(x= `maximale diepte`, fill = bezoek_status_detail)) +
+  geom_bar() +
+  facet_wrap(~ jaar) +
+  labs(y= "Aantal poelen") +
+  coord_flip() +
+  theme(legend.position = "hide") 
+
+p6 <- data_covariabelen %>%
+  ggplot(aes(x= `oppervlakte waterpartij`, fill = bezoek_status_detail)) +
+  geom_bar() +
+  facet_wrap(~ jaar) +
+  labs(y= "Aantal poelen") +
+  coord_flip() +
+  theme(legend.position = "hide") 
+
+p7 <- data_covariabelen %>%
+  ggplot(aes(x= `pH (zuurtegraad)`, fill = bezoek_status_detail)) +
+  geom_bar() +
+  facet_wrap(~ jaar) +
+  labs(y= "Aantal poelen") +
+  coord_flip() +
+  theme(legend.position = "bottom",
+        legend.direction = "vertical") 
+
+result <- grid.arrange(p1,p2,p3,p4, p5, p6, p7, ncol = 2)
+
+return(result)
+  
+}
+```
+
+
+```{r figuurCovariabelenBK1, fig.width=8, fig.height= 12, fig.cap = "Overzicht van ingevoerde waarden voor de verschillende indiatoren voor de kwaliteit van het leefgebied: Boomkikker"}
+
+cov_soort <- covariabelen_soortgroep_wide %>%
+  filter(meetnet == "Boomkikker",
+         jaar == as.character(year_evaluation)) %>%
+  figuur_kwaliteit_leefgebied()
+
+```
+
+
+```{r figuurCovariabelenKS1, fig.width=8, fig.height= 12, fig.cap = "Overzicht van ingevoerde waarden voor de verschillende indiatoren voor de kwaliteit van het leefgebied: Kamsalamander"}
+
+cov_soort <- covariabelen_soortgroep_wide %>%
+  filter(meetnet == "Kamsalamander",
+         jaar == as.character(year_evaluation)) %>%
+  figuur_kwaliteit_leefgebied()
+
+```
+
+## Steekproef Kamsalamander
+
+```{r}
+steekproefkader_kamsalamander <- read_sf(dsn = file.path(fileman_up("soortenmeetnetten-data"), "raw/steekproefkader_locaties.gpkg"), 
+                                         layer = "kamsalamander", crs = 31370) %>%
+  st_drop_geometry()
+
+steekproefkader_kamsalamander_buffer <- read_sf(dsn = file.path(fileman_up("soortenmeetnetten-data"), "raw/steekproefkader_locaties.gpkg"), 
+                                         layer = "kamsalamander", crs = 31370) %>%
+  select(-locatie, -meetnet) %>%
+  st_buffer(dist = 1)
+```
+
+
+
+```{r}
+
+locaties_kamsalamander <- locaties %>%
+  st_transform(crs = 31370) %>%
+  filter(meetnet == "Kamsalamander") %>%
+  mutate(is_sample = ifelse(locatie == "Dheide - Poel 4", TRUE, is_sample)) %>% #NOG AANPASSEN
+  mutate(is_active = ifelse(locatie == "Dheide - Poel 3", FALSE, is_active)) %>%
+  select(meetnet, locatie, is_active, is_sample) %>%
+  st_join(steekproefkader_kamsalamander_buffer) %>%
+  st_drop_geometry()
+  
+protocollen <- data.frame(meetnet = "Kamsalamander",
+                    protocol_short = c("fuiken",
+                                 "scheppen"))
+
+kamsalamander_geteld <- evaluatie_locaties %>%
+  filter(meetnet == "Kamsalamander") %>%
+  filter(is_active) %>%
+  filter(voldoende_data == 1) %>%
+  group_by(locatie, protocol) %>%
+  summarise(voldoende_data_jaar = str_c(jaar, collapse = "; ")) %>%
+  ungroup() %>%
+  mutate(protocol_short = ifelse(protocol == "Amfibieën - Fuiken", "fuiken", "scheppen")) %>%
+  select(-protocol) 
+
+kamsalamander_aanwezig <- aantallen %>%
+  filter(meetnet == "Kamsalamander") %>%
+  filter(primaire_soort) %>%
+  group_by(locatie, levensstadium) %>%
+  summarise(totaal = sum(aantal, na.rm = TRUE)) %>%
+  ungroup() %>%
+  filter(!is.na(levensstadium)) %>%
+  spread(key = "levensstadium", value = "totaal")
+
+overzicht_kamsalamander <- locaties_kamsalamander %>%
+  left_join(protocollen, by = "meetnet") %>%
+  left_join(kamsalamander_geteld, by = c( "protocol_short", "locatie")) %>%
+  mutate( voldoende_data_jaar = ifelse(is.na(voldoende_data_jaar), "", voldoende_data_jaar)) %>%
+  spread(key = "protocol_short", value = "voldoende_data_jaar") %>%
+  mutate(status = ifelse(scheppen != "" & fuiken != "", "afgewerkt",
+                         ifelse(scheppen != "", "to do fuiken",
+                                ifelse(fuiken != "", "to do scheppen", "to do fuiken en scheppen")))) %>%
+  left_join(kamsalamander_aanwezig, by = "locatie")
+
+n_geteld <- overzicht_kamsalamander %>%
+  group_by(is_sample) %>%
+  summarise(n_afgewerkt = sum(status == "afgewerkt"),
+            n_fuikvangst = sum(fuiken != ""),
+            n_locaties = n()) %>%
+  ungroup()
+
+
+check <- overzicht_kamsalamander %>%
+  filter((is_sample & steekproef_punt != 1) | ((!is_sample) & steekproef_punt == 1))
+```
+
+
+```{r, eval = FALSE}
+vervangpunten <- overzicht_kamsalamander %>%
+  filter(is_active) %>%
+  filter(!is.na(gebied_code)) %>%
+  group_by(gebied_code) %>%
+  mutate(n_geteld_gebied_sample = sum(afgewerkt & (is_sample == 1)),
+         n_geteld_gebied_extra = sum(afgewerkt & (is_sample == 0))) %>%
+  ungroup() %>%
+  mutate(n_tekort_gebied = n_steekproef_gebied * steekproef_gebied - n_geteld_gebied_sample) %>%
+  filter(steekproef_gebied == 1) %>%
+  mutate(extra_locatie_pot = afgewerkt & (is_sample == 0) & (n_tekort_gebied > 0)) %>%
+  filter(extra_locatie_pot) %>%
+  group_by(gebied_code) %>%
+  mutate(volgorde_vervanging = rank(volgorde_punt)) %>%
+  ungroup() %>%
+  mutate(vervangpunt = volgorde_vervanging <= n_tekort_gebied) %>%
+  filter(vervangpunt)
+
+vervangpunten_gebied <- vervangpunten %>%
+  filter(steekproef_punt == 1)
+
+te_vervangen_binnen_gebied <- overzicht_kamsalamander %>%
+  filter(gebied_code %in% vervangpunten$gebied_code) %>%
+  filter(is_sample == 1) %>%
+  filter(!afgewerkt) %>%
+  group_by(gebied_code) %>%
+  top_n(n = 1, wt = volgorde_punt) %>%
+  ungroup()
+
+te_vervangen_gebied_klein <- overzicht_kamsalamander %>%
+  filter(is_sample == 1) %>%
+  filter(!afgewerkt) %>%
+  filter(stratum == "Klein") %>%
+  top_n(n = 2, wt = volgorde_gebied)
+```
+
+Onderstaande tabel bevat de steekproeflocaties van Kamsalamander en geeft aan in welk jaar er (een voldoende aantal) fuiktellingen en larvetellingen zijn gebeurd. De tabel geeft ook het totaal aantal geobserveerde individuen per levensstadium.
+
+
+```{r tabelcyclus1}
+cyclus1 <- overzicht_kamsalamander %>%
+  filter(is_sample) %>%
+  arrange(locatie) %>%
+  select(locatie, status, fuiken, scheppen, adult, larve, juveniel, metamorf) 
+
+cyclus1 %>%
+  datatable(
+        rownames = FALSE,
+        filter = 'top',
+        extensions = c('Buttons', 'Scroller'),
+        options = list(
+          dom = 'Bfrtip',
+          buttons = c('copy', 'excel'),
+          language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+          deferRender = TRUE,
+          autoWidth = TRUE,
+          columnDefs = list(list(width = '40%', targets = c(0)))
+          )
+        )
+
+```
+
+Onderstaande tabel geeft een overzicht van de tellingen in de voldoende getelde extra locaties.
+
+
+```{r tabelcyclus1extra}
+cyclus1_extra <- overzicht_kamsalamander %>%
+  filter(status == "afgewerkt") %>%
+  filter(!is_sample) %>%
+  filter(is_active) %>%
+  # filter(is.na(steekproef_gebied) | !steekproef_gebied) %>%
+  arrange(locatie) %>%
+  select(locatie, fuiken, scheppen, adult, larve, juveniel, metamorf) 
+
+cyclus1_extra %>%
+  datatable(
+        rownames = FALSE,
+        filter = 'top',
+        extensions = c('Buttons', 'Scroller'),
+        options = list(
+          dom = 'Bfrtip',
+          buttons = c('copy', 'excel'),
+          language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+          deferRender = TRUE,
+          autoWidth = TRUE,
+          columnDefs = list(list(width = '40%', targets = c(0)))
+          )
+        )
+
+```

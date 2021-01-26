@@ -1,0 +1,149 @@
+# Overzicht van de resultaten
+
+```{r}
+name_analysis_gebiedstelling <- "libellen_gebiedstelling_2020-10-01"
+name_analysis_transecttelling <- "libellen_transecten_2020-10-01"
+  
+results_analysis_gebiedstelling <- get_results_analysis(name_analysis = name_analysis_gebiedstelling)
+results_analysis_transecttelling <- get_results_analysis(name_analysis = name_analysis_transecttelling)
+
+result_indexmodel <- bind_rows(
+  results_analysis_gebiedstelling$indexmodel,
+  results_analysis_transecttelling$indexmodel)
+
+trend_klasses <- trend_klasses %>%
+  arrange(klasse) %>%
+  mutate(tekst = str_c(klasse_markdown, " = ", klasse_naam))
+  
+legend_klasses <- str_c(trend_klasses$tekst, collapse = "; ")
+  
+
+```
+
+
+
+## Verschillen tussen de jaren
+
+Tabel \@ref(tab:tabelverschil) geeft een overzicht van de verschillen van jaar tot jaar, waarbij we steeds de aantallen in een bepaald jaar vergelijken met die in een referentiejaar. Als referentiejaar kiezen we hier het eerste jaar van het meetnet. We drukken de verschillen uit aan de hand van de [classificatie](#h:classtrend) die eerder werd besproken. In de tabel krijg je ook per meetnet een link naar een meer gedetailleerde bespreking van de resultaten.  
+
+```{r}
+verschillen_jaren <- result_indexmodel %>%
+  filter(parameter == "index") %>%
+  filter(meetnet != "Hoogveenglanslibel") %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  mutate(klasse = format(klasse, type = "markdown")) %>%
+  select(soort_nl, soort_wet, ref_jaar, jaar, klasse) %>%
+  mutate(ref_jaar = ref_jaar - 1,
+         soort_nl = str_c("[", soort_nl, "]")) %>%
+  spread(key = "jaar", value = "klasse") %>%
+  left_join(libellen_taxonomy, by = "soort_wet") %>%
+  arrange(species_order) %>%
+  select(-meetnet, -genus, -species_order)
+```
+
+```{r tabelverschil}
+verschillen_jaren %>%
+  rename("Soort (Nl.)" = soort_nl, "Soort (wet.)" = soort_wet, Referentiejaar = ref_jaar) %>%
+  kbl(caption = str_c("Verschil in aantallen t.o.v. referentiejaar (", legend_klasses, ")"),
+      format = select_format) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), font_size = 10) %>%
+  column_spec(2, italic = TRUE) %>%
+  add_header_above(c(" " = 3, "Verschil t.o.v. referentiejaar" = 4))
+
+```
+
+## Trends
+
+```{r}
+
+result_trendmodel <- bind_rows(
+  results_analysis_gebiedstelling$trendmodel,
+  results_analysis_transecttelling$trendmodel)
+
+trend <- result_trendmodel %>%
+  mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
+         n_jaar = jaar_max - jaar_min + 1,
+         treshold_low = ifelse(parameter == "trend_average", 
+                               round((exp(log(0.75)/(n_jaar - 1)) - 1) *100, 1),
+                               -25),
+         treshold_high = ifelse(parameter == "trend_average", 
+                                round((exp(log(1.33)/(n_jaar - 1)) - 1) *100, 1),
+                                33)) %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
+
+```
+
+In Tabel \@ref(tab:tabtrendresultaat) geven we een overzicht van de gemiddelde jaarlijkse trend en de totale trend over de meetnetperiode. We duiden ook aan of de trend al dan niet lineair is. Een lineaire trend betekent dat de jaarlijkse daling of stijging relatief constant is. Bij een niet-lineaire trend fluctueren de aantallen sterk jaar per jaar, maar hebben we gemiddeld gezien over de hele tijdsperiode wel een stijging of een daling. De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in Figuur \@ref(fig:figtrend).
+
+```{r }
+waic <- bind_rows(
+  results_analysis_gebiedstelling$waic,
+  results_analysis_transecttelling$waic) %>%
+  select(meetnet, type_trend)
+
+overzicht_trend_tabel <- trend %>%
+  left_join(waic, by = "meetnet") %>%
+  arrange(desc(trend)) %>%
+  mutate(klasse = str_c("`", klasse, "`")) %>%
+  mutate(trend = round(mean, 0),
+         trend_lcl = round(lcl_0.90, 0),
+         trend_ucl = round(ucl_0.90, 0),
+         trend_tbl = str_c(ifelse(trend > 0, "+", ""),
+                           trend, "% (",
+                           ifelse(trend_lcl > 0, "+", ""),
+                           trend_lcl, "%; ",
+                           ifelse(trend_ucl > 0, "+", ""),
+                           trend_ucl, "%)"),
+         soort_nl = str_c("[", soort_nl, "]")
+         ) %>%
+  select(parameter, soort_nl, soort_wet, periode_tekst, klasse, trend_tbl, type_trend) %>%
+  spread(key = "parameter", value = "trend_tbl") %>%
+    left_join(libellen_taxonomy, by = "soort_wet") %>%
+  arrange(species_order) %>%
+  select(-meetnet, -genus, -species_order) %>%
+  select("Soort (Nl.)" = soort_nl, "Soort (wet.)" = soort_wet, Periode = periode_tekst, Klasse = klasse, Interpretatie = type_trend, "Jaarlijkse wijziging" = trend_average, "Wijziging over de looptijd" = trend_total)
+```
+
+
+```{r tabtrendresultaat}
+
+overzicht_trend_tabel %>%
+  kbl(align = c("l", "l", "c", "l"),
+        caption = str_c("Jaarlijkse wijziging en wijziging over de looptijd (", legend_klasses, ")"),
+      format = select_format)  %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), font_size = 10) %>%
+  column_spec(2, italic = TRUE)
+```
+
+```{r figtrend, fig.cap= str_c("Gemiddelde jaarlijkse trend met 90 procent betrouwbaarheidsinterval (", legend_klasses, ")")}
+
+order_trend <- (trend %>%
+  filter(parameter == "trend_average") %>%
+  filter(meetnet != "Hoogveenglanslibel") %>%
+  arrange(mean))$soort_nl
+
+trend %>%
+  filter(parameter == "trend_average") %>%
+  filter(meetnet != "Hoogveenglanslibel") %>%
+  mutate(soort_nl = factor(soort_nl, levels = order_trend)) %>%
+  ggplot( aes(x = soort_nl, y = mean/100, ymin = lcl_0.90/100, ymax = ucl_0.90/100, label = klasse, colour = klasse)) +
+  geom_hline(aes(yintercept = max(treshold_low/100)), linetype = 3) +
+  geom_hline(aes(yintercept = min(treshold_high/100)), linetype = 3) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  # geom_errorbar(aes(ymin = lcl_0.60/100, ymax = ucl_0.60/100), width = 0, size = 10, alpha = 0.3) +
+  # geom_errorbar(aes(ymin = lcl_0.30/100, ymax = ucl_0.30/100), width = 0, size = 10, alpha = 0.3) +
+  # stat_effect(threshold = c(treshold_low/100, treshold_high/100), reference = 0, size = 3) +
+  # scale_effect() +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Gemiddelde jaarlijkse trend (%)", x = "Soort") +
+  scale_y_continuous(breaks = c(-50, -25, 0, 33, 100)/100, labels = scales::percent, limits = c(-0.6, 1)) +
+ # theme(axis.text.x = element_text(angle = 90)) +
+  coord_flip() +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+  
+```
+
+

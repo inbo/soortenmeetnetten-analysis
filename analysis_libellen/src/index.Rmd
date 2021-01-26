@@ -1,0 +1,76 @@
+---
+title: "Analyse Libellenmeetnetten"
+author: 
+  -
+    name: "Toon Westra, Geert De Knijf, Hannes Ledegen, Sam Van De Poel,  Frederic Piesschaert, Thierry Onkelinx, "
+    email: "Toon.Westra@inbo.be"
+subtitle: "Technisch rapport"
+ordernr: "Rapporten van het Instituut voor Natuur- en Bosonderzoek 2020 (xx)"
+reportnr: "xxx"
+link-citations: TRUE
+always_allow_html: yes
+site: bookdown::bookdown_site
+output:
+  bookdown::html_document2:
+    keep_md: TRUE
+    toc: TRUE
+    toc_float:
+      collapsed: FALSE
+      smooth_scroll: FALSE
+---
+
+
+```{r setup, include = FALSE}
+library(knitr)
+options(knitr.kable.NA = '')
+
+library(showtext)
+
+showtext_auto()
+font_add("Calibri", "Calibri.TTF")
+```
+
+
+```{r, cache = FALSE}
+
+library(tidyverse)
+library(INBOtheme)
+library(INBOmd)
+library(sf)
+library(crosstalk)
+library(leaflet)
+library(plotly)
+library(DT)
+library(effectclass)
+library(kableExtra)
+library(inlabru)
+library(INLA)
+library(git2rdata)
+library(here)
+library(n2khab)
+library(inlatools)
+library(openssl)
+library(units)
+
+```
+
+
+
+```{r}
+source(here("src", "functions_smp.R"))
+```
+
+# Dankwoord {-}
+
+
+# Samenvatting {-}
+
+
+# English abstract {-}
+
+\benglish
+
+
+\eenglish
+
+
