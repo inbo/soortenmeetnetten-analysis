@@ -1,8 +1,29 @@
 
 # (APPENDIX) Bijlagen {-}
 
-# Bijlage: technische beschrijving analysemodel libellen-gebiedstelling {#h:bijlagec}
 
+```{r, eval = FALSE}
+# Bijlage: overzicht tellers libellenmeetnetten {#h:bijlagea}
+
+observers <- get_observers_smp(species_group = "libellen") %>%
+  mutate(naam_teller = ifelse(naam_teller == "Hannes Ledegen (waarnemer)", "Hannes Ledegen", naam_teller)) %>%
+  group_by(naam_teller) %>%
+  summarise(n_tellingen = n_distinct(visit_id),
+            meetnetten = str_c(unique(meetnet), collapse = ", ")) %>%
+  ungroup() %>%
+  arrange(desc(n_tellingen))
+  
+```
+
+```{r, eval=FALSE}
+observers %>%
+  rename("Naam teller" = naam_teller, "Aantal tellingen" = n_tellingen, Meetnetten = meetnetten) %>%
+  kbl(caption = "Overzicht van de tellers van de libellenmeetnetten, het aantal uitgevoerde tellingen en de meetnetten waarvoor tellingen werden uitgevoerd") %>%
+  kable_styling()
+```
+
+
+# Bijlage: technische beschrijving analysemodel libellen-gebiedstelling {#h:bijlagec}
 
 ## Herschaling van de data
 
@@ -11,12 +32,20 @@ $$D = \frac{dagnr - dagnr_{mid}}{28}$$
 
 ## Model voor verschillen tussen de jaren
 
+Via dit model modelleren we de getelde aantallen als functie van het jaar, het dagnummer en het kwadraat van het dagnummer. We gebruiken jaar als categorische variabele, zodat we een schatting per jaar krijgen. Op basis van de tweedegraads polynoom van het dagnummer modelleren we het seizoenseffect op de getelde aantallen. Ten slotte voegen we een locatie-effect toe aan het model onder de vorm van een *random intercept*. Hiermee geven we aan dat tellingen op eenzelfde locatie gecorreleerd zijn. Bij de transecttellingen van imago's en larvenhuidjes hebben niet alle transecten dezelfde lengte. We houden hiermee rekening door de transectlengte (in meter) gedeeld door 100 als *offset* toe te voegen aan het model. Hierdoor worden de resultaten uitgedrukt als (verschil in) aantallen per 100 meter transectlengte.             
+
+Op basis van dit model maken we een schatting van:
+
+* de jaarlijkse index: het procentueel verschil in aantallen (per 100 meter transectlengte) tussen een bepaald jaar en een referentiejaar;
+
+* de gemiddelde maximale telling (per 100 meter transectlengte) binnen het telseizoen per jaar.
+
 We maken gebruik van een generalised linear mixed model (GLMM), waarbij we aannemen dat het getelde aantal $C_{ldj}$ op locatie $l$, dag $d$ en jaar $j$ een negatief binomiale distributie volgt met gemiddelde $\mu_{ldj}$ en overdispersie parameter $k$.
 
 $$C_{ldj} \sim {NB}(\mu_{ldj}, k)$$
 
-$$E(C_{ldj})=\mu_{ldj}$$
-$$var(C_{ldj})=\mu_{ldj}+\frac{\mu_{ldj}^2}{k}$$
+$$\operatorname{E}[C_{ldj}]=\mu_{ldj}$$
+$$\operatorname{var}(C_{ldj})=\mu_{ldj}+\frac{\mu_{ldj}^2}{k}$$
 We maken gebruik van  onderstaande link functie.
 
 $$\log(\mu_{ldj}) = \eta_{ldj}$$
@@ -29,11 +58,98 @@ $$b_{l} \sim {N(0,\sigma_{l}^2)} $$
 
 ## Model voor jaarlijkse trend
 
-In dit model gebruiken we jaar als continue variabele $J$. Verder is het model identiek aan het model voor verschillen tussen de jaren. We krijgen dus:
+Om de lineaire trend te schatten gebruiken we jaar als continue variabele $J$. Verder is het model identiek aan het eerder beschreven model voor verschillen tussen de jaren. 
+
+Dit model gebruiken we voor volgende schattingen:
+
+* gemiddelde jaarlijkse lineaire trend in aantallen (per 100 meter transectlengte), m.a.w. de percentage vooruitgang of achteruitgang per jaar;
+
+* totale trend in aantallen (per 100 meter transectlengte) over de volledige periode, m.a.w. de percentage vooruitgang of achteruitgang over de hele periode. 
+
+We krijgen dus:
 
 $$\eta_{ldj}= \beta_{0} + \beta_{1}J + \beta_{2}D_{d} + \beta_{3}D_{d}^2 + b_{l}$$
 waarbij $e^{\beta_1}$ de relatieve trend weergeeft. 
 
+# Detail van getelde aantallen {#h:bijlaged}
+
+`r ifelse(!html_output, "In de [website versie](www.meetnetten.be) van dit rapport vind je een downloadbare tabel met de gedetailleerde telgegevens van zowel de prioritaire soorten als de overige soorten. In deze tabel maken we onderscheid tussen vrouwelijke (V) en mannelijke (M) imago's, imago's met onbekend geslacht (imago U), imago's (niet uitgekleurd), larvenhuidjes (V, M en U), copula en eiafzettende libellen.", "Je kan de tabel naar het klembord kopiëren (door op de 'Copy-knop' te klikken) of downloaden als csv-bestand of excel-bestand (via respectievelijk de 'CSV-knop' en de 'Excel-knop')")`
+
+```{r countsLevensstadium}
+
+summary_counts_type <- summary_counts$details %>%
+  mutate(type_waarneming = ifelse(activiteit %in% c("copula", "eiafzettend"), activiteit,
+                                  ifelse(levensstadium == "imago (niet uitgekleurd)", levensstadium,
+                                                str_c(levensstadium, geslacht, sep = " "))),
+         type_waarneming = factor(type_waarneming, levels = c("imago F", "imago M", "imago U", "imago (niet uitgekleurd)", "eiafzettend", "copula", "larvenhuidje F", "larvenhuidje M", "larvenhuidje U"))) %>%
+  mutate(jaar = factor(jaar),
+         soort_nl = factor(soort_nl)) %>%
+  left_join(select(libellen_taxonomy, meetnet, species_order), by = "meetnet")  %>%
+  arrange(species_order, jaar, type_waarneming)
+
+```
+
+
+
+```{r tabaantaldetail}
+
+summary_counts_type %>%
+  arrange(meetnet, desc(primaire_soort), soort_nl) %>%
+  mutate(type_soort = ifelse(primaire_soort, "doelsoort", "overige soorten")) %>%
+  select(meetnet, protocol, type_soort, soort_nl, soort_wet, jaar, type_waarneming, aantal_totaal, aantal_gemiddeld, aantal_maximum) %>%
+   write.csv2("../output/libellenmeetnetten2016-2020_aantallen.csv", row.names = FALSE)
+
+```
+
+
+```{r, eval = html_output}
+
+sd_counts <- SharedData$new(summary_counts_type %>% 
+  filter(!is.na(soort_nl)) %>%
+  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+  # filter(primaire_soort) %>%
+  group_by(meetnet, soort_nl, type_waarneming) %>%
+  mutate(totaal_type = sum(aantal_totaal)) %>%
+  ungroup() %>%
+  filter(totaal_type > 0) %>%
+  mutate(jaar = factor(jaar),
+         soort_nl = factor(soort_nl),
+         meetnet = as.factor(meetnet),
+         Type_soort = ifelse(primaire_soort, "Doelsoort", "Overige soorten")) %>%
+  select( Meetnet = meetnet, "Soort" = soort_nl, Type_soort, Jaar = jaar, "Type waarneming" = type_waarneming, "Totaal" = aantal_totaal, "Gemiddeld" = aantal_gemiddeld))
+
+bscols(list(bscols(
+            
+            filter_select("Meetnet", "Selecteer meetnet", sd_counts, ~Meetnet),
+            filter_checkbox("Type_soort", "Selecteer de weer te geven soorten:", sd_counts, ~Type_soort)
+)
+  ,
+
+            datatable(sd_counts, 
+                    rownames = FALSE, 
+                    filter = 'top',
+                    extensions = 'Buttons', 
+                    width = '100%',
+                   options = list(
+                      dom = 'Bfrtip',
+                      autoWidth = TRUE,
+                      pageLength = 25,
+                      buttons = c('copy', 'csv', 'excel'),
+                      # class="compact", 
+                      language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+                      initComplete = JS(
+                            "function(settings, json) {",
+                            "$(this.api().table().header()).css({'background-color': '#959B38','font-size': '9px'});",
+                            "}"),
+                      columnDefs = list(list(visible=FALSE, targets= c( 2)),
+                                        list(width = '8%', targets = c(0, 1, 2, 3, 4, 5, 6)))
+                    ),
+                    caption = str_c("Overzicht van de gedetailleerde telgegevens met onderscheid tussen vrouwelijke (V) en mannelijke (M) imago's, imago's met onbekend geslacht (imago U), imago's (niet uitgekleurd), larvenhuidjes (V, M en U), copula en eiafzettende libellen")) %>%
+    formatStyle(columns = colnames(.$x$data), 
+              `font-size` = '9px')
+        )
+)
+```
 
 
 

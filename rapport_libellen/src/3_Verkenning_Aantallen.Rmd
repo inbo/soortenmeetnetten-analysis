@@ -23,30 +23,35 @@ summary_counts <- get_summary_counts("libellen")
 
 summary_distribution <- get_summary_distribution("libellen")
 
-summary_table <- summary_counts$lifestage %>%
-  left_join(summary_distribution, by = c("primaire_soort", "soortgroep", "meetnet", "protocol", "jaar", "soort_nl", "soort_wet", "levensstadium")) %>%
-  group_by(primaire_soort, soort_nl, levensstadium) %>%
+summary_distribution_all_years <- get_summary_distribution(species_group = "libellen", aggregation_periode = "all_years")
+summary_distribution_all_years_ind <- summary_distribution_all_years$individuals
+
+summary_table <- summary_counts$individuals %>%
+  left_join(summary_distribution$individuals, by = c("primaire_soort", "soortgroep", "meetnet", "protocol", "jaar", "soort_nl", "soort_wet")) %>%
+  group_by(primaire_soort, soort_nl) %>%
   mutate(tot = sum(aantal_totaal)) %>%
   ungroup() %>%
-  filter(((protocol %in% c("Libellen - Larvenhuidjes Beekrombout", "Libellen - Larvenhuidjes")) & (levensstadium == "larvenhuidje")) |
-           ((protocol %in% c("Libellen - Transect", "Libellen - Populatietelling per locatie")) & (levensstadium == "imago"))) %>%
+  # filter(((protocol %in% c("Libellen - Larvenhuidjes Beekrombout", "Libellen - Larvenhuidjes")) & (levensstadium == "larvenhuidje")) |
+  #          ((protocol %in% c("Libellen - Transect", "Libellen - Populatietelling per locatie")) & (levensstadium == "imago"))) %>%
   left_join(select(libellen_taxonomy, meetnet, species_order), by = "meetnet")  %>%
   arrange(species_order)
   
 
 summary_counts_locatie <- get_summary_counts("libellen", "locatie")
 
-summary_counts_locatie <- summary_counts_locatie$lifestage
+summary_counts_locatie <- summary_counts_locatie$individuals
 ```
 
-## Aantal imago's of larvehuidjes van de prioritaire soorten 
+## Aantallen voor de prioritaire soorten 
+
+### Totale aantallen en gemiddelde aantallen per bezoek
 
 De Tabel \@ref(tab:tabaantaltot) toont per soort en per jaar:
 
-- het gemiddeld aantal getelde imago's of larvenhuidjes per bezoek;
-- het totaal aantal getelde imago's of larvenhuidjes; 
-- het aantal meetnetlocaties waar imago's of larvenhuidjes werden waargenomen;
-- de proportie van de bezochte meetnetlocaties waar imago's of larvenhuidjes werden waargenomen.
+- het totaal aantal getelde individuen;
+- het gemiddeld aantal getelde individuen per bezoek;
+- het aantal meetnetlocaties waar de soort werd waargenomen;
+- de proportie van de bezochte meetnetlocaties waar de soort werd waargenomen.
 
 ```{r tabaantaltot, eval=TRUE}
 #library(formattable)
@@ -59,12 +64,18 @@ summary_table %>%
   filter(primaire_soort) %>%
   mutate(jaar = factor(jaar),
          soort_nl = factor(soort_nl)) %>%
-  select("Soort (nl.)" = soort_nl, "Soort (wet.)" = soort_wet, Levensstadium = levensstadium, Jaar = jaar, "Totaal aantal" = aantal_totaal, "Gemiddeld aantal" = aantal_gemiddeld, "Locaties waargenomen" = locaties_aanwezig, "Proportie locaties waargenomen (%)" = proportie_locaties_aanwezig) %>%
-  kbl(caption = "Overzicht getelde aantallen voor de prioritaire soorten",
-      format = select_format) %>%
-  kable_styling(bootstrap_options = c( "condensed"), font_size = 10) %>%
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet,  Jaar = jaar, "Totaal" = aantal_totaal, "Gemiddeld" = aantal_gemiddeld, "Locaties" = locaties_aanwezig, "Proportie (%)" = proportie_locaties_aanwezig) %>%
+  kbl(caption = "Overzicht getelde aantallen voor de prioritaire soorten (Totaal = totaal aantal getelde individuen, Gemiddeld = gemiddeld aantal getelde individuen per bezoek, Locaties = aantal meetnetlocaties waar de soort werd waargenomen, Proportie = proportie van de bezochte meetnetlocaties waar de soort werd waargenomen)",
+      format = select_format,
+      booktabs = TRUE,
+      longtable = TRUE,
+      align = "llccccc") %>%
+  kable_styling(bootstrap_options = c( "condensed"), 
+                font_size = font_size_table,
+                latex_options = c("scale_down", "repeat_header"),
+                repeat_header_text = "(vervolg)") %>%
   column_spec(2, italic = TRUE) %>%
-  collapse_rows(c(1,2, 3), target = 1) %>%
+  collapse_rows(c(1,2, 3), target = 1, valign = "top", latex_hline = "major") %>%
   scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
 ```
 
@@ -111,106 +122,141 @@ summary_table %>%
 
 ```
 
-## Getelde aantallen van de prioritaire soorten opgesplitst per levenststadium, activitiet en geslacht
 
-Tijdens het tellen van libellen wordt er onderscheidt gemaakt tussen het geslacht (mannelijk of M, vrouwelijk of F, onbekend of U), het levensstadium (imago, imago (niet uitgekleurd) en larvenhuidje) en de activiteit (ter plaatse, copula, eiafzettend). In \@ref(tab:tabaantaldetail) tonen we het gemiddelde getelde aantal voor volgende type waarnemingen:
+Bij de gebiedstellingen en de transecttellingen van imago's vragen we om, indien mogelijk, ook het geslacht (mannetjes, vrouwtjes of onbepaald) te vermelden en indicaties voor lokale reproductie (tandem of copula, eiafzettend of larvenhuidjes). Voor een overzicht van deze detailgegevens verwijzen we naar Bijlage \@ref(h:bijlaged).
 
-- imago F, imago M en imago U;
-- imago (niet uitgekleurd);
-- larvenhuidje F, larvenhuidje M en larvenhuidje U;
-- eiafzettend F en eiafzettend U;
-- copula .
+`r ifelse(html_output, "### Aantallen per meetnetlocatie", "")`
 
-```{r countsLevensstadium}
+```{r}
 
-summary_counts_type <- summary_counts$details %>%
-  mutate(type_waarneming = ifelse(activiteit == "copula", "copula",
-                                  ifelse(activiteit == "eiafzettend", str_c(activiteit, geslacht, sep = " "),
-                                         ifelse(levensstadium == "imago (niet uitgekleurd)", "imago (niet uitgekleurd)",
-                                                str_c(levensstadium, geslacht, sep = " ")))),
-         type_waarneming = factor(type_waarneming, levels = c("imago F", "imago M", "imago U", "imago (niet uitgekleurd)", "eiafzettend F", "eiafzettend U", "copula", "larvenhuidje F", "larvenhuidje M", "larvenhuidje U"))) %>%
-  mutate(jaar = factor(jaar),
-         soort_nl = factor(soort_nl)) %>%
-  left_join(select(libellen_taxonomy, meetnet, species_order), by = "meetnet")  %>%
-  arrange(species_order, jaar, type_waarneming)
-
-```
-
-
-
-```{r tabaantaldetail}
-summary_counts_type %>% 
-  filter(!is.na(soort_nl)) %>%
-  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
-  filter(primaire_soort) %>%
-  group_by(meetnet, soort_nl, type_waarneming) %>%
-  mutate(totaal_type = sum(aantal_totaal)) %>%
+details_locatie_m <- locaties_utm %>%
+  select(meetnet, locatie, tag_utm) %>%
+  mutate(tag_utm = as.character(tag_utm)) %>%
+  group_by(meetnet, tag_utm) %>%
+  mutate(tag_locatie = str_c(tag_utm, "-", rank(locatie))) %>%
   ungroup() %>%
-  filter(totaal_type > 0) %>%
-  mutate(jaar = factor(jaar),
-         soort_nl = factor(soort_nl)) %>%
-  select("Soort (nl.)" = soort_nl, "Soort (wet.)" = soort_wet, Jaar = jaar, "Type waarneming" = type_waarneming, "Totaal aantal" = aantal_totaal, "Gemiddeld aantal" = aantal_gemiddeld) %>%
-  kbl(caption = "Overzicht getelde aantallen voor de prioritaire soorten met onderscheid tussen geslacht, levensstadium en activiteit",
-      format = select_format) %>%
-  kable_styling(bootstrap_options = c( "condensed"), font_size = 10) %>%
-  column_spec(2, italic = TRUE) %>%
-  collapse_rows(c(1,2, 3), target = 1) %>%
-  scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
+  left_join(filter(summary_counts_locatie, primaire_soort), by = c("meetnet", "locatie")) %>%
+  group_by(tag_locatie, meetnet) %>%
+  mutate(aantal_totaal_overall = sum(aantal_totaal),
+         aantal_gemiddeld_overall = round(sum(aantal_totaal)/sum(visits), 1),
+         label_locatie = str_c("<p>", meetnet, "-", tag_locatie, ": <b>", aantal_gemiddeld_overall, "</b></br></p>")) %>%
+  ungroup() %>%
+  group_by(tag_utm, meetnet) %>%
+  mutate(meetnetlocaties_utm = n_distinct(locatie),
+           # voorkomen_utm = sum(aantal_totaal) > 0,
+           # aantal_totaal_utm = sum(aantal_totaal),
+          label = str_c(unique(label_locatie),  collapse = " ")) %>%
+  ungroup() 
+  
+details_locatie_m_tabel <- details_locatie_m %>%
+  select("Soort" = meetnet, "Locatie code" = tag_locatie, jaar, aantal_gemiddeld, aantal_gemiddeld_overall, label) %>%
+  spread(key = "jaar", value = "aantal_gemiddeld") %>%
+  mutate(radiusCircle = 500 + (5000 - 500) * sqrt(aantal_gemiddeld_overall/pi)/max(sqrt(aantal_gemiddeld_overall/pi), na.rm = TRUE) ,
+         radiusCircleMarker = 2 + (20 - 2) * sqrt(aantal_gemiddeld_overall/pi)/max(sqrt(aantal_gemiddeld_overall/pi), na.rm = TRUE)) %>%
+  filter(!is.na(aantal_gemiddeld_overall)) %>%
+  rename("Volledige periode" = aantal_gemiddeld_overall)
+  
+
+utm10_meetnet <- utm10_vl %>%
+  filter(tag_utm %in% details_locatie_m$tag_utm)
+```
+
+`r ifelse(html_output, "In onderstaande kaart en bijhorende tabel geven we een overzicht van het gemiddeld getelde aantal individuen per soort en per meetnetlocatie. De meetnetlocaties worden weergegeven in de centroïde van het 10 km x 10 km UTM-hok waarin de locatie gelegen is. De oppervlakte van de punten is evenredig met het gemiddeld getelde aantal imago's per bezoek over de volledige periode (2016 - 2020). In de bijhorende tabel geven we ook het gemiddeld getelde aantal individuen per bezoek voor elk jaar. Gezien we de exacte locaties niet weergeven in dit rapport, kennen we hier aan elke locatie een code toe die refereert naar het overeenkomstige UTM-hok. Als je in de tabel een rij selecteert, krijg je in de kaart de (vervaagde) locatie te zien.", "")`         
+
+
+```{r, eval = html_output}
+
+sd_locaties <- SharedData$new(details_locatie_m_tabel)
+
+
+bscols(list(
+          bscols(
+            widths = c(8, 4),
+            NULL,
+            filter_select("meetnet", "Selecteer meetnet", sd_locaties, ~Soort)
+  ),
+            leaflet(sd_locaties, options = leafletOptions(maxZoom = 11)) %>%
+              addTiles() %>%
+              #addCircles(stroke = FALSE,  radius = ~radiusCircle,  label = ~label, fillOpacity = 0.4) %>%
+              addCircleMarkers(stroke = FALSE,  radius = ~radiusCircleMarker,  label =  ~lapply(label, HTML),  fillOpacity = 0.4) %>%
+              addPolygons(data = utm10_meetnet, weight = 1, color = "blue", fill = FALSE, opacity = 0.5),
+            datatable(sd_locaties, 
+                    rownames = FALSE, 
+                    extensions="Scroller", 
+                    style="bootstrap",
+                    class="compact", 
+                    width="100%",
+                    options=list(columnDefs = list(list(visible=FALSE, targets= c( 3, 4, 10, 11, 12)))),
+                    caption = str_c("Gemiddeld getelde aantallen per bezoek en per locatie")) %>%
+            formatStyle(columns = c(1, 2, 3, 4, 5), fontSize = '10 pt')
+        )
+)
+
+# 
+# plot_ly(sd_locaties, x = ~jaar, y = ~aantal_gemiddeld) %>%
+#           add_lines(linetype = ~tag_locatie) 
+```
+
+```{r figlocatiesaantallen, fig.cap = "Gemiddelde getelde aantallen per meetnetlocatie", eval= html_output}
+include_graphics("../fig/dummy_figuur.png")
 ```
 
 
+## Aantallen voor overige soorten
 
-```{r tabelaantaldetailinteractief, eval = FALSE}
-summary_counts_type_primair %>%
-  filter(primaire_soort) %>%
-  select(-primaire_soort) %>%
-  datatable(rownames = FALSE,
-            filter = 'top',
-            extensions = 'Buttons', 
-            options = list(
-              dom = 'Bfrtip',
-              buttons = c('copy', 'pdf', 'csv', 'excel'),
-              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
-              initComplete = JS(
-                            "function(settings, json) {",
-                            "$(this.api().table().header()).css({'background-color': '#959B38'});",
-                            "}")
-              )
-            )
+Elk libellenmeetnet is specifiek ontworpen voor één bepaalde doelsoort. Naast deze doelsoort die moet geteld worden, de zogenoemde prioritaire soorten, is het ook mogelijk om andere aanwezige libellen op de tellocatie op die dag te noteren. Deze gegevens kunnen zeker een meerwaarde zijn, maar we moeten wel voorzichtig zijn bij het interpreteren of analyseren van deze gegevens. Zowel de tellocaties als de telperiode zijn immers specifiek gekozen voor de doelsoorten. Dat maakt dat de aantallen voor de overige soorten niet altijd representatief zijn voor een uitspraak op schaal Vlaanderen.  
+  
+In Tabel \@ref(tab:tabaantaltotoverige) geven we het totaal aantal getelde individuen van de overige soorten voor alle libellenmeetnetten samen. De soorten worden gerangschikt volgens getelde aantallen van hoog naar laag. Azuurwaterjuffer is dus de meest getelde soort. De tabel bevat ook prioritaire soorten, maar dit zijn dan de aantallen die geteld werden in locaties van andere meetnetten. Bij de bespreking van de [resultaten per meetnet] geven we een meer gedetailleerd overzicht van de overige soorten voor elk meetnet afzonderlijk. 
 
-```
+\needspace{50mm}
 
-## Totaal aantal getelde imago's en larvenhuidjes voor overige soorten
+```{r }
 
-Naast de waarnemingen van prioritaire soorten kunnen optioneel ook waarnemingen van andere soorten ingevoerd worden in [meetnetten.be](https://www.meetnetten.be/). Deze gegevens kunnen zeker een meerwaarde zijn, maar we moeten wel voorzichtig zijn bij het interpreteren of analyseren van deze gegevens. De tellingen zijn immers gebeurd op locaties die specifiek geselecteerd werden voor een van de prioritaire soorten. Die locaties zijn dus mogelijks niet representatief voor de (niet-meetnet) soort in kwestie. Ook het tijdstip van de telling is steeds geoptimaliseerd in functie van de prioritaire soort waarvoor het meetnet ontworpen werd en is mogelijks minder optimaal voor de (niet-meetnet) soort in kwestie. 
+summary_distribution_all_years <- get_summary_distribution("libellen", aggregation_periode = "all_years")
 
-In Tabel \@ref(tab:tabaantaltotoverige) geven we het totaal aantal getelde larvenhuidjes en imago's van de overige soorten voor alle libellenmeetnetten samen. De soorten worden gerangschikt volgens getelde aantallen van hoog naar laag. Azuurwaterjuffer is dus de meest getelde soort. De tabel bevat ook prioritaire soorten, maar dit zijn dan de aantallen die geteld werden in locaties van andere meetnetten.  
-
-
-```{r tabaantaltotoverige, eval=TRUE}
+summary_distribution_all_years_ind <- summary_distribution_all_years$individuals %>%
+    filter(!primaire_soort) %>%
+  mutate(protocol_group = ifelse(protocol %in% c("Libellen - Transect", "Libellen - Populatietelling per locatie"), "Transecten en gebiedstelling", "Telling Larvenhuidjes")) %>%
+    group_by(primaire_soort, soort_nl, soort_wet, protocol_group) %>%
+  summarise(locatie_geteld = sum(locatie_geteld),
+            locaties_aanwezig = sum(locaties_aanwezig)) %>%
+  ungroup() %>%
+  mutate(proportie = round(locaties_aanwezig/locatie_geteld  * 100, 1)) 
 
 summary_table_all_years <- summary_table %>%
   filter(!is.na(soort_nl)) %>%
   mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
   filter(!primaire_soort) %>%
-  group_by(primaire_soort, soort_nl, soort_wet, levensstadium) %>%
+  mutate(protocol_group = ifelse(protocol %in% c("Libellen - Transect", "Libellen - Populatietelling per locatie"), "Transecten en gebiedstelling", "Telling Larvenhuidjes")) %>%
+  group_by(primaire_soort, soort_nl, soort_wet, protocol_group) %>%
   summarise(aantal_totaal = sum(aantal_totaal),
-            bezoeken = sum(visits)) %>%
+            aanwezig_totaal = sum(locaties_species_year),
+            bezoeken = sum(visits_calc)) %>%
   ungroup() %>%
-  group_by(primaire_soort, soort_nl, soort_wet) %>%
-  mutate(aantal_sort = sum(aantal_totaal)) %>%
-  ungroup() %>%
-  arrange(desc(aantal_sort))
+  mutate(aantal_gemiddeld = round(aantal_totaal/ bezoeken, 2),
+         proportie_geteld = round(aanwezig_totaal/ bezoeken, 2)) %>%
+  arrange(desc(protocol_group), desc(aantal_totaal))
 
+```
+
+```{r tabaantaltotoverige, eval=TRUE}
 summary_table_all_years %>% 
-  select("Soort (nl.)" = soort_nl, "Soort (wet.)" = soort_wet, Levensstadium = levensstadium,  "Totaal aantal" = aantal_totaal) %>%
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Totaal" = aantal_totaal) %>%
   kbl(caption = "Totaal aantal getelde overige soorten voor alle libellenmeetnetten samen",
-      format = select_format) %>%
-  kable_styling(bootstrap_options = c( "condensed"), font_size = 10) %>%
+      format = select_format,
+      longtable = TRUE,
+      booktabs = TRUE) %>%
+  kable_styling(bootstrap_options = c( "condensed"), 
+                font_size = font_size_table,
+                latex_options = c("scale_down", "repeat_header"),
+                ,
+                repeat_header_text = "(vervolg)") %>%
   column_spec(2, italic = TRUE) %>%
-  collapse_rows(c(1,2, 3), target = 1) %>%
+  pack_rows("Transecten en gebiedstelling", 1, 54) %>%
+  pack_rows("Telling Larvenhuidjes", 55, 58) %>%
   scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
 ```
+
 
 
 
@@ -315,6 +361,7 @@ diversity <- diversity %>%
   left_join(checklists, by = c("meetnet", "protocol", "locatie"))
 
 ```
+
 
 
 

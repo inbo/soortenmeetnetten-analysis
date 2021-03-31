@@ -1,15 +1,425 @@
-# Resultaten per meetnet
+# Resultaten per meetnet {#detailresultaat}
 
-## Bosbeekjuffer
+In dit onderdeel van het rapport geven we een overzicht van de resultaten per meetnet. Voor elk meetnet tonen we:
+
++ de jaarlijkse monitoringsinspanning (het aantal tellers, het aantal tellocaties en het aantal tellingen);
++ de jaarlijkse verschillen in aantallen en de gemiddelde jaarlijkse trend voor de doelsoort van het meetnet.
+
+Zoals eerder vermeld, vragen we de vrijwilligers om naast de doelsoort ook alle andere libellensoorten te tellen. Dit is niet het geval bij het meetnet voor Rivierrombout en Beekrombout waar er enkel gezocht wordt naar larvenhuidjes van de doelsoort. Voor de andere meetnetten geven we, naast de resultaten voor de doelsoort, ook een overzicht van de overige getelde soorten (= de secundaire soorten). Let wel, het tellen van de overige soorten is niet verplicht en gebeurt ook niet steeds bij elk bezoek. 
+
+Voor alle secundaire soorten berekenen we: 
+
++ het totaal aantal getelde exemplaren;
++ het gemiddeld aantal getelde exemplaren per bezoek;
++ het aantal bezoeken dat er gezocht werd naar een soort;
++ de proportie van de bezoeken dat soort werd waargenomen. 
+
+Als een teller de overige soorten invoert in de [meetnetten.be] moet er aangegeven worden of naast de doelsoort ook alle andere aanwezige soorten werden geteld. Wanneer de teller aangeeft dat alle soorten werden geteld, kunnen we er dus vanuit gaan dat de soorten die niet werden genoteerd op dat moment ook niet aanwezig waren (nulwaarnemingen). Het aantal bezoeken voor de overige soorten komt dus overeen met de som van:
+
++ het aantal bezoeken met een waarneming van de soort in kwestie, en
++ het aantal bezoeken zonder een waarneming van de soort in kwestie, maar waarvoor de teller aangeeft dat er naar alle soorten gezocht werd.
+
+In elk meetnet geven we van deze vijf meest getelde overige soorten het gemiddeld aantal
+getelde exemplaren per bezoek voor de verschillende jaren. Bij de interpretatie van deze cijfers dient men rekening te houden met het feit dat het ingeven van deze secundaire soorten niet verplicht is en er dus veel verschil kan zitten tussen de jaren omdat niet steeds elke locatie opnieuw werd geteld. Dit is in het bijzonder het geval bij die soorten die in een driejarige cyclus worden opgevolgd (Bosbeekjuffer, Variabele waterjuffer en Vroege glazenmaker).
+
+De relatief korte tijdreeks laat voorlopig nog niet toe om veel conclusies te trekken uit de resultaten voor de secundaire soorten, maar op langere termijn verachten we wel voor sommige soorten een goede indicatie te kunnen krijgen van de trends in aantallen. Dit is zeker het geval voor soorten zoals de Noordse witsnuitlibel (*Leucorrhinia rubicunda*) waarvan de huidige verspreiding bijna volledig overlapt met de meetnetlocaties van de doelsoorten en waarvoor de telperiode ook gelijkaardig is.
+
+
+```{r}
+klassenamen <- trend_klasses %>%
+  select(klasse, klasse_naam, klasse_output) %>%
+  mutate(klasse = as.character(klasse))
+
+result_indexmodel_refvalue <- result_indexmodel %>%
+  filter(parameter == "index") %>%
+  distinct(meetnet, parameter, soort_nl, soort_wet, ref_jaar) %>%
+  mutate(ref_jaar = ref_jaar - 1,
+         jaar = ref_jaar,
+         mean = 1,
+         klasse = "R") 
+
+result_indexmodel_table <- result_indexmodel %>%
+  filter(parameter == "index") %>%
+  mutate(klasse = as.character(classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)),
+         ref_jaar = ref_jaar - 1) %>%
+  bind_rows(result_indexmodel_refvalue) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+summary_table_overige <- summary_table %>%
+  filter(!is.na(soort_nl)) %>%
+  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+  # filter(!primaire_soort) %>%
+  group_by(meetnet, primaire_soort, soort_nl, soort_wet) %>%
+  summarise(aantal_totaal = sum(aantal_totaal),
+            aanwezig_totaal = sum(locaties_species_year),
+            visits_calc_totaal = sum(visits_calc),
+            visits_overige_totaal = sum(visits_overige),
+            visits_totaal = sum(visits)) %>%
+  ungroup() %>%
+  mutate(aantal_gemiddeld = round(aantal_totaal/visits_calc_totaal, 2),
+         aantal_gemiddeld_overige = round(aantal_totaal/visits_overige_totaal),
+         proportie_aanwezig = round(aanwezig_totaal/ visits_totaal *100, 0)) %>%
+  ungroup() %>%
+  arrange(meetnet, desc(aantal_totaal))
+
+```
+
+# Bosbeekjuffer
+
+```{r}
+m <- "Bosbeekjuffer"
+l <- "imago"
+
+```
+
+```{r, fig.cap= str_c("Copula ", m, " (foto: Erik Moonen)"), out.width = "75%"}
+include_graphics("../fig/Bosbeekjuffer_klein.jpg")
+```
+
+## Meetnetkarakteristieken
+
+```{r meetnetkaraktbj}
+meetnet_characteristics_table %>%
+  filter(Meetnet == m) %>%
+  gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE) %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffbj) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. Zoals aangegeven in Tabel \@ref(tab:meetnetkaraktbj) bestaat het meetnet uit 30 locaties en duurt de meetcyclus drie jaar. Gemiddeld gezien zouden er dus ongeveer 10 locaties per jaar geteld moeten worden met drie bezoeken per locatie. We zien dat er 2019 maar 4 locaties geteld werden, maar dit werd in het komende jaar grotendeels gecompenseerd met 19 getelde locaties. In 2020 werden 46 bezoeken uitgevoerd, dus niet alle locaties werden driemaal bezocht.     
+
+```{r moneffbj, fig.height= 3, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m)}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+
+ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+```
+
+## Vergelijking tussen de jaren
+
+Figuur \@ref(fig:changesbj) toont de jaarlijkse verschillen t.o.v. referentiejaar.
+
+Door de grote onzekerheid op de resultaten kunnen we geen uitspraak doen over de verschillen tussen de jaren. Bosbeekjuffer wordt geteld met een meetcyclus van drie jaar. Elk locatie wordt dus in principe om de drie jaar geteld. Daarom is het relevanter om verschillende meetcyclussen met elkaar te vergelijken, bijvoorbeeld de meetcyclus 2018 - 2020 met de meetcyclus 2021 - 2023. Maar voorlopig hebben we enkel gegevens voor de eerste meetcyclus.     
+
+```{r changesbj,  fig.height= 3, fig.width= 3, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ". De symbolen geven de classificatie van de verschillen weer",  legend_klasses_index, ". De stippellijnen tonen de referentiewaarde (0 \\%), de ondergrens (-25 \\%) en de bovengrens (+33 \\%) waarop de classificatie gebaseerd is.")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse)) +
+  geom_errorbar(width = 0, size = 15, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst, ncol = 2) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+## Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
+We zullen een duidelijker beeld krijgen van de trend eenmaal de tweede meetcyclus (2021 - 2023) is afgerond. 
+
+
+## Andere waargenomen libellensoorten in het meetnet `r m` 
+
+```{r, eval=TRUE}
+summary_table_m <- summary_table_overige %>%
+  filter(meetnet == m)
+  
+top_5 <- summary_table_m %>%
+  filter(!primaire_soort) %>%
+  slice_max(order_by = aantal_totaal, n = 5)
+
+```
+
+In Tabel \@ref(tab:overigebj) geven we een overzicht voor alle getelde libellensoorten in het meetnet `r m`.
+
+```{r overigebj, eval=TRUE}
+
+row_target_species <- (summary_table_m %>%
+  mutate(rank = rank(desc(aantal_totaal))) %>%
+  filter(soort_nl == m))$rank
+
+summary_table_m %>% 
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Totaal" = aantal_totaal,  "Gemiddeld" = aantal_gemiddeld, Bezoeken = visits_calc_totaal, "Proportie bezoeken (\\%)" = proportie_aanwezig) %>%
+  kbl(caption = str_c("Overzicht van de waargenomen libellen in het meetnet ", m, ". Totaal = totaal aantal individuen; Gemiddeld = gemiddeld aantal getelde individuen per bezoek; bezoeken = het aantal bezoeken dat soort werd geteld; proportie bezoeken (\\%) = proportie van de bezoeken dat soort werd waargenomen"),
+      format = select_format,
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "llcccc"
+      )%>%
+  kable_styling(font_size = font_size_table,
+                latex_options = c("scale_down", "hold_position")) %>%
+  column_spec(2, italic = TRUE) %>%
+  row_spec(row_target_species, bold = TRUE) 
+```
+
+\needspace{300mm}
+
+Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@ref(fig:overigefigbj) het gemiddeld aantal getelde exemplaren per bezoek voor elk jaar.
+
+```{r overigefigbj, fig.cap = str_c("Gemiddeld aantal getelde individuen per bezoek voor ", m, " en de vijf meest voorkomende andere libellensoorten van het meetnet ", m)}
+
+(summary_table %>% 
+  filter(meetnet == m) %>%
+  mutate(jaar = as.character(jaar)) %>%
+  filter(soort_nl %in% top_5$soort_nl | soort_nl == m) %>%
+  ggplot(aes(x = jaar, y = aantal_gemiddeld, colour = soort_nl, shape = soort_nl, group = soort_nl)) +
+  geom_point() +
+  geom_line() + 
+  ylim(0, NA) +
+  labs(x = "Jaar", y = "Gemiddeld aantal per bezoek", colour = "Soort", shape = "Soort")) %>%
+  ggplotly() %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian", 
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  ) 
+```
 
 
 
 
-## Speerwaterjuffer
 
-## Maanwaterjuffer (*Coenagrion lunulatum*) {#h:Maanwaterjuffer}
 
-### Aantal tellingen, tellers en getelde locaties
+
+
+
+# Speerwaterjuffer
+
+```{r}
+m <- "Speerwaterjuffer"
+l <- "imago"
+
+```
+
+```{r, fig.width= 7, fig.cap= str_c("Mannetje ", m, " (foto: Erik Moonen)"), out.width = "75%"}
+include_graphics("../fig/speerwaterjuffer.jpg")
+```
+
+## Meetnetkarakteristieken
+
+```{r meetnetkaraktsw}
+meetnet_characteristics_table %>%
+  filter(Meetnet == m) %>%
+  gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE) %>%
+  kable_styling(full_width = FALSE)
+```
+
+
+## Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffsw) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. Alle zes meetnetlocaties werden jaarlijks tweemaal geteld.
+
+```{r moneffsw, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m), eval=TRUE}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+# plot_m
+
+ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+```
+
+
+## Vergelijking tussen de jaren
+
+Figuur \@ref(fig:changessw) toont de jaarlijkse verschillen t.o.v. referentiejaar. In 2018 en 2019 is er een mogelijke afname in aantallen t.o.v. het referentiejaar 2017.  
+
+```{r changessw,  fig.height= 3, fig.width= 4, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ". De symbolen geven de classificatie van de verschillen weer",  legend_klasses_index, ". De stippellijnen tonen de referentiewaarde (0 \\%), de ondergrens (-25 \\%) en de bovengrens (+33 \\%) waarop de classificatie gebaseerd is.")}
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100), " %")
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse)) +
+  geom_errorbar(width = 0, size = 15, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst, ncol = 2) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+## Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
+Voorlopig kunnen we dus nog geen uitspraak doen over de trend.  
+
+
+## Andere waargenomen libellensoorten in het meetnet `r m`
+
+
+```{r, eval=TRUE}
+summary_table_m <- summary_table_overige %>%
+  filter(meetnet == m)
+  
+top_5 <- summary_table_m %>%
+  filter(!primaire_soort) %>%
+  slice_max(order_by = aantal_totaal, n = 5)
+
+```
+
+In Tabel \@ref(tab:overigesw) geven we een overzicht voor alle getelde libellensoorten in het meetnet `r m`.
+
+```{r overigesw, eval=TRUE}
+row_target_species <- (summary_table_m %>%
+  mutate(rank = rank(desc(aantal_totaal))) %>%
+  filter(soort_nl == m))$rank
+
+summary_table_m %>% 
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Totaal" = aantal_totaal,  "Gemiddeld" = aantal_gemiddeld, Bezoeken = visits_calc_totaal, "Proportie bezoeken (\\%)" = proportie_aanwezig) %>%
+  kbl(caption = str_c("Overzicht van de waargenomen libellen in het meetnet ", m, ". Totaal = totaal aantal individuen; Gemiddeld = gemiddeld aantal getelde individuen per bezoek; bezoeken = het aantal bezoeken dat soort werd geteld; proportie bezoeken (\\%) = proportie van de bezoeken dat soort werd waargenomen"),
+      format = select_format,
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "llcccc"
+      )%>%
+  kable_styling(font_size = font_size_table,
+                latex_options = c("scale_down", "hold_position")) %>%
+  column_spec(2, italic = TRUE) %>%
+  row_spec(row_target_species, bold = TRUE) 
+```
+
+\clearpage
+
+Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@ref(fig:overigefigsw) het gemiddeld aantal getelde exemplaren per bezoek voor elk jaar.
+
+```{r overigefigsw, fig.cap = str_c("Gemiddeld aantal getelde individuen per bezoek voor ", m, " en de vijf meest voorkomende andere libellensoorten van het meetnet ", m)}
+
+(summary_table %>% 
+  filter(meetnet == m) %>%
+  mutate(jaar = as.character(jaar)) %>%
+  filter(soort_nl %in% top_5$soort_nl | soort_nl == m) %>%
+  ggplot(aes(x = jaar, y = aantal_gemiddeld, colour = soort_nl, shape = soort_nl, group = soort_nl)) +
+  geom_point() +
+  geom_line() + 
+  ylim(0, NA) +
+  labs(x = "Jaar", y = "Gemiddeld aantal per bezoek", colour = "Soort", shape = "Soort")) %>%
+  ggplotly() %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian", 
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  ) 
+```
+
+
+
+
+
+
+
+\clearpage
+
+# Maanwaterjuffer
 
 ```{r}
 m <- "Maanwaterjuffer"
@@ -17,171 +427,85 @@ l <- "imago"
 
 ```
 
-Figuur \@ref(fig:moneff-mj) toont de monitoringsinspanning voor het meetnet `r m` uitgedrukt in het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties.
+```{r, fig.width= 7, fig.cap= str_c("Tandem ", m, " (Foto: Erik Moonen)"), out.width = "75%"}
+include_graphics("../fig/Maanwaterjuffer.jpg")
+```
 
-```{r moneff-mj, fig.cap= str_c("Monitoringisnpanning voor het meetnet ", m)}
+## Meetnetkarakteristieken
 
-monitoring_effort %>%
+```{r meetnetkaraktmw}
+meetnet_characteristics_table %>%
+  filter(Meetnet == m) %>%
+  gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE) %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffmj) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. Alle 7 meetnetlocaties werden jaarlijkse tweemaal geteld zoals het monitoringsprotocol voorschrijft. 
+
+```{r moneffmj, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m)}
+
+plot_m <- monitoring_effort %>%
     filter(meetnet == m) %>%
     ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
     geom_point() +
     geom_line() +
-    facet_wrap(~meetnet, scales = "free_y") +
+    #facet_wrap(~meetnet, scales = "free_y") +
     ylim(0, NA) +
     labs(x = "Jaar", y = "Aantal")
+
+ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian", 
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  ) 
 ```
 
-### Getelde aantallen
+Sedert de opstart van het meetnet Maanwaterjuffer is de soort van de enige Limburgse locatie verdwenen en op een tweede locatie werd ze de laatste 2 jaar niet meer waargenomen, waardoor hier moet gevreesd worden voor het verdwijnen van deze populatie.
 
-Figuur \@ref(fig:figaantalmj) geeft een overzicht van de getelde aantallen van Maanwaterjuffer. De punten geven de gemiddelde getelde aantallen per bezoek weer. De lijnen geven het 95 % betrouwbaarheidsinterval weer. Hoe breder het betrouwbaarheidsinterval, hoe groter de variatie in getelde aantallen tussen verschillende locaties en verschillende tijdstippen.  
+## Vergelijking tussen de jaren
 
-```{r figaantalmj, fig.cap = "Gemiddelde getelde aantallen per bezoek en 95% betrouwbaarheidsinterval voor Maanwaterjuffer"}
+Figuur \@ref(fig:changesmj) toont de jaarlijkse verschillen t.o.v. referentiejaar. Vooral in het jaar 2019 werden er beduidend minder Maanwaterjuffers gezien. Tijdens de vliegperiode van eind april tot eind mei was het uitzonderlijk koud voor de tijd van het jaar met verschillende dagen van nachtvorst.   
 
-counts_tot <- counts %>% 
-  filter(primaire_soort) %>%
+```{r changesmj,  fig.height= 3, fig.width = 4.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ". De symbolen geven de classificatie van de verschillen weer",  legend_klasses_index, ". De stippellijnen tonen de referentiewaarde (0 \\%), de ondergrens (-25 \\%) en de bovengrens (+33 \\%) waarop de classificatie gebaseerd is.")}
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
   filter(meetnet == m) %>%
-  filter(levensstadium == l) %>%
-  select(soort_nl, levensstadium, aantal, jaar) %>%
-  mutate(type_waarneming = "imago totaal")
-
-counts_det <- counts_details %>%
-  filter(primaire_soort) %>%
-  filter(meetnet == m) %>%
-  select(soort_nl, levensstadium, type_waarneming, aantal, jaar)
-  
-counts_fig <- bind_rows(counts_tot,
-                        counts_det) %>%
-  group_by(type_waarneming) %>%
-  mutate(tot = sum(aantal)) %>%
-  ungroup()
-  
-counts_fig %>% 
-  filter(levensstadium != "larvenhuidje") %>%
-  filter(tot > 0) %>%
-  ggplot(aes(x= jaar, y = aantal)) +  
-  #geom_point(alpha = 0.6, colour = inbo.grijs) +
-  stat_summary(fun.data = "mean_cl_boot", colour = inbo.groen, alpha = 1, ) +
-  facet_wrap(~ type_waarneming, scale = "free_y", ncol = 3) +
-  labs(y = "Getelde aantallen", x = "Jaar") +
-  theme(legend.position = "bottom") +
-  ylim(0, NA)
-```
-
-
-
-```{r}
-
-details_locatie_m <- locaties_utm %>%
-  filter(meetnet == m) %>%
-  select(meetnet, locatie, tag_utm) %>%
-  mutate(tag_utm = as.character(tag_utm)) %>%
-  group_by(tag_utm) %>%
-  mutate(tag_locatie = str_c(tag_utm, "-", rank(locatie))) %>%
-  ungroup() %>%
-  left_join(filter(summary_counts_locatie, soort_nl == m), by = c("meetnet", "locatie")) %>%
-  filter(levensstadium == "imago") %>%
-  group_by(tag_utm, meetnet) %>%
-  mutate(meetnetlocaties_utm = n_distinct(locatie),
-           # voorkomen_utm = sum(aantal_totaal) > 0,
-           # aantal_totaal_utm = sum(aantal_totaal),
-          label = str_c("Meetnet ", m, ": ", str_c(unique(tag_locatie), collapse = ", "))) %>%
-  ungroup() %>%
-  group_by(tag_locatie, meetnet) %>%
-  mutate(aantal_totaal_overall = sum(aantal_totaal),
-         aantal_gemiddeld_overall = round(sum(aantal_totaal)/sum(visits), 1)) %>%
-  ungroup()
-  
-details_locatie_m_tabel <- details_locatie_m %>%
-  select("Soort" = meetnet, "Locatie code" = tag_locatie, jaar, aantal_gemiddeld, aantal_gemiddeld_overall, label) %>%
-  spread(key = "jaar", value = "aantal_gemiddeld") %>%
-  mutate(radiusCircle = 500 + (5000 - 500) * sqrt(aantal_gemiddeld_overall)/max(sqrt(aantal_gemiddeld_overall)) ,
-         radiusCircleMarker = 4 + (20 - 4) * sqrt(aantal_gemiddeld_overall)/max(sqrt(aantal_gemiddeld_overall))) %>%
-  rename("Volledige periode" = aantal_gemiddeld_overall)
-  
-
-utm10_meetnet <- utm10_vl %>%
-  filter(tag_utm %in% details_locatie_m$tag_utm)
-```
-
-In onderstaande kaart en bijhorende tabel geven we een overzicht van het gemiddeld getelde aantal imago's per meetnetlocatie. De meetnetlocaties worden weergegeven in de centroïde van het 10 km x 10 km UTM-hok waarin de locatie gelegen is. De grootte van de punten is evenredig met het gemiddeld getelde aantal imago's per bezoek over de volledige periode (2016 - 2020). In de bijhorende tabel geven we ook het gemiddeld getelde aantal imago's per bezoek voor elk jaar. Gezien we de exacte locaties niet weergeven in dit rapport, kennen we hier aan elke locatie een code toe die refereert naar het overeenkomstige UTM-hok. Als je in de tabel een rij selecteert, krijg je in de kaart de (vervaagde) locatie te zien.         
-
-
-```{r}
-sd_locaties <- SharedData$new(details_locatie_m_tabel)
-
-
-bscols(list(leaflet(sd_locaties, options = leafletOptions(maxZoom = 11)) %>%
-              addTiles() %>%
-              #addCircles(stroke = FALSE,  radius = ~radiusCircle,  label = ~label, fillOpacity = 0.4) %>%
-              addCircleMarkers(stroke = FALSE,  radius = ~radiusCircleMarker,  label = ~label, fillOpacity = 0.4) %>%
-              addPolygons(data = utm10_meetnet, weight = 1, color = "blue", fill = FALSE, opacity = 0.5),
-            datatable(sd_locaties, 
-                    rownames = FALSE, 
-                    extensions="Scroller", 
-                    style="bootstrap",
-                    class="compact", 
-                    width="100%",
-                    options=list(columnDefs = list(list(visible=FALSE, targets= c( 3, 4, 10, 11)))),
-                    caption = str_c("Gemiddeld getelde aantallen per bezoek voor de verschillende locaties van het meetnet ", m)) %>%
-            formatStyle(columns = c(1, 2, 3, 4, 5), fontSize = '10 pt')
-        )
-)
-
-# 
-# plot_ly(sd_locaties, x = ~jaar, y = ~aantal_gemiddeld) %>%
-#           add_lines(linetype = ~tag_locatie) 
-```
-
-
-
-### Vergelijking tussen de jaren
-
-
-```{r figmax-mj, eval = FALSE, fig.height=3, fig.cap= str_c("Modelschatting voor het gemiddelde getelde aantal in de piek van het telseizoen voor het meetnet ", m)}
-
-result_indexmodel %>%
-  filter(parameter == "max_count") %>%
-  filter(meetnet== m) %>%
-  ggplot( aes(x = jaar, y = mean, ymin = lcl_0.90, ymax = ucl_0.90)) +
-  # geom_errorbar(width = 0.1) +
-  geom_line( colour = inbo.steun.blauw, size = 1) +
-  geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
-  # geom_ribbon(aes(ymin = lcl_0.60, ymax = ucl_0.60 ), alpha = 0.2, fill = inbo.steun.blauw) + 
-  # geom_ribbon(aes(ymin = lcl_0.30, ymax = ucl_0.30 ), alpha = 0.2, fill = inbo.steun.blauw) + 
-  labs(y = "Maximum aantal") +
-  ylim(0, NA) +
-  facet_wrap(~ meetnet, ncol = 2, scales = "free_y")
-
-```
-
-Figuur \@ref(fig:changes-mj) toont de jaarlijkse index t.o.v. referentiejaar. De index voor het referentiejaar (2016) is gelijk aan 100 %. De stippellijnen vormen de grenswaarden tussen een matige en een sterke toename/afname (zie de eerder besproken [classificaties van verschillen](#h:classtrend)). 
-
-```{r changes-mj,  fig.height= 3, fig.cap= str_c("Jaarlijkse index en 90% betrouwbaarheidsinterval voor", m, " (", legend_klasses, ")")}
-
-result_indexmodel %>%
-  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar - 1)) %>%
-  filter(parameter == "index") %>%
-  filter(meetnet == m) %>%
-  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
-  ggplot(aes(y = mean, ymin = lcl_0.90, ymax = ucl_0.90, x = as.character(jaar), group = meetnet, label = klasse)) +
-  #geom_errorbar(width = 0.1) +
-  geom_hline(yintercept = 1, linetype = 1) +
-  geom_hline(yintercept = 0.75, linetype = 3) +
-  geom_hline(yintercept = 1.33, linetype = 3) +
-  geom_line( colour = inbo.steun.blauw, size = 1) +
-  geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) +  
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse)) +
+  geom_errorbar(width = 0, size = 15, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
   geom_point(aes(colour = klasse), size = 7) +
   geom_text(size = 4, colour = "black") +
-  labs(y = "Jaarlijkse index", x = "Jaar") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
   #scale_x_continuous(breaks= c(2017, 2018)) +
-  scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
   facet_wrap(~ meetnet + ref_jaar_tekst, ncol = 2) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
   scale_color_manual(values = klasse_color) +
   theme(legend.position = "hide")
 
 ```
 
-### Trend
+## Trend
 
 ```{r}
 
@@ -195,81 +519,859 @@ trend_total_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` zien we een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. We kunnen dus spreken van een duidelijke **afname** (klasse `-`). 
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. We kunnen dus spreken van een **afname** (`-`) van de Maanwaterjuffer in deze periode. 
+
+De trend in aantallen wordt sterk bepaald door de lage aantallen in 2019. De komende jaren zal moeten blijken of de populaties van de Maanwaterjuffer zich hebben kunnen herstellen.
 
 
-
-### Andere waargenomen libellensoorten in het meetnet
+## Andere waargenomen libellensoorten in het meetnet `r m`
 
 ```{r, eval=TRUE}
-summary_table_m <- summary_table %>%
-  filter(!is.na(soort_nl)) %>%
-  filter(meetnet == m) %>%
-  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
-  filter(!primaire_soort) %>%
-  group_by(primaire_soort, soort_nl, soort_wet, levensstadium) %>%
-  summarise(aantal_totaal = sum(aantal_totaal)) %>%
-  ungroup() %>%
-  arrange(desc(aantal_totaal))
-
+summary_table_m <- summary_table_overige %>%
+  filter(meetnet == m)
+  
 top_5 <- summary_table_m %>%
+  filter(!primaire_soort) %>%
   slice_max(order_by = aantal_totaal, n = 5)
 
 ```
 
-In Tabel \@ref(tab:overige-mj) geven we het totaal aantal getelde imago's van de overige soorten op de tellocaties van Maanwaterjuffer. Van de 5 meest getelde soorten geven we in Figuur \@ref(fig:overigefig-mj) het gemiddeld aantal getelde imago's per bezoek voor de verschillende jaren. Let wel dat enkel de telling van de prioritaire soort verplicht is en de overige soorten optioneel geteld mogen worden. De verschillen tussen de jaren kan dus deels afhangen van voor welke locaties de overige soorten geteld werden. De teller kan aangeven dat alle soorten geteld werden (een zogenaamde streeplijst). In dat geval genereren we nullen voor de soorten die niet werden waargenomen. Ter info tonen we ook het aantal bezoeken met een streeplijst en het aantal bezoeken waarvoor er minstens één ander libellensoort werd geteld en ingevoerd (Figuur \@ref(fig:checklist-mj)).
+In Tabel \@ref(tab:overigemj) geven we een overzicht voor alle getelde libellensoorten in het meetnet `r m`.
 
-```{r overige-mj, eval=TRUE}
+```{r overigemj, eval=TRUE}
+row_target_species <- (summary_table_m %>%
+  mutate(rank = rank(desc(aantal_totaal))) %>%
+  filter(soort_nl == m))$rank
+
 summary_table_m %>% 
-  select("Soort (nl.)" = soort_nl, "Soort (wet.)" = soort_wet, "Totaal aantal" = aantal_totaal) %>%
-  kable(caption = "Totaal aantal getelde imago's van andere libellensoorten in het meetnet Maanwaterjuffer",
-        format = select_format) %>%
-  kable_styling(bootstrap_options = c( "condensed"), font_size = 10) %>%
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Totaal" = aantal_totaal,  "Gemiddeld" = aantal_gemiddeld, Bezoeken = visits_calc_totaal, "Proportie bezoeken (\\%)" = proportie_aanwezig) %>%
+  kbl(caption = str_c("Overzicht van de waargenomen libellen in het meetnet ", m, ". Totaal = totaal aantal individuen; Gemiddeld = gemiddeld aantal getelde individuen per bezoek; bezoeken = het aantal bezoeken dat soort werd geteld; proportie bezoeken (\\%) = proportie van de bezoeken dat soort werd waargenomen"),
+      format = select_format,
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "llcccc"
+      )%>%
+  kable_styling(font_size = font_size_table,
+                latex_options = c("scale_down", "hold_position")) %>%
   column_spec(2, italic = TRUE) %>%
-  collapse_rows(c(1,2, 3), target = 1) 
+  row_spec(row_target_species, bold = TRUE) 
 ```
 
+\needspace{250mm}
 
+Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@ref(fig:overigefigmj) het gemiddeld aantal getelde exemplaren per bezoek voor elk jaar.
 
+```{r overigefigmj, fig.cap = str_c("Gemiddeld aantal getelde individuen per bezoek voor ", m, " en de vijf meest voorkomende andere libellensoorten van het meetnet ", m)}
 
-```{r overigefig-mj, fig.cap = "Gemiddeld aantal getelde imago's per bezoek voor Maanwaterjuffer en de vijf meest voorkomende andere libellensoorten van het meetnet Maanwaterjuffer"}
-summary_table %>% 
+(summary_table %>% 
   filter(meetnet == m) %>%
+  mutate(jaar = as.character(jaar)) %>%
   filter(soort_nl %in% top_5$soort_nl | soort_nl == m) %>%
-  ggplot(aes(x = jaar, y = aantal_gemiddeld, colour = soort_nl, shape = soort_nl)) +
+  ggplot(aes(x = jaar, y = aantal_gemiddeld, colour = soort_nl, shape = soort_nl, group = soort_nl)) +
   geom_point() +
   geom_line() + 
   ylim(0, NA) +
-  labs(x = "Jaar", y = "Gemiddeld aantal per bezoek", colour = "Soort", shape = "Soort")
+  labs(x = "Jaar", y = "Gemiddeld aantal per bezoek", colour = "Soort", shape = "Soort")) %>%
+  ggplotly() %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian", 
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  ) 
 ```
 
+\needspace{150mm}
 
-```{r checklist-mj, fig.cap = "Aantal bezoeken met streeplijst en aantal bezoeken waarbij andere soorten werden waargenomen dan Maanwaterjuffer"}
-summary_table %>% 
+\newpage
+
+
+
+# Variabele waterjuffer
+
+```{r}
+m <- "Variabele waterjuffer"
+l <- "imago"
+
+```
+
+```{r, fig.width= 7, fig.cap= str_c(m, " (Foto: Erik Moonen)"), out.width = "75%"}
+include_graphics("../fig/Variabele_waterjuffer.jpg")
+```
+## Meetnetkarakteristieken
+
+```{r meetnetkaraktvw}
+meetnet_characteristics_table %>%
+  filter(Meetnet == m) %>%
+  gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE) %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffvw) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. Tijdens de eerste meetnetcyclus (2017 - 2019) werden er zoals gepland jaarlijks minstens 10 locaties geteld. 
+
+```{r moneffvw, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m)}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian", 
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  ) 
+```
+
+## Vergelijking tussen de jaren
+
+Figuur \@ref(fig:changesvw) toont de jaarlijkse verschillen t.o.v. referentiejaar. 
+
+We zien in 2019 een sterke afname (`--`) t.o.v. het referentiejaar 2016. Dit kan mogelijks te verklaren zijn door de keuze van de getelde meetnetlocaties in de verschillende jaren. De 30 meetnetlocaties worden immers geteld in een meetcyclus van drie jaren en de tellers kunnen vrij kiezen welke locaties in welk jaar geteld worden. Deze keuze kan dus een invloed hebben op de verschillen tussen de jaren in de eerste meetcyclus (2016 - 2019).
+Net zoals bij de Bosbeekjuffer is relevanter om de verschillende meetcyclussen met elkaar te vergelijken, maar daarvoor moeten we dus nog eerst de tweede meetcyclus afwerken.
+
+```{r changesvw,  fig.height= 3, fig.width = 4, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ". De symbolen geven de classificatie van de verschillen weer",  legend_klasses_index, ". De stippellijnen tonen de referentiewaarde (0 \\%), de ondergrens (-25 \\%) en de bovengrens (+33 \\%) waarop de classificatie gebaseerd is.")}
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
   filter(meetnet == m) %>%
-  distinct(jaar, visits, visits_checklist, visits_overige) %>%
-  gather(visits, visits_checklist, visits_overige, key = "type_bezoek", value = "aantal_bezoek") %>%
-  mutate(type_bezoek = ifelse(type_bezoek == "visits", "totaal",
-                              ifelse(type_bezoek == "visits_checklist", "met streeplijst", "met waarneming andere libellensoort"))) %>%
-  ggplot(aes(x = jaar, y = aantal_bezoek, colour = type_bezoek, shape = type_bezoek)) +
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse)) +
+  geom_errorbar(width = 0, size = 15, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst, ncol = 2) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+```
+
+## Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", "De trend is **onbekend**.", str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
+Eenmaal de tweede meetcyclus (2020 - 2022) is afgewerkt, zullen we een betere inschatting kunnen maken van de trend. 
+
+## Andere waargenomen libellensoorten in het meetnet `r m`
+
+```{r, eval=TRUE}
+summary_table_m <- summary_table_overige %>%
+  filter(meetnet == m)
+  
+top_5 <- summary_table_m %>%
+  filter(!primaire_soort) %>%
+  slice_max(order_by = aantal_totaal, n = 5)
+
+```
+
+In Tabel \@ref(tab:overigevw) geven we een overzicht voor alle getelde libellensoorten in het meetnet `r m`.
+
+```{r overigevw, eval=TRUE}
+row_target_species <- (summary_table_m %>%
+  mutate(rank = rank(desc(aantal_totaal))) %>%
+  filter(soort_nl == m))$rank
+
+summary_table_m %>% 
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Totaal" = aantal_totaal,  "Gemiddeld" = aantal_gemiddeld, Bezoeken = visits_calc_totaal, "Proportie bezoeken (\\%)" = proportie_aanwezig) %>%
+  kbl(caption = str_c("Overzicht van de waargenomen libellen in het meetnet ", m, ". Totaal = totaal aantal individuen; Gemiddeld = gemiddeld aantal getelde individuen per bezoek; bezoeken = het aantal bezoeken dat soort werd geteld; proportie bezoeken (\\%) = proportie van de bezoeken dat soort werd waargenomen"),
+      format = select_format,
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "llcccc"
+      )%>%
+  kable_styling(font_size = font_size_table,
+                latex_options = c("scale_down", "hold_position")) %>%
+  column_spec(2, italic = TRUE) %>%
+  row_spec(row_target_species, bold = TRUE) 
+```
+
+\clearpage
+
+Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@ref(fig:overigefigvw) het gemiddeld aantal getelde exemplaren per bezoek voor elk jaar.
+
+```{r overigefigvw, fig.cap = str_c("Gemiddeld aantal getelde individuen per bezoek voor ", m, " en de vijf meest voorkomende andere libellensoorten van het meetnet ", m)}
+
+(summary_table %>% 
+  filter(meetnet == m) %>%
+  mutate(jaar = as.character(jaar)) %>%
+  filter(soort_nl %in% top_5$soort_nl | soort_nl == m) %>%
+  ggplot(aes(x = jaar, y = aantal_gemiddeld, colour = soort_nl, shape = soort_nl, group = soort_nl)) +
   geom_point() +
   geom_line() + 
   ylim(0, NA) +
-  labs(x = "Jaar", y = "Aantal bezoeken", colour = "Bezoeken", shape = "Bezoeken")
+  labs(x = "Jaar", y = "Gemiddeld aantal per bezoek", colour = "Soort", shape = "Soort")) %>%
+  ggplotly() %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian", 
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  ) 
 ```
 
-## Variabele waterjuffer
 
-## Vroege glazenmaker
 
-## Rivierrombout
+\clearpage
 
-## Beekrombout
+# Vroege glazenmaker
 
-## Gevlekte witsnuitlibel
+```{r}
+m <- "Vroege glazenmaker"
+l <- "imago"
 
-## Kempense heidelibel
+```
 
-## Hoogveenglanslibel
+```{r, fig.width= 7, fig.cap= str_c("Copula ", m, " (Foto: Erik Moonen)"), out.width = "75%"}
+include_graphics("../fig/Vroege_glazenmaker_klein.jpg")
+```
+## Meetnetkarakteristieken
 
-## Sierlijke witsnuitlibel
+```{r meetnetkaraktvg}
+meetnet_characteristics_table %>%
+  filter(Meetnet == m) %>%
+  gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE) %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffvg) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. In de laatste twee jaar werden er aanzienlijk minder tellingen uitgevoerd. Maar in de meetcyclus 2017 - 2019 werden wel het merendeel van de 30 tellocaties geteld met minstens twee bezoeken per locatie. 
+
+```{r moneffvg, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m)}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian", 
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+```
+
+## Vergelijking tussen de jaren
+
+Figuur \@ref(fig:changesvg) toont de jaarlijkse verschillen t.o.v. referentiejaar. 
+
+Net zoals bij de Bosbeekjuffer en de Variabele waterjuffer worden de meetnetlocaties in een meetcyclus van drie jaar geteld. De tellers kiezen welke meetnetlocaties in welk jaar geteld worden en dit kan een invloed hebben op de verschillen tussen de jaren. Daarom dat we op termijn beter een vergelijking maken tussen de verschillende meetcyclussen.
+
+
+```{r changesvg,  fig.height= 3, fig.width = 4, fig.cap = str_c("Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ". De symbolen geven de classificatie van de verschillen weer",  legend_klasses_index, ". De stippellijnen tonen de referentiewaarde (0 \\%), de ondergrens (-25 \\%) en de bovengrens (+33 \\%) waarop de classificatie gebaseerd is.")}
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse)) +
+  geom_errorbar(width = 0, size = 15, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst, ncol = 2) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+## Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", "De trend is **onbekend**.", str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
+Op het einde van de tweede meetcylus (2020 - 2022) zullen we een betere inschatting kunnen maken van de trend.
+
+## Andere waargenomen libellensoorten in het meetnet `r m`
+
+```{r, eval=TRUE}
+summary_table_m <- summary_table_overige %>%
+  filter(meetnet == m)
+  
+top_5 <- summary_table_m %>%
+  filter(!primaire_soort) %>%
+  slice_max(order_by = aantal_totaal, n = 5)
+
+```
+
+In Tabel \@ref(tab:overigevg) geven we een overzicht voor alle getelde libellensoorten in het meetnet `r m`.
+
+```{r overigevg, eval=TRUE}
+row_target_species <- (summary_table_m %>%
+  mutate(rank = rank(desc(aantal_totaal))) %>%
+  filter(soort_nl == m))$rank
+
+summary_table_m %>% 
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Totaal" = aantal_totaal,  "Gemiddeld" = aantal_gemiddeld, Bezoeken = visits_calc_totaal, "Proportie bezoeken (\\%)" = proportie_aanwezig) %>%
+  kbl(caption = str_c("Overzicht van de waargenomen libellen in het meetnet ", m, ". Totaal = totaal aantal individuen; Gemiddeld = gemiddeld aantal getelde individuen per bezoek; bezoeken = het aantal bezoeken dat soort werd geteld; proportie bezoeken (\\%) = proportie van de bezoeken dat soort werd waargenomen"),
+      format = select_format,
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "llcccc"
+      )%>%
+  kable_styling(font_size = font_size_table,
+                latex_options = c("scale_down", "hold_position")) %>%
+  column_spec(2, italic = TRUE) %>%
+  row_spec(row_target_species, bold = TRUE) 
+```
+
+\needspace{300mm}
+
+\newpage
+
+\clearpage
+
+Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@ref(fig:overigefigvg) het gemiddeld aantal getelde exemplaren per bezoek voor elk jaar.
+
+```{r overigefigvg, fig.cap = str_c("Gemiddeld aantal getelde individuen per bezoek voor ", m, " en de vijf meest voorkomende andere libellensoorten van het meetnet ", m)}
+
+(summary_table %>% 
+  filter(meetnet == m) %>%
+  mutate(jaar = as.character(jaar)) %>%
+  filter(soort_nl %in% top_5$soort_nl | soort_nl == m) %>%
+  ggplot(aes(x = jaar, y = aantal_gemiddeld, colour = soort_nl, shape = soort_nl, group = soort_nl)) +
+  geom_point() +
+  geom_line() + 
+  ylim(0, NA) +
+  labs(x = "Jaar", y = "Gemiddeld aantal per bezoek", colour = "Soort", shape = "Soort")) %>%
+  ggplotly() %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian", 
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  ) 
+```
+
+\clearpage
+
+# Rivierrombout
+
+```{r}
+m <- "Rivierrombout"
+l <- "imago"
+
+```
+
+```{r, fig.width= 7, fig.cap= str_c("Larvenhuidje ", m, " (Foto: Robert Pieters)"), out.width = "75%"}
+include_graphics("../fig/Rivierrombout_larve.jpg")
+```
+
+## Meetnetkarakteristieken
+
+```{r meetnetkaraktrr}
+meetnet_characteristics_table %>%
+  filter(Meetnet == m) %>%
+  gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE) %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffrr) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. Met minstens vijf bezoeken per locatie vergt dit meetnet een grote inspanning van de tellers, maar we zien dat deze inspanning goed wordt volgehouden over de monitoringsperiode.  
+
+```{r moneffrr, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m)}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian", 
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+```
+
+## Vergelijking tussen de jaren
+
+Figuur \@ref(fig:changesrr) toont de jaarlijkse verschillen t.o.v. referentiejaar.  
+
+Het aantal getelde larvenhuidjes nam vanaf 2018 sterk toe in vergelijking met 2017 en het opstartjaar 2016. Deze toename zet zich verder voort in 2019 toen de getelde aantallen 5 tot 10 keer hoger waren dan in 2016. In 2020 lagen de aantallen weer op het niveau van 2018. Over een relatief korte periode van 5 jaar constateren we een significante toename van het aantal larvenhuidjes. De Rivierrombout is een soort die het de laatste 20 jaar veel beter doet in West Europa [@boudot_atlas_2015] en dit vertaald zich ook in Vlaanderen [@de_knijf_ontdekking_2014]. De verbeterde waterkwaliteit en structuurkenmerken van veel Europese waterlopen de laatste decennia is de reden hiervoor, maar die verbetering weerspiegelt zich nog niet in Vlaanderen, waar de soort beperkt blijft tot het Albertkanaal en de rivieren nog niet heeft weten te koloniseren. De toename van het getelde aantal larvenhuidjes langs het Albertkanaal is wellicht het gevolg van deze toename in grote delen van Europa. Maar jaarlijkse populatieschommelingen zijn over deze korte periode bekeken niet uit te sluiten. In geringe mate kan de toename ook het resultaat zijn van de steeds toenemende ervaring van de teller, die na een inloopperiode ‘een oog’ begint te krijgen waar, wanneer en hoe men best kan zoeken.   
+
+```{r changesrr,  fig.height= 3, fig.width = 4, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ". De symbolen geven de classificatie van de verschillen weer",  legend_klasses_index, ". De stippellijnen tonen de referentiewaarde (0 \\%), de ondergrens (-25 \\%) en de bovengrens (+33 \\%) waarop de classificatie gebaseerd is.")}
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse)) +
+  geom_errorbar(width = 0, size = 15, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst, ncol = 2) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+## Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", "De trend is **onbekend**.", str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
+
+## Andere waargenomen libellensoorten in het meetnet `r m`
+
+In dit meetnet werd er enkel gezocht naar larvenhuidjes van de Rivierrombout. Er werden dus geen andere soorten genoteerd.
+
+\newpage
+
+# Gevlekte witsnuitlibel
+
+```{r}
+m <- "Gevlekte witsnuitlibel"
+l <- "imago"
+
+```
+
+```{r, fig.width= 7, fig.cap= str_c("Mannetje ", m, " (Foto: Erik Moonen)"), out.width = "75%"}
+include_graphics("../fig/Gevlekte_witsnuitlibel_klein.jpg")
+```
+
+## Meetnetkarakteristieken
+
+```{r meetnetkaraktgv}
+meetnet_characteristics_table %>%
+  filter(Meetnet == m) %>%
+  gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE) %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffgw) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. Ondanks het groot aantal tellocaties (Tabel \@ref(tab:meetnetkaraktgv)) slagen de tellers er in om bijna alle locaties minstens tweemaal per jaar te bezoeken. 
+
+```{r moneffgw, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m)}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian", 
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+```
+
+## Vergelijking tussen de jaren
+
+Figuur \@ref(fig:changesgw) toont de jaarlijkse verschillen t.o.v. referentiejaar.  
+We zien toename in aantallen in 2018, gevolgd door twee slechte jaren met telkens een sterke afname t.o.v. 2016. Deze toename van de getelde aantallen Gevlekte witsnuitlibel in 2018 is wellicht grotendeels toe te schrijven aan een sterke influx van dieren in het westen van Europa, dit zowel op de tellocaties als op tal van nieuwe locaties in Vlaanderen. De oorsprong van deze dieren is wellicht het noorden van Polen en de Baltische Staten.  
+
+```{r changesgw,  fig.height= 3, fig.width = 4, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ". De symbolen geven de classificatie van de verschillen weer",  legend_klasses_index, ". De stippellijnen tonen de referentiewaarde (0 \\%), de ondergrens (-25 \\%) en de bovengrens (+33 \\%) waarop de classificatie gebaseerd is.")}
+
+breaks_log <- log(c(0.02, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3.5, 6, 11)) + 1
+labels_show <- str_c(c(-98, -90, -75, -50, -25, 0, 33, 100, 250, 500, 1000), " %")
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse)) +
+  geom_errorbar(width = 0, size = 15, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst, ncol = 2) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+```
+
+## Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", "De trend is **onbekend**.", str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
+
+## Andere waargenomen libellensoorten in het meetnet `r m`
+
+```{r, eval=TRUE}
+summary_table_m <- summary_table_overige %>%
+  filter(meetnet == m)
+  
+top_5 <- summary_table_m %>%
+  filter(!primaire_soort) %>%
+  slice_max(order_by = aantal_totaal, n = 5)
+
+```
+
+In Tabel \@ref(tab:overigegw) geven we een overzicht voor alle getelde libellensoorten in het meetnet `r m`.
+
+```{r overigegw, eval=TRUE}
+row_target_species <- (summary_table_m %>%
+  mutate(rank = rank(desc(aantal_totaal))) %>%
+  filter(soort_nl == m))$rank
+
+summary_table_m %>% 
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Totaal" = aantal_totaal,  "Gemiddeld" = aantal_gemiddeld, Bezoeken = visits_calc_totaal, "Proportie bezoeken (\\%)" = proportie_aanwezig) %>%
+  kbl(caption = str_c("Overzicht van de waargenomen libellen in het meetnet ", m, ". Totaal = totaal aantal individuen; Gemiddeld = gemiddeld aantal getelde individuen per bezoek; bezoeken = het aantal bezoeken dat soort werd geteld; proportie bezoeken (\\%) = proportie van de bezoeken dat soort werd waargenomen"),
+      format = select_format,
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "llcccc"
+      )%>%
+  kable_styling(font_size = font_size_table,
+                latex_options = c("scale_down", "hold_position")) %>%
+  column_spec(2, italic = TRUE) %>%
+  row_spec(row_target_species, bold = TRUE) 
+```
+
+\clearpage
+
+Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@ref(fig:overigefiggw) het gemiddeld aantal getelde exemplaren per bezoek voor elk jaar.
+
+```{r overigefiggw, fig.cap = str_c("Gemiddeld aantal getelde individuen per bezoek voor ", m, " en de vijf meest voorkomende andere libellensoorten van het meetnet ", m)}
+
+(summary_table %>% 
+  filter(meetnet == m) %>%
+  mutate(jaar = as.character(jaar)) %>%
+  filter(soort_nl %in% top_5$soort_nl | soort_nl == m) %>%
+  ggplot(aes(x = jaar, y = aantal_gemiddeld, colour = soort_nl, shape = soort_nl, group = soort_nl)) +
+  geom_point() +
+  geom_line() + 
+  ylim(0, NA) +
+  labs(x = "Jaar", y = "Gemiddeld aantal per bezoek", colour = "Soort", shape = "Soort")) %>%
+  ggplotly() %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian", 
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  ) 
+```
+
+\clearpage
+
+# Kempense heidelibel
+
+```{r}
+m <- "Kempense heidelibel"
+l <- "imago"
+
+```
+
+```{r, fig.width= 7, fig.cap= str_c("Vrouwtje ", m, " (Foto: Erik Moonen)"), out.width = "75%"}
+include_graphics("../fig/Kempense_heidelibel_klein.jpg")
+```
+
+## Meetnetkarakteristieken
+
+```{r meetnetkaraktkh}
+meetnet_characteristics_table %>%
+  filter(Meetnet == m) %>%
+  gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE) %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffkh) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+Sedert de opstart van het meetnet Kempense heidelibel is de soort van beide locaties in Midden Limburg verdwenen. Ook verdween de populatie op een van de tellocaties in het noorden van Limburg. Bij een van de tellocaties werd in de onmiddellijke omgeving een nieuwe populatie gevonden die sinds 2019 mee wordt opgevolgd.
+
+```{r moneffkh, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m)}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian", 
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+```
+
+## Vergelijking tussen de jaren
+
+Figuur \@ref(fig:changeskh) toont de jaarlijkse verschillen t.o.v. referentiejaar.  
+
+```{r changeskh,  fig.height= 3, fig.width = 4, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ". De symbolen geven de classificatie van de verschillen weer",  legend_klasses_index, ". De stippellijnen tonen de referentiewaarde (0 \\%), de ondergrens (-25 \\%) en de bovengrens (+33 \\%) waarop de classificatie gebaseerd is.")}
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse)) +
+  geom_errorbar(width = 0, size = 15, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst, ncol = 2) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+## Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", "De trend is **onbekend**.", str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
+
+## Andere waargenomen libellensoorten in het meetnet `r m`
+
+```{r, eval=TRUE}
+summary_table_m <- summary_table_overige %>%
+  filter(meetnet == m)
+  
+top_5 <- summary_table_m %>%
+  filter(!primaire_soort) %>%
+  slice_max(order_by = aantal_totaal, n = 5)
+
+```
+
+In Tabel \@ref(tab:overigekh) geven we een overzicht voor alle getelde libellensoorten in het meetnet `r m`.
+
+```{r overigekh, eval=TRUE}
+row_target_species <- (summary_table_m %>%
+  mutate(rank = rank(desc(aantal_totaal))) %>%
+  filter(soort_nl == m))$rank
+
+summary_table_m %>% 
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Totaal" = aantal_totaal,  "Gemiddeld" = aantal_gemiddeld, Bezoeken = visits_calc_totaal, "Proportie bezoeken (\\%)" = proportie_aanwezig) %>%
+  kbl(caption = str_c("Overzicht van de waargenomen libellen in het meetnet ", m, ". Totaal = totaal aantal individuen; Gemiddeld = gemiddeld aantal getelde individuen per bezoek; bezoeken = het aantal bezoeken dat soort werd geteld; proportie bezoeken (\\%) = proportie van de bezoeken dat soort werd waargenomen"),
+      format = select_format,
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "llcccc"
+      )%>%
+  kable_styling(font_size = font_size_table,
+                latex_options = c("scale_down", "hold_position")) %>%
+  column_spec(2, italic = TRUE) %>%
+  row_spec(row_target_species, bold = TRUE) 
+```
+
+\needspace{300mm}
+
+\newpage
+
+\clearpage
+
+Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@ref(fig:overigefigkh) het gemiddeld aantal getelde exemplaren per bezoek voor elk jaar.
+
+```{r overigefigkh, fig.cap = str_c("Gemiddeld aantal getelde individuen per bezoek voor ", m, " en de vijf meest voorkomende andere libellensoorten van het meetnet ", m)}
+
+(summary_table %>% 
+  filter(meetnet == m) %>%
+  mutate(jaar = as.character(jaar)) %>%
+  filter(soort_nl %in% top_5$soort_nl | soort_nl == m) %>%
+  ggplot(aes(x = jaar, y = aantal_gemiddeld, colour = soort_nl, shape = soort_nl, group = soort_nl)) +
+  geom_point() +
+  geom_line() + 
+  ylim(0, NA) +
+  labs(x = "Jaar", y = "Gemiddeld aantal per bezoek", colour = "Soort", shape = "Soort")) %>%
+  ggplotly() %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian", 
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  ) 
+```
+
+
+

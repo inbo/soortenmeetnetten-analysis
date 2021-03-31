@@ -166,7 +166,11 @@ analyseset_by_species <- counts_analysis %>%
 
 ```{r}
 
-write_vc(counts_analysis, file = "analyseset", root = here(str_c("analysis_", species_group, "/output/temp")), sorting = c("meetnet", "locatie", "visit_id"), strict = FALSE)
+write_vc(counts_analysis, 
+         file = str_c("analyseset_", name_analysis), 
+         root = here(str_c("analysis_", species_group, "/output/temp")), 
+         sorting = c("meetnet", "locatie", "visit_id"), 
+         strict = FALSE)
   
 ```
 
@@ -174,7 +178,7 @@ write_vc(counts_analysis, file = "analyseset", root = here(str_c("analysis_", sp
 ## Modelering
 
 
-```{r test, eval = FALSE}
+```{r, eval = FALSE}
 
 library(lme4)
 
@@ -231,9 +235,9 @@ trend_vergelijk <- bind_rows(trend, trend_offset) %>%
 
 
 ```{r}
-# models_inlabru <- analyseset_by_species %>% 
-#   mutate(indexmodel = map(data, fit_indexmodel_nbinom_inlabru),
-#          trendmodel = map(data, fit_trendmodel_nbinom_inlabru))
+models_inlabru <- analyseset_by_species %>%
+  mutate(indexmodel = map(data, fit_indexmodel_nbinom_inlabru),
+         trendmodel = map(data, fit_trendmodel_nbinom_inlabru))
 
 models_inla <- analyseset_by_species %>%
   mutate(indexmodel = map2(data, "log_section_100", fit_indexmodel_nbinom_inla),
@@ -415,7 +419,23 @@ ggplot(data = results_data_simulated, aes(x = doy)) +
   facet_grid(soort_nl ~ jaar, scales = "free") +
   theme(legend.position = "none")
 ```
+```{r, fig.width= 9, fig.height= 9}
+# analyseset_species <- counts_analysis %>%
+#   filter(meetnet == "Speerwaterjuffer")
+# 
+# analyseset_species %>%
+#   ggplot(aes(x = jaar, y = aantal)) +
+#   geom_point() +
+#   facet_wrap(~locatie)
 
+counts_analysis %>%
+  ggplot(aes(x = locatie, y =aantal)) +
+  geom_point(alpha = 0.4, size = 2) +
+  coord_flip() +
+  facet_wrap(~meetnet, scales = "free_y", ncol = 1)
+  
+
+```
 
 ## Documenteer analyse
 
@@ -496,7 +516,7 @@ if (new_analysis) {
 
 #### Gevlekte witsnuitlibel
 
-```{r}
+```{r,eval=FALSE}
 
 soort <- "Gevlekte witsnuitlibel"
 
@@ -540,7 +560,7 @@ index_soort <- bind_rows(
 
 
 
-```{r}
+```{r,eval=FALSE}
 
 index_soort %>%
   mutate(ref_jaar_tekst = str_c("ref. jaar = ", ref_jaar)) %>%
@@ -559,7 +579,7 @@ index_soort %>%
 
 #### Maanwaterjuffer
 
-```{r}
+```{r,eval=FALSE}
 
 soort <- "Maanwaterjuffer"
 
@@ -603,7 +623,7 @@ index_soort <- bind_rows(
 
 
 
-```{r}
+```{r,eval=FALSE}
 
 index_soort %>%
   mutate(ref_jaar_tekst = str_c("ref. jaar = ", ref_jaar)) %>%

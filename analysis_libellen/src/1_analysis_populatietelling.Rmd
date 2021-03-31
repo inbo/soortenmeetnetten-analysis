@@ -13,7 +13,7 @@ set.seed(47830)
 
 ## Selectie analyseset
 
-```{r select data, warning = FALSE}
+```{r select data gebieds, warning = FALSE}
 
 protocol_selection <- "Libellen - Populatietelling per locatie"
 
@@ -40,6 +40,7 @@ meetnetten_selection <- visits %>%
 
 visits_selection <- visits %>%
   filter(meetnet %in% meetnetten_selection$meetnet) %>%
+  filter(validatie != -1) %>%
   left_join(locatie_detail, by = c("meetnet", "locatie")) %>%
   filter(voor_analyse & !is.na(is_active)) %>%
   left_join(count_period, by = c("meetnet", "protocol")) %>%
@@ -78,33 +79,45 @@ analyseset_by_species <- counts_analysis %>%
 
 ```{r}
 
-write_vc(counts_analysis, file = "analyseset", root = here(str_c("analysis_", species_group, "/output/temp")), sorting = c("meetnet", "locatie", "visit_id"), strict = FALSE)
+write_vc(counts_analysis, 
+         file = str_c("analyseset_", name_analysis), 
+         root = here(str_c("analysis_", species_group, "/output/temp")), 
+         sorting = c("meetnet", "locatie", "visit_id"), 
+         strict = FALSE)
   
 ```
 
 
 ## Modelering
 
-
 ```{r test, eval = FALSE}
 
 analyseset_species <- counts_analysis %>%
   filter(meetnet == "Gevlekte witsnuitlibel")
 
+set.seed(536382)
 indexmodel_nbinom_inla <- fit_indexmodel_nbinom_inla(analyseset_species = analyseset_species)
 indexmodel_nbinom_inla$summary.fixed
 indexmodel_nbinom_inla$summary.hyperpar
+#0.3935573
 
+set.seed(383735)
 indexmodel_nbinom_inlabru <- fit_indexmodel_nbinom_inlabru(analyseset_species)
 indexmodel_nbinom_inla$summary.fixed
 indexmodel_nbinom_inla$summary.hyperpar
 
+set.seed(65243)
 trendmodel_nbinom_inlabru <- fit_trendmodel_nbinom_inlabru(analyseset_species = analyseset_species)
 
+set.seed(98363)
 index <- derive_index_inla(analyseset_species, indexmodel_nbinom_inla)
+#0.4271696
 
+
+set.seed(35367)
 max_count <- derive_max_count_inla(analyseset_species, indexmodel_nbinom_inla)
 
+set.seed(353637)
 trend <- derive_trend_inlabru(analyseset_species, trendmodel_nbinom_inlabru)
 
 plot(dispersion_check(indexmodel_nbinom_inla))
@@ -336,7 +349,7 @@ ggplot(data = filter(results_data_simulated, meetnet == "Speerwaterjuffer"), aes
   facet_wrap( ~ jaar) +
   theme(legend.position = "none")
 ```
-```{r, fig.width= 9}
+```{r, fig.width= 9, fig.height= 9}
 # analyseset_species <- counts_analysis %>%
 #   filter(meetnet == "Speerwaterjuffer")
 # 

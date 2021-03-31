@@ -1,32 +1,25 @@
 ---
-title: "Libellenmeetnetten"
+title: "Resultaten van de Vlaamse libellenmeetnetten voor de periode 2016 - 2020"
 author: 
   -
-    name: "Toon Westra, Geert De Knijf, Hannes Ledegen, Sam Van De Poel,  Frederic Piesschaert, Thierry Onkelinx, "
+    name: "Toon Westra, Geert De Knijf, Hannes Ledegen, Sam Van De Poel, Frederic Piesschaert en Thierry Onkelinx"
     email: "Toon.Westra@inbo.be"
-subtitle: "Resultaten voor de periode 2016 - 2020"
-ordernr: "Rapporten van het Instituut voor Natuur- en Bosonderzoek 2020 (xx)"
-reportnr: "xxx"
-bibliography: references.bib
+ordernr: "Rapporten van het Instituut voor Natuur- en Bosonderzoek 2020 (12)"
+reportnr: "doi.org/10.21436/inbor.34106517"
+bibliography: references3.bib
 csl: research-institute-for-nature-and-forest.csl
 link-citations: TRUE
 always_allow_html: yes
 site: bookdown::bookdown_site
 output:
-  bookdown::word_document2:
-    toc: true
-  bookdown::html_document2:
-    keep_md: TRUE
-    fig_retina: 1
-    toc: TRUE
-    toc_float:
-      collapsed: FALSE
-      smooth_scroll: FALSE
   bookdown::gitbook:
-    split_by: "chapter+number"
+    split_by: "chapter"
     template: !expr INBOmd::inbo_rapport_css("html")
   bookdown::pdf_book:
     base_format: INBOmd::inbo_rapport
+    floatbarrier: "section"
+    toc:
+      collapse: section
   bookdown::epub_book:
     stylesheet: "css/inbo_rapport.css"
     template: !expr INBOmd::inbo_rapport_css("epub")
@@ -42,8 +35,8 @@ options(knitr.kable.NA = '')
 opts_chunk$set(
   echo = FALSE, 
   eval = TRUE,
-  cache = FALSE,
-  dpi = 300,
+  cache = TRUE,
+  dpi = 120,
   fig.width = 150 / 25.4,
   fig.height = 100 / 25.4,
   fig.align = "center",
@@ -53,19 +46,12 @@ opts_chunk$set(
   dev = 'png'
 )
 
-
 library(extrafont)
 #font_import()
 loadfonts(device = "win", quiet = TRUE)
 
-library(tidyverse)
-library(INBOtheme)
-theme_set(
-  theme_inbo(
-    base_family = "Calibri", # "Flanders Art Sans",
-    base_size = 10
-  )
-)
+
+
 # if (!interactive() && opts_knit$get("rmarkdown.pandoc.to") != "html") {
 #   opts_chunk$set(dev = "cairo_pdf")
 #   theme_set(
@@ -78,9 +64,16 @@ theme_set(
 
 doc.type <- knitr::opts_knit$get('rmarkdown.pandoc.to')
 
+if(is.null(doc.type)){
+  
+  doc.type = "html"
+  
+}
+
 # options(kableExtra.auto_format
 # = FALSE) 
 # 
+
 if ( doc.type == "docx" ) {
 
   options(knitr.table.format = "simple")
@@ -88,11 +81,13 @@ if ( doc.type == "docx" ) {
 
 } else if(doc.type == "html") {
   select_format = "html"
+  font_size_table = 10
+} else if(doc.type == "latex"){
+  select_format = "latex"
+  font_size_table = 9
 }
 
-
-
-
+html_output <- doc.type == "html"
 ```
 
 
@@ -100,10 +95,10 @@ if ( doc.type == "docx" ) {
 
 library(sf)
 library(crosstalk)
+library(htmltools)
 library(leaflet)
 library(plotly)
 library(DT)
-# library(googlesheets)
 library(effectclass)
 library(kableExtra)
 library(inlabru)
@@ -112,8 +107,17 @@ library(git2rdata)
 library(here)
 library(n2khab)
 library(webshot)
+library(tidyverse)
 # library(flextable)
 # library(pander)
+library(INBOtheme)
+theme_set(
+  theme_inbo(
+    base_family = "Calibri", # "Flanders Art Sans",
+    base_size = 10
+  )
+)
+
 
 ```
 
@@ -125,18 +129,27 @@ source(here("src", "functions_smp.R"))
 
 # Dankwoord {-}
 
-We wensen in de eerste plaats alle vrijwilligers te bedanken voor de vele tellingen die ze hebben uitgevoerd voor de libellenmeetnetten. We willen ook de leden van de stuurgroep bedanken: Bernard Van Elegem, Veronique Verbist, Wouter Vanreusel, Marc Herremans, Koen Van Keer, Marc Pollet, Maurice Hoffman, Hannes Ledegen, Sam Van de Poel, Toon Westra.
+We wensen in de eerste plaats alle vrijwilligers te bedanken voor de vele tellingen die ze hebben uitgevoerd voor de libellenmeetnetten. De Libellenvereniging Vlaanderen vzw bedanken we voor hun medewerking aan dit project en de hulp bij het zoeken naar vrijwilligers. Zij gaven ons ook de kans om jaarlijks ‘ons verhaal’ te brengen op de Libellenstudiedag en zo nauw contact te blijven onderhouden met de tellers. Tenslotte bedanken we de leden van de stuurgroep: Bernard Van Elegem, Veronique Verbist, Wouter Vanreusel, Marc Herremans, Koen Van Keer, Samuel De Rycke, Marc Pollet en Maurice Hoffman. Marc Pollet las een eerste versie van dit rapport grondig na en leverde nuttige commentaren.
 
 
 # Samenvatting {-}
 
-samenvatting...
+Via de soortenmeetnetten ([meetnetten.be](https://www.meetnetten.be)) willen het Instituut voor Natuur- en Bosonderzoek (INBO) en het Agentschap voor Natuur en Bos (ANB) betrouwbare informatie verzamelen over prioritaire soorten in Vlaanderen. Deze meetnetten bestaan uit een aantal vastgelegde locaties die specifiek geselecteerd werden voor elke soort. Op deze locaties voeren vrijwilligers op een gestandaardiseerde manier tellingen uit onder coördinatie van Natuurpunt Studie.
+
+Dit rapport toont de eerste resultaten van de libellenmeetnetten voor de periode 2016 - 2020. In die periode zien we in Vlaanderen een afname in aantallen van de Maanwaterjuffer (*Coenagrion lunulatum*) en de Kempense heidelibel (*Sympetrum depressiusculum*), en een sterke afname in aantallen voor de Gevlekte witsnuitlibel (*Leucorrhinia pectoralis*). De Rivierrombout (*Gomphus flavipes*) kent daarentegen een sterke toename in aantallen in Vlaanderen voor dezelfde periode. 
+
+Voor de andere prioritaire libellensoorten is het nog te vroeg om een duidelijke trend te onderscheiden. Het gaat om volgende soorten: de Bosbeekjuffer (*Calopteryx virgo*), de Speerwaterjuffer (*Coenagrion hastulatum*), de Variabele waterjuffer (*Coenagrion pulchellum*), de Vroege glazenmaker (*Aeshna isoceles*), de Beekrombout (*Gomphus vulgatissimus*) en de Sierlijke witsnuitlibel (*Leucorrhinia caudalis*).        
 
 # English abstract {-}
 
 \benglish
 
-abstract...
+The species monitoring programme [meetnetten.be](https://www.meetnetten.be) aims at collecting reliable information on priority species in Flanders. It consists of a series of monitoring schemes which were designed by the Research Institute for Nature and Forest (INBO). Species are counted by volunteers in a standardized way under the coordination of the NGO Natuurpunt. 
+
+This report shows the first results of the dragonfly monitoring schemes for the period 2016 - 2020. The Crescent Bluet (*Coenagrion lunulatum*) and the Spotted Darter (*Sympetrum depressiusculum*) show a decrease in abundance and the Yellow-spotted Whiteface (*Leucorrhinia pectoralis*) shows a strong decrease in abundance. On the other hand, the River Clubtail (*Gomphus flavipes*) shows a strong increase in abundance between 2016 and 2020.
+
+For other priority dragonfly species we are not able to detect a trend yet. The continuation of this monitoring project will enable us to detect future patterns. This is the case for following species: the Beautiful Demoiselle (*Calopteryx virgo*), the Spearhead Bluet (*Coenagrion hastulatum*), the Variable Bluet (*Coenagrion pulchellum*), the Green-eyed Hawker (*Aeshna isoceles*), the Common Clubtail (*Gomphus vulgatissimus*) and the Lilypad Whiteface (*Leucorrhinia caudalis*).       
+
 
 \eenglish
 

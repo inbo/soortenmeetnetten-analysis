@@ -1,8 +1,9 @@
+
 # Overzicht van de resultaten
 
 ```{r}
-name_analysis_gebiedstelling <- "libellen_gebiedstelling_2020-10-01"
-name_analysis_transecttelling <- "libellen_transecten_2020-10-01"
+name_analysis_gebiedstelling <- "libellen_gebiedstelling_2021-02-10"
+name_analysis_transecttelling <- "libellen_transecten_2021-02-10"
   
 results_analysis_gebiedstelling <- get_results_analysis(name_analysis = name_analysis_gebiedstelling)
 results_analysis_transecttelling <- get_results_analysis(name_analysis = name_analysis_transecttelling)
@@ -13,42 +14,63 @@ result_indexmodel <- bind_rows(
 
 trend_klasses <- trend_klasses %>%
   arrange(klasse) %>%
-  mutate(tekst = str_c(klasse_markdown, " = ", klasse_naam))
+  mutate(tekst = str_c(klasse_output, " = ", klasse_naam))
   
-legend_klasses <- str_c(trend_klasses$tekst, collapse = "; ")
+# if(html_output){
+  
+  legend_klasses <- str_c(" (", str_c(trend_klasses$tekst, collapse = "; "), ")")
+  
+  legend_klasses_index <- str_c(" (R = referentie; ", str_c(trend_klasses$tekst, collapse = "; "), ")")
+# } else {
+#   legend_klasses <- ""
+# }
+
   
 
 ```
 
-
+In dit onderdeel geven we een overzicht van de resultaten van de analyses voor Bosbeekjuffer, Gevlekte witsnuitlibel, Kempense heidelibel, Maanwaterjuffer, Rivierrombout, Speerwaterjuffer, Variabele waterjuffer en Vroege glazenmaker. Voor Beekrombout, Hoogveenglanslibel en Sierlijke witsnuitlibel kunnen we voorlopig nog geen resultaten tonen. Zoals eerder vermeld, moeten we voor het meetnet Beekrombout nog de geschikte tellocaties vastleggen. Hoogveenglanslibel is een zeer moeilijk te detecteren soort waardoor de dataset voornamelijk uit nulwaarnemingen bestaat en een analyse voorlopig nog niet mogelijk is. Het meetnet Sierlijke witsnuitlibel ging pas in 2020 van start waardoor het nog te vroeg is voor een analyse uit te voeren.    
 
 ## Verschillen tussen de jaren
 
-Tabel \@ref(tab:tabelverschil) geeft een overzicht van de verschillen van jaar tot jaar, waarbij we steeds de aantallen in een bepaald jaar vergelijken met die in een referentiejaar. Als referentiejaar kiezen we hier het eerste jaar van het meetnet. We drukken de verschillen uit aan de hand van de [classificatie](#h:classtrend) die eerder werd besproken. In de tabel krijg je ook per meetnet een link naar een meer gedetailleerde bespreking van de resultaten.  
+Tabel \@ref(tab:tabelverschil) geeft een overzicht van de verschillen van jaar tot jaar, waarbij we steeds de aantallen in een bepaald jaar vergelijken met die in een referentiejaar. Als referentiejaar kiezen we hier het jaar waarin het meetnet van start ging. We geven de verschillen weer aan de hand van de [classificatie](#h:classtrend) zoals besproken in paragraaf \@ref(h:classtrend), waarbij we -25 % als ondergrens en +33 % als bovengrens nemen. In 2020 zien we bijvoorbeeld een sterke toename (`++`) van Rivierrombout t.o.v. het referentiejaar 2016. Dat betekent dus de toename in aantallen significant groter is dan 33 %. Bij de Gevlekte witsnuitlibel zien we in 2020 dan weer een sterke afname t.o.v. 2016. De afname is dus significant lager dan -25 %.
 
 ```{r}
 verschillen_jaren <- result_indexmodel %>%
   filter(parameter == "index") %>%
   filter(meetnet != "Hoogveenglanslibel") %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
-  mutate(klasse = format(klasse, type = "markdown")) %>%
   select(soort_nl, soort_wet, ref_jaar, jaar, klasse) %>%
-  mutate(ref_jaar = ref_jaar - 1,
-         soort_nl = str_c("[", soort_nl, "]")) %>%
-  spread(key = "jaar", value = "klasse") %>%
+  mutate(ref_jaar = ref_jaar - 1) %>%
   left_join(libellen_taxonomy, by = "soort_wet") %>%
   arrange(species_order) %>%
-  select(-meetnet, -genus, -species_order)
+  left_join(select(trend_klasses, klasse, klasse_output), by = "klasse") %>%
+  select(-meetnet, -genus, -species_order, -klasse) %>%
+  spread(key = "jaar", value = "klasse_output")
+  
+
+if (html_output) {
+  verschillen_jaren <- verschillen_jaren %>%
+    # mutate(klasse = format(klasse, type = "markdown")) %>%
+    # spread(key = "jaar", value = "klasse") %>%
+    mutate(soort_nl = str_c("[", soort_nl, "]"))
+}
+
+# write.csv2(verschillen_jaren, "../output/tabel_test.csv", row.names = FALSE)
 ```
 
-```{r tabelverschil}
+```{r tabelverschil,eval=TRUE}
+
 verschillen_jaren %>%
-  rename("Soort (Nl.)" = soort_nl, "Soort (wet.)" = soort_wet, Referentiejaar = ref_jaar) %>%
-  kbl(caption = str_c("Verschil in aantallen t.o.v. referentiejaar (", legend_klasses, ")"),
-      format = select_format) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), font_size = 10) %>%
-  column_spec(2, italic = TRUE) %>%
-  add_header_above(c(" " = 3, "Verschil t.o.v. referentiejaar" = 4))
+  select(-soort_wet) %>%
+  rename("Nederlandse naam" = soort_nl,  Referentiejaar = ref_jaar) %>%
+  kbl(caption = str_c("Verschil in aantallen t.o.v. referentiejaar", legend_klasses),
+      format = select_format,
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "lccccc") %>%
+kable_styling(font_size = font_size_table) %>%
+add_header_above(c(" " = 2, "Verschil t.o.v. referentiejaar" = 4))
 
 ```
 
@@ -73,7 +95,13 @@ trend <- result_trendmodel %>%
 
 ```
 
-In Tabel \@ref(tab:tabtrendresultaat) geven we een overzicht van de gemiddelde jaarlijkse trend en de totale trend over de meetnetperiode. We duiden ook aan of de trend al dan niet lineair is. Een lineaire trend betekent dat de jaarlijkse daling of stijging relatief constant is. Bij een niet-lineaire trend fluctueren de aantallen sterk jaar per jaar, maar hebben we gemiddeld gezien over de hele tijdsperiode wel een stijging of een daling. De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in Figuur \@ref(fig:figtrend).
+In Tabel \@ref(tab:tabtrendresultaat) geven we een overzicht van de gemiddelde jaarlijkse trend en de totale trend over de meetnetperiode. We duiden ook aan of de trend al dan niet lineair is. Een lineaire trend betekent dat de jaarlijkse daling of stijging relatief constant is. Bij een niet-lineaire trend fluctueren de aantallen sterk van jaar tot jaar, maar hebben we gemiddeld gezien over de hele tijdsperiode wel een stijging of een daling. De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in Figuur \@ref(fig:figtrend). De x-as van deze figuur heeft een logaritmische schaal. Een halvering (-50 %) is immers een even sterk effect als een verdubbeling (+100 %)
+
+Opnieuw maken we gebruik van de [classificatie](#h:classtrend) zoals besproken in paragraaf \@ref(h:classtrend) met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over de meetperiode. Voor een periode van vijf jaar (2016 - 2020) komt de ondergens overeen met een gemiddelde jaarlijkse trend van -6,9 % en de bovengrens met een gemiddelde jaarlijkse trend van +7,4 %. 
+
+De Rivierrombout springt eruit in de positieve zin met een sterke toename (`++`). Voor Maanwaterjuffer en Kempense heidelibel zien we een afname (`-`) en voor Gevlekte witsnuitlibel een sterke afname (`--`). 
+
+Bosbeekjuffer, Variabele waterjuffer en Vroege glazenmaker zijn soorten dit geteld worden in een meetnet met een driejarige meetcyclus. Dat betekent dat elk jaar ongeveer een derde van de locaties geteld worden. Maar gezien deze meetnetten pas in 2017 (Variabele waterjuffer en Vroege glazenmaker) en 2018 (Bosbeekjuffer) van start gingen is er in de meeste tellocaties nog maar een telling gebeurd. Hierdoor kunnen we voorlopig nog weinig zeggen over de trend. Eenmaal de tweede meetcyclus is afgerond zullen we waarschijnlijk een duidelijker beeld krijgen.   
 
 ```{r }
 waic <- bind_rows(
@@ -81,10 +109,13 @@ waic <- bind_rows(
   results_analysis_transecttelling$waic) %>%
   select(meetnet, type_trend)
 
+trend_klasses_ch <- trend_klasses %>%
+  mutate(klasse = as.character(klasse)) %>%
+  select(klasse, klasse_output)
+
 overzicht_trend_tabel <- trend %>%
   left_join(waic, by = "meetnet") %>%
   arrange(desc(trend)) %>%
-  mutate(klasse = str_c("`", klasse, "`")) %>%
   mutate(trend = round(mean, 0),
          trend_lcl = round(lcl_0.90, 0),
          trend_ucl = round(ucl_0.90, 0),
@@ -93,42 +124,67 @@ overzicht_trend_tabel <- trend %>%
                            ifelse(trend_lcl > 0, "+", ""),
                            trend_lcl, "%; ",
                            ifelse(trend_ucl > 0, "+", ""),
-                           trend_ucl, "%)"),
-         soort_nl = str_c("[", soort_nl, "]")
+                           trend_ucl, "%)")
          ) %>%
   select(parameter, soort_nl, soort_wet, periode_tekst, klasse, trend_tbl, type_trend) %>%
   spread(key = "parameter", value = "trend_tbl") %>%
     left_join(libellen_taxonomy, by = "soort_wet") %>%
   arrange(species_order) %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(trend_klasses_ch, by = "klasse") %>%
   select(-meetnet, -genus, -species_order) %>%
-  select("Soort (Nl.)" = soort_nl, "Soort (wet.)" = soort_wet, Periode = periode_tekst, Klasse = klasse, Interpretatie = type_trend, "Jaarlijkse wijziging" = trend_average, "Wijziging over de looptijd" = trend_total)
+  select("Nederlandse naam" = soort_nl,  Periode = periode_tekst, Klasse = klasse_output, Interpretatie = type_trend, "Jaarlijkse wijziging" = trend_average, "Wijziging over de looptijd" = trend_total)
+
+if (html_output) {
+  overzicht_trend_tabel <- overzicht_trend_tabel %>%
+    mutate(`Nederlandse naam` = str_c("[", `Nederlandse naam`, "]"))
+} else {
+  overzicht_trend_tabel <- overzicht_trend_tabel %>%
+    mutate(`Jaarlijkse wijziging` = str_replace_all(`Jaarlijkse wijziging`, "%", "\\\\%"),
+           `Wijziging over de looptijd` = str_replace_all(`Wijziging over de looptijd`, "%", "\\\\%"))
+}
+
+
 ```
 
 
-```{r tabtrendresultaat}
+```{r tabtrendresultaat, eval = TRUE}
 
 overzicht_trend_tabel %>%
-  kbl(align = c("l", "l", "c", "l"),
-        caption = str_c("Jaarlijkse wijziging en wijziging over de looptijd (", legend_klasses, ")"),
-      format = select_format)  %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), font_size = 10) %>%
-  column_spec(2, italic = TRUE)
+  kbl(align = "lcclcc",
+        caption = str_c("Jaarlijkse wijziging en wijziging over de looptijd", legend_klasses),
+      format = select_format,
+      booktabs = TRUE,
+      escape = FALSE)  %>%
+  kable_styling(font_size = font_size_table,
+                latex_options = "scale_down")
 ```
 
-```{r figtrend, fig.cap= str_c("Gemiddelde jaarlijkse trend met 90 procent betrouwbaarheidsinterval (", legend_klasses, ")")}
+```{r figtrend, fig.cap= str_c("Gemiddelde jaarlijkse trend met 90 \\% betrouwbaarheidsinterval ", legend_klasses, ". De stippellijnen tonen de referentiewaarde (0 \\%), de ondergrens (-6.7 \\%) en de bovengrens (+7.4 \\%) waarop de classificatie gebaseerd is.")}
 
 order_trend <- (trend %>%
   filter(parameter == "trend_average") %>%
   filter(meetnet != "Hoogveenglanslibel") %>%
   arrange(mean))$soort_nl
 
+trend <- trend %>%
+  mutate(mean_log = log(mean/100 + 1),
+          lcl_0.90_log = log(lcl_0.90/100 + 1),
+         ucl_0.90_log = log(ucl_0.90/100 + 1))
+
+breaks_log <- log(c(-50, -25, 0, 33, 100)/100 + 1)
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
 trend %>%
   filter(parameter == "trend_average") %>%
   filter(meetnet != "Hoogveenglanslibel") %>%
   mutate(soort_nl = factor(soort_nl, levels = order_trend)) %>%
-  ggplot( aes(x = soort_nl, y = mean/100, ymin = lcl_0.90/100, ymax = ucl_0.90/100, label = klasse, colour = klasse)) +
-  geom_hline(aes(yintercept = max(treshold_low/100)), linetype = 3) +
-  geom_hline(aes(yintercept = min(treshold_high/100)), linetype = 3) +
+  #ggplot( aes(x = soort_nl, y = mean/100, ymin = lcl_0.90/100, ymax = ucl_0.90/100, label = klasse, colour = klasse)) +
+  ggplot( aes(x = soort_nl, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_hline(aes(yintercept = max(log(treshold_low/100 +1))), linetype = 3) +
+  geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3) +
+  # geom_hline(aes(yintercept = max(treshold_low/100)), linetype = 3) +
+  # geom_hline(aes(yintercept = min(treshold_high/100)), linetype = 3) +
   geom_hline(yintercept = 0, linetype = 2) +
   geom_errorbar(width = 0, size = 10, alpha = 0.3) +
   # geom_errorbar(aes(ymin = lcl_0.60/100, ymax = ucl_0.60/100), width = 0, size = 10, alpha = 0.3) +
@@ -138,12 +194,14 @@ trend %>%
   geom_point(size = 7, alpha = 0.6) +
   geom_text(size = 4, colour = "black") +
   labs(y = "Gemiddelde jaarlijkse trend (%)", x = "Soort") +
-  scale_y_continuous(breaks = c(-50, -25, 0, 33, 100)/100, labels = scales::percent, limits = c(-0.6, 1)) +
- # theme(axis.text.x = element_text(angle = 90)) +
+  #scale_y_continuous(breaks = c(-50, -25, 0, 33, 100)/100, labels = scales::percent, limits = c(-0.6, 1)) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show, limits = c(min(breaks_log), max(breaks_log))) +
   coord_flip() +
   scale_color_manual(values = klasse_color) +
   theme(legend.position = "hide")
   
+# trend -> (exp(x) - 1) * 100
+# x -> log(trend/100 + 1)
 ```
 
 

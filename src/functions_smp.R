@@ -88,27 +88,34 @@ get_counts_smp <- function(species_group = NULL,
                            file = "raw/aantallen",
                            path = fileman_up("soortenmeetnetten-data")) {
   
-  if (is.null(species_group)) {
+  if(is.null(species_group)) {
     
     counts_smp <- read_vc(file = file, 
-                          root = path)
+                          root = path) 
     
   } else if (str_to_lower(species_group) %in% c("planten", "vaatplanten")) {
     
     counts_smp <- read_vc(file = "raw/aantallen_planten", 
                           root = path)
-    
-  } else if (str_to_lower(species_group) %in% counts_smp$soortgroep) {
-        
-    counts_smp <- counts_smp %>%
-      filter(.data$soortgroep == str_to_lower(species_group))
-        
   } else {
-        
-        warning(str_c("Selecteer een van volgende soortgroepen: ", 
-                      str_c(unique(counts_smp$soortgroep), collapse = ", ")))
+    
+    counts_smp <- read_vc(file = file, 
+                          root = path)
+    
+    if (str_to_lower(species_group) %in% counts_smp$soortgroep) {
+      
+      counts_smp <- counts_smp %>%
+        filter(.data$soortgroep == str_to_lower(species_group))
+      
+    } else {
+      
+      warning(str_c("Selecteer een van volgende soortgroepen: ", 
+                    str_c(unique(counts_smp$soortgroep), collapse = ", ")))
+      
+    }
     
   }
+    
   
   if (!is.null(count_aggregation)) {
     
@@ -258,7 +265,7 @@ get_locations_smp <- function(species_group = NULL,
                                     file = "raw/meetnetten_locaties.gpkg",
                                     path = fileman_up("soortenmeetnetten-data")) {
   
-  locations_smp <- st_read(dsn = file.path(path, file),
+  locations_smp <- read_sf(dsn = file.path(path, file),
                            layer = "locaties", quiet = TRUE)
   
   if (!is.null(species_group)) {
@@ -484,7 +491,8 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
     group_by(soortgroep, meetnet, protocol, locatie, visit_id, jaar, datum, soort_nl, soort_wet, primaire_soort, geslacht, activiteit, levensstadium, checklist) %>%
     summarise(aantal = sum(aantal, na.rm = TRUE)) %>%
     ungroup() %>%
-    filter(!is.na(primaire_soort))
+    filter(!is.na(soort_nl)) %>%
+    mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort))
   
   if (aggregation == "meetnet") {
 
@@ -518,6 +526,8 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
              aantal_gemiddeld = round(aantal_totaal/visits_calc, 1))
     
     summary_counts_lifestage <- get_counts_smp(species_group = species_group, count_aggregation = "lifestage") %>%
+      filter(!is.na(soort_nl)) %>%
+      mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
       group_by(primaire_soort, soortgroep, meetnet, protocol, jaar, soort_nl, soort_wet, levensstadium) %>%
       summarise(aantal_totaal = sum(aantal),
                 #aantal_gemiddeld = round(mean(aantal),1),
@@ -530,16 +540,35 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
              aantal_gemiddeld = round(aantal_totaal/visits_calc, 1))
     
     summary_counts_individuals <- get_counts_smp(species_group = species_group, count_aggregation = "lifestage") %>%
+      filter(!is.na(soort_nl)) %>%
+      mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
       group_by(primaire_soort, soortgroep, meetnet, protocol, jaar, soort_nl, soort_wet) %>%
       summarise(aantal_totaal = sum(aantal),
                 #aantal_gemiddeld = round(mean(aantal),1),
                 aantal_maximum = max(aantal),
-                bezoeken = n_distinct(visit_id)) %>%
-      ungroup() %>%
+                visits_species = n_distinct(visit_id),
+                locaties_species_year = sum(aantal > 0)) %>%
+      ungroup()
+    
+    meetnetten_species <- summary_counts_individuals %>%
+      distinct(soortgroep, meetnet, protocol, primaire_soort, soort_nl, soort_wet)
+    
+    meetnetten_years <- summary_counts_individuals %>%
+      distinct(meetnet, jaar)
+    
+    summary_counts_individuals <-  meetnetten_years %>%
+      left_join(meetnetten_species, by = "meetnet") %>%
+      left_join(summary_counts_individuals, by = c("soortgroep", "meetnet", "protocol", "primaire_soort", "soort_nl", "soort_wet", "jaar")) %>%
       left_join(summary_effort, by = c("meetnet", "protocol", "jaar")) %>%
       left_join(summary_none_checklist_visits, by = c("meetnet", "protocol", "jaar", "soort_nl" )) %>%
+      mutate(aantal_totaal = ifelse(is.na(aantal_totaal), 0, aantal_totaal),
+             aantal_maximum = ifelse(is.na(aantal_maximum), 0, aantal_maximum),
+             visits_none_checklist = ifelse(is.na(visits_none_checklist), 0, visits_none_checklist),
+             visits_species = ifelse(is.na(visits_species), 0, visits_species),
+             locaties_species_year = ifelse(is.na(locaties_species_year), 0, locaties_species_year)) %>%
       mutate(visits_calc = ifelse(primaire_soort, visits, visits_checklist + visits_none_checklist),
-             aantal_gemiddeld = round(aantal_totaal/visits_calc, 1))
+             aantal_gemiddeld = round(aantal_totaal/visits_calc, 1),
+             aantal_gemiddeld_overige = ifelse(primaire_soort, aantal_gemiddeld, round(aantal_totaal/visits_overige, 1)))
     
   }
   
@@ -571,6 +600,8 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
              aantal_gemiddeld = round(aantal_totaal/visits_calc, 1))
     
     summary_counts_lifestage <- get_counts_smp(species_group = species_group, count_aggregation = "lifestage") %>%
+      filter(!is.na(soort_nl)) %>%
+      mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
       group_by(primaire_soort, soortgroep, meetnet, protocol, jaar, locatie, soort_nl, soort_wet, levensstadium) %>%
       summarise(aantal_totaal = sum(aantal),
                 #aantal_gemiddeld = round(mean(aantal),1),
@@ -583,6 +614,8 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
              aantal_gemiddeld = round(aantal_totaal/visits_calc, 1))
     
     summary_counts_individuals <- get_counts_smp(species_group = species_group, count_aggregation = "lifestage") %>%
+      filter(!is.na(soort_nl)) %>%
+      mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
       group_by(primaire_soort, soortgroep, meetnet, protocol, jaar, locatie, soort_nl, soort_wet) %>%
       summarise(aantal_totaal = sum(aantal),
                 #aantal_gemiddeld = round(mean(aantal),1),
@@ -605,45 +638,129 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
   
 }
 
-get_summary_distribution <- function(species_group = NULL) {
+get_summary_distribution <- function(species_group = NULL, aggregation_periode = "year") {
   
-  counts <- get_counts_smp(species_group = species_group)
+  counts <- get_counts_smp(species_group = species_group) %>%
+    filter(!is.na(soort_nl)) %>%
+    mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort))
   
-  summary_effort <- counts %>%
-    distinct(meetnet, protocol, jaar, locatie, visit_id, checklist) %>%
-    group_by(meetnet, protocol, jaar, locatie) %>%
-    summarise(checklist_locatie = any(checklist),
-              visits_checklist = sum(checklist),
-              visits = n_distinct(visit_id)) %>%
-    ungroup() %>%
-    group_by(meetnet, protocol, jaar) %>%
-    summarise(geteld_locatie_primair = n_distinct(locatie),
-              geteld_locatie_checklist = sum(checklist_locatie),
-              visits_checklist = sum(visits_checklist),
-              visits = sum(visits)) %>%
-    ungroup()
+  if (aggregation_periode == "year") {
+    
+    summary_effort <- counts %>%
+      distinct(meetnet, protocol, jaar, locatie, visit_id, checklist) %>%
+      group_by(meetnet, protocol, jaar, locatie) %>%
+      summarise(checklist_locatie = any(checklist),
+                visits_checklist = sum(checklist),
+                visits = n_distinct(visit_id)) %>%
+      ungroup() %>%
+      group_by(meetnet, protocol, jaar) %>%
+      summarise(geteld_locatie_primair = n_distinct(locatie),
+                geteld_locatie_checklist = sum(checklist_locatie),
+                visits_checklist = sum(visits_checklist),
+                visits = sum(visits)) %>%
+      ungroup()
+    
+    summary_distribution_lifestage <- counts %>%
+      mutate(levensstadium = ifelse(levensstadium == "imago (niet uitgekleurd)", "imago", levensstadium)) %>%
+      group_by(meetnet, protocol, jaar, locatie) %>%
+      mutate(checklist_locatie = any(checklist) ) %>%
+      ungroup() %>%
+      group_by(primaire_soort, soortgroep, jaar, meetnet, protocol, soort_nl, soort_wet, levensstadium, locatie) %>%
+      summarise(voorkomen = sum(aantal) > 0,
+                none_checklist_locatie = !unique(checklist_locatie)) %>%
+      ungroup() %>%
+      group_by(primaire_soort, soortgroep, meetnet, protocol, jaar, soort_nl, soort_wet, levensstadium) %>%
+      summarise(locaties_aanwezig = sum(voorkomen),
+                geteld_locatie_none_checklist = sum(none_checklist_locatie)) %>%
+      ungroup() %>%
+      left_join(summary_effort, by = c("meetnet", "protocol", "jaar")) %>%
+      mutate(locatie_geteld = ifelse(primaire_soort, 
+                                     geteld_locatie_primair,
+                                     geteld_locatie_checklist + geteld_locatie_none_checklist), 
+             proportie_locaties_aanwezig  = round(locaties_aanwezig/locatie_geteld *100, 1)) %>%
+      select(primaire_soort, soortgroep, meetnet, protocol, jaar, soort_nl, soort_wet, levensstadium, locatie_geteld, locaties_aanwezig, proportie_locaties_aanwezig)
+    
+    summary_distribution_individuals <- counts %>%
+      group_by(meetnet, protocol, jaar, locatie) %>%
+      mutate(checklist_locatie = any(checklist) ) %>%
+      ungroup() %>%
+      group_by(primaire_soort, soortgroep, jaar, meetnet, protocol, soort_nl, soort_wet, locatie) %>%
+      summarise(voorkomen = sum(aantal) > 0,
+                none_checklist_locatie = !unique(checklist_locatie)) %>%
+      ungroup() %>%
+      group_by(primaire_soort, soortgroep, meetnet, protocol, jaar, soort_nl, soort_wet) %>%
+      summarise(locaties_aanwezig = sum(voorkomen),
+                geteld_locatie_none_checklist = sum(none_checklist_locatie)) %>%
+      ungroup() %>%
+      left_join(summary_effort, by = c("meetnet", "protocol", "jaar")) %>%
+      mutate(locatie_geteld = ifelse(primaire_soort, 
+                                     geteld_locatie_primair,
+                                     geteld_locatie_checklist + geteld_locatie_none_checklist), 
+             proportie_locaties_aanwezig  = round(locaties_aanwezig/locatie_geteld *100, 1)) %>%
+      select(primaire_soort, soortgroep, meetnet, protocol, jaar, soort_nl, soort_wet, locatie_geteld, locaties_aanwezig, proportie_locaties_aanwezig)
+    
+    summary_distribution <- list(lifestage = summary_distribution_lifestage,
+                                 individuals = summary_distribution_individuals)
+    } else if (aggregation_periode == "all_years") {
+      
+      summary_effort <- counts %>%
+        distinct(meetnet, protocol, locatie, visit_id, checklist) %>%
+        group_by(meetnet, protocol, locatie) %>%
+        summarise(checklist_locatie = any(checklist),
+                  visits_checklist = sum(checklist),
+                  visits = n_distinct(visit_id)) %>%
+        ungroup() %>%
+        group_by(meetnet, protocol) %>%
+        summarise(geteld_locatie_primair = n_distinct(locatie),
+                  geteld_locatie_checklist = sum(checklist_locatie),
+                  visits_checklist = sum(visits_checklist),
+                  visits = sum(visits)) %>%
+        ungroup()
+      
+      summary_distribution_lifestage <- counts %>%
+        mutate(levensstadium = ifelse(levensstadium == "imago (niet uitgekleurd)", "imago", levensstadium)) %>%
+        group_by(meetnet, protocol, locatie) %>%
+        mutate(checklist_locatie = any(checklist) ) %>%
+        ungroup() %>%
+        group_by(primaire_soort, soortgroep, meetnet, protocol, soort_nl, soort_wet, levensstadium, locatie) %>%
+        summarise(voorkomen = sum(aantal) > 0,
+                  none_checklist_locatie = !unique(checklist_locatie)) %>%
+        ungroup() %>%
+        group_by(primaire_soort, soortgroep, meetnet, protocol, soort_nl, soort_wet, levensstadium) %>%
+        summarise(locaties_aanwezig = sum(voorkomen),
+                  geteld_locatie_none_checklist = sum(none_checklist_locatie)) %>%
+        ungroup() %>%
+        left_join(summary_effort, by = c("meetnet", "protocol")) %>%
+        mutate(locatie_geteld = ifelse(primaire_soort, 
+                                       geteld_locatie_primair,
+                                       geteld_locatie_checklist + geteld_locatie_none_checklist), 
+               proportie_locaties_aanwezig  = round(locaties_aanwezig/locatie_geteld *100, 1)) %>%
+        select(primaire_soort, soortgroep, meetnet, protocol, soort_nl, soort_wet, levensstadium, locatie_geteld, locaties_aanwezig, proportie_locaties_aanwezig)
+      
+      summary_distribution_individuals <- counts %>%
+        group_by(meetnet, protocol, locatie) %>%
+        mutate(checklist_locatie = any(checklist) ) %>%
+        ungroup() %>%
+        group_by(primaire_soort, soortgroep, meetnet, protocol, soort_nl, soort_wet, locatie) %>%
+        summarise(voorkomen = sum(aantal) > 0,
+                  none_checklist_locatie = !unique(checklist_locatie)) %>%
+        ungroup() %>%
+        group_by(primaire_soort, soortgroep, meetnet, protocol, soort_nl, soort_wet) %>%
+        summarise(locaties_aanwezig = sum(voorkomen),
+                  geteld_locatie_none_checklist = sum(none_checklist_locatie)) %>%
+        ungroup() %>%
+        left_join(summary_effort, by = c("meetnet", "protocol")) %>%
+        mutate(locatie_geteld = ifelse(primaire_soort, 
+                                       geteld_locatie_primair,
+                                       geteld_locatie_checklist + geteld_locatie_none_checklist), 
+               proportie_locaties_aanwezig  = round(locaties_aanwezig/locatie_geteld *100, 1)) %>%
+        select(primaire_soort, soortgroep, meetnet, protocol, soort_nl, soort_wet, locatie_geteld, locaties_aanwezig, proportie_locaties_aanwezig)
+      
+      summary_distribution <- list(lifestage = summary_distribution_lifestage,
+                                   individuals = summary_distribution_individuals)
+    }
   
-  summary_distribution_lifestage <- counts %>%
-    mutate(levensstadium = ifelse(levensstadium == "imago (niet uitgekleurd)", "imago", levensstadium)) %>%
-    group_by(meetnet, protocol, jaar, locatie) %>%
-    mutate(checklist_locatie = any(checklist) ) %>%
-    ungroup() %>%
-    group_by(primaire_soort, soortgroep, jaar, meetnet, protocol, soort_nl, soort_wet, levensstadium, locatie) %>%
-    summarise(voorkomen = sum(aantal) > 0,
-              none_checklist_locatie = !unique(checklist_locatie)) %>%
-    ungroup() %>%
-    group_by(primaire_soort, soortgroep, meetnet, protocol, jaar, soort_nl, soort_wet, levensstadium) %>%
-    summarise(locaties_aanwezig = sum(voorkomen),
-              geteld_locatie_none_checklist = sum(none_checklist_locatie)) %>%
-    ungroup() %>%
-    left_join(summary_effort, by = c("meetnet", "protocol", "jaar")) %>%
-    mutate(locatie_geteld = ifelse(primaire_soort, 
-                                   geteld_locatie_primair,
-                                   geteld_locatie_checklist + geteld_locatie_none_checklist), 
-          proportie_locaties_aanwezig  = round(locaties_aanwezig/locatie_geteld *100, 1)) %>%
-    select(primaire_soort, soortgroep, meetnet, protocol, jaar, soort_nl, soort_wet, levensstadium, locatie_geteld, locaties_aanwezig, proportie_locaties_aanwezig)
-  
-  return(summary_distribution_lifestage)
+  return(summary_distribution)
   
 }
 
@@ -791,7 +908,7 @@ derive_index_inla <- function(analyseset_species, indexmodel_nbinom_inla, ref_me
     
   }
   
-  model_inla.samples = inla.posterior.sample(1000, indexmodel_nbinom_inla)
+  model_inla.samples <- inla.posterior.sample(1000, indexmodel_nbinom_inla)
   
   quantile_values <- c(0.025, 0.05, 0.20, 0.35,  0.65, 0.80, 0.95, 0.975)
   
@@ -985,7 +1102,7 @@ derive_max_count_inla <- function(analyseset_species, indexmodel_nbinom_inla){
     
   }
   
-  model_inla.samples = inla.posterior.sample(1000, indexmodel_nbinom_inla, seed = 273829)
+  model_inla.samples = inla.posterior.sample(1000, indexmodel_nbinom_inla)
   
   quantile_values <- c(0.025, 0.05, 0.20, 0.35,  0.65, 0.80, 0.95, 0.975)
   

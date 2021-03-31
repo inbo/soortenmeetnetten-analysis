@@ -1,44 +1,24 @@
 ## Analyse van de telgegevens
 
-Op basis van de telgegevens willen we de trend bepalen voor de verschillende meetnetsoorten en de betrouwbaarheid van de trend. Met trend bedoelen we hier de procentuele verandering in aantallen van een soort over de periode waarvoor we telgegevens hebben. Gezien de libellenmeetnetten nog niet zo lang lopen, zal er nog heel wat onzekerheid op de trends zitten. Toch kunnen we al sterke veranderingen oppikken of kunnen we al een indicatie krijgen in welke richting een soort evolueert. 
+Op basis van de getelde aantallen willen we de trend per soort bepalen op schaal Vlaanderen en de betrouwbaarheid hiervan. Met *trend* bedoelen we de procentuele verandering in aantallen van een soort over de periode waarvoor we telgegevens hebben. Gezien de libellenmeetnetten nog niet zo lang lopen, zit er nog heel wat onzekerheid op de trends. Toch kunnen we al sterke veranderingen oppikken of kunnen we al een indicatie krijgen in welke richting een soort evolueert. 
 
 Naast trends willen we ook inzicht krijgen hoe de aantallen verschillen van jaar tot jaar. Op basis hiervan kunnen we dus slechte of goede jaren identificeren. 
 
-Hieronder bespreken we kort de modellen die we gebruiken voor de analyse. Voor verdere technische achtergrond verwijzen we naar Bijlage \@ref(h:bijlagec).    
-
-**Model voor verschillen tussen de jaren**
-
-Via dit model modelleren we de getelde aantallen als functie van het jaar, het dagnummer en het kwadraat van het dagnummer. We gebruiken jaar als categorische variabele, zodat we een schatting per jaar krijgen. Op basis van de tweedegraads polynoom van het dagnummer modelleren we het seizoenseffect op de getelde aantallen. Ten slotte voegen we een locatie-effect toe aan het model onder de vorm van een *random intercept*. Hiermee geven we aan dat tellingen op eenzelfde locatie gecorreleerd zijn. Bij de transecttellingen van imago's en larvenhuidjes hebben niet alle transecten dezelfde lengte. We houden hiermee rekening door de transectlengte (in meter) gedeeld door 100 als *offset* toe te voegen aan het model. Hierdoor worden de resultaten uitgedrukt als (verschil in) aantallen per 100 meter transectlengte.             
-
-Op basis van dit model maken we een schatting van:
-
-* de jaarlijkse index: het procentueel verschil in aantallen (per 100 meter transectlengte) tussen een bepaald jaar en een referentiejaar;
-
-* de gemiddelde maximale telling (per 100 meter transectlengte) binnen het telseizoen per jaar.
-
-**Model voor trendbepaling**
-
-Om de lineaire trend te schatten gebruiken we jaar als continue variabele. Verder is het model identiek aan het eerder beschreven model voor verschillen tussen de jaren. 
-
-Dit model gebruiken we voor volgende schattingen:
-
-* gemiddelde jaarlijkse lineaire trend in aantallen (per 100 meter transectlengte), m.a.w. de percentage vooruitgang of achteruitgang per jaar;
-
-* totale trend in aantallen (per 100 meter transectlengte) over de volledige periode, m.a.w. de percentage vooruitgang of achteruitgang over de hele periode. 
+Voor de analyse maken we gebruik van zogenaamde *generalized linear mixed models* (GLMM). Voor een bespreking van de technische achtergrond van deze modellen verwijzen we naar Bijlage \@ref(h:bijlagec).    
 
 ## Interpretatie van de analyseresultaten {#h:classtrend}
 
 Bij elke schatting van een verschil of trend hoort ook een betrouwbaarheidsinterval die de onzekerheid op de schatting weergeeft. Klassiek onderscheiden we op basis van het betrouwbaarheidsinterval: 
 
-* een significante toename: ondergrens betrouwbaarheidsinterval > 0;
-* een significante afname: bovengrens betrouwbaarheidsinterval < 0;
-* geen significant(e) trend of verschil: betrouwbaarheidsinterval omvat 0.        
+* een significante toename: de ondergrens van het betrouwbaarheidsinterval is groter dan 0;
+* een significante afname: de bovengrens van het betrouwbaarheidsinterval is kleiner dan 0;
+* geen significant(e) trend of verschil: het betrouwbaarheidsinterval omvat 0.        
  
-Bovenstaande indeling is echter weinig informatief. Daarom stellen we een classificatiesysteem voor waarbij het betrouwbaarheidsinterval wordt vergeleken met een referentiewaarde, een onderste drempelwaarde en een bovenste drempelwaarde. Als referentiewaarde kiezen we 0 (= geen verandering). Voor de onderste drempelwaarde kiezen we een waarde die we als een sterke afname beschouwen: -25%. Op basis van de bovenste drempelwaarde onderscheiden we een sterke toename. Hiervoor kiezen de waarde +33%, wat overeenkomt met eenzelfde relatieve effect dan een afname van -25% (75/100 = 100/133). Dit classificatiesysteem resulteert in 10 klassen (Figuur \@ref(fig:figtrendklasse)). In Tabel \@ref(tab:tabelklasse) geven we de codes en de beschrijving die bij de verschillende klassen horen.   
+Bovenstaande indeling is echter weinig informatief. Daarom stellen we een classificatiesysteem voor waarbij het betrouwbaarheidsinterval wordt vergeleken met een referentiewaarde, een onderste drempelwaarde en een bovenste drempelwaarde. Als referentiewaarde kiezen we 0 (= geen verandering). Voor de onderste drempelwaarde kiezen we een waarde die we als een sterke afname beschouwen: -25 %. Op basis van de bovenste drempelwaarde onderscheiden we een sterke toename. Hiervoor kiezen de waarde +33 %, wat overeenkomt met eenzelfde relatief effect dan een afname van -25 % (75/100 = 100/133). Dit classificatiesysteem resulteert in 10 klassen (Figuur \@ref(fig:figtrendklasse)). In Tabel \@ref(tab:tabelklasse) geven we de codes en de beschrijving die bij de verschillende klassen horen.   
 
 ```{r figtrendklasse, fig.cap = "Classificatie van trends of verschillen"}
 
-klasse_color <- c("++" = inbo.groen, "+" = inbo.groen, "--" = inbo.rood, "-" = inbo.rood, "?+" = inbo.grijsblauw, "?-" = inbo.grijsblauw, "?" = inbo.grijsblauw, "~" = inbo.geelgr, "+~" = inbo.groen, "-~" = inbo.rood)
+klasse_color <- c("++" = inbo.groen, "+" = inbo.groen, "--" = inbo.rood, "-" = inbo.rood, "?+" = inbo.grijsblauw, "?-" = inbo.grijsblauw, "?" = inbo.grijsblauw, "~" = inbo.geelgr, "+~" = inbo.groen, "-~" = inbo.rood, "R" = inbo.grijsblauw)
 
 plot_interpretatie <- tribble(
   ~x, ~y,
@@ -104,32 +84,48 @@ trend_klasses <- data.frame(
                           "Significante positieve trend/verandering, significant hoger dan bovenste drempelwaarde",
                           "Significante negatieve trend/verandering, significant hoger dan onderste drempelwaarde")) %>%
   mutate(klasse = classification(lcl, ucl, threshold = c(-0.25, 0.33), reference = 0),
-         klasse_naam = factor(klasse_naam, levels = c("sterke afname", "afname", "matige afname", "mogelijke afname", "onbekend", "stabiel", "mogelijke toename", "matige toename", "toename", "sterke toename" ))) %>%
-  mutate(klasse_markdown = format(klasse, type = "markdown"),
+         klasse_naam = factor(klasse_naam, levels = c("sterke afname", "afname", "matige afname", "mogelijke afname", "onbekend", "stabiel", "mogelijke toename", "matige toename", "toename", "sterke toename" )),
          klasse_plot = format(klasse, type = "plot"))
 
-
+if (select_format == "html") {
+  
+  trend_klasses <- trend_klasses %>%
+    mutate(klasse_output =  format(klasse, type = "markdown"))
+  
+} else {
+  
+  trend_klasses <- trend_klasses %>%
+    mutate(klasse_output = str_c("$", as.character(klasse), "$"),
+           klasse_output = str_replace_all(klasse_output, "~", "\\\\sim"))
+  
+}
+        
 
 ```
-
-Een van de voordelen van dit systeem is het onderscheid tussen 'stabiel' en 'onbekend' wanneer er geen significante trend is. In het eerste geval weten we met zekerheid dat er geen sterke toename of afname is. In het tweede geval is de onzekerheid dermate groot dat we geen enkele conclusie kunnen trekken op basis van de data.
-
-Ook de klassen 'mogelijke toename' en 'mogelijke afname' geven een meerwaarde. Zeker omdat we voor de soortenmeetnetten nog maar enkele jaren aan het meten zijn waardoor de onzekerheid op de schattingen vrij groot is. Via deze bijkomende klassen verkrijgen we al een indicatie van de trendrichting ook al kunnen we nog geen significante trend detecteren.     
-
-
 
 ```{r tabelklasse}
 
   trend_klasses %>%
   arrange(klasse) %>%
-  select(Code = klasse_markdown, Klasse = klasse_naam, Beschrijving = klasse_beschrijving) %>%
-  kable(align = c("c", "l", "l"),
+  select(Code = klasse_output, Klasse = klasse_naam, Beschrijving = klasse_beschrijving) %>%
+  kbl(align = c("c", "l", "l"),
         caption = "Classificatie van trends of verschillen",
         booktabs = TRUE,
-        format = select_format) %>%
-    kable_styling(font_size = 10) 
+        format = select_format,
+        escape = FALSE) %>%
+    kable_styling(font_size = font_size_table,
+                latex_options = c("scale_down", "hold_position")) %>%
+   column_spec(3, width = "40em")
   
 ```
+
+\needspace{200mm}
+
+Een van de voordelen van dit systeem is het onderscheid tussen 'stabiel' en 'onbekend' wanneer er geen significante trend is. In het eerste geval weten we met zekerheid dat er geen sterke toename of afname is. In het tweede geval is de onzekerheid dermate groot dat we geen enkele conclusie kunnen trekken op basis van de data.
+
+Ook de klassen 'mogelijke toename' en 'mogelijke afname' geven een meerwaarde. Zeker omdat we voor de soortenmeetnetten nog maar enkele jaren aan het meten zijn waardoor de onzekerheid op de schattingen vrij groot kan zijn. Via deze bijkomende klassen verkrijgen we al een indicatie van de trendrichting ook al kunnen we nog geen significante trend detecteren.     
+
+
 
 
 
