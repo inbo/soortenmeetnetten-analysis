@@ -198,7 +198,7 @@ bscols(list(
 ```
 
 ```{r figlocatiesaantallen, fig.cap = "Gemiddelde getelde aantallen per meetnetlocatie", eval= html_output}
-include_graphics("../fig/dummy_figuur.png")
+include_graphics("images/dummy_figuur.png")
 ```
 
 

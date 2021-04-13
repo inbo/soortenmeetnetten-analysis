@@ -75,7 +75,7 @@ l <- "imago"
 ```
 
 ```{r, fig.cap= str_c("Copula ", m, " (foto: Erik Moonen)"), out.width = "75%"}
-include_graphics("../fig/Bosbeekjuffer_klein.jpg")
+include_graphics("images/Bosbeekjuffer_klein.jpg")
 ```
 
 ## Meetnetkarakteristieken
@@ -251,7 +251,7 @@ l <- "imago"
 ```
 
 ```{r, fig.width= 7, fig.cap= str_c("Mannetje ", m, " (foto: Erik Moonen)"), out.width = "75%"}
-include_graphics("../fig/speerwaterjuffer.jpg")
+include_graphics("images/speerwaterjuffer.jpg")
 ```
 
 ## Meetnetkarakteristieken
@@ -428,7 +428,7 @@ l <- "imago"
 ```
 
 ```{r, fig.width= 7, fig.cap= str_c("Tandem ", m, " (Foto: Erik Moonen)"), out.width = "75%"}
-include_graphics("../fig/Maanwaterjuffer.jpg")
+include_graphics("images/Maanwaterjuffer.jpg")
 ```
 
 ## Meetnetkarakteristieken
@@ -597,7 +597,7 @@ l <- "imago"
 ```
 
 ```{r, fig.width= 7, fig.cap= str_c(m, " (Foto: Erik Moonen)"), out.width = "75%"}
-include_graphics("../fig/Variabele_waterjuffer.jpg")
+include_graphics("images/Variabele_waterjuffer.jpg")
 ```
 ## Meetnetkarakteristieken
 
@@ -764,7 +764,7 @@ l <- "imago"
 ```
 
 ```{r, fig.width= 7, fig.cap= str_c("Copula ", m, " (Foto: Erik Moonen)"), out.width = "75%"}
-include_graphics("../fig/Vroege_glazenmaker_klein.jpg")
+include_graphics("images/Vroege_glazenmaker_klein.jpg")
 ```
 ## Meetnetkarakteristieken
 
@@ -935,7 +935,7 @@ l <- "imago"
 ```
 
 ```{r, fig.width= 7, fig.cap= str_c("Larvenhuidje ", m, " (Foto: Robert Pieters)"), out.width = "75%"}
-include_graphics("../fig/Rivierrombout_larve.jpg")
+include_graphics("images/Rivierrombout_larve.jpg")
 ```
 
 ## Meetnetkarakteristieken
@@ -1047,7 +1047,7 @@ l <- "imago"
 ```
 
 ```{r, fig.width= 7, fig.cap= str_c("Mannetje ", m, " (Foto: Erik Moonen)"), out.width = "75%"}
-include_graphics("../fig/Gevlekte_witsnuitlibel_klein.jpg")
+include_graphics("images/Gevlekte_witsnuitlibel_klein.jpg")
 ```
 
 ## Meetnetkarakteristieken
@@ -1214,7 +1214,7 @@ l <- "imago"
 ```
 
 ```{r, fig.width= 7, fig.cap= str_c("Vrouwtje ", m, " (Foto: Erik Moonen)"), out.width = "75%"}
-include_graphics("../fig/Kempense_heidelibel_klein.jpg")
+include_graphics("images/Kempense_heidelibel_klein.jpg")
 ```
 
 ## Meetnetkarakteristieken

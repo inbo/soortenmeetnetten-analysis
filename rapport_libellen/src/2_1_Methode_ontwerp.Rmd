@@ -193,7 +193,7 @@ bscols(
 ```
 
 ```{r figlocaties, fig.cap = "Locaties van de libellenmeetnetten vervaagd tot op het niveau van een 10 x 10 km UTM-hok", eval= html_output}
-include_graphics("../fig/dummy_figuur.png")
+include_graphics("images/dummy_figuur.png")
 ```
 
 ## Ingezamelde telgegevens

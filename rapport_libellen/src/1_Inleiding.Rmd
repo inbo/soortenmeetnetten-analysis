@@ -28,5 +28,5 @@ De soortenmeetnetten zijn een citizen science project: vrijwilligers voeren de t
 
 In dit rapport stellen we de eerste resultaten voor van de verschillende libellenmeetnetten [@de_knijf_monitoringsprotocol_2019]. We geven eerst wat achtergrond over het [ontwerp van de libellenmeetnetten] en de [analyse van de telgegevens]. Daarna maken we een [verkenning van de getelde aantallen] en geven we een [overzicht van de resultaten] van de statistische analyses. Ten slotte bespreken we de resultaten voor elk meetnet (`r meetnetten_links`).     
 
-`r ifelse(doc.type != "html", "Dit rapport bevat enkele interactieve figuren die alleen kunnen bekeken worden op de [website versie](https://inbo.github.io/soortenmeetnetten-analysis/) van dit rapport.", "")`
+`r ifelse(doc.type != "html", "Dit rapport bevat enkele interactieve figuren die alleen kunnen bekeken worden op de [website versie](https://inbo.github.io/soortenmeetnetten-libellenrapport-2021/) van dit rapport.", "")`
 
