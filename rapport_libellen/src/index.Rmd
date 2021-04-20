@@ -4,27 +4,28 @@ author:
   -
     name: "Toon Westra, Geert De Knijf, Hannes Ledegen, Sam Van De Poel, Frederic Piesschaert en Thierry Onkelinx"
     email: "Toon.Westra@inbo.be"
-ordernr: "Rapporten van het Instituut voor Natuur- en Bosonderzoek 2020 (12)"
-reportnr: "doi.org/10.21436/inbor.34106517"
+reportnr: "Rapporten van het Instituut voor Natuur- en Bosonderzoek 2020 (12)"
+doi: "doi.org/10.21436/inbor.34106517"
 bibliography: references3.bib
-csl: research-institute-for-nature-and-forest.csl
 link-citations: TRUE
-always_allow_html: yes
 site: bookdown::bookdown_site
 output:
   bookdown::gitbook:
-    split_by: "chapter"
+    split_by: "chapter+number"
     template: !expr INBOmd::inbo_rapport_css("html")
+    pandoc_args: !expr c("--csl", system.file("research-institute-for-nature-and-forest.csl", package = "INBOmd"))
   bookdown::pdf_book:
     base_format: INBOmd::inbo_rapport
-    floatbarrier: "section"
-    toc:
-      collapse: section
+    style: INBO
+    tocdepth: 2
+    lof: FALSE
+    lot: FALSE
+    floatbarrier: subsection
+    keep_tex: TRUE
   bookdown::epub_book:
     stylesheet: "css/inbo_rapport.css"
     template: !expr INBOmd::inbo_rapport_css("epub")
-
-
+    pandoc_args: !expr c("--csl", system.file("research-institute-for-nature-and-forest.csl", package = "INBOmd"))
 ---
 
 
@@ -48,17 +49,7 @@ opts_chunk$set(
 
 library(extrafont)
 #font_import()
-loadfonts(device = "win", quiet = TRUE)
-
-# if (!interactive() && opts_knit$get("rmarkdown.pandoc.to") != "html") {
-#   opts_chunk$set(dev = "cairo_pdf")
-#   theme_set(
-#     theme_inbo(
-#       base_family = "Calibri", # "Flanders Art Sans",
-#       base_size = 8
-#     )
-#   )
-# }
+loadfonts(quiet = TRUE, device = "win")
 
 doc.type <- knitr::opts_knit$get('rmarkdown.pandoc.to')
 
@@ -67,10 +58,6 @@ if(is.null(doc.type)){
   doc.type = "html"
   
 }
-
-# options(kableExtra.auto_format
-# = FALSE) 
-# 
 
 if ( doc.type == "docx" ) {
 
@@ -118,8 +105,6 @@ theme_set(
 
 
 ```
-
-
 
 ```{r}
 source(here("src", "functions_smp.R"))

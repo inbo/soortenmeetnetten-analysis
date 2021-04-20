@@ -47,7 +47,7 @@ if (doc.type == "docx") {
 
 ```
 
-\needspace{300mm}
+\needspace{50mm}
 
 ### Telmethode
 
@@ -129,49 +129,7 @@ utm10_vl <- utm10[provincies,] %>%
   filter(tag_utm %in% locaties_utm$tag_utm)
 ```
 
-
-
-
-
-
-```{r, eval = FALSE}
-library(ggmap)
-library(bitops)
-
-locaties_utm5_summarise <- read_utm5() %>%
-  inner_join(locaties, by = "tag_utm5") %>%
-  group_by(tag_utm5) %>%
-  summarise(n_locaties = dplyr::n(),
-         n_meetnet = n_distinct(meetnet)) %>%
-  ungroup() %>%
-  st_transform(crs = 31370) %>%
-  st_centroid() %>%
-  st_transform(crs =4326)
-
-ggplot(data = locaties_utm5_summarise, aes(colour = n_meetnet)) +
-  geom_sf(size = 4)
-  
-pal <- colorNumeric(
-  palette = "RdYlBu",
-  domain = locaties_utm5_summarise$n_meetnet)
-
-m <- leaflet(locaties_utm5_summarise, options = leafletOptions(maxZoom = 11)) %>%
-                addTiles() %>%
-                addCircleMarkers(stroke = FALSE, radius = 6, fillOpacity  = 1, color = ~pal(n_meetnet)) %>%
-  addLegend("bottomright", pal = pal, values = ~n_meetnet,
-    title = "Aantal libellenmeetnetten",
-    opacity = 1
-  ) 
-
-saveWidget(m, "temp.html", selfcontained = FALSE)
-
-webshot::webshot("temp.html", file = "libellen_meetnetten.png",
-        cliprect = "viewport")
-```
-
-
-
-```{r }
+```{r,  eval = html_output}
 
 locaties_shared <- SharedData$new(locaties_utm)
 
@@ -221,27 +179,7 @@ Sinds de start van de meetnetten in 2016 tot en met 2020 hebben `r monitoring_ef
 
 
 
-```{r, results = "asis", fig.height= 3, eval = FALSE}
-#Een overzicht van alle tellers vind je in Bijlage \@ref(h:bijlagea).
-for (m in unique(monitoring_effort$meetnet)) {
 
-  cat("  \n###",  m, "{-} \n")
-  
-  p <- monitoring_effort %>%
-    filter(meetnet == m) %>%
-    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
-    geom_point() +
-    geom_line() +
-    facet_wrap(~meetnet, scales = "free_y") +
-    ylim(0, NA) +
-    labs(x = "jaar")
-  
-    print(p)
-  
-    cat("  \n")
-
-}
-```
 
 
 

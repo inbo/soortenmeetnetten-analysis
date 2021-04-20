@@ -95,13 +95,7 @@ trend <- result_trendmodel %>%
 
 ```
 
-In Tabel \@ref(tab:tabtrendresultaat) geven we een overzicht van de gemiddelde jaarlijkse trend en de totale trend over de meetnetperiode. We duiden ook aan of de trend al dan niet lineair is. Een lineaire trend betekent dat de jaarlijkse daling of stijging relatief constant is. Bij een niet-lineaire trend fluctueren de aantallen sterk van jaar tot jaar, maar hebben we gemiddeld gezien over de hele tijdsperiode wel een stijging of een daling. De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in Figuur \@ref(fig:figtrend). De x-as van deze figuur heeft een logaritmische schaal. Een halvering (-50 %) is immers een even sterk effect als een verdubbeling (+100 %)
-
-Opnieuw maken we gebruik van de [classificatie](#h:classtrend) zoals besproken in paragraaf \@ref(h:classtrend) met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over de meetperiode. Voor een periode van vijf jaar (2016 - 2020) komt de ondergens overeen met een gemiddelde jaarlijkse trend van -6,9 % en de bovengrens met een gemiddelde jaarlijkse trend van +7,4 %. 
-
-De Rivierrombout springt eruit in de positieve zin met een sterke toename (`++`). Voor Maanwaterjuffer en Kempense heidelibel zien we een afname (`-`) en voor Gevlekte witsnuitlibel een sterke afname (`--`). 
-
-Bosbeekjuffer, Variabele waterjuffer en Vroege glazenmaker zijn soorten dit geteld worden in een meetnet met een driejarige meetcyclus. Dat betekent dat elk jaar ongeveer een derde van de locaties geteld worden. Maar gezien deze meetnetten pas in 2017 (Variabele waterjuffer en Vroege glazenmaker) en 2018 (Bosbeekjuffer) van start gingen is er in de meeste tellocaties nog maar een telling gebeurd. Hierdoor kunnen we voorlopig nog weinig zeggen over de trend. Eenmaal de tweede meetcyclus is afgerond zullen we waarschijnlijk een duidelijker beeld krijgen.   
+In Tabel \@ref(tab:tabtrendresultaat) geven we een overzicht van de gemiddelde jaarlijkse trend en de totale trend over de meetnetperiode. We duiden ook aan of de trend al dan niet lineair is. Een lineaire trend betekent dat de jaarlijkse daling of stijging relatief constant is. Bij een niet-lineaire trend fluctueren de aantallen sterk van jaar tot jaar, maar hebben we gemiddeld gezien over de hele tijdsperiode wel een stijging of een daling.
 
 ```{r }
 waic <- bind_rows(
@@ -159,6 +153,9 @@ overzicht_trend_tabel %>%
   kable_styling(font_size = font_size_table,
                 latex_options = "scale_down")
 ```
+\needspace{50mm}
+
+De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in Figuur \@ref(fig:figtrend). De x-as van deze figuur heeft een logaritmische schaal. Een halvering (-50 %) is immers een even sterk effect als een verdubbeling (+100 %). Opnieuw maken we gebruik van de [classificatie](#h:classtrend) zoals besproken in paragraaf \@ref(h:classtrend) met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over de meetperiode. Voor een periode van vijf jaar (2016 - 2020) komt de ondergens overeen met een gemiddelde jaarlijkse trend van -6,9 % en de bovengrens met een gemiddelde jaarlijkse trend van +7,4 %. 
 
 ```{r figtrend, fig.cap= str_c("Gemiddelde jaarlijkse trend met 90 \\% betrouwbaarheidsinterval ", legend_klasses, ". De stippellijnen tonen de referentiewaarde (0 \\%), de ondergrens (-6.7 \\%) en de bovengrens (+7.4 \\%) waarop de classificatie gebaseerd is.")}
 
@@ -204,4 +201,8 @@ trend %>%
 # x -> log(trend/100 + 1)
 ```
 
+
+De Rivierrombout springt eruit in de positieve zin met een sterke toename (`++`). Voor Maanwaterjuffer en Kempense heidelibel zien we een afname (`-`) en voor Gevlekte witsnuitlibel een sterke afname (`--`). 
+
+Bosbeekjuffer, Variabele waterjuffer en Vroege glazenmaker zijn soorten dit geteld worden in een meetnet met een driejarige meetcyclus. Dat betekent dat elk jaar ongeveer een derde van de locaties geteld worden. Maar gezien deze meetnetten pas in 2017 (Variabele waterjuffer en Vroege glazenmaker) en 2018 (Bosbeekjuffer) van start gingen is er in de meeste tellocaties nog maar een telling gebeurd. Hierdoor kunnen we voorlopig nog weinig zeggen over de trend. Eenmaal de tweede meetcyclus is afgerond zullen we waarschijnlijk een duidelijker beeld krijgen.  
 

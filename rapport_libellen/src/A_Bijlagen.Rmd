@@ -73,7 +73,7 @@ waarbij $e^{\beta_1}$ de relatieve trend weergeeft.
 
 # Detail van getelde aantallen {#h:bijlaged}
 
-`r ifelse(!html_output, "In de [website versie](www.meetnetten.be) van dit rapport vind je een downloadbare tabel met de gedetailleerde telgegevens van zowel de prioritaire soorten als de overige soorten. In deze tabel maken we onderscheid tussen vrouwelijke (V) en mannelijke (M) imago's, imago's met onbekend geslacht (imago U), imago's (niet uitgekleurd), larvenhuidjes (V, M en U), copula en eiafzettende libellen.", "Je kan de tabel naar het klembord kopiëren (door op de 'Copy-knop' te klikken) of downloaden als csv-bestand of excel-bestand (via respectievelijk de 'CSV-knop' en de 'Excel-knop')")`
+`r ifelse(!html_output, "In de [website versie](https://inbo.github.io/soortenmeetnetten-libellenrapport-2021/h-bijlaged.html) van dit rapport vind je een downloadbare tabel met de gedetailleerde telgegevens van zowel de prioritaire soorten als de overige soorten. In deze tabel maken we onderscheid tussen vrouwelijke (V) en mannelijke (M) imago's, imago's met onbekend geslacht (imago U), imago's (niet uitgekleurd), larvenhuidjes (V, M en U), copula en eiafzettende libellen.", "Je kan de tabel naar het klembord kopiëren (door op de 'Copy-knop' te klikken) of downloaden als csv-bestand of excel-bestand (via respectievelijk de 'CSV-knop' en de 'Excel-knop')")`
 
 ```{r countsLevensstadium}
 

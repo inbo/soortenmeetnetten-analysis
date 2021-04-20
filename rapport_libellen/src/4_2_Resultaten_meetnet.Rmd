@@ -66,7 +66,9 @@ summary_table_overige <- summary_table %>%
 
 ```
 
-# Bosbeekjuffer
+\needspace{50mm}
+
+## Bosbeekjuffer
 
 ```{r}
 m <- "Bosbeekjuffer"
@@ -78,7 +80,7 @@ l <- "imago"
 include_graphics("images/Bosbeekjuffer_klein.jpg")
 ```
 
-## Meetnetkarakteristieken
+### Meetnetkarakteristieken
 
 ```{r meetnetkaraktbj}
 meetnet_characteristics_table %>%
@@ -92,7 +94,7 @@ meetnet_characteristics_table %>%
   kable_styling(full_width = FALSE)
 ```
 
-## Aantal tellingen, tellers en getelde locaties
+### Aantal tellingen, tellers en getelde locaties
 
 Figuur \@ref(fig:moneffbj) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. Zoals aangegeven in Tabel \@ref(tab:meetnetkaraktbj) bestaat het meetnet uit 30 locaties en duurt de meetcyclus drie jaar. Gemiddeld gezien zouden er dus ongeveer 10 locaties per jaar geteld moeten worden met drie bezoeken per locatie. We zien dat er 2019 maar 4 locaties geteld werden, maar dit werd in het komende jaar grotendeels gecompenseerd met 19 getelde locaties. In 2020 werden 46 bezoeken uitgevoerd, dus niet alle locaties werden driemaal bezocht.     
 
@@ -118,7 +120,7 @@ ggplotly(plot_m)  %>%
   )
 ```
 
-## Vergelijking tussen de jaren
+### Vergelijking tussen de jaren
 
 Figuur \@ref(fig:changesbj) toont de jaarlijkse verschillen t.o.v. referentiejaar.
 
@@ -154,7 +156,7 @@ result_indexmodel_table %>%
 
 ```
 
-## Trend
+### Trend
 
 ```{r}
 
@@ -175,7 +177,7 @@ Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een ge
 We zullen een duidelijker beeld krijgen van de trend eenmaal de tweede meetcyclus (2021 - 2023) is afgerond. 
 
 
-## Andere waargenomen libellensoorten in het meetnet `r m` 
+### Andere waargenomen libellensoorten in het meetnet `r m` 
 
 ```{r, eval=TRUE}
 summary_table_m <- summary_table_overige %>%
@@ -209,7 +211,6 @@ summary_table_m %>%
   row_spec(row_target_species, bold = TRUE) 
 ```
 
-\needspace{300mm}
 
 Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@ref(fig:overigefigbj) het gemiddeld aantal getelde exemplaren per bezoek voor elk jaar.
 
@@ -242,7 +243,7 @@ Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@r
 
 
 
-# Speerwaterjuffer
+## Speerwaterjuffer
 
 ```{r}
 m <- "Speerwaterjuffer"
@@ -254,7 +255,9 @@ l <- "imago"
 include_graphics("images/speerwaterjuffer.jpg")
 ```
 
-## Meetnetkarakteristieken
+\needspace{50mm}
+
+### Meetnetkarakteristieken
 
 ```{r meetnetkaraktsw}
 meetnet_characteristics_table %>%
@@ -269,7 +272,7 @@ meetnet_characteristics_table %>%
 ```
 
 
-## Aantal tellingen, tellers en getelde locaties
+### Aantal tellingen, tellers en getelde locaties
 
 Figuur \@ref(fig:moneffsw) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. Alle zes meetnetlocaties werden jaarlijks tweemaal geteld.
 
@@ -297,7 +300,7 @@ ggplotly(plot_m)  %>%
 ```
 
 
-## Vergelijking tussen de jaren
+### Vergelijking tussen de jaren
 
 Figuur \@ref(fig:changessw) toont de jaarlijkse verschillen t.o.v. referentiejaar. In 2018 en 2019 is er een mogelijke afname in aantallen t.o.v. het referentiejaar 2017.  
 
@@ -331,7 +334,7 @@ result_indexmodel_table %>%
 
 ```
 
-## Trend
+### Trend
 
 ```{r}
 
@@ -352,7 +355,7 @@ Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een ge
 Voorlopig kunnen we dus nog geen uitspraak doen over de trend.  
 
 
-## Andere waargenomen libellensoorten in het meetnet `r m`
+### Andere waargenomen libellensoorten in het meetnet `r m`
 
 
 ```{r, eval=TRUE}
@@ -386,7 +389,7 @@ summary_table_m %>%
   row_spec(row_target_species, bold = TRUE) 
 ```
 
-\clearpage
+\needspace{200mm}
 
 Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@ref(fig:overigefigsw) het gemiddeld aantal getelde exemplaren per bezoek voor elk jaar.
 
@@ -417,9 +420,9 @@ Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@r
 
 
 
-\clearpage
 
-# Maanwaterjuffer
+
+## Maanwaterjuffer
 
 ```{r}
 m <- "Maanwaterjuffer"
@@ -431,7 +434,9 @@ l <- "imago"
 include_graphics("images/Maanwaterjuffer.jpg")
 ```
 
-## Meetnetkarakteristieken
+\needspace{50mm}
+
+### Meetnetkarakteristieken
 
 ```{r meetnetkaraktmw}
 meetnet_characteristics_table %>%
@@ -445,7 +450,7 @@ meetnet_characteristics_table %>%
   kable_styling(full_width = FALSE)
 ```
 
-## Aantal tellingen, tellers en getelde locaties
+### Aantal tellingen, tellers en getelde locaties
 
 Figuur \@ref(fig:moneffmj) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. Alle 7 meetnetlocaties werden jaarlijkse tweemaal geteld zoals het monitoringsprotocol voorschrijft. 
 
@@ -472,7 +477,7 @@ ggplotly(plot_m)  %>%
 
 Sedert de opstart van het meetnet Maanwaterjuffer is de soort van de enige Limburgse locatie verdwenen en op een tweede locatie werd ze de laatste 2 jaar niet meer waargenomen, waardoor hier moet gevreesd worden voor het verdwijnen van deze populatie.
 
-## Vergelijking tussen de jaren
+### Vergelijking tussen de jaren
 
 Figuur \@ref(fig:changesmj) toont de jaarlijkse verschillen t.o.v. referentiejaar. Vooral in het jaar 2019 werden er beduidend minder Maanwaterjuffers gezien. Tijdens de vliegperiode van eind april tot eind mei was het uitzonderlijk koud voor de tijd van het jaar met verschillende dagen van nachtvorst.   
 
@@ -505,7 +510,7 @@ result_indexmodel_table %>%
 
 ```
 
-## Trend
+### Trend
 
 ```{r}
 
@@ -524,7 +529,7 @@ Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een ge
 De trend in aantallen wordt sterk bepaald door de lage aantallen in 2019. De komende jaren zal moeten blijken of de populaties van de Maanwaterjuffer zich hebben kunnen herstellen.
 
 
-## Andere waargenomen libellensoorten in het meetnet `r m`
+### Andere waargenomen libellensoorten in het meetnet `r m`
 
 ```{r, eval=TRUE}
 summary_table_m <- summary_table_overige %>%
@@ -557,7 +562,6 @@ summary_table_m %>%
   row_spec(row_target_species, bold = TRUE) 
 ```
 
-\needspace{250mm}
 
 Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@ref(fig:overigefigmj) het gemiddeld aantal getelde exemplaren per bezoek voor elk jaar.
 
@@ -582,13 +586,11 @@ Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@r
   ) 
 ```
 
-\needspace{150mm}
 
-\newpage
+\clearpage
+\needspace{50mm}
 
-
-
-# Variabele waterjuffer
+## Variabele waterjuffer
 
 ```{r}
 m <- "Variabele waterjuffer"
@@ -599,7 +601,7 @@ l <- "imago"
 ```{r, fig.width= 7, fig.cap= str_c(m, " (Foto: Erik Moonen)"), out.width = "75%"}
 include_graphics("images/Variabele_waterjuffer.jpg")
 ```
-## Meetnetkarakteristieken
+### Meetnetkarakteristieken
 
 ```{r meetnetkaraktvw}
 meetnet_characteristics_table %>%
@@ -613,7 +615,7 @@ meetnet_characteristics_table %>%
   kable_styling(full_width = FALSE)
 ```
 
-## Aantal tellingen, tellers en getelde locaties
+### Aantal tellingen, tellers en getelde locaties
 
 Figuur \@ref(fig:moneffvw) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. Tijdens de eerste meetnetcyclus (2017 - 2019) werden er zoals gepland jaarlijks minstens 10 locaties geteld. 
 
@@ -638,7 +640,7 @@ ggplotly(plot_m)  %>%
   ) 
 ```
 
-## Vergelijking tussen de jaren
+### Vergelijking tussen de jaren
 
 Figuur \@ref(fig:changesvw) toont de jaarlijkse verschillen t.o.v. referentiejaar. 
 
@@ -673,7 +675,7 @@ result_indexmodel_table %>%
   theme(legend.position = "hide")
 ```
 
-## Trend
+### Trend
 
 ```{r}
 
@@ -693,7 +695,7 @@ Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een ge
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", "De trend is **onbekend**.", str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 Eenmaal de tweede meetcyclus (2020 - 2022) is afgewerkt, zullen we een betere inschatting kunnen maken van de trend. 
 
-## Andere waargenomen libellensoorten in het meetnet `r m`
+### Andere waargenomen libellensoorten in het meetnet `r m`
 
 ```{r, eval=TRUE}
 summary_table_m <- summary_table_overige %>%
@@ -726,7 +728,7 @@ summary_table_m %>%
   row_spec(row_target_species, bold = TRUE) 
 ```
 
-\clearpage
+\needspace{200mm}
 
 Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@ref(fig:overigefigvw) het gemiddeld aantal getelde exemplaren per bezoek voor elk jaar.
 
@@ -753,9 +755,9 @@ Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@r
 
 
 
-\clearpage
 
-# Vroege glazenmaker
+
+## Vroege glazenmaker
 
 ```{r}
 m <- "Vroege glazenmaker"
@@ -766,7 +768,11 @@ l <- "imago"
 ```{r, fig.width= 7, fig.cap= str_c("Copula ", m, " (Foto: Erik Moonen)"), out.width = "75%"}
 include_graphics("images/Vroege_glazenmaker_klein.jpg")
 ```
-## Meetnetkarakteristieken
+
+\clearpage
+\needspace{50mm}
+
+### Meetnetkarakteristieken
 
 ```{r meetnetkaraktvg}
 meetnet_characteristics_table %>%
@@ -780,7 +786,7 @@ meetnet_characteristics_table %>%
   kable_styling(full_width = FALSE)
 ```
 
-## Aantal tellingen, tellers en getelde locaties
+### Aantal tellingen, tellers en getelde locaties
 
 Figuur \@ref(fig:moneffvg) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. In de laatste twee jaar werden er aanzienlijk minder tellingen uitgevoerd. Maar in de meetcyclus 2017 - 2019 werden wel het merendeel van de 30 tellocaties geteld met minstens twee bezoeken per locatie. 
 
@@ -805,7 +811,7 @@ ggplotly(plot_m)  %>%
   )
 ```
 
-## Vergelijking tussen de jaren
+### Vergelijking tussen de jaren
 
 Figuur \@ref(fig:changesvg) toont de jaarlijkse verschillen t.o.v. referentiejaar. 
 
@@ -842,7 +848,7 @@ result_indexmodel_table %>%
 
 ```
 
-## Trend
+### Trend
 
 ```{r}
 
@@ -862,7 +868,7 @@ Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een ge
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", "De trend is **onbekend**.", str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 Op het einde van de tweede meetcylus (2020 - 2022) zullen we een betere inschatting kunnen maken van de trend.
 
-## Andere waargenomen libellensoorten in het meetnet `r m`
+### Andere waargenomen libellensoorten in het meetnet `r m`
 
 ```{r, eval=TRUE}
 summary_table_m <- summary_table_overige %>%
@@ -897,10 +903,6 @@ summary_table_m %>%
 
 \needspace{300mm}
 
-\newpage
-
-\clearpage
-
 Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@ref(fig:overigefigvg) het gemiddeld aantal getelde exemplaren per bezoek voor elk jaar.
 
 ```{r overigefigvg, fig.cap = str_c("Gemiddeld aantal getelde individuen per bezoek voor ", m, " en de vijf meest voorkomende andere libellensoorten van het meetnet ", m)}
@@ -924,9 +926,9 @@ Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@r
   ) 
 ```
 
-\clearpage
 
-# Rivierrombout
+
+## Rivierrombout
 
 ```{r}
 m <- "Rivierrombout"
@@ -938,7 +940,9 @@ l <- "imago"
 include_graphics("images/Rivierrombout_larve.jpg")
 ```
 
-## Meetnetkarakteristieken
+\needspace{50mm}
+
+### Meetnetkarakteristieken
 
 ```{r meetnetkaraktrr}
 meetnet_characteristics_table %>%
@@ -952,7 +956,7 @@ meetnet_characteristics_table %>%
   kable_styling(full_width = FALSE)
 ```
 
-## Aantal tellingen, tellers en getelde locaties
+### Aantal tellingen, tellers en getelde locaties
 
 Figuur \@ref(fig:moneffrr) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. Met minstens vijf bezoeken per locatie vergt dit meetnet een grote inspanning van de tellers, maar we zien dat deze inspanning goed wordt volgehouden over de monitoringsperiode.  
 
@@ -977,7 +981,7 @@ ggplotly(plot_m)  %>%
   )
 ```
 
-## Vergelijking tussen de jaren
+### Vergelijking tussen de jaren
 
 Figuur \@ref(fig:changesrr) toont de jaarlijkse verschillen t.o.v. referentiejaar.  
 
@@ -1013,7 +1017,7 @@ result_indexmodel_table %>%
 
 ```
 
-## Trend
+### Trend
 
 ```{r}
 
@@ -1032,13 +1036,14 @@ trend_total_meetnet <- trend %>%
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", "De trend is **onbekend**.", str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
-## Andere waargenomen libellensoorten in het meetnet `r m`
+### Andere waargenomen libellensoorten in het meetnet `r m`
 
 In dit meetnet werd er enkel gezocht naar larvenhuidjes van de Rivierrombout. Er werden dus geen andere soorten genoteerd.
 
-\newpage
+\clearpage
+\needspace{50mm}
 
-# Gevlekte witsnuitlibel
+## Gevlekte witsnuitlibel
 
 ```{r}
 m <- "Gevlekte witsnuitlibel"
@@ -1050,7 +1055,7 @@ l <- "imago"
 include_graphics("images/Gevlekte_witsnuitlibel_klein.jpg")
 ```
 
-## Meetnetkarakteristieken
+### Meetnetkarakteristieken
 
 ```{r meetnetkaraktgv}
 meetnet_characteristics_table %>%
@@ -1064,7 +1069,7 @@ meetnet_characteristics_table %>%
   kable_styling(full_width = FALSE)
 ```
 
-## Aantal tellingen, tellers en getelde locaties
+### Aantal tellingen, tellers en getelde locaties
 
 Figuur \@ref(fig:moneffgw) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. Ondanks het groot aantal tellocaties (Tabel \@ref(tab:meetnetkaraktgv)) slagen de tellers er in om bijna alle locaties minstens tweemaal per jaar te bezoeken. 
 
@@ -1089,7 +1094,7 @@ ggplotly(plot_m)  %>%
   )
 ```
 
-## Vergelijking tussen de jaren
+### Vergelijking tussen de jaren
 
 Figuur \@ref(fig:changesgw) toont de jaarlijkse verschillen t.o.v. referentiejaar.  
 We zien toename in aantallen in 2018, gevolgd door twee slechte jaren met telkens een sterke afname t.o.v. 2016. Deze toename van de getelde aantallen Gevlekte witsnuitlibel in 2018 is wellicht grotendeels toe te schrijven aan een sterke influx van dieren in het westen van Europa, dit zowel op de tellocaties als op tal van nieuwe locaties in Vlaanderen. De oorsprong van deze dieren is wellicht het noorden van Polen en de Baltische Staten.  
@@ -1126,7 +1131,7 @@ result_indexmodel_table %>%
 
 ```
 
-## Trend
+### Trend
 
 ```{r}
 
@@ -1145,7 +1150,7 @@ trend_total_meetnet <- trend %>%
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", "De trend is **onbekend**.", str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
-## Andere waargenomen libellensoorten in het meetnet `r m`
+### Andere waargenomen libellensoorten in het meetnet `r m`
 
 ```{r, eval=TRUE}
 summary_table_m <- summary_table_overige %>%
@@ -1178,7 +1183,7 @@ summary_table_m %>%
   row_spec(row_target_species, bold = TRUE) 
 ```
 
-\clearpage
+
 
 Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@ref(fig:overigefiggw) het gemiddeld aantal getelde exemplaren per bezoek voor elk jaar.
 
@@ -1203,9 +1208,9 @@ Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@r
   ) 
 ```
 
-\clearpage
 
-# Kempense heidelibel
+
+## Kempense heidelibel
 
 ```{r}
 m <- "Kempense heidelibel"
@@ -1217,7 +1222,7 @@ l <- "imago"
 include_graphics("images/Kempense_heidelibel_klein.jpg")
 ```
 
-## Meetnetkarakteristieken
+### Meetnetkarakteristieken
 
 ```{r meetnetkaraktkh}
 meetnet_characteristics_table %>%
@@ -1231,7 +1236,7 @@ meetnet_characteristics_table %>%
   kable_styling(full_width = FALSE)
 ```
 
-## Aantal tellingen, tellers en getelde locaties
+### Aantal tellingen, tellers en getelde locaties
 
 Figuur \@ref(fig:moneffkh) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
 
@@ -1258,7 +1263,7 @@ ggplotly(plot_m)  %>%
   )
 ```
 
-## Vergelijking tussen de jaren
+### Vergelijking tussen de jaren
 
 Figuur \@ref(fig:changeskh) toont de jaarlijkse verschillen t.o.v. referentiejaar.  
 
@@ -1292,7 +1297,7 @@ result_indexmodel_table %>%
 
 ```
 
-## Trend
+### Trend
 
 ```{r}
 
@@ -1311,7 +1316,7 @@ trend_total_meetnet <- trend %>%
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", "De trend is **onbekend**.", str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
-## Andere waargenomen libellensoorten in het meetnet `r m`
+### Andere waargenomen libellensoorten in het meetnet `r m`
 
 ```{r, eval=TRUE}
 summary_table_m <- summary_table_overige %>%
@@ -1344,11 +1349,6 @@ summary_table_m %>%
   row_spec(row_target_species, bold = TRUE) 
 ```
 
-\needspace{300mm}
-
-\newpage
-
-\clearpage
 
 Van de doelsoort en de vijf meest getelde overige soorten geven we in Figuur \@ref(fig:overigefigkh) het gemiddeld aantal getelde exemplaren per bezoek voor elk jaar.
 
