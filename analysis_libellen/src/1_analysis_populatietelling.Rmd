@@ -108,6 +108,7 @@ indexmodel_nbinom_inla$summary.hyperpar
 
 set.seed(65243)
 trendmodel_nbinom_inlabru <- fit_trendmodel_nbinom_inlabru(analyseset_species = analyseset_species)
+summary(trendmodel_nbinom_inlabru)
 
 set.seed(98363)
 index <- derive_index_inla(analyseset_species, indexmodel_nbinom_inla)
