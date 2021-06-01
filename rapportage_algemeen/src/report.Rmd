@@ -1,0 +1,151 @@
+---
+title: "Rapportage meetnetten algemeen"
+output: pdf_document
+---
+
+```{r}
+library(tidyverse)
+library(here)
+source(here("src", "functions_smp.R"))
+
+```
+## Monitoringsinspanning
+
+### Meetnettendata
+
+```{r}
+monitoring_effort <- calculate_monitoring_effort(aggregation_level = "all_species") %>%
+  filter(jaar >= 2016)
+
+monitoring_effort_species_group <- calculate_monitoring_effort(aggregation_level = "species_group") %>%
+  filter(jaar >= 2016)
+
+```
+
+### Externe data
+
+```{r}
+file <- "processed/data_burchten"
+
+path <- fileman_up("soortenmeetnetten-data")
+
+data_extern <- read_vc(file, path)
+
+monitoring_effort_data_extern <- data_extern %>%
+  mutate(jaar = as.numeric(format(datum, "%Y"))) %>%
+  group_by(jaar) %>%
+  summarise(tellingen = n_distinct(visit_id),
+         tellocaties = n_distinct(meetnet, locatie),
+         tellers = n_distinct(hoofdteller)) %>%
+  ungroup() %>%
+  gather(tellingen, tellocaties, tellers, key = "monitoringsinspanning", value = "aantal") %>%
+  mutate(monitoringsinspanning = str_c("aantal ", monitoringsinspanning)) %>%
+  mutate(soortgroep = "zoogdieren")
+  
+```
+
+### Samenvoegen
+
+```{r}
+monitoring_effort_all <- monitoring_effort_data_extern %>%
+  mutate(soortgroep = "alle soorten") %>%
+  bind_rows(monitoring_effort_data_extern) %>%
+  bind_rows(monitoring_effort) %>%
+  bind_rows(monitoring_effort_species_group) %>%
+  group_by(soortgroep, jaar, monitoringsinspanning) %>%
+  summarise(aantal = sum(aantal)) %>%
+  ungroup()
+```
+
+
+## Aantal soorten
+
+### Meetnettendata excl. vogels
+
+```{r}
+counts <- get_counts_smp() %>%
+  filter(meetnet != "Algemene Vlindermonitoring") %>%
+  filter(!is.na(species_id)) %>%
+  mutate(soort_nl = ifelse(soort_wet == "Vertigo moulinsiana", "Zeggekorfslak", soort_nl),
+         soort_nl = ifelse(soort_wet == "Lutra lutra", "Otter", soort_nl),
+         soort = ifelse(is.na(soort_nl), soort_wet, soort_nl))
+
+counts_planten <- get_visits_smp(species_group = "planten") %>%
+  mutate(type_soort = "meetnetsoorten",
+         soort = meetnet) %>%
+  select(soortgroep, meetnet, soort, type_soort, jaar)
+  
+plantensoorten <- counts_planten %>%
+  distinct(soort)
+
+meetnetsoorten <- counts %>%
+  filter(primaire_soort) %>%
+  distinct(soort) %>%
+  bind_rows(plantensoorten)
+  
+aantallen_soorten <- counts %>%
+  bind_rows(counts_planten) %>%
+  filter(jaar >= 2016) %>%
+  mutate(type_soort = ifelse(soort %in% meetnetsoorten$soort,
+                             "meetnetsoorten",
+                             "overige soorten")) %>%
+  arrange(soort) %>%
+  group_by(jaar, type_soort) %>%
+  summarise(aantal_soorten = n_distinct(soort),
+            soortenlijst = str_c(unique(soort), collapse = ", ")) %>%
+  ungroup() %>%
+  mutate(soortgroep = "alle soorten")
+
+aantallen_soorten_species_group <- counts %>%
+  bind_rows(counts_planten) %>%
+  filter(jaar >= 2016) %>%
+  mutate(type_soort = ifelse(soort %in% meetnetsoorten$soort,
+                             "meetnetsoorten",
+                             "overige soorten")) %>%
+  group_by(soortgroep, jaar, type_soort) %>%
+  arrange(soort) %>%
+  summarise(aantal_soorten = n_distinct(soort),
+            soortenlijst = str_c(unique(soort), collapse = ", ")) %>%
+  ungroup()
+
+  
+```
+
+### Externe data
+
+```{r}
+
+aantallen_soorten_data_extern <- data_extern %>%
+  mutate(jaar = as.numeric(format(datum, "%Y"))) %>%
+  mutate(type_soort = "meetnetsoorten") %>%
+  group_by(jaar, type_soort) %>%
+  summarise(aantal_soorten = n_distinct(soort_nl),
+            soortenlijst = str_c(unique(soort_nl), collapse = ", ")) %>%
+  ungroup() %>%
+  mutate(soortgroep = "zoogdieren")
+  
+```
+
+### Samenvoegen
+
+```{r}
+aantallen_soorten_all <- aantallen_soorten_data_extern %>%
+  mutate(soortgroep = "alle soorten") %>%
+  bind_rows(aantallen_soorten_data_extern) %>%
+  bind_rows(aantallen_soorten) %>%
+  bind_rows(aantallen_soorten_species_group) %>%
+  group_by(soortgroep, jaar, type_soort) %>%
+  summarise(aantal_soorten = sum(aantal_soorten),
+            soortenlijst = str_c(soortenlijst, collapse = ", ")) %>%
+  ungroup()
+```
+
+## Export
+
+```{r}
+write.csv2(monitoring_effort_all, "../output/meetnetten_monitoringsinspanning_versie2020-11-24.csv", row.names = FALSE)
+
+write.csv2(aantallen_soorten_all, "../output/meetnetten_aantal_soorten_versie2020-11-24.csv", row.names = FALSE)
+
+```
+
