@@ -1,0 +1,169 @@
+## Inhaalslag Roestbruine kniptor
+
+```{r}
+data_roestbruine_kniptor_extern <- read_vc(file = "processed/data_roestbruine_kniptor",
+                             root = fileman_up("soortenmeetnetten-data")) %>%
+  select(id, meetnet, jaar, datum, locatie, is_active = locatie_actief, aantal, x, y, gebied, validatie) %>%
+  mutate(locatie_meetnetten = !is.na(locatie),
+         locatie = ifelse(is.na(locatie),
+                          ifelse((!gebied %in% c("", " ", "  ")) & (!is.na(gebied)), gebied, str_c("nieuw_", id)),
+                          locatie)) %>%
+  group_by(meetnet, locatie, is_active, locatie_meetnetten, jaar, datum, validatie) %>%
+  summarise(aantal = sum(aantal),
+            n_punten = n_distinct(x)) %>%
+  ungroup() %>%
+  mutate(bron = "waarnemingen.be")
+
+locaties_roestbruine_kniptor <- locaties %>%
+  filter(meetnet == "Roestbruine kniptor") %>%
+  select(locatie, is_active)
+
+data_roestbruine_kniptor_meetnetten <- aantallen %>%
+  filter(meetnet == "Roestbruine kniptor") %>%
+  filter(primaire_soort) %>%
+  left_join(locaties_roestbruine_kniptor, by = "locatie") %>%
+  group_by(visit_id, meetnet, datum, locatie, is_active, jaar) %>%
+  summarise(aantal = sum(aantal),
+            n_punten = n_distinct(sample_id)) %>%
+  ungroup() %>%
+  mutate(locatie_meetnetten = TRUE,
+         bron = "meetnetten.be",
+         validatie = "goedgekeurd")
+
+data_roestbruine_kniptor_bezoeken <- bind_rows(
+  data_roestbruine_kniptor_extern,
+  data_roestbruine_kniptor_meetnetten
+) %>%
+  arrange(meetnet, desc(is_active), locatie, jaar)
+
+data_roestbruine_kniptor_locatie <- data_roestbruine_kniptor_bezoeken %>%
+  group_by(meetnet, locatie, is_active, locatie_meetnetten) %>%
+  arrange(jaar, bron, validatie) %>%
+  summarise(aantal_individuen_goedgekeurd = sum(aantal * (validatie == "goedgekeurd")),
+            aantal_individuen_niet_beoordeeld = sum(aantal * (validatie == "niet beoordeeld")),
+            aantal_bezoeken = n(),
+            n_punten = sum(n_punten),
+            bron = str_c(unique(bron), collapse = "; "),
+            jaar = str_c(unique(jaar), collapse = "; "),
+            validatie = sum(validatie == "goedgekeurd") > 0 ) %>%
+  ungroup() %>%
+  mutate(validatie = ifelse(validatie, "goedgekeurd", "niet beoordeeld"))
+```
+
+### Onderzochte locaties in 2020
+
+Volgende tabel geeft een overzicht van de actieve locaties in meetnetten.be waarvoor gegevens werden ingezameld.
+
+```{r}
+locaties_2020 <- data_roestbruine_kniptor_bezoeken %>%
+  filter(is_active, locatie_meetnetten) %>%
+  filter(jaar == 2020) %>%
+  group_by(meetnet, locatie) %>%
+  arrange(jaar, bron, validatie) %>%
+  summarise(aantal_individuen_goedgekeurd = sum(aantal * (validatie == "goedgekeurd")),
+            aantal_individuen_niet_beoordeeld = sum(aantal * (validatie == "niet beoordeeld")),
+            aantal_bezoeken = n(),
+            n_punten = sum(n_punten),
+            bron = str_c(unique(bron), collapse = "; "),
+            validatie = sum(validatie == "goedgekeurd") > 0 ) %>%
+  ungroup() %>%
+  mutate(validatie = ifelse(validatie, "goedgekeurd", "niet beoordeeld")) 
+
+n_locaties_rk <- nrow(locaties_2020)
+n_bezoeken_rk <- sum(locaties_2020$aantal_bezoeken)
+
+locaties_2020 %>%
+  select( locatie, "aantal individuen goedgekeurd"= aantal_individuen_goedgekeurd,
+         "aantal individuen niet beoordeeld" = aantal_individuen_niet_beoordeeld, "aantal bezoeken" = aantal_bezoeken, "aantal punten bezocht" = n_punten, validatie, bron) %>%
+   datatable(
+        rownames = FALSE,
+        filter = 'top',
+        extensions = c('Buttons', 'Scroller'),
+        options = list(
+          dom = 'Bfrtip',
+          buttons = c('copy', 'excel'),
+          language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+          deferRender = TRUE)
+          )
+    
+```
+
+Onderstaande tabel geeft een overzicht van de bijkomende locaties (niet actief of niet in meetnetten.be) waarvoor gegevens werden ingezameld
+
+```{r}
+
+locaties_2020_extra <- data_roestbruine_kniptor_bezoeken %>%
+  filter((!locatie_meetnetten) | (!is_active)) %>%
+  filter(jaar == 2020) %>%
+  group_by(meetnet, locatie) %>%
+  arrange(jaar, bron, validatie) %>%
+  summarise(aantal_individuen_goedgekeurd = sum(aantal * (validatie == "goedgekeurd")),
+            aantal_individuen_niet_beoordeeld = sum(aantal * (validatie == "niet beoordeeld")),
+            aantal_bezoeken = n(),
+            n_punten = sum(n_punten),
+            bron = str_c(unique(bron), collapse = "; "),
+            validatie = sum(validatie == "goedgekeurd") > 0 ) %>%
+  ungroup() %>%
+  mutate(validatie = ifelse(validatie, "goedgekeurd", "niet beoordeeld")) 
+
+n_locaties_rk_extra <- nrow(locaties_2020_extra)
+n_bezoeken_rk_extra <- sum(locaties_2020_extra$aantal_bezoeken)
+
+locaties_2020_extra %>%
+  select(locatie, "aantal individuen goedgekeurd"= aantal_individuen_goedgekeurd,
+         "aantal individuen niet beoordeeld" = aantal_individuen_niet_beoordeeld, "aantal punten bezocht" = n_punten, validatie, bron) %>%
+   datatable(
+        rownames = FALSE,
+        filter = 'top',
+        extensions = c('Buttons', 'Scroller'),
+        options = list(
+          dom = 'Bfrtip',
+          buttons = c('copy', 'excel'),
+          language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+          deferRender = TRUE)
+          )
+   
+```
+
+
+### Stand van zaken prioritaire locaties
+
+```{r}
+
+shapes_to_filter <- locaties_roestbruine_kniptor %>%
+  filter(is_active) %>%
+  left_join(data_roestbruine_kniptor_locatie, by = c("locatie")) %>%
+  mutate(locatie_status = ifelse(is.na(aantal_bezoeken), "niet onderzocht",
+                                 ifelse(aantal_individuen_goedgekeurd > 0, "aanwezig - goedgekeurd",
+                                        ifelse(aantal_individuen_niet_beoordeeld > 0, "aanwezig - niet beoordeeld", "afwezig")))
+         ) %>%
+  select(locatie, locatie_status, bron, jaar, aantal_bezoeken, n_punten, aantal_individuen_goedgekeurd, aantal_individuen_niet_beoordeeld, jaar) %>%
+  as_Spatial()
+
+
+```
+
+```{r}
+sd_map <- SharedData$new(shapes_to_filter)
+sd_df <- SharedData$new(as.data.frame(shapes_to_filter@data), group = sd_map$groupName())
+
+colorpal <- c(INBOgreen,  INBOred, INBOblue)
+factpal <- colorFactor(colorpal, sd_map$locatie_status)
+
+#Create crosstalk filters using sd_df:
+
+bscols(filter_checkbox("locatie_status",  "Locatiestatus", sd_df, ~locatie_status)
+)
+
+#Create the map using the sd_map object:
+
+leaflet(sd_map) %>%
+  addProviderTiles("OpenStreetMap") %>%
+  addPolygons( color = ~factpal(locatie_status), label = ~locatie, opacity = 0.8) %>%
+  addLegend(pal = factpal, values = ~locatie_status)
+
+datatable(sd_df,
+          rownames = FALSE,
+            filter = 'top')
+```
+

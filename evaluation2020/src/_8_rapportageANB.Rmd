@@ -1,0 +1,34 @@
+
+
+
+```{r}
+
+aantallen_rapportageANB <- aantallen %>%
+  mutate(visit_id = as.character(visit_id)) %>%
+  bind_rows(aantallen_planten) %>%
+  filter(levensstadium != "") %>%
+  filter(jaar == 2019) %>%
+  group_by( meetnet, levensstadium, locatie, visit_id) %>%
+  summarise(aantal_bezoek = sum(aantal,na.rm=TRUE)) %>%
+  group_by(meetnet, levensstadium, locatie) %>%
+  summarise(aantal_locatie = sum(aantal_bezoek),
+            maxTelling_locatie = max(aantal_bezoek),
+            n_bezoeken = n()) %>%
+  group_by(meetnet, levensstadium) %>%
+  summarise(aantalGeteldTotaal = round(sum(aantal_locatie,na.rm = TRUE), 0),
+            somMaxGeteldPerLocatie = round(sum(maxTelling_locatie, na.rm=TRUE), 0),
+            nBezoeken = sum(n_bezoeken) ,
+            nLocaties = n())%>%
+  filter(aantalGeteldTotaal > 0) %>%
+  mutate(levensstadium = ifelse(meetnet == "Hazelmuis", "nest", levensstadium)) %>%
+  rename('Nederlandse naam' = meetnet, specimens = levensstadium) %>%
+  mutate(datum = 2019,
+         locatie = "Vlaanderen",
+         impact = "geen",
+         tijdstip = "Onbekend") %>%
+  select('Nederlandse naam', specimens, aantalGeteldTotaal, datum, impact, locatie, tijdstip, everything())
+
+write.csv2(aantallen_rapportageANB, "../output/150601_Afwijkingsvergunning_ANB_BL_FF_V16_00034_VB_rapportage_2019_bijlage.csv", row.names = FALSE)
+
+```
+

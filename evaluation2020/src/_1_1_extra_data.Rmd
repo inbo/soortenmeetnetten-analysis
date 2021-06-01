@@ -1,0 +1,174 @@
+# Gerande oeverspin
+
+```{r}
+
+locaties0_voldoendeOnderzocht <- bezoeken_GO %>%
+  filter(locatie %in% c("Batven","Drijhoekbos", "Kwikaard", "Schans2", "Urlobroek", "Zammels Buitenbroek")) %>%
+  select(meetnet, locatie) %>%
+  mutate(voorkomen = "afwezig")
+
+
+aantallen_mn <-  aantallen %>%
+  filter(meetnet == "Gerande oeverspin") %>%
+  group_by(meetnet, jaar, locatie, datum) %>%
+  summarise(aantal = sum(aantal)) %>%
+  ungroup() %>%
+  mutate(is_sample_history = 1,
+         databank = "meetnetten.be")
+
+```
+
+```{r}
+
+tellingen2018_wnm <- st_read("../../data/spinnen", "Dolomedes_WaarnemingenBe_2018_WGS84_4326", crs =4326) %>%
+  select(meetnet = naam_nl, datum, aantal, gebied) %>%
+  filter(meetnet == "Gerande Oeverspin")
+
+tellingenExtra2018 <- st_read("../../data/spinnen", "Dolomedes_Extra_NietInWaarnemingenBe_2018_WGS84_4326", crs =4326) %>%
+  mutate(meetnet = "Gerande Oeverspin") %>%
+  select(meetnet, datum = Datum, aantal = Aantal, gebied = Gebied) 
+
+tellingenFFP <- st_read("../../data/spinnen", "Dolomedes_FutureFloodplains_2017_WGS84_4326", crs =4326) %>%
+  select(meetnet = Soort..Nl., datum = Datum_bezo, aantal = Aantal.pot, gebied = Gebied)
+
+tellingen2018 <- tellingen2018_wnm %>%
+  rbind(tellingenExtra2018) %>%
+  rbind(tellingenFFP) %>%
+  st_transform(crs = 31370) %>%
+  mutate(jaar = 2018)
+  
+tellingen2019_orig <- read.csv2("../../data/spinnen/GerandeOeverspin_wbe_Dump20191201_waarnemingen_niet_in_portaal.csv", stringsAsFactors = FALSE) 
+  
+tellingen2019 <- tellingen2019_orig %>%
+  select(meetnet = naam_nl, datum , aantal , gebied, x, y ) %>%
+  filter(meetnet == "Gerande Oeverspin") %>%
+  st_as_sf(coords = c("x", "y"), crs = 31370) %>%
+  mutate(jaar = 2019)
+
+tellingen <- rbind(tellingen2018,
+                   tellingen2019)
+
+```
+
+```{r}
+
+locaties_prioritair <- st_read("../../data/spinnen", "GerandeOeverspin_WGS84_versie2017-03-31_Prioritair", crs =4326) %>%
+  st_transform(crs = 31370)
+
+locaties_prioritair_buffer <- locaties_prioritair %>%
+  st_buffer(dist = 200)
+  
+locaties_alle <- st_read("../../data/spinnen", "GerandeOeverspin_WGS84_versie2017-03-31") %>%
+  st_transform(crs = 31370)   
+
+locaties_alle_buffer <- locaties_alle %>%
+  st_buffer(dist = 200)
+
+tellingen_locatie <- tellingen %>%
+  st_join(select(locaties_prioritair, locatie_prioritair = Naam)) %>%
+  st_join(select(locaties_alle, locatie_alle = Naam)) %>%
+  st_join(select(locaties_prioritair_buffer, locatie_prioritair_buffer = Naam)) %>%
+  st_join(select(locaties_alle_buffer, locatie_alle_buffer = Naam)) %>%
+  mutate(locatie = ifelse(!is.na(locatie_alle), as.character(locatie_alle),
+                          ifelse(!is.na(locatie_alle_buffer), as.character(locatie_alle_buffer), as.character(gebied))),
+         is_sample_history = ifelse(!is.na(locatie_alle_buffer), 1, 0))
+
+aantallen_wnm <- tellingen_locatie %>%
+  st_drop_geometry() %>%
+  mutate(datum = as.Date(datum, format = "%d/%m/%Y"),
+         databank = "waarnemingen.be") %>%
+  group_by(is_sample_history, meetnet, locatie, jaar, datum, databank) %>%
+  summarise(aantal = sum(aantal)) %>%
+  ungroup()
+
+
+aantallen_tot <- aantallen_mn %>%
+  ungroup() %>%
+  bind_rows(aantallen_wnm) %>%
+  mutate(meetnet = "Gerande oeverspin") %>%
+  group_by(is_sample_history, meetnet, locatie, jaar, datum) %>%
+  summarise(databank = str_c(databank, collapse =  " + "),
+            waargenomen = sum(aantal > 0)) %>%
+  ungroup()
+
+tellingen_2019 <- aantallen_tot %>%
+  filter(jaar == "2019") %>%
+  group_by(is_sample_history, meetnet, locatie) %>%
+  summarise(waargenomen_locatie = sum(waargenomen) > 0,
+            aantal_bezoeken = n()) %>%
+  ungroup() %>%
+  group_by(is_sample_history, meetnet) %>%
+  summarise(aantal_locaties = n_distinct(locatie),
+            aantal_bezoeken = sum(aantal_bezoeken),
+            waargenomen_locatie = sum(waargenomen_locatie)) %>%
+  ungroup() 
+
+
+
+
+
+
+# tellingen_voldoendeOnderzocht <- tellingen_locatie %>%
+#   filter(!is.na(locatie_prioritair_buffer)) %>%
+#   st_drop_geometry() %>%
+#   select(meetnet, locatie = locatie_prioritair_buffer) %>%
+#   distinct() %>%
+#   mutate(voorkomen = "aanwezig binnen buffer van 200 m rond locatie")
+# 
+# locaties_voldoendegeteld <- tellingen1_voldoendeOnderzocht %>%
+#   bind_rows(locaties0_voldoendeOnderzocht) %>%
+#   mutate(meetnet = "Gerande oeverspin") %>%
+#   distinct()
+# 
+# write.csv2(locaties_voldoendegeteld, "../Output/GerandeOeverspin_AfgewerkteLocaties.csv", row.names = FALSE)
+#   
+
+```
+
+
+# Roestbruine kniptor
+
+```{r}
+
+tellingen_wnm <- st_read("../../data/kevers", "Roestbruine_kniptor_waarnemingen_2019", crs = 31370)
+
+locaties_rbk <- locaties %>%
+  filter(meetnet == "Roestbruine kniptor") %>%
+  select(locatie) %>%
+  st_transform(crs = 31370) 
+
+locaties_rbk_buffer <- locaties_rbk %>%
+  st_buffer(dist = 200) %>%
+  rename(locatie_buffer_200 = locatie)
+
+```
+
+```{r}
+tellingen_wnm_locatie <- tellingen_wnm %>%
+  st_join(locaties_rbk) %>%
+  st_join(locaties_rbk_buffer) %>%
+  st_drop_geometry() %>%
+  select(meetnet = naam_nl, datum, methode, gebied, locatie, locatie_buffer_200, x, y)
+
+locaties_rbk <- tellingen_wnm_locatie %>%
+  mutate(
+    type_locatie = ifelse(is.na(locatie) & is.na(locatie_buffer_200), "Extra locatie", "Meetnetlocatie"),
+    locatie = ifelse(!is.na(locatie), as.character(locatie),
+                          ifelse(!is.na(locatie_buffer_200), as.character(locatie_buffer_200), as.character(gebied))),
+         ) %>%
+  group_by(type_locatie, meetnet, locatie) %>%
+  summarise(n_bezoeken = n_distinct(datum)) %>%
+  ungroup() %>%
+  distinct() %>%
+  group_by(type_locatie, meetnet) %>%
+  summarise(n_bezoeken = sum(n_bezoeken),
+            n_locaties = n_distinct(locatie)) %>%
+  ungroup()
+           
+  
+  
+  
+  
+```
+
+

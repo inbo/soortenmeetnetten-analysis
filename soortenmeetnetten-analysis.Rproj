@@ -13,4 +13,4 @@ RnwWeave: knitr
 LaTeX: XeLaTeX
 
 BuildType: Website
-WebsitePath: rapport_libellen/src
+WebsitePath: inhaalslag_zeggekorfslak/src

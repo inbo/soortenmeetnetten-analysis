@@ -1,0 +1,331 @@
+# Vaatplanten
+
+
+```{r}
+soortgroep_sel <- c("planten", "Planten", "vaatplanten")
+```
+
+
+## Meetnetkarakteristieken
+
+Tabel \@ref(tab:MeetnKaraktplanten1) geeft een overzicht van de karakteristieken van de plantenmeetnetten.
+
+```{r MeetnKaraktplanten1}
+
+bezoeken_soortgroep <- filter(bezoeken, soortgroep %in% soortgroep_sel)
+species_list <- unique(bezoeken_soortgroep$meetnet)
+
+tabel_meetnetkarakteristieken %>%
+  mutate(telperiode = str_c(start_telperiode, " - ", einde_telperiode)) %>%
+  filter(soortgroep %in% soortgroep_sel,
+         is_sample) %>%
+  group_by(meetnet, protocol, is_sample) %>%
+  mutate(bezoeken_tot = sum(bezoeken)) %>%
+  ungroup() %>%
+  select(meetnet, protocol, type, opstartjaar, 'duur meetcyclus'= duur_meetcyclus,  'bezoeken (/jaar)' = bezoeken_tot, telperiode) %>%
+  unique() %>%
+  arrange(meetnet) %>%
+  kable(caption = "Overzicht van de karakteristieken van de plantenmeetnetten: veldprotocol, type meetnet (integraal of steekproef), aantal meetnetlocaties en de meetcyclus in jaren",
+        align = c("l", "l", "l", "c", "c", "c", "c")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                font_size = 11) %>%
+  column_spec(5, width = "2cm")
+  
+```
+
+## Overzicht van de uitgevoerde tellingen
+
+### Evaluatie per meetnet
+
+In Tabel \@ref(tab:overzichtTellingenvaatplanten1) geven we een overzicht van de tellingen van 2020 per meetnet.
+
+```{r overzichtTellingenvaatplanten1, message= FALSE, warning= FALSE, results= 'asis'}
+
+n_locaties_planten <- meetnetten_metadata %>%
+  filter(is_sample_history) %>%
+  select(-is_sample_history)
+
+overzicht_meetnetten_planten %>%
+  left_join(n_locaties_planten, by = "meetnet") %>%
+  filter(jaar == "2020") %>%
+  select(meetnet, 
+         "aantal locaties" = n_locaties,
+         meetnetten = n_bezoeken_meetnetten, 
+         waarnemingen = n_bezoeken_waarnemingen,
+         totaal = voldoende_geteld_totaal,
+         "nieuw in cyclus" = voldoende_geteld_totaal_nieuw,
+         "met track" = voldoende_geteld_track) %>%
+  kable() %>%
+  kable_styling() %>%
+  add_header_above(c(" " = 2, "aantal tellingen" = 2, "aantal getelde locaties" = 3))
+  
+```
+
+
+### Evaluatie totaal aantal tellingen
+
+In Tabel \@ref(tab:overzichtTellingenvaatplanten2) geven we een overzicht van het totaal aantal tellingen in 2019.
+
+```{r overzichtTellingenvaatplanten2}
+
+totaal_planten %>%
+  arrange(desc(type_locatie)) %>%
+  select(type_locatie,
+    "meetnetlocaties" = aantal_meetnetlocaties,
+    jaardoel,
+    "getelde locaties" = aantal_getelde_locaties_tot,
+    "getelde locaties" = aantal_getelde_locaties_mn,
+    "getelde locaties" = aantal_getelde_locaties_wnm,
+  ) %>%
+  kable(caption = "Overzicht tellingen 2019", 
+        align = c("l", "l", "c", "c", "c", "c", "c", "c", "c")) %>%
+  kable_styling("striped", font_size = 9) %>%
+  add_header_above(c(" " = 3, "Totaal" = 1, "Meetnetten.be" = 1, "Waarnemingen.be" = 1))
+
+```
+
+
+### Overzicht mobiel ingevoerde tellingen per meetnet
+
+In Tabel \@ref(tab:overzichtTellingenvaatplanten3) geven we een overzicht van de mobiel ingevoerde tellingen van 2019 per meetnet.
+
+```{r overzichtTellingenvaatplanten3, message= FALSE, warning= FALSE, results= 'asis'}
+
+nrow_mn <- sum(meetnetten_planten_mobiel_wide$type_locatie == "Meetnetlocatie")
+nrow_extra <- sum(meetnetten_planten_mobiel_wide$type_locatie == "Extra locatie")
+
+meetnetten_planten_mobiel_wide %>%
+  arrange(desc(type_locatie)) %>%
+  select(meetnet, protocol,
+    "meetnetlocaties" = aantal_meetnetlocaties,
+    "getelde locaties" = aantal_getelde_locaties,
+    "telpunten" = aantal_telpunten_cp,
+    "getelde locaties" = aantal_getelde_locaties_mn,
+    "telpunten" = aantal_telpunten_mn,
+    "getelde locaties" = aantal_getelde_locaties_wnm,
+    "telpunten" = aantal_telpunten_wnm
+  ) %>%
+  kable(caption = "Overzicht tellingen 2019", 
+        align = c("l", "l", "c", "c", "c", "c", "c", "c", "c")) %>%
+  kable_styling("striped", font_size = 9) %>%
+  add_header_above(c(" " = 3, "Totaal" = 2, "Meetnetten.be" = 2, "Waarnemingen.be" = 2)) %>%
+  pack_rows("Meetnetlocatie", 1, nrow_mn) %>%
+  pack_rows("Extra locatie", nrow_mn + 1 , nrow_mn + nrow_extra)
+  
+```
+
+
+### Overzicht totaal mobiel ingevoerde tellingen
+
+In Tabel \@ref(tab:overzichtTellingenvaatplanten4) geven we een overzicht van het totaal aantal mobiel ingevoerde tellingen in 2019.
+
+```{r overzichtTellingenvaatplanten4}
+
+totaal_planten_mobiel %>%
+  arrange(desc(type_locatie)) %>%
+  select(type_locatie,
+    "getelde locaties" = aantal_getelde_locaties_tot,
+    "getelde locaties" = aantal_getelde_locaties_mn,
+    "getelde locaties" = aantal_getelde_locaties_wnm,
+  ) %>%
+  kable(caption = "Overzicht mobiel ingevoerde tellingen 2019", 
+        align = c("l",  "c", "c", "c", "c", "c", "c", "c")) %>%
+  kable_styling("striped", font_size = 9) %>%
+  add_header_above(c(" " = 1, "Totaal" = 1, "Meetnetten.be" = 1, "Waarnemingen.be" = 1))
+
+```
+
+
+
+
+### Tijdstippen van de tellingen
+
+In Figuur \@ref(fig:figuurBezoekenvaatplanten) vergelijken we de tijdstippen van de bezoeken met de telperiodes (weergegeven via verticale stippellijnen).  
+
+```{r figuurBezoekenvaatplanten, message= FALSE, warning= FALSE, fig.height= 9, fig.width= 7,  fig.cap = "Overzicht tijdstippen waarop tellingen werden uitgevoerd in 2019" }
+
+bezoeken_figuur <- bezoeken_planten %>% 
+  left_join(telperiodes_2019, by = c("meetnet")) %>%
+  select(type_locatie, databank, meetnet,locatie, datum, start_telperiode, einde_telperiode) %>%
+  unique()
+
+ggplot(data = bezoeken_figuur, aes(x = datum, fill = databank)) + 
+  geom_histogram(binwidth = 7, colour = "white") +
+  geom_vline(aes(xintercept = start_telperiode), data = bezoeken_figuur, linetype = 2) +
+  geom_vline(aes(xintercept = einde_telperiode), data = bezoeken_figuur, linetype = 2) +
+  facet_wrap( ~ meetnet, ncol = 3) + 
+  labs(x = "Datum bezoek", y = "Aantal bezoeken")  + 
+  theme( axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+Onderstaande tabel geeft een overzicht van de tellingen die minsten 10 dagen buiten de telperiode werden uitgevoerd. De kolom 'verschil_dagen' geeft het verschil in dagen t.o.v. de telperiode volgens het veldprotocol.
+
+```{r}
+
+bezoeken_buiten_telperiode_planten <- bezoeken_figuur %>%
+  mutate(verschil_dagen = ifelse(datum < start_telperiode, 
+                                datum - start_telperiode,
+                                ifelse(datum > einde_telperiode, datum - einde_telperiode, 0)))
+
+
+bezoeken_buiten_telperiode_planten %>%
+  filter(!is.na(verschil_dagen)) %>%
+  filter(abs(verschil_dagen) >=10) %>%
+  arrange(desc(abs(verschil_dagen))) %>%
+  select(meetnet, databank, type_locatie, everything()) %>%
+  kable(booktabs = TRUE,
+        caption = "Bezoeken buiten telperiode",
+        align = c("l", "l", "c","c","c", "c", "c", "c", "c", "c", "c")) %>%
+ kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+               font_size = 11) %>%
+  collapse_rows(columns = 1 )
+  # datatable(rownames = FALSE,
+  #           filter = 'top',
+  #           extensions = c('Buttons', 'Scroller'),
+  #           options = list(
+  #             dom = 'Bfrtip',
+  #             buttons = c('copy', 'pdf', 'csv', 'excel'),
+  #             language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+  #             deferRender = TRUE,
+  #              scrollY = 400,
+  #              scroller = TRUE,
+  #              scrollX = TRUE
+  #             )
+  #           )
+
+
+```
+
+
+
+### Afwijkingen van het protocol
+
+De volgende tabel geeft een overzicht van de afwijkingen van het protocol van de tellingen ingevoerd in meetnetten.be.
+
+```{r afwijkingenProtocolVaatplanten, message= FALSE, warning= FALSE}
+
+bezoeken %>% 
+  filter(soortgroep == sg) %>% 
+  filter(jaar == 2019) %>% 
+  filter(bezoek_status_detail != "Conform protocol") %>% 
+  select(meetnet, datum, locatie, "bezoek status" = bezoek_status_detail, opmerkingen = notes) %>%
+  mutate(opmerkingen = gsub("\n", ". ", opmerkingen)) %>%
+  kable(booktabs = TRUE, escape = TRUE) %>%
+  kable_styling(latex_options =  c( "hold_position"),
+                bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+    column_spec(5, width = "6cm") %>%
+   column_spec(2, width = "3cm")
+    # datatable(rownames = FALSE,
+    #         filter = 'top',
+    #         extensions = c('Buttons', 'Scroller'),
+    #         options = list(
+    #           dom = 'Bfrtip',
+    #           buttons = c('copy', 'pdf', 'csv', 'excel'),
+    #           language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+    #           deferRender = TRUE,
+    #            scrollY = 400,
+    #            scroller = TRUE,
+    #            scrollX = TRUE
+    #           )
+    #         )
+  
+```
+
+
+
+## Opmerkingen bij meetnetlocaties
+
+```{r}
+
+locaties_opm %>%
+  filter(soortgroep == sg) %>%
+  filter(is_active) %>%
+  arrange(meetnet) %>%
+  select(-soortgroep) %>%
+  kable(booktabs = TRUE, 
+        caption = "Opmerkingen locaties") %>%
+ kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+               font_size = 11) %>%
+  collapse_rows(columns = 1 )
+```
+
+## Visualisatie tellingen
+
+```{r}
+
+aantallen_planten_tot_sf <- rbind(
+  
+  data_wnm_2019_sf %>%
+  select(id) %>% 
+  left_join(data_wnm_2019, by = "id") %>%
+  st_transform(crs = 4326) %>%
+    rename(geom = geometry) %>%
+  select(meetnet, type_locatie, locatie = locatie_planten, datum, code) %>%
+  mutate(databank = "waarnemingen.be"),
+  
+  aantallen_planten_track %>%
+    select(meetnet, locatie, datum, code) %>%
+    mutate(databank = "meetnetten.be",
+           type_locatie = "Meetnetlocatie")
+  
+) %>%
+  mutate(databank = factor(databank),
+         label = str_c(meetnet, code, sep = " "))
+
+
+locaties_shared <- SharedData$new(aantallen_planten_tot_sf)
+
+factpal <- colorFactor(c(inbo.steun.donkerroos, inbo.groen), aantallen_planten_tot_sf$databank)
+
+bscols(
+  list(
+    bscols(widths = c(3, 4, 5),
+           filter_checkbox("type_locatie", "Selecteer locatie", locaties_shared, ~type_locatie),
+           filter_checkbox("databank", "Selecteer databank", locaties_shared, ~databank),
+           filter_select("meetnet", "Selecteer meetnet", locaties_shared, ~meetnet, multiple = FALSE)),
+    leaflet(locaties_shared) %>%
+      addTiles() %>%
+      addCircleMarkers(radius = 1, color = ~factpal(databank), opacity = 0.6, fillOpacity = 0.6,  label = ~label) %>%
+      addLegend(pal = factpal, values = ~databank)
+    
+      )
+)
+
+
+
+
+```
+
+## Tracks
+
+
+```{r}
+
+tracks <- read_sf("../../data/versie2020-01-24/planten_tracks", "planten_tracks_versie2020-01-24") %>%
+  st_drop_geometry() %>%
+  select(meetnet, protocol = protocl, locatie, datum, schaal, code)
+
+aantallen_wnm_2019 <- data_wnm_2019 %>%
+  select(meetnet, locatie = locatie_planten, datum, code) %>%
+  left_join(select(meetnetKarakt, meetnet, protocol), by = "meetnet") %>%
+  filter(code != "", locatie != "") %>%
+  mutate(schaal = ifelse(protocol == "Vaatplanten - Aantal individuen", "aantal (Floron)",
+                         ifelse(protocol == "Vaatplanten - Oppervlakte", "oppervlakte (Floron)", NA)))
+scale_value <- tracks %>%
+  distinct(schaal, code) %>%
+  arrange(schaal, code) %>%
+  mutate(min = c(0,1, 2, 6,26, 51, 501, 0, 0, 1, 5 , 25 , 50, 500),
+         max = c(0, 1, 5, 25,50, 500, 5000, 0, 1, 5, 25 , 50 , 500, 5000),
+         aantal = (max - min)/2)
+
+aantallen_planten <- tracks %>%
+  bind_rows(aantallen_wnm_2019) %>%
+  left_join(scale_value, by = c("schaal", "code")) %>%
+  mutate(jaar = as.numeric(format(datum, "%Y")),
+         visit_id = str_c("meetnet", "datum", "locatie"),
+         levensstadium = ifelse(protocol == "Vaatplanten - Aantal individuen", "individu",
+                                ifelse(protocol == "Vaatplanten - Oppervlakte", "vegetatievlek (m²)", NA)))
+
+
+```
+

@@ -351,6 +351,13 @@ overzicht_alle_locaties_planten <- locaties %>%
 
 write.csv2(overzicht_alle_locaties_planten, "../output/plantenmeetnetten_locaties_2019_2020_versie2020-01-19.csv", row.names = FALSE)
 
+overzicht_todo_planten <- overzicht_alle_locaties_planten %>%
+  filter(is.na(jaar)) %>%
+  select(meetnet, locatie)
+
+write.csv2(overzicht_todo_planten, "../output/planten_todo_meetcyclus2.csv", row.names = FALSE)
+
+
 overzicht_bezoeken_planten <- bezoeken_planten %>%
   filter(jaar == 2020) %>%
   mutate(aantallen_ingevoerd = ifelse(is.na(track), 0, 1),

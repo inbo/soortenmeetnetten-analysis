@@ -2,3 +2,12 @@
 .Rhistory
 .RData
 .Ruserdata
+output/
+*.html
+*.pdf
+*.log
+_bookdown_files/
+css/
+*.png
+*.md
+
