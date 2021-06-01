@@ -1,0 +1,67 @@
+---
+title: "Prioritering locaties voor inhaalslag Zeggekorfslak"
+author: 
+  -
+    name: "Toon Westra "
+    email: "Toon.Westra@inbo.be"
+subtitle: "Technisch rapport"
+ordernr: ""
+reportnr: "xxx"
+link-citations: TRUE
+always_allow_html: yes
+site: bookdown::bookdown_site
+output:
+  bookdown::html_document2:
+    keep_md: TRUE
+    toc: TRUE
+    toc_float:
+      collapsed: FALSE
+      smooth_scroll: FALSE
+---
+
+
+```{r setup, include = FALSE}
+library(knitr)
+
+options(knitr.kable.NA = '')
+opts_chunk$set(
+  echo = FALSE, 
+  eval = TRUE,
+  cache = FALSE,
+  dpi = 120,
+  fig.width = 150 / 25.4,
+  fig.height = 100 / 25.4,
+  fig.align = "center",
+  warning = FALSE,
+  error = TRUE,
+  message = FALSE,
+  dev = 'png'
+)
+```
+
+
+```{r, cache = FALSE}
+
+library(tidyverse)
+library(INBOtheme)
+library(INBOmd)
+library(sf)
+library(crosstalk)
+library(leaflet)
+library(DT)
+library(kableExtra)
+library(git2rdata)
+library(n2khab)
+library(units)
+library(here)
+```
+
+
+
+```{r}
+source(here("src", "functions_smp.R"))
+```
+
+
+
+
