@@ -18,7 +18,7 @@ Bovenstaande indeling is echter weinig informatief. Daarom stellen we een classi
 
 ```{r figtrendklasse, fig.cap = "Classificatie van trends of verschillen"}
 
-klasse_color <- c("++" = inbo.groen, "+" = inbo.groen, "--" = inbo.rood, "-" = inbo.rood, "?+" = inbo.grijsblauw, "?-" = inbo.grijsblauw, "?" = inbo.grijsblauw, "~" = inbo.geelgr, "+~" = inbo.groen, "-~" = inbo.rood, "R" = inbo.grijsblauw)
+klasse_color <- c("++" = inbo_groen, "+" = inbo_groen, "--" = inbo_rood, "-" = inbo_rood, "?+" = inbo_grijsblauw, "?-" = inbo_grijsblauw, "?" = inbo_grijsblauw, "~" = inbo_geelgr, "+~" = inbo_groen, "-~" = inbo_rood, "R" = inbo_grijsblauw)
 
 plot_interpretatie <- tribble(
   ~x, ~y,
