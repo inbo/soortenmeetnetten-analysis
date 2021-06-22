@@ -1,0 +1,69 @@
+# Herbevestiging gebieden/locaties zonder recente waarnemingen
+
+## Gebieden
+
+Onderstaande tabel geeft weer hoeveel jaar geleden de meest recente waarneming van Zeggekorfslak is gebeurd per gebied (zoals gedefinieerd in meetnetten.be of waarnemingen.be).
+
+```{r}
+historiek_locaties <- data_zeggekorfslak_all %>%
+  filter(is.na(aantal) | aantal > 0) %>%
+  filter(!is.na(locatie)) %>%
+  filter(str_sub(locatie, 1, 5) != "nieuw") %>%
+  st_drop_geometry() %>%
+  group_by(locatie) %>%
+  summarise(min_jaar = min(jaar),
+            max_jaar = max(jaar)) %>%
+  ungroup() %>%
+  mutate(laatste_wmn = ifelse((2021 - max_jaar) >= 12,  ">= 12 jaar geleden",
+                              ifelse((2021 - max_jaar) >= 6,  "tussen 6 en 12 jaar geleden", "< 6 jaar geleden")),
+         laatste_wmn = factor(laatste_wmn, levels = c(">= 12 jaar geleden", "tussen 6 en 12 jaar geleden", "< 6 jaar geleden"))) %>%
+  arrange(laatste_wmn, max_jaar, locatie) 
+
+historiek_locaties %>%
+  select( "recentste wnm" = laatste_wmn,locatie, min_jaar, max_jaar) %>%
+  kable() %>%
+  kable_styling() %>%
+  collapse_rows(1)
+
+
+```
+
+
+```{r}
+
+
+presence_buffer <- data_zeggekorfslak_all %>%
+  filter(is.na(aantal) | aantal > 0) %>%
+  st_buffer(500) %>%
+  select(jaar_buffer500 = jaar)
+
+obs_most_recent <- data_zeggekorfslak_all %>%
+  filter(is.na(aantal) | aantal > 0) %>%
+  st_join(presence_buffer) %>%
+  group_by(id, jaar) %>%
+  summarise(maxjaar_buffer = max(jaar_buffer500)) %>%
+  ungroup() %>%
+   mutate(laatste_wmn = ifelse((2021 - maxjaar_buffer) >= 12,  ">= 12 jaar geleden",
+                              ifelse((2021 - maxjaar_buffer) >= 6,  "tussen 6 en 12 jaar geleden", "< 6 jaar geleden")),
+         laatste_wmn = factor(laatste_wmn, levels = c(">= 12 jaar geleden", "tussen 6 en 12 jaar geleden", "< 6 jaar geleden")))
+  
+```
+
+## Puntlocaties
+
+Voor elke waarneming op een puntlocatie kijken we ook naar het jaartal van de meest recente waarneming binnen een straal van 500 meter.
+
+Op basis hiervan kunnen we een prioritering maken van de her te bevestigen puntlocaties.
+
+```{r}
+
+colorpal <- c(inbo_rood, "blue", "green")
+factpal <- colorFactor(colorpal, obs_most_recent$laatste_wmn)
+
+obs_most_recent %>%
+  st_transform(4326) %>%
+  leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(color =  ~factpal(laatste_wmn), label = ~maxjaar_buffer) %>%
+  addLegend(pal = factpal, values = ~laatste_wmn)
+```

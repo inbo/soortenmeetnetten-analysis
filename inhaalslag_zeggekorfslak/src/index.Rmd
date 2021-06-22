@@ -42,9 +42,10 @@ opts_chunk$set(
 
 ```{r, cache = FALSE}
 
+#devtools::install_github("dmurdoch/leaflet@crosstalk4")
+
 library(tidyverse)
 library(INBOtheme)
-library(INBOmd)
 library(sf)
 library(crosstalk)
 library(leaflet)
@@ -54,6 +55,8 @@ library(git2rdata)
 library(n2khab)
 library(units)
 library(here)
+library(lubridate)
+
 ```
 
 

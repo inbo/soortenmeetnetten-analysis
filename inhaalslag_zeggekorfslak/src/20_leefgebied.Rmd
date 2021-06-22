@@ -1,4 +1,4 @@
-# Leefgebied
+# Potentieel leefgebied
 
 ## Data
 
@@ -6,7 +6,7 @@ We maken gebruik van de Habitatkaart 2020.
 
 ## Afbakening potentieel leefgebied Zeggekorfslak
 
-In het monitorngsprotocol (Packet et al., 2018) wordt het potentieel leefgebied als volg afgeleid:
+In het monitoringsprotocol (Packet et al., 2018) wordt het potentieel leefgebied als volg afgeleid:
 
 + selectie polygonen van de Habitatkaart  met een van volgende bwk-codes: mc, mr, vn, vm, md, hfc
 + selectie met polygonen
@@ -20,12 +20,16 @@ habitatmap <- read_habitatmap()
 
 habitatmap_stdized <- read_habitatmap_stdized()
 
-bwk_code_grote_zegge <- " mc "
-# bwk_codes_leefgebied2 <- c(" mc | mr | vn | vm | md | hfc ")
+bwk_code_grote_zegge <- "^mc$"
+
 bwk_codes_leefgebied <- c("^mc$|^mr$|^vn$|^vm$|^md$|^hfc$")
 bwk_codes_leefgebied_extra <- c("^mk$|^mp$|^sf$|^va$|^vc$|^hc$")
-bwk_codes_leefgebied_extra_ruim <- c("mk|mp|sf|va|vc|hc")
+
 bwk_codes_leefgebied_ruim <- c("mc|mr|vn|vm|md|hfc")
+bwk_codes_leefgebied_extra_ruim <- c("mk|mp|sf|va|vc|hc")
+
+bwk_codes_leefgebied_variant <- c("mc|^vm$|^md$|^hfc$")
+bwk_codes_leefgebied_variant_extra <- c("^mk$|^mp$|^sf$|^va$|^vc$|^hc$|^mr$|^vn$")
 ```
 
 ```{r}
@@ -100,7 +104,7 @@ habitatmap_mc_union <-  habitatmap_mc %>%
   summarise(n_pol = n()) %>%
   ungroup()
 
-selectie_leefgebied_extra <- habitatmap_leefgebied_basis_ruim %>%
+selectie_leefgebied_extra <- habitatmap_leefgebied_extra_ruim %>%
   st_drop_geometry() %>%
   separate_rows(bwk_label, sep =  " \\+ ") %>%
   filter(str_detect(bwk_label, bwk_codes_leefgebied_extra)) %>%
@@ -140,16 +144,63 @@ habitatmap_leefgebied_rbbmc_union <-  habitatmap_rbbmc_polygons %>%
   summarise(n_pol = n()) %>%
   ungroup()
 
-# leefgebied <- bind_rows(habitatmap_leefgebied,
-#                         habitatmap_rbbmc_polygons,
-#                         habitatmap_leefgebied_extra) %>%
-#   st_drop_geometry() %>%
-#   select(polygon_id, type_leefgebied)
+
   
 ```
 
 
-Onderstaande tabel geeft een overzicht van de bwk-codes die geselecteerd worden en het aantal polygonen per bwk-code binnen het potentieel leefgebied van de Zeggekorfslak. 
+```{r}
+
+bwk_codes_leefgebied_variant <- c("mc|^vm$|^md$|^hfc$")
+bwk_codes_leefgebied_variant_extra <- c("^mk$|^mp$|^sf$|^va$|^vc$|^hc$|^mr$|^vn$")
+
+selectie_leefgebied_variant_basis <- habitatmap_leefgebied_basis_ruim %>%
+  st_drop_geometry() %>%
+  separate_rows(bwk_label, sep =  " \\+ ") %>%
+  filter(str_detect(bwk_label, bwk_codes_leefgebied_variant)) %>%
+  select(polygon_id, bwk_label)
+
+habitatmap_leefgebied_variant_basis <- habitatmap %>%
+  filter(polygon_id %in% selectie_leefgebied_basis$polygon_id) %>%
+  mutate(soort_nl = "Zeggekofslak",
+         type_leefgebied = "basis variant")
+
+habitatmap_leefgebied_variant_basis_union <-  habitatmap_leefgebied_variant_basis %>%
+  group_by(type_leefgebied) %>%
+  summarise(n_pol = n()) %>%
+  ungroup()
+
+
+selectie_leefgebied_variant_extra <- habitatmap %>%
+  st_drop_geometry() %>%
+  separate_rows(bwk_label, sep =  " \\+ ") %>%
+  filter(str_detect(bwk_label, bwk_codes_leefgebied_variant_extra)) %>%
+  select(polygon_id, bwk_label)
+
+habitatmap_leefgebied_variant_extra <- habitatmap %>%
+  filter(polygon_id %in% selectie_leefgebied_variant_extra$polygon_id) %>%
+  filter(! polygon_id %in% habitatmap_leefgebied_variant_basis$polygon_id) %>%
+  mutate(distance_to_mc = drop_units(st_distance(geometry, habitatmap_mc_ruim_union))) %>%
+  filter(distance_to_mc <= 100) %>%
+  mutate(type_leefgebied = "extra")
+
+habitatmap_leefgebied_variant_extra_union <-  habitatmap_leefgebied_variant_extra %>%
+  group_by(type_leefgebied) %>%
+  summarise(n_pol = n()) %>%
+  ungroup()
+
+habitatmap_leefgebied_variant <- bind_rows(habitatmap_leefgebied_variant_basis,
+                                   habitatmap_leefgebied_variant_extra) %>%
+  mutate(type_leefgebied = "basis + extra variant")
+
+habitatmap_leefgebied_variant_union <-  habitatmap_leefgebied_variant %>%
+  group_by(type_leefgebied) %>%
+  summarise(n_pol = n()) %>%
+  ungroup()
+```
+
+
+Onderstaande tabel geeft een overzicht van de bwk-codes die geselecteerd worden en de oppervlakte van de polygonen per bwk-code binnen het potentieel leefgebied van de Zeggekorfslak. 
 
 
 ```{r}
@@ -189,10 +240,14 @@ overzicht_codes <- habitatmap_leefgebied_ruim %>%
   
 ```
 
-We werken verder met twee varianten van het potentieel leefgebied:
+We evalueren verder verschillende varianten van het potentieel leefgebied:
 
 + potentieel leefgebied strikt: bevat enkel de bwk-codes uit de eerste kolom van bovenstaande tabel
 + potentieel leefgebied ruim: bevat alle bwk-codes uit de tweede kolom van bovenstaande tabel.
++ potentieel leefgebied nieuw:
+  + enkel voor mc selecteren we alle varianten/combinaties uit de tweede kolom, voor de overige codes selecteren we enkel de 'zuivere' variant uit de eerste kolom;
+  + in tegenstelling tot aangegeven in Packet et al. (2018), selecteren we mr en vn enkel als die gelegen zijn op een afstand van een polygoon met mc (of een variant die mc bevat).
++ regionaal belangrijke biotoop rbbmc
 
 
 ## BWK-codes observaties
@@ -203,7 +258,7 @@ Dit getal kan als een maat voor de trefkans beschouwd worden.
 
 
 ```{r}
-data_zeggekorfslak_bwkcode <- data_zeggekorfslak_sf %>%
+data_zeggekorfslak_bwkcode <- data_zeggekorfslak_all%>%
   st_join(select(habitatmap, bwk_label)) %>%
   st_drop_geometry() 
 
@@ -244,7 +299,8 @@ rm(habitatmap_stdized)
 data_zeggekorfslak_leefgebied <- data_zeggekorfslak_sf %>%
   mutate(dist_leefgebied = drop_units(st_distance(geometry, habitatmap_leefgebied_union)),
          dist_rbbmc = drop_units(st_distance(geometry, habitatmap_leefgebied_rbbmc_union)),
-         dist_leefgebied_ruim = drop_units(st_distance(geometry, habitatmap_leefgebied_ruim_union))) %>%
+         dist_leefgebied_ruim = drop_units(st_distance(geometry, habitatmap_leefgebied_ruim_union)),
+         dist_leefgebied_nieuw =  drop_units(st_distance(geometry, habitatmap_leefgebied_variant_union))) %>%
   mutate(aanwezig = aantal > 0)
 ```
 
@@ -263,10 +319,11 @@ data_zeggekorfslak_leefgebied_long <- data_zeggekorfslak_leefgebied %>%
 
 ```{r}
 area_leefgebied <- tibble(
-  type_leefgebied = c("leefgebied", "leefgebied_ruim", "rbbmc"),
+  type_leefgebied = c("leefgebied", "leefgebied_ruim", "rbbmc", "leefgebied_nieuw"),
   opp_leefgebied_ha = c(drop_units(st_area(habitatmap_leefgebied_union))/10000,
                         drop_units(st_area(habitatmap_leefgebied_ruim_union))/10000,
-                        drop_units(st_area(habitatmap_leefgebied_rbbmc_union))/10000)
+                        drop_units(st_area(habitatmap_leefgebied_rbbmc_union))/10000,
+                        drop_units(st_area(habitatmap_leefgebied_variant_union))/10000)
 )
 
 
@@ -377,6 +434,18 @@ area_leefgebied_ruim <- overlay_locatie_leefgebied_ruim %>%
   summarise(area_leefgebied_ruim_ha = round(sum(area_leefgebied)/10000, 3)) %>%
   ungroup()
 
+overlay_locatie_leefgebied_nieuw <- habitatmap_leefgebied_variant %>%
+  st_join(locaties_prioritair, largest = TRUE) %>%
+  filter(!is.na(meetnet)) %>%
+  st_intersection(locaties_prioritair)
+
+area_leefgebied_nieuw <- overlay_locatie_leefgebied_nieuw %>%
+  mutate(area_leefgebied = drop_units(st_area(geometry))) %>%
+  st_drop_geometry() %>%
+  group_by(meetnet, locatie) %>%
+  summarise(area_leefgebied_nieuw_ha = round(sum(area_leefgebied)/10000, 3)) %>%
+  ungroup()
+
 locaties_prioritair_area_leefgebied <- locaties_prioritair %>%
   left_join(area_leefgebied, by = c("meetnet", "locatie")) %>%
   mutate(area_leefgebied_ha = ifelse(is.na(area_leefgebied_ha), 0, area_leefgebied_ha),
@@ -384,6 +453,12 @@ locaties_prioritair_area_leefgebied <- locaties_prioritair %>%
                                   ifelse(area_leefgebied_ha < 1, "opp leefgebied < 1 ha", 
                                          ifelse(area_leefgebied_ha < 5, "1 ha < opp leefgebied < 5 ha", "opp leefgebied > 5 ha"))),
          area_leefgebied_class = factor(area_leefgebied_class, levels = c("afwezig", "opp leefgebied < 1 ha", "1 ha < opp leefgebied < 5 ha", "opp leefgebied > 5 ha"))) %>%
+  left_join(area_leefgebied_nieuw, by = c("meetnet", "locatie")) %>%
+  mutate(area_leefgebied_nieuw_ha = ifelse(is.na(area_leefgebied_nieuw_ha), 0, area_leefgebied_nieuw_ha),
+         area_leefgebied_nieuw_class = ifelse(area_leefgebied_nieuw_ha == 0, "afwezig",
+                                  ifelse(area_leefgebied_nieuw_ha < 1, "opp leefgebied < 1 ha", 
+                                         ifelse(area_leefgebied_nieuw_ha < 5, "1 ha < opp leefgebied < 5 ha", "opp leefgebied > 5 ha"))),
+         area_leefgebied_nieuw_class = factor(area_leefgebied_nieuw_class, levels = c("afwezig", "opp leefgebied < 1 ha", "1 ha < opp leefgebied < 5 ha", "opp leefgebied > 5 ha"))) %>%
   left_join(area_rbbmc, by = c("meetnet", "locatie")) %>%
   mutate(area_rbbmc_ha = ifelse(is.na(area_rbbmc_ha), 0, area_rbbmc_ha),
          area_rbbmc_class = ifelse(area_rbbmc_ha == 0, "afwezig",
@@ -439,7 +514,6 @@ Onderstaande kaart geeft een overzicht van de oppervlakte leefgebied_strikt binn
 
 ```{r}
 
-
 factpal <- colorFactor(c("red", "orange", "yellow", "green"), locaties_prioritair_area_leefgebied$area_leefgebied_class)
 
 locaties_prioritair_area_leefgebied %>%
@@ -457,16 +531,38 @@ locaties_prioritair_area_leefgebied %>%
 ```
 
 
+### Leefgebied, nieuw variant
+
+Onderstaande kaart geeft een overzicht van de oppervlakte leefgebied_nieuw binnen de locaties van de inhaalslag Zeggekorfslak. De polygonen met leefgebied_nieuw binnen de inhaalslaglocaties worden in het blauw weergegeven (inzoomen om dit te kunnen zien). 
+
+```{r}
+
+factpal <- colorFactor(c("red", "orange", "yellow", "green"), locaties_prioritair_area_leefgebied$area_leefgebied_nieuw_class)
+
+locaties_prioritair_area_leefgebied %>%
+  st_transform(4326) %>%
+  mutate(label = str_c(locatie, ": ", area_leefgebied_nieuw_ha, " ha leefgebied")) %>%
+  leaflet() %>%
+  addTiles() %>%
+  addPolygons(color = ~factpal(area_leefgebied_nieuw_class), fillOpacity = 0.8, opacity = 0.8, label = ~label, group = "locaties") %>%
+  addPolygons(data = st_transform(overlay_locatie_leefgebied_nieuw, 4326), group = "leefgebied_nieuw", color = "blue", opacity = 0, fillOpacity = 1) %>%
+  addLegend(pal = factpal, values = ~area_leefgebied_class,
+            title = "Oppervlakte leefgebied_nieuw (ha)",
+            opacity = 1) %>%
+  addLayersControl(overlayGroups = c("locaties", "leefgebied_nieuw"),
+                   options = layersControlOptions(collapsed = FALSE))
+```
+
 ### Overzicht locaties
 
 Hieronder een overzicht van de locaties gesorteerd volgens oppervlakte rbbmc.
 
-```{r}
+```{r, cache = FALSE}
 
 selectie_prioritair <- locaties_prioritair_area_leefgebied %>%
   st_drop_geometry() %>%
   arrange(desc(area_rbbmc_ha)) %>%
-  select(locatie, "oppervlakte leefgebied ruim (ha)" = area_leefgebied_ruim_ha, "oppervlakte leefgebied strikt (ha)" = area_leefgebied_ha, "oppervlakte rbbmc (ha)" = area_rbbmc_ha) 
+  select(locatie, "oppervlakte leefgebied ruim (ha)" = area_leefgebied_ruim_ha, "oppervlakte leefgebied strikt (ha)" = area_leefgebied_ha, "oppervlakte rbbmc (ha)" = area_rbbmc_ha, "oppervlakte leefgebied nieuw (ha)" = area_leefgebied_nieuw_ha) 
 
 datatable(selectie_prioritair, 
           rownames = FALSE,

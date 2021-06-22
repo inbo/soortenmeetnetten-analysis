@@ -1,25 +1,9 @@
 
-# Observaties Zeggekorfslak
+# Voortgang inhaalslag Zeggekorfslak
 
 ## Data
 
 We beschikken over volgende gegevens:
-
-+ Gegevens ingevoerd in waarnemingen.be, aangeleverd door Natuurpunt Studie
-
-```{r}
-data_mollusken_extern <- read_vc(file = "processed/data_mollusken",
-                             root = fileman_up("soortenmeetnetten-data")) %>%
-  select(id, meetnet, jaar, datum, locatie, aantal, x, y, gebied, validatie) %>%
-  mutate(nieuwe_locatie = is.na(locatie),
-         locatie = ifelse(is.na(locatie),
-                          ifelse(gebied != "" & !is.na(gebied), gebied, str_c("nieuw_", id)),
-                          locatie)) %>%
-  select(-gebied) %>%
-  mutate(bron = "waarnemingen.be")
-
-```
-
 
 + Gegevens ingevoerd in meetnetten.be-databank
 
@@ -29,14 +13,60 @@ aantallen_mollusken <- get_counts_smp(species_group = "mollusken")
 
 data_mollusken_meetnetten <- aantallen_mollusken %>%
   filter(primaire_soort) %>%
-  group_by(meetnet, locatie, jaar, datum, visit_id, x, y) %>%
+  mutate(id = str_c("mn_", observation_id)) %>%
+  group_by(id, meetnet, locatie, jaar, datum, visit_id, x, y) %>%
   summarise(aantal = sum(aantal)) %>%
   ungroup() %>%
   mutate(nieuwe_locatie = FALSE,
          bron = "meetnetten.be",
-         validatie = "goedgekeurd")
+         validatie = "goedgekeurd") %>%
+  filter(meetnet == "Zeggekorfslak")
+
+data_mollusken_meetnetten_union <- data_mollusken_meetnetten %>%
+  st_as_sf(coords = c("x", "y"), crs = 31370) %>%
+  group_by(meetnet) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+```
+
+
++ Gegevens ingevoerd in waarnemingen.be, aangeleverd door Natuurpunt Studie
+  + Gegevens met zelfde locatie/datum als een bezoek in meetnetten.be en die op minder dan 100 meter verwijderd liggen van de dichtsbijzijnste meetnetten.be-waarneming beschouwen we als dubbel ingevoerde gegevens en worden verwijderd. 
+
+```{r}
+data_mollusken_extern <- read_vc(file = "processed/data_mollusken",
+                             root = fileman_up("soortenmeetnetten-data")) %>%
+  mutate(id = str_c("wnm_", id)) %>%
+  select(id, meetnet, jaar, datum, locatie, aantal, x, y, gebied, validatie) %>%
+  mutate(nieuwe_locatie = is.na(locatie),
+         locatie = ifelse(is.na(locatie),
+                          ifelse(gebied != "" & !is.na(gebied), gebied, str_c("nieuw_", id)),
+                          locatie)) %>%
+  select(-gebied) %>%
+  mutate(bron = "waarnemingen.be") %>%
+  filter(meetnet == "Zeggekorfslak")
+
+data_mollusken_extern_remove <- data_mollusken_extern %>%
+  st_as_sf(coords = c("x", "y"), crs = 31370) %>%
+  mutate(distance_mn = drop_units(st_distance(geometry, data_mollusken_meetnetten_union))) %>%
+  semi_join(data_mollusken_meetnetten, by = c("locatie", "datum")) %>%
+  filter(distance_mn < 100)
+
+data_mollusken_extern <- data_mollusken_extern %>%
+  anti_join(data_mollusken_extern_remove, by = "id")
+
+```
+
+
+
+```{r}
 
 locaties_prioritair <- get_locations_smp(species_group = "mollusken")
+
+locaties_zeggekorfslak <- locaties_prioritair %>%
+  filter(meetnet == "Zeggekorfslak") %>%
+  select(locatie)
 
 data_mollusken_all <- bind_rows(
   data_mollusken_extern,
@@ -44,6 +74,43 @@ data_mollusken_all <- bind_rows(
 ) %>%
   mutate(locatie_prioritair = locatie %in% locaties_prioritair$locatie) %>%
   arrange(meetnet, locatie, jaar) 
+
+data_zeggekorfslak_sf <- data_mollusken_all %>%
+  st_as_sf(coords = c("x", "y"), crs = 31370) 
+
+data_zeggekorfslak_union <- data_zeggekorfslak_sf %>%
+  group_by(meetnet) %>%
+  summarise(n_rec = n()) %>%
+  ungroup()
+```
+
++ extra gegevens INBO
+  + we verwijderen gegevens die in het zelfde jaar en op een afstand van minder dan 25 meter gelegen zijn t.o.v. de gegevens uit meetnetten.be en waarnemingen.be 
+
+```{r}
+data_zeggekorfslak_inbo <- read_sf("../data/Zkorf30112016.shp", crs = 31370) %>%
+  mutate(soort = "Zeggekorfslak") %>%
+  select(id = OBJECTID, soort, datum = MaxVandatu) %>%
+  mutate(id = str_c("inbo_", id)) %>%
+  mutate(jaar = year(datum)) %>%
+  mutate(bron = "inbo_extra") %>%
+  st_join(st_transform(locaties_zeggekorfslak, crs = 31370)) %>%
+  mutate(locatie_prioritair = !is.na(locatie))
+
+data_zeggekorfslak_buffer <- data_zeggekorfslak_sf %>%
+  mutate(jaar_wnm = year(datum)) %>%
+  select(jaar_wnm) %>%
+  st_buffer(25)
+
+ data_zeggekorfslak_inbo_remove <- data_zeggekorfslak_inbo %>%
+  mutate(distance_mn = round(drop_units(st_distance(geometry, data_zeggekorfslak_union)), 0)) %>%
+  st_join(data_zeggekorfslak_buffer) %>%
+  st_drop_geometry() %>%
+  filter(jaar == jaar_wnm)
+ 
+ data_zeggekorfslak_inbo <- data_zeggekorfslak_inbo %>%
+   anti_join(data_zeggekorfslak_inbo_remove, by = "id") 
+ 
 
 
 ```
@@ -61,9 +128,7 @@ Onderstaande tabel geeft een overzicht van het aantal onderzochte locaties op ba
 
 
 ```{r}
-data_zeggekorfslak_sf <- data_mollusken_all %>%
-  filter(meetnet == "Zeggekorfslak") %>%
-  st_as_sf(coords = c("x", "y"), crs = 31370) 
+
 
 data_mollusken_locatie <- data_mollusken_all %>%
   group_by(meetnet, locatie, nieuwe_locatie, locatie_prioritair) %>%
@@ -96,15 +161,19 @@ overzicht_mollusken <- data_mollusken_locatie %>%
 overzicht_mollusken %>%
     mutate(locatie_prioritair = ifelse(locatie_prioritair, "Ja", "Nee")) %>%
   arrange(meetnet, locatie_prioritair) %>%
-  select(meetnet, "locatie meetnetten.be" = locatie_prioritair, "bezocht" = n_locaties_bezocht, "aanwezigheid goedgekeurd" = n_locaties_aanwezig_goedgekeurd, "aanwezigheid niet beoordeeld" = n_locaties_aanwezig_niet_beoordeeld, "afwezig" = n_locaties_afwezig) %>%
+  select(meetnet, "Gebied meetnetten.be" = locatie_prioritair, "bezocht" = n_locaties_bezocht, "aanwezigheid goedgekeurd" = n_locaties_aanwezig_goedgekeurd, "aanwezigheid niet beoordeeld" = n_locaties_aanwezig_niet_beoordeeld, "afwezig" = n_locaties_afwezig) %>%
   kable() %>%
   kable_styling() %>%
     collapse_rows(c(1,2)) %>%
-    add_header_above(c(" " = 2, "Aantal locaties" = 4))  
+    add_header_above(c(" " = 2, "Aantal gebieden" = 4))  
 ```
 
 
-Hieronder vind je een kaart met alle locaties die in meetnetten.be zitten voor de inhaalslagen van de mollusken, met de status per locatie.
+Hieronder vind je een kaart met alle gebieden die in meetnetten.be zitten voor de inhaalslagen van de mollusken, met de status per locatie.
+De kaart toont ook:
+
++ de observaties uit meetnetten.be en waarnemingen.be (grijze cirkels) en het jaartal van de observatie (label)
++ de extra observaties die het INBO bezit (paarse cirkels) en het jaartal van de observatie (label)
 
 ```{r}
 
@@ -114,7 +183,7 @@ shapes_to_filter <- locaties_prioritair %>%
   mutate(locatie_status = ifelse(is.na(aantal_bezoeken), "niet onderzocht",
                                  ifelse(aantal_individuen_goedgekeurd > 0, "aanwezig - goedgekeurd",
                                         ifelse(aantal_individuen_niet_beoordeeld > 0, "aanwezig - niet beoordeeld", "afwezig")))
-         ) %>%
+         ) %>% 
   select(meetnet, locatie, locatie_status, bron, jaar, aantal_bezoeken, n_punten, aantal_individuen_goedgekeurd, aantal_individuen_niet_beoordeeld, jaar) %>%
   as_Spatial()
 
@@ -137,13 +206,22 @@ bscols(filter_checkbox("locatie_status",  "Locatiestatus", sd_df, ~locatie_statu
 
 leaflet(sd_map) %>%
   addProviderTiles("OpenStreetMap") %>%
-  addPolygons( color = ~factpal(locatie_status), label = ~locatie) %>%
-  #addCircleMarkers(data = st_transform(data_zeggekorfslak_sf, 4326), label = ~aantal) %>%
-  addLegend(pal = factpal, values = ~locatie_status)
+  addPolygons( color = ~factpal(locatie_status), label = ~locatie, group = "locaties inhaalslag") %>%
+  addCircleMarkers(data = st_transform(data_zeggekorfslak_sf, 4326), label = ~(str_c("jaar = ", jaar, "; aantal = ", aantal)), color = "grey",  group = "observaties mn en wnm") %>%
+  addCircleMarkers(data = st_transform(data_zeggekorfslak_inbo, 4326), label = ~(str_c("jaar = ", jaar)), color = "purple",  group = "extra observaties inbo") %>%
+  addLegend(pal = factpal, values = ~locatie_status) %>%
+  addLayersControl(overlayGroups = c("locaties inhaalslag", "observaties mn en wnm", "extra observaties inbo"),
+    options = layersControlOptions(collapsed = FALSE))
 
 datatable(sd_df,
           rownames = FALSE,
             filter = 'top')
+```
+
+
+```{r}
+data_zeggekorfslak_all <- data_zeggekorfslak_sf %>%
+  bind_rows(data_zeggekorfslak_inbo)
 ```
 
 
