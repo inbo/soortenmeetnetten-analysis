@@ -8,6 +8,7 @@ Onderstaande tabel geeft weer hoeveel jaar geleden de meest recente waarneming v
 historiek_locaties <- data_zeggekorfslak_all %>%
   filter(is.na(aantal) | aantal > 0) %>%
   filter(!is.na(locatie)) %>%
+  filter(!locatie_prioritair) %>%
   filter(str_sub(locatie, 1, 5) != "nieuw") %>%
   st_drop_geometry() %>%
   group_by(locatie) %>%
@@ -19,6 +20,9 @@ historiek_locaties <- data_zeggekorfslak_all %>%
          laatste_wmn = factor(laatste_wmn, levels = c(">= 12 jaar geleden", "tussen 6 en 12 jaar geleden", "< 6 jaar geleden"))) %>%
   arrange(laatste_wmn, max_jaar, locatie) 
 
+locaties_12jaar <- historiek_locaties %>%
+  filter(laatste_wmn == ">= 12 jaar geleden")
+
 historiek_locaties %>%
   select( "recentste wnm" = laatste_wmn,locatie, min_jaar, max_jaar) %>%
   kable() %>%
@@ -28,9 +32,39 @@ historiek_locaties %>%
 
 ```
 
+```{r}
+wnm_herbezoek <- data_zeggekorfslak_all %>%
+  filter(locatie %in% locaties_12jaar$locatie) 
+
+wnm_herbezoek_buffer <- wnm_herbezoek %>%
+  st_buffer(dist = 150) %>%
+  select(locatie)
+
+leefgebied_herbezoek <- habitatmap_leefgebied_ruim %>%
+  st_join(wnm_herbezoek_buffer) %>%
+  filter(!is.na(locatie)) %>%
+  group_by(locatie) %>%
+  summarise(n_pol = n()) %>%
+  ungroup()
+
+```
 
 ```{r}
+leefgebied_herbezoek %>%
+  st_transform(crs = 4326) %>%
+  leaflet() %>%
+  addTiles() %>%
+  addPolygons(label = ~locatie) %>%
+  addCircleMarkers(data = st_transform(wnm_herbezoek, crs = 4326))
+```
 
+
+
+## Puntlocaties
+
+Voor elke waarneming op een puntlocatie kijken we ook naar het jaartal van de meest recente waarneming binnen een straal van 500 meter.
+
+```{r}
 
 presence_buffer <- data_zeggekorfslak_all %>%
   filter(is.na(aantal) | aantal > 0) %>%
@@ -49,10 +83,6 @@ obs_most_recent <- data_zeggekorfslak_all %>%
   
 ```
 
-## Puntlocaties
-
-Voor elke waarneming op een puntlocatie kijken we ook naar het jaartal van de meest recente waarneming binnen een straal van 500 meter.
-
 Op basis hiervan kunnen we een prioritering maken van de her te bevestigen puntlocaties.
 
 ```{r}
@@ -67,3 +97,108 @@ obs_most_recent %>%
   addCircleMarkers(color =  ~factpal(laatste_wmn), label = ~maxjaar_buffer) %>%
   addLegend(pal = factpal, values = ~laatste_wmn)
 ```
+
+
+
+
+## Selectie prioritait te herbezoeken locaties
+
+We selecteren de puntwaarnemingen waarvoor de meest recente waarneming in een straal van 500 meter dateert van 12 jaar geleden of langer geleden. 
+
+Ronde deze geselecteerde punten selecteren we het potentieel leefgebied (ruime variant) dat binnen een straal van 150 meter gelegen is.
+Polygonen die op een afstand van minder dan 100 meter van elkaar gelegen zijn, voegen we samen.
+Zo vormen we de te onderzoeken gebieden die in meetnetten.be zullen opgeladen worden.
+De namen van de gebieden worden manueel toegevoegd op basis van open street map.
+
+
+```{r}
+wnm_herbezoek <- obs_most_recent %>%
+  filter(laatste_wmn == ">= 12 jaar geleden") 
+
+wnm_herbezoek_buffer <- wnm_herbezoek %>%
+  st_buffer(dist = 150) %>%
+  select(maxjaar_buffer)
+
+leefgebied_herbezoek <- habitatmap_leefgebied_ruim %>%
+  st_join(wnm_herbezoek_buffer) %>%
+  filter(!is.na(maxjaar_buffer))
+
+locaties_herbezoek_buffer <- leefgebied_herbezoek %>%
+  st_buffer(100) %>%
+  st_combine() %>%
+  st_union(by_feature = TRUE) %>%
+  st_as_sf() %>%
+  st_cast(to = "POLYGON") 
+
+locaties_herbezoek_buffer <- locaties_herbezoek_buffer %>%
+  mutate(id  = 1:nrow(locaties_herbezoek_buffer))
+
+namen <- read_csv2("../data/namen_locaties_herbezoek.csv")
+
+leefgebied_herbezoek_locaties <- leefgebied_herbezoek %>%
+  st_join(locaties_herbezoek_buffer) %>%
+  group_by(id) %>%
+  summarise(n_pol = n()) %>%
+  ungroup() %>%
+  left_join(namen, by = "id") %>%
+  select(naam) %>%
+  st_cast("MULTIPOLYGON") %>%
+  st_join(select(locaties_prioritair, locatie), largest = TRUE) %>%
+  filter(is.na(locatie)) %>%
+  select(-locatie)
+
+st_write(leefgebied_herbezoek_locaties, dsn = "../output/zeggekorfslak_prioritering.gpkg", layer = "locaties_herbezoek", delete_layer = TRUE)
+
+st_write(wnm_herbezoek, dsn = "../output/zeggekorfslak_prioritering.gpkg", layer = "wnm_herbezoek", append = TRUE)
+
+leefgebied_herbezoek_locaties %>%
+  st_transform(crs = 4326) %>%
+  st_write(dsn = "../output/zeggekorfslak_prioritering", layer = "locaties_herbezoek", append = TRUE, driver = "ESRI Shapefile")
+
+```
+In onderstaande tabel vind je de lijst de te herbezoeken locaties.
+
+```{r}
+leefgebied_herbezoek_locaties %>%
+  arrange(naam) %>%
+  st_drop_geometry() %>% 
+  kable(caption = "Lijst met te herbezoeken locaties") %>%
+  kable_styling()
+  
+```
+
+
+Onderstaande kaart toon de te herbezoeken locaties. De kaart geeft ook de ligging van rbbmc weer. Gebruik het vergrootglasicoon om een locatie te selecteren en hierop in te zoomen.
+
+```{r}
+
+overlay_rbbmc <- habitatmap_rbbmc_polygons %>%
+  st_join(leefgebied_herbezoek_locaties, largest = TRUE) %>%
+  filter(!is.na(naam))
+
+st_write(overlay_rbbmc, dsn = "../output/zeggekorfslak_prioritering.gpkg", layer = "overlay_rbbmc_herbezoek", append = TRUE)
+
+# locaties_dubbel <- locaties_prioritair %>%
+#   filter(locatie %in% leefgebied_herbezoek_locaties$locatie)
+
+leefgebied_herbezoek_locaties %>%
+  st_transform(crs = 4326) %>%
+  leaflet() %>%
+  addTiles() %>%
+  # addPolygons(data = st_transform(locaties_dubbel, crs = 4326), label = ~locatie,  color = "orange") %>%
+  addPolygons(label = ~naam, group = "locaties", color = "blue") %>%
+  addPolygons(data = st_transform(overlay_rbbmc, crs = 4326), group = "rbbmc", color = "green", opacity = 0, fillOpacity = 1) %>%
+  addCircleMarkers(data = st_transform(wnm_herbezoek, crs = 4326), color = "grey", label = ~jaar, group = "waarnemingen") %>%
+  addLayersControl(overlayGroups = c("locaties", "rbbmc", "waarnemingen"),
+                   options = layersControlOptions(collapsed = FALSE)) %>%
+  addSearchFeatures(
+    targetGroups = "locaties",
+    options = searchFeaturesOptions(
+      zoom=15, openPopup = TRUE, firstTipSubmit = TRUE,
+      autoCollapse = TRUE, hideMarkerOnCollapse = TRUE
+    ))
+```
+
+
+
+

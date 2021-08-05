@@ -472,12 +472,12 @@ locaties_prioritair_area_leefgebied %>%
   st_drop_geometry() %>%
   write_csv2("../output/zeggekorfslak_prioritering.csv")
 
-# locaties_prioritair_area_leefgebied %>%
-#   st_write("../output/zeggekorfslak_prioritering.gpkg", layer = "locaties_prioritering")
-# 
-# st_write(overlay_locatie_rbbmc, "../output/zeggekorfslak_prioritering.gpkg", layer = "locaties_rbbmc")
-# st_write(overlay_locatie_leefgebied, "../output/zeggekorfslak_prioritering.gpkg", layer = "locaties_leefgebied")
-# st_write(overlay_locatie_leefgebied_ruim, "../output/zeggekorfslak_prioritering.gpkg", layer = "locaties_leefgebied_ruim")
+locaties_prioritair_area_leefgebied %>%
+  st_write("../output/zeggekorfslak_prioritering.gpkg", layer = "locaties_prioritering", delete_layer = TRUE)
+
+st_write(overlay_locatie_rbbmc, "../output/zeggekorfslak_prioritering.gpkg", layer = "locaties_rbbmc", append = TRUE)
+st_write(overlay_locatie_leefgebied, "../output/zeggekorfslak_prioritering.gpkg", layer = "locaties_leefgebied", append = TRUE)
+st_write(overlay_locatie_leefgebied_ruim, "../output/zeggekorfslak_prioritering.gpkg", layer = "locaties_leefgebied_ruim", append = TRUE)
 
 ```
 
