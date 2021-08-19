@@ -1,0 +1,63 @@
+---
+title: "Analyse Vlindermeetnetten"
+author: 
+  -
+    name: "Toon Westra, Dirk Maes, Hannes Ledegen, Sam Van De Poel,  Frederic Piesschaert, Thierry Onkelinx, "
+    email: "Toon.Westra@inbo.be"
+subtitle: "Technisch rapport"
+ordernr: "Rapporten van het Instituut voor Natuur- en Bosonderzoek 2020 (xx)"
+reportnr: "xxx"
+link-citations: TRUE
+always_allow_html: yes
+site: bookdown::bookdown_site
+output:
+  bookdown::html_document2:
+    keep_md: TRUE
+    toc: TRUE
+    toc_float:
+      collapsed: FALSE
+      smooth_scroll: FALSE
+---
+
+
+```{r setup, include = FALSE}
+library(knitr)
+options(knitr.kable.NA = '')
+```
+
+
+```{r, cache = FALSE}
+
+library(tidyverse)
+library(INBOtheme)
+library(INBOmd)
+library(sf)
+library(here)
+library(INLA)
+library(inlatools)
+library(inlabru)
+library(kableExtra)
+library(units)
+
+```
+
+
+
+```{r}
+source(here("src", "functions_smp.R"))
+```
+
+# Dankwoord {-}
+
+
+# Samenvatting {-}
+
+
+# English abstract {-}
+
+\benglish
+
+
+\eenglish
+
+

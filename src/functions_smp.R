@@ -764,7 +764,7 @@ get_summary_distribution <- function(species_group = NULL, aggregation_periode =
   
 }
 
-fit_indexmodel_nbinom_inlabru <- function(analyseset_species) {
+fit_indexmodel_nbinom_inlabru <- function(analyseset_species, offset_var = NULL, season_effect = TRUE) {
   
   analyseset_species <- analyseset_species %>%
     mutate(fjaar = factor(jaar),
@@ -794,13 +794,29 @@ fit_indexmodel_nbinom_inlabru <- function(analyseset_species) {
                                    "site(map = loc_id, model = \"iid\", n = n_loc, hyper = prec.prior)",
                                    sep = " + "))
   
-  indexmodel_nbinom_inlabru <- bru(comp_inlabru, data = analyseset_species_bru, family = "nbinomial")
+  if(is.null(offset_var)) {
+    
+    indexmodel_nbinom_inlabru1 <- bru(comp_inlabru, 
+                                     data = analyseset_species_bru, 
+                                     family = "nbinomial")
+    
+  } else {
+    
+    analyseset_species_bru <- analyseset_species_bru %>%
+      rename(offset = offset_var)
+    
+    indexmodel_nbinom_inlabru <- bru(comp_inlabru, 
+                                     data = analyseset_species_bru, 
+                                     family = "nbinomial",
+                                     offset = offset)
+    
+  }
   
   return(indexmodel_nbinom_inlabru)
   
 }  
 
-fit_indexmodel_nbinom_inla <- function(analyseset_species, offset_var = NULL) {
+fit_indexmodel_nbinom_inla <- function(analyseset_species, offset_var = NULL, season_effect = TRUE, generation_effect = FALSE) {
   
   analyseset_species <- analyseset_species %>%
     mutate(fjaar = factor(jaar),
@@ -809,9 +825,35 @@ fit_indexmodel_nbinom_inla <- function(analyseset_species, offset_var = NULL) {
   
   prec.prior <- list(prec = list(param = c(0.001, 0.001)))
   
+  if (season_effect) {
+    
+    if (generation_effect) {
+      
+      formula_indexmodel <- as.formula("aantal ~ fjaar + generatie*doy_scaled + generatie*doy_scaled_2 + f(locatie, model = \"iid\", hyper = prec.prior)")
+      
+    } else {
+      
+      formula_indexmodel <- as.formula("aantal ~ fjaar + doy_scaled + doy_scaled_2 + f(locatie, model = \"iid\", hyper = prec.prior)")
+      
+    }
+    
+  } else {
+    
+    if (generation_effect) {
+      
+      formula_indexmodel <- as.formula("aantal ~ fjaar + generatie + f(locatie, model = \"iid\", hyper = prec.prior)")
+      
+    } else {
+      
+      formula_indexmodel <- as.formula("aantal ~ fjaar + f(locatie, model = \"iid\", hyper = prec.prior)")
+      
+    }
+    
+  } 
+  
   if(is.null(offset_var)) {
     
-  indexmodel_nbinom_doy_iid <- inla(aantal ~ fjaar + doy_scaled + doy_scaled_2 + f(locatie, model = "iid", hyper = prec.prior),
+  indexmodel_nbinom_doy_iid <- inla(formula_indexmodel,
                                       family = "nbinomial",
                                       data = analyseset_species,
                                       control.compute = list(config = TRUE, waic = TRUE),
@@ -821,7 +863,7 @@ fit_indexmodel_nbinom_inla <- function(analyseset_species, offset_var = NULL) {
     analyseset_species2 <- analyseset_species %>%
       rename(offset = offset_var)
     
-    indexmodel_nbinom_doy_iid <- inla(aantal ~ fjaar + doy_scaled + doy_scaled_2 + f(locatie, model = "iid", hyper = prec.prior),
+    indexmodel_nbinom_doy_iid <- inla(formula_indexmodel,
                                       family = "nbinomial",
                                       data = analyseset_species2,
                                       offset = offset,
@@ -887,24 +929,28 @@ derive_index_inlabru <- function(analyseset_species, indexmodel_nbinom_inlabru, 
 
 derive_index_inla <- function(analyseset_species, indexmodel_nbinom_inla, ref_method = "min") {
   
-  
   if (min(analyseset_species$jaar) == 2016){
     
     fun = function(...) {
-      c(exp(fjaar2017),  exp(fjaar2018), exp(fjaar2019), exp(fjaar2020))
+      c(exp(fjaar2017),  exp(fjaar2018), exp(fjaar2019), exp(fjaar2020), exp(fjaar2021))
     }
     
   } else if (min(analyseset_species$jaar) == 2017) {
     
     fun = function(...) {
-      c(exp(fjaar2018), exp(fjaar2019), exp(fjaar2020))
+      c(exp(fjaar2018), exp(fjaar2019), exp(fjaar2020), exp(fjaar2021))
     }
       
     } else if (min(analyseset_species$jaar) == 2018) {
       
       fun = function(...) {
-        c(exp(fjaar2019), exp(fjaar2020))
-      }
+        c(exp(fjaar2019), exp(fjaar2020), exp(fjaar2021))
+      } 
+        } else if (min(analyseset_species$jaar) == 2019) {
+      
+          fun = function(...) {
+            c(exp(fjaar2020), exp(fjaar2021))
+          }
     
   }
   
@@ -933,7 +979,7 @@ derive_index_inla <- function(analyseset_species, indexmodel_nbinom_inla, ref_me
     spread(key = type, value = qs) %>%
     mutate(soort_nl = unique(analyseset_species$soort_nl),
            soort_wet = unique(analyseset_species$soort_wet),
-           ref_jaar = min(jaar),
+           ref_jaar = min(jaar) - 1,
            parameter = "index") %>%
     select(parameter, soort_nl, soort_wet, jaar, ref_jaar, everything())
   
@@ -1079,7 +1125,8 @@ derive_max_count_inla <- function(analyseset_species, indexmodel_nbinom_inla){
         exp(Intercept + fjaar2017 + doy_scaled * doy + doy_scaled_2 * doy^2),  
         exp(Intercept + fjaar2018 + doy_scaled * doy + doy_scaled_2 * doy^2), 
         exp(Intercept + fjaar2019 + doy_scaled * doy + doy_scaled_2 * doy^2), 
-        exp(Intercept + fjaar2020 + doy_scaled * doy + doy_scaled_2 * doy^2))
+        exp(Intercept + fjaar2020 + doy_scaled * doy + doy_scaled_2 * doy^2),
+        exp(Intercept + fjaar2021 + doy_scaled * doy + doy_scaled_2 * doy^2))
     
     }
     
@@ -1089,7 +1136,8 @@ derive_max_count_inla <- function(analyseset_species, indexmodel_nbinom_inla){
       c(exp(Intercept + doy_scaled * doy + doy_scaled_2 * doy^2),
         exp(Intercept + fjaar2018 + doy_scaled * doy + doy_scaled_2 * doy^2), 
         exp(Intercept + fjaar2019 + doy_scaled * doy + doy_scaled_2 * doy^2), 
-        exp(Intercept + fjaar2020 + doy_scaled * doy + doy_scaled_2 * doy^2))
+        exp(Intercept + fjaar2020 + doy_scaled * doy + doy_scaled_2 * doy^2),
+        exp(Intercept + fjaar2021 + doy_scaled * doy + doy_scaled_2 * doy^2))
     }
     
   } else if (min(analyseset_species$jaar) == 2018) {
@@ -1097,7 +1145,15 @@ derive_max_count_inla <- function(analyseset_species, indexmodel_nbinom_inla){
     fun = function(doy = -indexmodel_nbinom_inla$summary.fixed["doy_scaled", "mean"]/(2*indexmodel_nbinom_inla$summary.fixed["doy_scaled_2", "mean"])) {
       c(exp(Intercept + doy_scaled * doy + doy_scaled_2 * doy^2),
         exp(Intercept + fjaar2019 + doy_scaled * doy + doy_scaled_2 * doy^2), 
-        exp(Intercept + fjaar2020 + doy_scaled * doy + doy_scaled_2 * doy^2))
+        exp(Intercept + fjaar2020 + doy_scaled * doy + doy_scaled_2 * doy^2),
+        exp(Intercept + fjaar2021 + doy_scaled * doy + doy_scaled_2 * doy^2))
+    }
+    
+  } else if (min(analyseset_species$jaar) == 2019) {
+    
+    fun = function(doy = -indexmodel_nbinom_inla$summary.fixed["doy_scaled", "mean"]/(2*indexmodel_nbinom_inla$summary.fixed["doy_scaled_2", "mean"])) {
+      c(exp(Intercept + doy_scaled * doy + doy_scaled_2 * doy^2),exp(Intercept + fjaar2020 + doy_scaled * doy + doy_scaled_2 * doy^2),
+        exp(Intercept + fjaar2021 + doy_scaled * doy + doy_scaled_2 * doy^2))
     }
     
   }
@@ -1155,7 +1211,7 @@ fit_trendmodel_nbinom_inlabru <- function(analyseset_species) {
   
 }
 
-fit_trendmodel_nbinom_inla <- function(analyseset_species, offset_var = NULL) {
+fit_trendmodel_nbinom_inla <- function(analyseset_species, offset_var = NULL, generation_effect = FALSE) {
   
   analyseset_species <- analyseset_species %>%
     mutate(fjaar = factor(jaar),
@@ -1166,9 +1222,20 @@ fit_trendmodel_nbinom_inla <- function(analyseset_species, offset_var = NULL) {
   
   prec.prior <- list(prec = list(param = c(0.001, 0.001)))
   
+  if (generation_effect) {
+    
+    trendmodel_formula <- as.formula("aantal ~ year_scaled + doy_scaled*generatie + doy_scaled_2*generatie + f(locatie, model = \"iid\", hyper = prec.prior)")
+    
+  } else  {
+    
+    trendmodel_formula <- as.formula("aantal ~ year_scaled + doy_scaled + doy_scaled_2 + f(locatie, model = \"iid\", hyper = prec.prior)")
+    
+  }
+  
+  
   if(is.null(offset_var)) {
     
-    trendmodel_nbinom_doy_iid <- inla(aantal ~ year_scaled + doy_scaled + doy_scaled_2 + f(locatie, model = "iid", hyper = prec.prior),
+    trendmodel_nbinom_doy_iid <- inla(trendmodel_formula,
                                       family = "nbinomial",
                                       data = analyseset_species,
                                       control.compute = list(config = TRUE, waic = TRUE),
@@ -1178,7 +1245,7 @@ fit_trendmodel_nbinom_inla <- function(analyseset_species, offset_var = NULL) {
     analyseset_species2 <- analyseset_species %>%
       rename(offset = offset_var)
     
-    trendmodel_nbinom_doy_iid <- inla(aantal ~ year_scaled + doy_scaled + doy_scaled_2 + f(locatie, model = "iid", hyper = prec.prior),
+    trendmodel_nbinom_doy_iid <- inla(trendmodel_formula,
                                       family = "nbinomial",
                                       data = analyseset_species2,
                                       offset = offset,
@@ -1250,16 +1317,18 @@ derive_trend <- function(analyseset_species, trendmodel_nbinom) {
 
 derive_trend_inlabru <- derive_trend 
 
-get_waic_inlabru <- function(analyseset_species, model_inlabru) {
+get_waic <- function(analyseset_species, model) {
   
   result_waic <- data.frame(
     parameter = "waic",
     soort_nl = unique(analyseset_species$soort_nl),
     soort_wet = unique(analyseset_species$soort_wet),
-    waic = model_inlabru$waic$waic)
+    waic = model$waic$waic)
   
   return(result_waic)
 }
+
+get_waic_inlabru <- get_waic
 
 check_random_effect <- function(model_inla){
   
