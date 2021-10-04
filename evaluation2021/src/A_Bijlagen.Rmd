@@ -1,0 +1,44 @@
+# Bijlagen {#h:bijlage}
+
+## Tabel met alle tellingen in 2021
+
+```{r}
+
+tabel_bezoeken_jaar %>%
+  datatable(rownames = FALSE,
+            filter = 'top',
+            extensions = c('Buttons', 'Scroller'),
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'pdf', 'csv', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              deferRender = TRUE,
+               scrollY = 400,
+               scroller = TRUE,
+               scrollX = TRUE
+              )
+            )
+            
+```
+
+
+## Tabel met evaluatie meetnetlocaties in 2021
+
+```{r}
+
+tabel_locaties %>%
+  datatable(rownames = FALSE,
+            filter = 'top',
+            extensions = c('Buttons', 'Scroller', 'FixedColumns'),
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'pdf', 'csv', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              deferRender = TRUE,
+               scrollY = 400,
+               scrollX = TRUE,
+              fixedColumns = list(leftColumns = 4)
+              )
+            )
+            
+```
