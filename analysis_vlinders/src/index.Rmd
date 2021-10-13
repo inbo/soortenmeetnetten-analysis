@@ -5,14 +5,13 @@ author:
     name: "Toon Westra, Dirk Maes, Hannes Ledegen, Sam Van De Poel,  Frederic Piesschaert, Thierry Onkelinx, "
     email: "Toon.Westra@inbo.be"
 subtitle: "Technisch rapport"
-ordernr: "Rapporten van het Instituut voor Natuur- en Bosonderzoek 2020 (xx)"
-reportnr: "xxx"
 link-citations: TRUE
 always_allow_html: yes
 site: bookdown::bookdown_site
 output:
   bookdown::html_document2:
     keep_md: TRUE
+    code_folding: hide
     toc: TRUE
     toc_float:
       collapsed: FALSE
@@ -20,13 +19,16 @@ output:
 ---
 
 
-```{r setup, include = FALSE}
+```{r setup, include = FALSE,  message = FALSE, warning=FALSE}
 library(knitr)
 options(knitr.kable.NA = '')
-```
 
-
-```{r, cache = FALSE}
+opts_chunk$set(
+  echo = TRUE,
+  cache = TRUE  ,
+  warning = FALSE,
+  message = FALSE
+)
 
 library(tidyverse)
 library(INBOtheme)
@@ -38,8 +40,10 @@ library(inlatools)
 library(inlabru)
 library(kableExtra)
 library(units)
-
+library(effectclass)
+library(openssl)
 ```
+
 
 
 
@@ -47,17 +51,6 @@ library(units)
 source(here("src", "functions_smp.R"))
 ```
 
-# Dankwoord {-}
 
-
-# Samenvatting {-}
-
-
-# English abstract {-}
-
-\benglish
-
-
-\eenglish
 
 

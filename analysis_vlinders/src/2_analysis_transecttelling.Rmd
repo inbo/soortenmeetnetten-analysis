@@ -1,6 +1,42 @@
+# overleg Thierry
+sectie met enkel nullen verwijderen
+correlatiestructuur secties --> welke staan in verbinding 
+
+jaar -> 1ste orde rw
+seizoen -> 2de orde rw -> week?
+dag -> starten vanaf 1
+inlatools simuleren
+sigma rw voldoende klein, 1ste orde kleiner dan 2de orde
+priors zelf instellen
+sigma = 1 random intercept
+sigma =0.3 1ste orde rw
+sigma = 0.01 2de orde rw
+offset inlabru als covariaat met aangepaste prior --> control.fixed -> naam_var + precisie -> offset: precisie hoog zetten -> gemiddelde op 1 zetten
+
+rw plotten
+
+rw met interactie generatie wrap()
+
+temp herschalen
+
+gecorreleerde random slope en random intercept
+
+of kijken naar residuals per locatie: verschil tov van gemiddelde trend
+
+derive_index
+lijst
+posterior.sample : map latent --> matrix --> rijen met fjaar selecteren
 
 
-# Vlinders - Transecttelling"
+
+
+
+
+
+
+
+
+# Vlinders - Transecttelling
 
 ```{r}
 
@@ -24,7 +60,9 @@ locatie_detail <- get_locations_smp() %>%
 visits <- get_visits_smp(species_group = species_group) %>%
   filter(protocol == protocol_selection)
 
-counts <- get_counts_smp(species_group = species_group, count_aggregation = "individuals") %>%
+counts_all <- get_counts_smp(species_group = species_group, count_aggregation = "individuals")
+
+counts <-  counts_all %>%
   filter(primaire_soort)
 
 covars <- get_covariates_smp(species_group = species_group) %>%
@@ -68,7 +106,7 @@ meetnetten_selection %>%
 ```
 
 
-+ We selecteren bezoeken voor actieve locaties waarvoor die aangeduid zijn als geschikt voor analyse (voor_analyse = TRUE)
++ We selecteren bezoeken, die geschikt zijn voor analyse (voor_analyse = TRUE), aan actieve locaties
 
 ```{r}
 visits_selection <- visits %>%
@@ -118,9 +156,11 @@ locations_absence %>%
 ```
 
 
-### Transectlengte
+## Transectlengte
 
-We bereken de lengte per sectie op basis van de ingevoerde transecten in de meetnetten.be databank. Indien geen transect werd ingevoerd voor een locatie veronderstellen we dat het transect 50 meter meet.
+We berekenen de lengte per sectie op basis van de ingevoerde transecten in de meetnetten.be databank. Indien geen transect werd ingevoerd voor een locatie veronderstellen we dat elke sectie 50 meter meet.
+
+Om de analyse te vereenvoudigen werken we verder met gesommeerde aantallen over het volledige transect.
 
 ```{r}
 transecten <- get_transects_smp() %>% 
@@ -144,32 +184,52 @@ transect_missing <- counts_sublocation_selection %>%
   anti_join(transecten, by = c("meetnet", "locatie")) 
   
 transect_missing %>%
-  kable(caption = "locaties waarvoor transecten nog niet in meetnetten.be-databanken zitten") %>%
+  kable(caption = "Locaties waarvoor transecten nog niet in meetnetten.be-databanken zitten") %>%
   kable_styling()
 
+# transect_missing %>%
+#   write_csv2("../output/vlinders_ontbrekende_transecten.csv")
+
 ```
-
-
-
 
 
 ```{r}
 counts_sublocation_selection_transect <- counts_sublocation_selection %>%
   left_join(transecten, by = c("meetnet", "locatie", "sublocatie")) %>%
-  mutate(lengte_sectie = ifelse(is.na(lengte_sectie), 50, lengte_sectie))
+  mutate(sectie_missing = is.na(lengte_sectie),
+         sectie_nr = as.numeric(str_sub(sublocatie, start = 7)),
+        lengte_sectie = ifelse(is.na(lengte_sectie), 50, lengte_sectie))
+
+
+  
+```
+
+```{r}
+check_missing_transect <- counts_all %>% 
+  semi_join(visits_selection, by = "visit_id") %>%
+  left_join(transecten, by = c("meetnet", "locatie", "sublocatie")) %>%
+  mutate(sectie_missing = is.na(lengte_sectie),
+         sectie_nr = as.numeric(str_sub(sublocatie, start = 7))) %>%
+  filter(sectie_missing) %>%
+  group_by(meetnet, locatie, sublocatie, sectie_nr) %>%
+  summarise(sum_counts_all = sum(aantal),
+            n_visits = n_distinct(visit_id),
+            n_species = n_distinct(soort_nl)) %>%
+  ungroup()
+ 
+```
+
+
+
+```{r}
 
 counts_location_selection_transect <- counts_sublocation_selection_transect %>%
   group_by(soortgroep, meetnet, soort_nl, soort_wet, protocol, generatie, locatie, jaar, datum, doy, doy_scaled, doy_min, doy_max, doy_mid, doy_scaled_generatie, doy_min_generatie, doy_max_generatie, doy_mid_generatie, visit_id, n_obs, voor_analyse, is_active, is_sample, bezoek_status, windkracht, temperatuur, bewolking) %>%
   summarise(aantal = sum(aantal),
          lengte_transect = sum(lengte_sectie)) %>%
   ungroup()
-  
-```
 
 
-
-
-```{r}
 analyseset_sublocations <- counts_sublocation_selection_transect %>%
   mutate(fjaar = factor(jaar),
          locatie = factor(locatie),
@@ -220,7 +280,7 @@ write_vc(analyseset_locations, file = str_c("analyseset_locations_", name_analys
 
 ### Getelde aantallen
 
-```{r}
+```{r, fig.cap= "Gemiddeld aantal getelde individuen per jaar", eval=FALSE}
 analyseset_locations %>%
   ggplot(aes(x= jaar, y = aantal)) +  
   #geom_point(alpha = 0.6, colour = inbo.grijs) +
@@ -230,7 +290,7 @@ analyseset_locations %>%
   theme(legend.position = "bottom") 
 ```
 
-```{r}
+```{r, fig.cap = "Gemiddeld aantal getelde individuen per 100 meter transectlengte"}
 analyseset_locations %>%
   ggplot(aes(x= jaar, y = aantal *100/ lengte_transect)) +  
   #geom_point(alpha = 0.6, colour = inbo.grijs) +
@@ -241,23 +301,25 @@ analyseset_locations %>%
 ```
 
 
-```{r, fig.height = 11}
+```{r, fig.height = 11, eval=FALSE}
 analyseset_locations %>%
   ggplot(aes(x = doy, y = aantal, colour = generatie)) +
-  geom_point() +
+  geom_point(alpha = 0.6) +
   facet_grid(meetnet ~ jaar, scales = "free_y")
 ```
-```{r, fig.height = 11}
+```{r, fig.height= 7, fig.cap= "Getelde aantallen per 100 meter transectlengte"}
 analyseset_locations %>%
   ggplot(aes(x = doy, y = aantal * 100 / lengte_transect, colour = generatie)) +
-  geom_point() +
+  geom_point(alpha = 0.6) +
   facet_grid(meetnet ~ jaar, scales = "free_y")
 ```
 
-```{r, fig.height = 10}
+### Seizoenaliteit
+
+```{r, fig.height= 6,  fig.cap= "Vergelijking seizoenaliteit via gam-smoother (enkel voor jaren met minstens 18 observaties)"}
 analyseset_locations %>%
   group_by(meetnet, jaar) %>%
-  filter(n_distinct(visit_id) > 15) %>%
+  filter(n_distinct(visit_id) > 17) %>%
   ungroup() %>%
   mutate(jaar = factor(jaar)) %>%
   ggplot(aes(x = doy, y = aantal, group = interaction(jaar, generatie), colour = jaar, fill = jaar)) +
@@ -269,42 +331,46 @@ analyseset_locations %>%
 
 ### Effect weersomstandigheden
 
-```{r, fig.height=9}
+```{r, fig.height= 6, fig.cap= "Effect van windkracht op getelde aantallen per 100 meter transectlengte"}
 analyseset_locations %>%
   mutate(aantal_100m = aantal * 100 / lengte_transect) %>%
   ggplot(aes(x = windkracht, y = aantal_100m)) +
   geom_boxplot() +
-  facet_wrap(~meetnet, scales = "free", ncol = 2) + 
+  facet_wrap(~meetnet, scale = "free_x") + 
   coord_flip()
 ```
-```{r, fig.height=9}
+```{r, fig.height= 6, fig.cap=  "Effect van bewolking op getelde aantallen per 100 meter transectlengte"}
 analyseset_locations %>%
   mutate(aantal_100m = aantal * 100 / lengte_transect) %>%
   ggplot(aes(x = bewolking, y = aantal_100m)) +
   geom_boxplot() +
-  facet_wrap(~meetnet, scales = "free", ncol = 2) + 
+  facet_wrap(~meetnet, scales = "free_x") + 
   coord_flip()
 ```
 
-```{r, fig.height=9}
+```{r, fig.height= 6, fig.cap =  "Effect van temperatuur op getelde aantallen per 100 meter transectlengte"}
 analyseset_locations %>%
   mutate(aantal_100m = aantal * 100 / lengte_transect) %>%
   ggplot(aes(x = temperatuur, y = aantal_100m)) +
   geom_point() +
-  facet_wrap(~meetnet, scales = "free", ncol = 2) +
-  geom_smooth() 
+  facet_wrap(~meetnet, scales = "free_y") +
+  geom_smooth()
 ```
+
+Volgend model geeft globaal gezien (voor alle meetnetten samen) enkel een significant effect van bewolking op de getelde aantallen. 
 
 ```{r}
 analyseset_locations <- analyseset_locations %>%
   mutate(bewolking_max = as.numeric(str_sub(bewolking, start = -4, end = -4)),
          bewolking_min = ifelse(bewolking_max > 0, as.numeric(str_sub(bewolking, start = -10, end = -10)), 0),
          bewolking_cont = (bewolking_max + bewolking_min)/2/8,
-         windkracht = as.numeric(str_sub(windkracht, start = -6, end = -6)))
+         windkracht = as.numeric(str_sub(windkracht, start = -6, end = -6)),
+         temperatuur_2 = temperatuur * temperatuur,
+         aantal_100m = aantal * 100 / lengte_transect)
 
 prec.prior <- list(prec = list(param = c(0.001, 0.001)))
 
-model_conditions <- inla(aantal ~ temperatuur + windkracht + bewolking_cont + f(meetnet, model = "iid", hyper = prec.prior),
+model_conditions <- inla(aantal ~ temperatuur + temperatuur_2 + windkracht + bewolking_cont + f(meetnet, model = "iid", hyper = prec.prior),
                                       family = "nbinomial",
                                       data = analyseset_locations,
                                       offset = log_section_100,
@@ -312,10 +378,12 @@ model_conditions <- inla(aantal ~ temperatuur + windkracht + bewolking_cont + f(
                                       control.predictor = list(compute = TRUE))
 
 
-model_conditions$summary.fixed
+model_conditions$summary.fixed %>%
+  kable(caption = "Parameterschatting voor variabelen gerelateerd aan weersomstandigheden") %>%
+  kable_styling()
 ```
 
-```{r, fig.height= 10}
+```{r, fig.height= 6, fig.cap= "Gecombineerd effect van bewolking en temperatuur op getelde aantallen"}
 analyseset_locations %>%
   mutate(aantal_100m = aantal * 100 / lengte_transect) %>%
   group_by(meetnet) %>%
@@ -327,7 +395,7 @@ analyseset_locations %>%
 ```
 
 
-## Modelering
+## Vergelijking van verschillende analysemodellen
 
 
 ```{r, eval = FALSE}
@@ -408,7 +476,18 @@ trend_vergelijk <- bind_rows(trend, trend_offset) %>%
 # simulate_data <- simulate_data_model_inlabru(analyseset_species_locations, indexmodel_nbinom_inla_offset_season_effect)
 
 ```
-### Model voor soort met een generaties
+
+### Modellering van seizoenaliteit
+
+#### Model voor soort met één generaties
+
+Vergelijking tussen twee manieren om seizoenaliteit te modelleren:
+
++ 2de graads polynoom voor doy (day of year)
+
+
++ random walk
+
 
 ```{r}
 
@@ -449,17 +528,17 @@ theta = list(prior = "pc.prec", param = c(0.25, 0.05)))) + f(locatie, model = "i
                                       control.predictor = list(compute = TRUE))
 bind_rows(
 get_waic(analyseset_species_locations, indexmodel_doy_iid) %>%
-  mutate(model = "polynoom voor doy"), 
+  mutate(model = "2de graads polynoom voor doy"), 
 get_waic(analyseset_species_locations, indexmodel_doyrw_iid) %>%
-  mutate(model = "rw voor doy")) %>%
+  mutate(model = "random walk voor doy")) %>%
   select( model, everything()) %>%
-  kable() %>%
+  kable(caption = "Vergelijking modellen voor Veldparelmoervlinder") %>%
   kable_styling()
 
   
 ```
 
-```{r}
+```{r, fig.cap= "Gemodelleerde en geobserveerde aantallen voor Veldparelmoervlinder op basis van model met 2de graads polynoom voor doy"}
 data_predict <- data_combine %>%
     mutate(fitted_mean = exp(indexmodel_doy_iid$summary.fitted.values$mean),
          fitted_0.025quant = exp(indexmodel_doy_iid$summary.fitted.values$`0.025quant`),
@@ -478,7 +557,7 @@ data_predict %>%
   facet_wrap(~fjaar)
 ```
 
-```{r}
+```{r, fig.cap= "Gemodelleerde en geobserveerde aantallen voor Veldparelmoervlinder op basis van model met random walk voor doy"}
 data_predict <- data_combine %>%
     mutate(fitted_mean = exp(indexmodel_doyrw_iid$summary.fitted.values$mean),
          fitted_0.025quant = exp(indexmodel_doyrw_iid$summary.fitted.values$`0.025quant`),
@@ -497,7 +576,14 @@ data_predict %>%
   facet_wrap(~fjaar)
 ```
 
-### Model voor soort met twee generaties
+#### Model voor soort met twee generaties
+
+Bij enkele soorten zijn er twee generaties binnen het seizoen. 
+We vergelijken verschillende manieren om de generatie mee op te nemen in het model:
+
++ generatie als extra covariabele 
++ generatie als extra covariabele inclusief een interactie seizoenseffect en generatie (seizoenseffect kan verschillen per generatie)
+
 
 ```{r}
 analyseset_species_locations <- analyseset_locations %>%
@@ -518,28 +604,15 @@ indexmodel_doy_iid <- inla(aantal ~ fjaar + f(doy_scaled, model = "clinear", ran
                                       control.compute = list(config = TRUE, waic = TRUE),
                                       control.predictor = list(compute = TRUE))
 
-indexmodel_doy_iid_generatie <- inla(aantal ~ fjaar  + doy_scaled_generatie*generatie + doy_scaled_generatie_2*generatie + f(locatie, model = "iid", hyper = prec.prior),
-                                      family = "nbinomial",
+
+indexmodel_doy_iid_generatie_interactie <- inla(aantal ~ fjaar  + doy_scaled*generatie + doy_scaled_2*generatie + f(locatie, model = "iid", hyper = prec.prior),
+                                     family = "nbinomial",
                                       data = analyseset_species_locations,
                                       offset = log_section_100,
                                       control.compute = list(config = TRUE, waic = TRUE),
                                       control.predictor = list(compute = TRUE))
 
-indexmodel_doy_iid_generatie2 <- inla(aantal ~ fjaar  + doy_scaled*generatie + doy_scaled_2*generatie + f(locatie, model = "iid", hyper = prec.prior),
-                                      family = "nbinomial",
-                                      data = analyseset_species_locations,
-                                      offset = log_section_100,
-                                      control.compute = list(config = TRUE, waic = TRUE),
-                                      control.predictor = list(compute = TRUE))
-
-indexmodel_doy_iid_rw_generatie2 <- inla(aantal ~ fjaar  + doy_scaled*generatie + doy_scaled_2*generatie + f(locatie, model = "iid", hyper = prec.prior),
-                                      family = "nbinomial",
-                                      data = analyseset_species_locations,
-                                      offset = log_section_100,
-                                      control.compute = list(config = TRUE, waic = TRUE),
-                                      control.predictor = list(compute = TRUE))
-
-indexmodel_doy_iid_generatie3 <- inla(aantal ~ fjaar + generatie + doy_scaled + doy_scaled_2 + f(locatie, model = "iid", hyper = prec.prior),
+indexmodel_doy_iid_generatie <- inla(aantal ~ fjaar + generatie + doy_scaled + doy_scaled_2 + f(locatie, model = "iid", hyper = prec.prior),
                                       family = "nbinomial",
                                       data = analyseset_species_locations,
                                       offset = log_section_100,
@@ -554,77 +627,97 @@ indexmodel_iid_generatie <- inla(aantal ~ fjaar  + generatie + f(locatie, model 
                                       control.predictor = list(compute = TRUE))
 
 index <- derive_index_inla(analyseset_species_locations, indexmodel_doy_iid) %>%
-  mutate(model = "without generatie-effect")
+  mutate(model = "zonder generatie-effect, met seizoenaliteit")
 
 index_generatie <- derive_index_inla(analyseset_species_locations, indexmodel_doy_iid_generatie) %>%
-  mutate(model = "with generatie-effect")
+  mutate(model = "met generatie-effect en seizoenaliteit")
 
-index_generatie2 <- derive_index_inla(analyseset_species_locations, indexmodel_doy_iid_generatie2) %>%
-  mutate(model = "with generatie-effect2")
+index_generatie2 <- derive_index_inla(analyseset_species_locations, indexmodel_doy_iid_generatie_interactie) %>%
+  mutate(model = "interactie generatie-seizoenaliteit ")
 
 index_generatie3 <- derive_index_inla(analyseset_species_locations, indexmodel_iid_generatie) %>%
-  mutate(model = "with generatie-effect3")
+  mutate(model = "met generatie-effect zonder seizoenaliteit")
 
-bind_rows(index, index_generatie) %>%
-  bind_rows(index_generatie2) %>%
-  bind_rows(index_generatie3) %>%
-  select(model, soort_nl, jaar, ref_jaar, mean, lcl_0.90, ucl_0.90) %>%
-  kable() %>%
-  kable_styling()
+waic<- get_waic(analyseset_species_locations, indexmodel_doy_iid) %>%
+  mutate(model = "zonder generatie-effect, met seizoenaliteit")
+
+waic_generatie <- get_waic(analyseset_species_locations, indexmodel_doy_iid_generatie) %>%
+  mutate(model = "met generatie-effect en seizoenaliteit")
+
+waic_generatie2<- get_waic(analyseset_species_locations, indexmodel_doy_iid_generatie_interactie) %>%
+  mutate(model = "interactie generatie-seizoenaliteit ")
+
+waic_generatie3 <- get_waic(analyseset_species_locations, indexmodel_iid_generatie) %>%
+  mutate(model = "met generatie-effect zonder seizoenaliteit")
+
+
 
 
 ```
 
 ```{r}
-waic<- get_waic(analyseset_species_locations, indexmodel_doy_iid) %>%
-  mutate(model = "without generatie-effect")
 
-waic_generatie <- get_waic(analyseset_species_locations, indexmodel_doy_iid_generatie) %>%
-  mutate(model = "with generatie-effect")
-
-waic_generatie2<- get_waic(analyseset_species_locations, indexmodel_doy_iid_generatie2) %>%
-  mutate(model = "with generatie-effect2")
-
-waic_generatie3 <- get_waic(analyseset_species_locations, indexmodel_iid_generatie) %>%
-  mutate(model = "with generatie-effect3")
 
 bind_rows(waic, waic_generatie) %>%
   bind_rows(waic_generatie2) %>%
   bind_rows(waic_generatie3) %>%
-  select(model, everything()) %>%
-  kable() %>%
-  kable_styling()
+  select(soort_nl, model, waic) %>%
+  kable(caption = "Vergelijking verschillende modellen voor Bruin dikkopje") %>%
+  kable_styling() %>%
+  collapse_rows(1)
 ```
+
+```{r}
+bind_rows(index, index_generatie) %>%
+  bind_rows(index_generatie2) %>%
+  bind_rows(index_generatie3) %>%
+  select(soort_nl, model, jaar, ref_jaar, mean, lcl_0.90, ucl_0.90) %>%
+  kable(caption = "Vergelijking parameterschattingen (jaarlijkse index) voor verschillende modellen voor Bruin dikkopje") %>%
+  kable_styling() %>%
+  collapse_rows(c(1,2))
+```
+
 
 
 ```{r}
 
-
-
-fitted_data <- analyseset_species_locations %>%
+fitted_data_generatie <- analyseset_species_locations %>%
   mutate(fitted_mean = indexmodel_doy_iid_generatie$summary.fitted.values$mean,
          fitted_0.025quant = indexmodel_doy_iid_generatie$summary.fitted.values$`0.025quant`,
          fitted_0.975quant = indexmodel_doy_iid_generatie$summary.fitted.values$`0.975quant`,
-         residuals = aantal - fitted_mean)
+         residuals = aantal - fitted_mean,
+         model = "met generatie-effect")
 
+fitted_data_generatie_interactie <- analyseset_species_locations %>%
+  mutate(fitted_mean = indexmodel_doy_iid_generatie_interactie$summary.fitted.values$mean,
+         fitted_0.025quant = indexmodel_doy_iid_generatie_interactie$summary.fitted.values$`0.025quant`,
+         fitted_0.975quant = indexmodel_doy_iid_generatie_interactie$summary.fitted.values$`0.975quant`,
+         residuals = aantal - fitted_mean,
+         model = "met generatie-effect en interactie")
 
-fitted_data %>% 
-ggplot(aes(x = locatie, y = residuals)) +
-  geom_boxplot() +
-  facet_wrap(~generatie) +
-  coord_flip()
+fitted_data_zondergeneratie <- analyseset_species_locations %>%
+  mutate(fitted_mean = indexmodel_doy_iid$summary.fitted.values$mean,
+         fitted_0.025quant = indexmodel_doy_iid$summary.fitted.values$`0.025quant`,
+         fitted_0.975quant = indexmodel_doy_iid$summary.fitted.values$`0.975quant`,
+         residuals = aantal - fitted_mean,
+         model = "zonder generatie-effect")
+
+fitted_data <- bind_rows(fitted_data_generatie,
+                         fitted_data_generatie_interactie,
+                         fitted_data_zondergeneratie)
+
 ```
 
-```{r}
+```{r, fig.height= 6, fig.cap= "Residuen voor verschillende modellen"}
 fitted_data %>% 
 ggplot(aes(x = doy, y = residuals, colour = generatie)) +
   geom_point(alpha = 0.6) +
-  facet_wrap(~fjaar)
+  facet_grid(model~ fjaar)
 ```
 
 
 
-```{r}
+```{r, eval = FALSE}
 
 fixed_effects <- indexmodel_doy_iid_generatie$summary.fixed %>%
   rownames_to_column(var = "parameter") %>%
@@ -676,7 +769,7 @@ data_sim <- analyseset_species_locations %>%
   mutate(aantal_100m_obs = aantal_obs * 100/ lengte_transect)
 ```
 
-```{r}
+```{r, "Gemoddelleerde en geobserveerde aantallen voor model met generatie als covariabele", eval=FALSE}
 ggplot(data = data_sim) +
   geom_line(aes(y = aantal_predict, x = doy, group = generatie, colour = generatie)) +
   geom_point(aes(y = aantal_100m_obs, x = doy,  colour = generatie)) +
@@ -684,10 +777,19 @@ ggplot(data = data_sim) +
 ```
 
 ```{r}
+
+generatie_min_max <- analyseset_species_locations %>%
+  group_by(generatie) %>%
+  summarise(doy_min_generatie = min(doy),
+            doy_max_generatie = max(doy)) %>%
+  ungroup()
+
 data_sim_add <- analyseset_species_locations %>%
   as_tibble() %>%
   tidyr::expand(fjaar, doy_mid, doy = full_seq(doy, 1)) %>%
   mutate(generatie = ifelse(doy < 175, "generatie1", "generatie2")) %>%
+  left_join(generatie_min_max, by = "generatie") %>%
+ filter((doy >= doy_min_generatie) & (doy <= doy_max_generatie)) %>%
   mutate(doy_scaled = (doy - doy_mid)/28,
          doy_scaled_2 = doy_scaled * doy_scaled) %>%
   mutate(data_type = "simulated")
@@ -696,38 +798,81 @@ data_combine <- analyseset_species_locations %>%
   mutate(data_type = "observed") %>%
   bind_rows(data_sim_add)
 
-indexmodel_doy_iid_generatie2 <- inla(aantal ~ fjaar  + doy_scaled*generatie + doy_scaled_2*generatie + f(locatie, model = "iid", hyper = prec.prior),
+indexmodel_doy_iid_generatie_interactie <- inla(aantal ~ fjaar  + doy_scaled*generatie + doy_scaled_2*generatie + f(locatie, model = "iid", hyper = prec.prior),
                                       family = "nbinomial",
                                       data = data_combine,
                                       offset = log_section_100,
                                       control.compute = list(config = TRUE, waic = TRUE),
                                       control.predictor = list(compute = TRUE))
 
-indexmodel_doy_iid_generatie3 <- inla(aantal ~ fjaar + generatie  + f(doy_scaled, model = "clinear", range = c(0, Inf)) + doy_scaled_2 + f(locatie, model = "iid", hyper = prec.prior),
+indexmodel_doy_iid_generatie<- inla(aantal ~ fjaar  + generatie + doy_scaled + doy_scaled_2 + f(locatie, model = "iid", hyper = prec.prior),
                                       family = "nbinomial",
                                       data = data_combine,
                                       offset = log_section_100,
                                       control.compute = list(config = TRUE, waic = TRUE),
                                       control.predictor = list(compute = TRUE))
 
-data_predict <- data_combine %>%
-    mutate(fitted_mean = exp(indexmodel_doy_iid_generatie3$summary.fitted.values$mean),
-         fitted_0.025quant = exp(indexmodel_doy_iid_generatie3$summary.fitted.values$`0.025quant`),
-         fitted_0.975quant = exp(indexmodel_doy_iid_generatie3$summary.fitted.values$`0.975quant`)) %>%
+indexmodel_doy_iid_generatie2 <- inla(aantal ~ fjaar + generatie  + f(doy_scaled, model = "clinear", range = c(0, Inf)) + doy_scaled_2 + f(locatie, model = "iid", hyper = prec.prior),
+                                      family = "nbinomial",
+                                      data = data_combine,
+                                      offset = log_section_100,
+                                      control.compute = list(config = TRUE, waic = TRUE),
+                                      control.predictor = list(compute = TRUE))
+
+indexmodel_doy_iid<- inla(aantal ~ fjaar + doy_scaled + doy_scaled_2 + f(locatie, model = "iid", hyper = prec.prior),
+                                      family = "nbinomial",
+                                      data = data_combine,
+                                      offset = log_section_100,
+                                      control.compute = list(config = TRUE, waic = TRUE),
+                                      control.predictor = list(compute = TRUE))
+
+data_predict_generatie <- data_combine %>%
+    mutate(fitted_mean = exp(indexmodel_doy_iid_generatie$summary.fitted.values$mean),
+         fitted_0.025quant = exp(indexmodel_doy_iid_generatie$summary.fitted.values$`0.025quant`),
+         fitted_0.975quant = exp(indexmodel_doy_iid_generatie$summary.fitted.values$`0.975quant`)) %>%
   filter(data_type == "simulated") %>%
   select(fjaar, doy, generatie, fitted_mean, fitted_0.025quant, fitted_0.975quant) %>%
   left_join(select(analyseset_species_locations, aantal_obs = aantal, doy, fjaar, lengte_transect), by = c("doy", "fjaar")) %>%
-  mutate(aantal_100m_obs = aantal_obs * 100/ lengte_transect)
+  mutate(aantal_100m_obs = aantal_obs * 100/ lengte_transect) %>%
+  mutate(model = "met generatie-effect")
+
+data_predict_generatie_interactie <- data_combine %>%
+    mutate(fitted_mean = exp(indexmodel_doy_iid_generatie_interactie$summary.fitted.values$mean),
+         fitted_0.025quant = exp(indexmodel_doy_iid_generatie_interactie$summary.fitted.values$`0.025quant`),
+         fitted_0.975quant = exp(indexmodel_doy_iid_generatie_interactie$summary.fitted.values$`0.975quant`)) %>%
+  filter(data_type == "simulated") %>%
+  select(fjaar, doy, generatie, fitted_mean, fitted_0.025quant, fitted_0.975quant) %>%
+  left_join(select(analyseset_species_locations, aantal_obs = aantal, doy, fjaar, lengte_transect), by = c("doy", "fjaar")) %>%
+  mutate(aantal_100m_obs = aantal_obs * 100/ lengte_transect)%>%
+  mutate(model = "met generatie-effect en interactie")
+
+data_predict_zondergeneratie <- data_combine %>%
+    mutate(fitted_mean = exp(indexmodel_doy_iid$summary.fitted.values$mean),
+         fitted_0.025quant = exp(indexmodel_doy_iid$summary.fitted.values$`0.025quant`),
+         fitted_0.975quant = exp(indexmodel_doy_iid$summary.fitted.values$`0.975quant`)) %>%
+  filter(data_type == "simulated") %>%
+  select(fjaar, doy, generatie, fitted_mean, fitted_0.025quant, fitted_0.975quant) %>%
+  left_join(select(analyseset_species_locations, aantal_obs = aantal, doy, fjaar, lengte_transect), by = c("doy", "fjaar")) %>%
+  mutate(aantal_100m_obs = aantal_obs * 100/ lengte_transect)%>%
+  mutate(model = "zonder generatie-effect") 
+
+data_predict <- bind_rows(data_predict_generatie,
+                          data_predict_generatie_interactie) %>%
+  bind_rows(data_predict_zondergeneratie)
 
 
+
+```
+
+```{r, fig.height= 6, fig.cap = "Gemodelleerde en geobserveerde aantallen voor verschillende modellen van Bruin dikkopje" }
 data_predict %>%
   ggplot(aes(y = fitted_mean, x = doy, group = generatie, fill = generatie, colour = generatie, ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
   geom_line() +
   geom_ribbon(alpha = 0.3) +
   geom_point(aes(y = aantal_100m_obs, x = doy,  colour = generatie)) +
-  facet_wrap(~fjaar)
-
+  facet_grid(model ~ fjaar)
 ```
+
 
 
 ```{r}
@@ -736,18 +881,20 @@ trendmodel_generatie <- fit_trendmodel_nbinom_inla(analyseset_species = analyses
 trendmodel_nogeneratie <- fit_trendmodel_nbinom_inla(analyseset_species = analyseset_species_locations, offset_var = "log_section_100", generation_effect = FALSE)
 
 trend_generatie <- derive_trend(analyseset_species_locations, trendmodel_generatie) %>%
-  mutate(model = "generatie effect")
+  mutate(model = "met generatie effect")
 trend_nogeneratie <- derive_trend(analyseset_species_locations, trendmodel_nogeneratie) %>%
-  mutate(model = "no generatie effect")
+  mutate(model = "zonder generatie effect")
 
 bind_rows(trend_generatie) %>%
   bind_rows(trend_nogeneratie) %>%
   select(model, parameter, soort_nl, mean , lcl_0.90, ucl_0.90) %>%
-  kable() %>%
+  kable(caption = "Effect van het al dan niet opnemen van generatie in model op de geschatte trend") %>%
   kable_styling()
 ```
 
 ### Effect weersomstandigheden
+
+Voor de Aardbeivlinder vergelijken we modellen met en zonder covariabelen gerelateerd aan het weer.
 
 ```{r}
 
@@ -770,23 +917,38 @@ indexmodel_doy_iid_no_weather <- inla(aantal ~ fjaar + doy_scaled + doy_scaled_2
 
 
 waic_weather <- get_waic(analyseset_species_locations, indexmodel_doy_iid_weather) %>%
-  mutate(model = "with weather effect")
+  mutate(model = "met effect van weersomstandigheden")
 
 waic_noweather <- get_waic(analyseset_species_locations, indexmodel_doy_iid_no_weather) %>%
-  mutate(model = "without weather effect")
+  mutate(model = "zonder effect van weersomstandigheden")
 
 bind_rows(waic_weather, waic_noweather) %>%
-  kable() %>%
+  select(soort_nl, model, waic) %>%
+  kable(caption = "Vergelijking van modellen met en zonder covariabelen gerelateerd aan het weer") %>%
   kable_styling()
 
 
 
 ```
 
+
+
 ```{r}
-indexmodel_doy_iid_weather$summary.fixed
+indexmodel_doy_iid_weather$summary.fixed %>%
+  kable(digits = 4, caption = "Geschatte parameters voor model met covariabelen gerelateerd aan weersomstandigheden") %>%
+  kable_styling()
 ```
-### Trend per locatie
+Zowel temperatuur en windkracht hebben significant effect op de aantallen.
+
+```{r}
+indexmodel_doy_iid_no_weather$summary.fixed %>%
+  kable(digits = 4, caption = "Geschatte parameters voor model zonder covariabelen gerelateerd aan weersomstandigheden") %>%
+  kable_styling()
+```
+
+### Informatie per locatie
+
+We willen ook een (ruw) signaal krijgen als een bepaalde locatie sterk achteruitgaat of sterk vooruitgaat. Hiervoor testen we een model uit met random intercept en random slope.
 
 ```{r}
 analyseset_species_locations <- analyseset_locations %>%
@@ -794,7 +956,7 @@ analyseset_species_locations <- analyseset_locations %>%
 ```
 
 
-```{r}
+```{r, eval=FALSE}
 analyseset_species_locations %>%
   ggplot(aes(x= jaar, y = aantal)) +  
   #geom_point(alpha = 0.6, colour = inbo.grijs) +
@@ -803,7 +965,7 @@ analyseset_species_locations %>%
   labs(y = "Aantal getelde individuen", x = "Jaar") +
   theme(legend.position = "bottom") 
 ```
-```{r}
+```{r, fig.height= 6, fig.cap= "Aantallen per locatie voor Veldparelmoervlinder met gam-smoother"}
 analyseset_species_locations %>%
   ggplot(aes(x= jaar, y = aantal)) +  
   geom_point(alpha = 0.6) +
@@ -817,7 +979,6 @@ analyseset_species_locations %>%
 
 ```{r}
 ### via random slope
-
 
 analyseset_species_locations <- analyseset_species_locations %>%
   mutate(fjaar = factor(jaar),
@@ -853,19 +1014,16 @@ trendmodel_doy_iid2<- inla(aantal ~ year_scaled + doy_scaled + doy_scaled_2 + f(
                                       control.compute = list(config = TRUE, waic = TRUE),
                                       control.predictor = list(compute = TRUE))
 
-trendmodel_doy_iid3<- inla(aantal ~ f(jaar, model = "rw1") + doy_scaled + doy_scaled_2 + f(locatie, model = "iid", hyper = prec.prior)  + f(locatie2, year_scaled,  model = "iid", hyper = prec.prior),
-                                      family = "nbinomial",
-                                      data = data_combined,
-                                      offset = log_section_100,
-                                      control.compute = list(config = TRUE, waic = TRUE),
-                                      control.predictor = list(compute = TRUE))
+
 
 to_sigma <- function(tau){sqrt(1/tau)}
 
+cat("sigma random intercept: \n")
 sigma_randomintercept <-  trendmodel_doy_iid2$marginals.hyperpar$`Precision for locatie` %>%
 inla.tmarginal(fun = to_sigma) %>%
 inla.zmarginal()
 
+cat("\nsigma random slope: \n")
 sigma_randomslope <- trendmodel_doy_iid2$marginals.hyperpar$`Precision for locatie2` %>%
 inla.tmarginal(fun = to_sigma) %>%
 inla.zmarginal()
@@ -879,7 +1037,7 @@ data_simulated <- data_combined %>%
 
 ```
 
-```{r}
+```{r, fig.cap = "Gemoddelleerde trend per locatie voor Veldparelmoervlinder"}
 data_simulated %>%
   ggplot(aes(x = jaar, y = mean, group = locatie,  colour = locatie)) +
   geom_line() +
@@ -887,12 +1045,13 @@ data_simulated %>%
 ```
 
 
-```{r, fig.height=10}
+```{r, fig.cap = "Gemoddelleerde trend per locatie voor Veldparelmoervlinder met 95%-betrouwbaarheidsinterval"}
 data_simulated %>%
   ggplot(aes(x = jaar, y = mean, group = locatie, ymin = lcl_0.95, ymax = ucl_0.95)) +
   geom_line() +
   geom_ribbon(alpha = 0.2) + 
-  facet_wrap(~locatie, scales = "free", ncol = 3)
+  ylim(0,40) +
+  facet_wrap(~locatie)
 ```
 
 ```{r}
@@ -925,7 +1084,7 @@ trend_locatie_quantiles <- map_df(trendmodel_doy_iid2$marginals.random$locatie2,
 
 ```
 
-```{r}
+```{r, fig.cap= "Schatting en classificatie van trend per locatie met 60%-betrouwbaarheidsinterval"}
 klasse_color <- c("++" = inbo_groen, "+" = inbo_groen, "--" = inbo_rood, "-" = inbo_rood, "?+" = inbo_grijsblauw, "?-" = inbo_grijsblauw, "?" = inbo_grijsblauw, "~" = inbo_geelgr, "+~" = inbo_groen, "-~" = inbo_rood, "R" = inbo_grijsblauw)
 
 trend <- trend_locatie_quantiles %>%
@@ -955,43 +1114,269 @@ trend %>%
   theme(legend.position = "hide")
 ```
 
-```{r}
+```{r, eval=FALSE}
 trendmodel_doy_iid2$summary.random$locatie %>%
   rename(locatie = ID, lcl_0.95 = "0.025quant", ucl_0.95= "0.975quant") %>%
-  ggplot(aes(x = locatie, y = exp(mean))) +
+  ggplot(aes(x = locatie, y = exp(mean), ymin = exp(lcl_0.95), ymax = exp(ucl_0.95))) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
   geom_point() +
+  ylim(0,20) +
   coord_flip()
 ```
 
 
 
-```{r}
-data_simulated2 <- data_combined %>%
-  mutate(mean = exp(trendmodel_doy_iid3$summary.fitted.values$mean),
-         lcl_0.95 = exp(trendmodel_doy_iid3$summary.fitted.values$`0.025quant`),
-         ucl_0.95 = exp(trendmodel_doy_iid3$summary.fitted.values$`0.975quant`)) %>%
-  filter(data_type == "simulated") %>%
-  select(soort_nl, locatie, jaar, fjaar, mean, lcl_0.95, ucl_0.95)
-```
+
+## Modellering voor alle soorten
+
+### Keuze model
+
+We opteren voor een model met:
+
++ seizoenseffect via 2de graads polynoom
++ random intercept voor locatie
++ generatie als covariabele en interactie generatie en seizoenseffect voor Argusvlinder, Bruin dikkopje en Klaverblauwtje
++ jaar als continue variabele voor trendmodel
++ jaar als factor variabele voor indexmodel 
+
+### Gebruikte functies
+
++ fit_indexmodel_nbinom_inla
++ derive_index_inla
++ fit_trendmodel_nbinom_inla
++ derive trend
+
+Zie onderstaande code-blok.
 
 ```{r}
-data_simulated2 %>%
-  ggplot(aes(x = jaar, y = mean, group = locatie,  colour = locatie)) +
-  geom_line() +
-  scale_colour_brewer(palette = "Set1")
+fit_indexmodel_nbinom_inla <- function(analyseset_species, offset_var = NULL, season_effect = TRUE, generation_effect = FALSE) {
+  
+  analyseset_species <- analyseset_species %>%
+    mutate(fjaar = factor(jaar),
+           locatie = as.character(locatie),
+           locatie = as.factor(locatie))
+  
+  prec.prior <- list(prec = list(param = c(0.001, 0.001)))
+  
+  if (season_effect) {
+    
+    if (generation_effect) {
+      
+      formula_indexmodel <- as.formula("aantal ~ fjaar + generatie*doy_scaled + generatie*doy_scaled_2 + f(locatie, model = \"iid\", hyper = prec.prior)")
+      
+    } else {
+      
+      formula_indexmodel <- as.formula("aantal ~ fjaar + doy_scaled + doy_scaled_2 + f(locatie, model = \"iid\", hyper = prec.prior)")
+      
+    }
+    
+  } else {
+    
+    if (generation_effect) {
+      
+      formula_indexmodel <- as.formula("aantal ~ fjaar + generatie + f(locatie, model = \"iid\", hyper = prec.prior)")
+      
+    } else {
+      
+      formula_indexmodel <- as.formula("aantal ~ fjaar + f(locatie, model = \"iid\", hyper = prec.prior)")
+      
+    }
+    
+  } 
+  
+  if(is.null(offset_var)) {
+    
+  indexmodel_nbinom_doy_iid <- inla(formula_indexmodel,
+                                      family = "nbinomial",
+                                      data = analyseset_species,
+                                      control.compute = list(config = TRUE, waic = TRUE),
+                                      control.predictor = list(compute = TRUE))
+  } else {
+    
+    analyseset_species2 <- analyseset_species %>%
+      rename(offset = offset_var)
+    
+    indexmodel_nbinom_doy_iid <- inla(formula_indexmodel,
+                                      family = "nbinomial",
+                                      data = analyseset_species2,
+                                      offset = offset,
+                                      control.compute = list(config = TRUE, waic = TRUE),
+                                      control.predictor = list(compute = TRUE))
+    
+  }
+  
+  
+  return(indexmodel_nbinom_doy_iid)
+  
+}
+
+derive_index_inla <- function(analyseset_species, indexmodel_nbinom_inla, ref_method = "min") {
+  
+  if (min(analyseset_species$jaar) == 2016){
+    
+    fun = function(...) {
+      c(exp(fjaar2017),  exp(fjaar2018), exp(fjaar2019), exp(fjaar2020), exp(fjaar2021))
+    }
+    
+  } else if (min(analyseset_species$jaar) == 2017) {
+    
+    fun = function(...) {
+      c(exp(fjaar2018), exp(fjaar2019), exp(fjaar2020), exp(fjaar2021))
+    }
+      
+    } else if (min(analyseset_species$jaar) == 2018) {
+      
+      fun = function(...) {
+        c(exp(fjaar2019), exp(fjaar2020), exp(fjaar2021))
+      } 
+        } else if (min(analyseset_species$jaar) == 2019) {
+      
+          fun = function(...) {
+            c(exp(fjaar2020), exp(fjaar2021))
+          }
+    
+  }
+  
+  model_inla.samples <- inla.posterior.sample(1000, indexmodel_nbinom_inla)
+  
+  quantile_values <- c(0.025, 0.05, 0.20, 0.35,  0.65, 0.80, 0.95, 0.975)
+  
+  predict_year_inla <- inla.posterior.sample.eval(fun, model_inla.samples) %>%
+    as.data.frame() %>%
+    mutate(jaar = (min(analyseset_species$jaar) + 1):max(analyseset_species$jaar)) %>%
+    gather(starts_with("sample"), key = "sample", value = "waarde") %>%
+    group_by(jaar) %>%
+    mutate(mean = mean(waarde),
+           sd = sd(waarde)) %>%
+    ungroup() %>%
+    group_by(jaar, mean, sd) %>%
+    summarise(qs = quantile(waarde, quantile_values), prob = quantile_values) %>%
+    ungroup() %>%
+    mutate(l_u = ifelse(prob < 0.5, "lcl", "ucl"),
+           ci = ifelse(prob %in% c(0.025, 0.975), "0.95",
+                       ifelse(prob %in% c(0.05, 0.95), "0.90",
+                              ifelse(prob %in% c(0.20, 0.80), "0.60",
+                                     ifelse(prob %in% c(0.35, 0.65), "0.30", NA)))),
+           type = str_c(l_u, "_", ci)) %>%
+    select(-prob, -l_u, -ci) %>%
+    spread(key = type, value = qs) %>%
+    mutate(soort_nl = unique(analyseset_species$soort_nl),
+           soort_wet = unique(analyseset_species$soort_wet),
+           ref_jaar = min(jaar) - 1,
+           parameter = "index") %>%
+    select(parameter, soort_nl, soort_wet, jaar, ref_jaar, everything())
+  
+  return(predict_year_inla)
+    
+}
+
+fit_trendmodel_nbinom_inla <- function(analyseset_species, offset_var = NULL, generation_effect = FALSE) {
+  
+  analyseset_species <- analyseset_species %>%
+    mutate(fjaar = factor(jaar),
+           locatie = as.character(locatie),
+           locatie = as.factor(locatie),
+           min_year = min(jaar),
+           year_scaled = jaar - min_year)
+  
+  prec.prior <- list(prec = list(param = c(0.001, 0.001)))
+  
+  if (generation_effect) {
+    
+    trendmodel_formula <- as.formula("aantal ~ year_scaled + doy_scaled*generatie + doy_scaled_2*generatie + f(locatie, model = \"iid\", hyper = prec.prior)")
+    
+  } else  {
+    
+    trendmodel_formula <- as.formula("aantal ~ year_scaled + doy_scaled + doy_scaled_2 + f(locatie, model = \"iid\", hyper = prec.prior)")
+    
+  }
+  
+  
+  if(is.null(offset_var)) {
+    
+    trendmodel_nbinom_doy_iid <- inla(trendmodel_formula,
+                                      family = "nbinomial",
+                                      data = analyseset_species,
+                                      control.compute = list(config = TRUE, waic = TRUE),
+                                      control.predictor = list(compute = TRUE))
+  } else {
+    
+    analyseset_species2 <- analyseset_species %>%
+      rename(offset = offset_var)
+    
+    trendmodel_nbinom_doy_iid <- inla(trendmodel_formula,
+                                      family = "nbinomial",
+                                      data = analyseset_species2,
+                                      offset = offset,
+                                      control.compute = list(config = TRUE, waic = TRUE),
+                                      control.predictor = list(compute = TRUE))
+  }
+  
+  return(trendmodel_nbinom_doy_iid)
+  
+}
+
+
+derive_trend <- function(analyseset_species, trendmodel_nbinom) {
+  
+  #gemiddelde jaarlijkse trend
+  
+  trend_average <- trendmodel_nbinom$marginals.fixed$year_scaled %>%
+    inla.tmarginal(fun = function(x) (exp(x) - 1) * 100) %>%
+    inla.zmarginal(silent = TRUE) %>%
+    data.frame() %>%
+    mutate(parameter = "trend_average",
+           soort_nl = unique(analyseset_species$soort_nl),
+           soort_wet = unique(analyseset_species$soort_wet),
+           jaar_min = min(analyseset_species$jaar),
+           jaar_max = max(analyseset_species$jaar)) %>%
+    select(parameter, soort_nl, soort_wet, jaar_min, jaar_max, mean, sd, lcl_0.95 = quant0.025, ucl_0.95 = quant0.975)
+  
+  trend_quantiles <- trendmodel_nbinom$marginals.fixed$year_scaled %>%
+    inla.tmarginal(fun = function(x) (exp(x) - 1) * 100) %>%
+    inla.qmarginal(p = c(0.05, 0.20, 0.35, 0.65, 0.80, 0.95)) %>%
+    data.frame() %>%
+    mutate(type = c("lcl_0.90", "lcl_0.60", "lcl_0.30", "ucl_0.30", "ucl_0.60", "ucl_0.90")) %>%
+    spread(key = "type", value = ".")
+  
+  trend_average <- trend_average %>%
+    bind_cols(trend_quantiles)
+  
+  #totale trend over volledige periode 
+  
+  periode <- n_distinct(analyseset_species$jaar)
+
+  trend_totaal <- trendmodel_nbinom$marginals.fixed$year_scaled %>%
+    inla.tmarginal(fun = function(x) (exp(x * (periode - 1)) - 1) * 100) %>%
+    inla.zmarginal(silent = TRUE) %>%
+    data.frame() %>%
+    mutate(parameter = "trend_total",
+           soort_nl = unique(analyseset_species$soort_nl),
+           soort_wet = unique(analyseset_species$soort_wet),
+           jaar_min = min(analyseset_species$jaar),
+           jaar_max = max(analyseset_species$jaar)) %>%
+    select(parameter, soort_nl, soort_wet, jaar_min, jaar_max, mean, sd, lcl_0.95 = quant0.025, ucl_0.95 = quant0.975)
+  
+  trend_totaal_quantiles <- trendmodel_nbinom$marginals.fixed$year_scaled %>%
+    inla.tmarginal(fun = function(x) (exp(x * (periode - 1)) - 1) * 100) %>%
+    inla.qmarginal(p = c(0.05, 0.20, 0.35, 0.65, 0.80, 0.95)) %>%
+    data.frame() %>%
+    mutate(type = c("lcl_0.90", "lcl_0.60", "lcl_0.30", "ucl_0.30", "ucl_0.60", "ucl_0.90")) %>%
+    spread(key = "type", value = ".")
+  
+  trend_totaal <- trend_totaal %>%
+    bind_cols(trend_totaal_quantiles)
+  
+  trend <- bind_rows(trend_average,
+                     trend_totaal)
+  
+  return(trend)
+  
+} 
+
 ```
 
-```{r, fig.height=10}
-data_simulated2 %>%
-  ggplot(aes(x = jaar, y = mean, group = locatie, ymin = lcl_0.95, ymax = ucl_0.95)) +
-  geom_line() +
-  geom_point() +
-  geom_ribbon(alpha = 0.2) + 
-  facet_wrap(~locatie, scales = "free", ncol = 3)
-```
 
-
-### Alle soorten
 
 
 ```{r}
@@ -1001,7 +1386,7 @@ analyseset_locations_by_species <- analyseset_locations %>%
   nest() %>%
   mutate(offset_var = "log_section_100",
          season_effect = TRUE,
-         generation_effect = meetnet %in% c("Argusvlinder", "Bruin dikkopje"))
+         generation_effect = meetnet %in% c("Argusvlinder", "Bruin dikkopje", "Klaverblauwtje"))
 
 models_inla <- analyseset_locations_by_species %>%
   mutate(indexmodel = pmap(list(data, offset_var, season_effect, generation_effect), fit_indexmodel_nbinom_inla),
@@ -1029,8 +1414,8 @@ waic_trend  <- models_inla %>%
   unnest() %>%
   mutate(model = "trendmodel")
 
-results_waic <- bind_rows(results_waic_index, 
-                         results_waic_trend) %>%
+results_waic <- bind_rows(waic_index, 
+                         waic_trend) %>%
   spread(key = "model", value = "waic") %>%
   mutate(diff_waic = trendmodel - indexmodel,
          type_trend = ifelse(diff_waic > 0,
@@ -1053,11 +1438,147 @@ check <- results_indexmodel %>%
 ```
 
 
+
+
 ```{r}
+
+results_indexmodel %>%
+  write_vc(file = "results_indexmodel", 
+         root = here(str_c("analysis_vlinders/output/temp")), 
+         sorting = c("parameter", "soort_nl", "jaar"),
+         strict = FALSE)
+
+results_trendmodel %>%
+  write_vc(file = "results_trendmodel", 
+         root = here(str_c("analysis_vlinders/output/temp")), 
+         sorting = c("parameter", "soort_nl"), strict = FALSE)
+
+results_waic %>%
+  write_vc(file = "results_waic", 
+         root = here(str_c("analysis_vlinders/output/temp")), 
+         sorting = c("parameter", "soort_nl"),
+         strict = FALSE)
+
+```
+
+
+### Validatie
+
+```{r}
+model_validation <- models_inla %>%
+  transmute(dispersion_check_model = map(indexmodel, dispersion_check),
+            distribution_check_model = map(indexmodel, fast_distribution_check),
+            iid_check = map(indexmodel, check_random_effect)
+            )
+
+
+dispersion <- model_validation %>%
+  transmute(dispersion_data = map(dispersion_check_model, "data"),
+            dispersion_model = map(dispersion_check_model, "model")) %>%
+  select(meetnet, dispersion_data, dispersion_model) %>%
+  unnest(c(dispersion_data, dispersion_model))
+
+distribution <- model_validation %>%
+  select(meetnet, distribution_check_model) %>%
+  unnest(distribution_check_model) %>%
+  filter(lcl < 0.98 & ucl < 1)
+
+iid_checked <- model_validation %>%
+  select(meetnet, iid_check) %>%
+  unnest(iid_check)
+
+```
+
+#### Dispersie
+
+```{r}
+
+ggplot(data = dispersion, aes(x = dispersion_model)) +
+      geom_density() +
+      geom_vline(data = dispersion, aes(xintercept = dispersion_data), linetype = 2) +
+      facet_wrap(~meetnet, scales = "free_x")
+     
+```
+
+#### Distributie
+
+```{r, fig.height= 8}
+distribution %>%
+  mutate(
+      median = .data$ecdf / .data$median,
+      lcl = .data$ecdf / .data$lcl,
+      ucl = .data$ecdf / .data$ucl
+    ) %>%
+  ggplot(aes_string(x = "x", y = "median")) +
+   # geom_blank(data = data.frame(x = min(x$x), median = c(0.95, 1.05))) +
+    geom_hline(yintercept = 1, linetype = 2) +
+    geom_line(aes_string(y = "lcl"), linetype = 3, alpha = 0.5) +
+    geom_line(aes_string(y = "ucl"), linetype = 3, alpha = 0.5) +
+    geom_ribbon(alpha = 0.1, aes_string(ymin = "lcl", ymax = "ucl")) +
+    geom_line() +
+    scale_y_continuous("observed / expected", labels = scales::percent) +
+    facet_wrap(~meetnet, scales = "free")
+```
+
+#### Random effect
+
+```{r}
+
+iid_checked_plot <- iid_checked %>%
+  group_by(meetnet) %>%
+  mutate(x_c = sim_iid - mean(sim_iid),
+         y = exp(x_c + log(1))) %>%
+  ungroup()
+
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      facet_wrap(~meetnet + sigma_tekst, scales = "free")
+    
+```
+
+
+
+
+
+### Resultaten
+
+
+#### Vergelijking tussen de jaren
+
+```{r}
+verschillen_jaren <- results_indexmodel %>%
+  filter(parameter == "index") %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  select(soort_nl, soort_wet, ref_jaar, jaar, klasse) %>%
+  spread(key = "jaar", value = "klasse") %>%
+  ungroup() %>%
+  select(-meetnet)
+  
+```
+```{r}
+verschillen_jaren %>%
+  select(-soort_wet) %>%
+  rename("Nederlandse naam" = soort_nl,  Referentiejaar = ref_jaar) %>%
+  kbl(caption = "Verschil in aantallen t.o.v. referentiejaar",
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "lcccccc") %>%
+kable_styling() %>%
+add_header_above(c(" " = 2, "Verschil t.o.v. referentiejaar" = 5))
+```
+
+
+#### Trends
+
+```{r, fig.cap = "Schatting en classificatie van trends voor de verschillende soorten met 90%-betrouwbaarheidsinterval"}
 klasse_color <- c("++" = inbo_groen, "+" = inbo_groen, "--" = inbo_rood, "-" = inbo_rood, "?+" = inbo_grijsblauw, "?-" = inbo_grijsblauw, "?" = inbo_grijsblauw, "~" = inbo_geelgr, "+~" = inbo_groen, "-~" = inbo_rood, "R" = inbo_grijsblauw)
 
 trend <- results_trendmodel %>%
-  filter(meetnet != "Klaverblauwtje") %>%
+ # filter(meetnet != "Klaverblauwtje") %>%
   filter(parameter == "trend_average") %>%
   mutate(mean_log = log(mean/100 + 1),
           lcl_0.90_log = log(lcl_0.90/100 + 1),
@@ -1085,157 +1606,24 @@ trend %>%
   theme(legend.position = "hide")
 ```
 
-
+#### WAIC
 
 ```{r}
-
-bind_rows(results_indexmodel) %>%
-  write_vc(file = "results_indexmodel", 
-         root = here(str_c("analysis_", species_group, "/output/temp")), 
-         sorting = c("parameter", "soort_nl", "jaar"),
-         strict = FALSE)
-
-results_trend %>%
-  write_vc(file = "results_trendmodel", 
-         root = here(str_c("analysis_", species_group, "/output/temp")), 
-         sorting = c("parameter", "soort_nl"), strict = FALSE)
-
 results_waic %>%
-  write_vc(file = "results_waic", 
-         root = here(str_c("analysis_", species_group, "/output/temp")), 
-         sorting = c("parameter", "soort_nl"),
-         strict = FALSE)
-
+  mutate(indexmodel = round(indexmodel, 1),
+         trendmodel = round(trendmodel, 1),
+         diff_waic = round(diff_waic, 1)) %>%
+  select(meetnet, waic_indexmodel = indexmodel, waic_trendmodel = trendmodel, diff_waic, type_trend) %>%
+  kable() %>%
+  kable_styling()
 ```
 
-
-## Validatie
-
-```{r}
-model_validation <- models_inla %>%
-  transmute(dispersion_check_model = map(indexmodel, dispersion_check),
-            distribution_check_model = map(indexmodel, fast_distribution_check),
-            iid_check = map(indexmodel, check_random_effect)
-            )
-
-
-dispersion <- model_validation %>%
-  transmute(dispersion_data = map(dispersion_check_model, "data"),
-            dispersion_model = map(dispersion_check_model, "model")) %>%
-  select(meetnet, dispersion_data, dispersion_model) %>%
-  unnest(c(dispersion_data, dispersion_model))
-
-distribution <- model_validation %>%
-  select(meetnet, distribution_check_model) %>%
-  unnest(distribution_check_model) %>%
-  filter(lcl < 0.98 & ucl < 1)
-
-iid_checked <- model_validation %>%
-  select(meetnet, iid_check) %>%
-  unnest(iid_check)
-
-```
-
-### Dispersie
-
-```{r}
-
-ggplot(data = dispersion, aes(x = dispersion_model)) +
-      geom_density() +
-      geom_vline(data = dispersion, aes(xintercept = dispersion_data), linetype = 2) +
-      facet_wrap(~meetnet, scales = "free_x")
-     
-```
-
-### Distributie
-
-```{r, fig.height= 8}
-distribution %>%
-  mutate(
-      median = .data$ecdf / .data$median,
-      lcl = .data$ecdf / .data$lcl,
-      ucl = .data$ecdf / .data$ucl
-    ) %>%
-  ggplot(aes_string(x = "x", y = "median")) +
-   # geom_blank(data = data.frame(x = min(x$x), median = c(0.95, 1.05))) +
-    geom_hline(yintercept = 1, linetype = 2) +
-    geom_line(aes_string(y = "lcl"), linetype = 3, alpha = 0.5) +
-    geom_line(aes_string(y = "ucl"), linetype = 3, alpha = 0.5) +
-    geom_ribbon(alpha = 0.1, aes_string(ymin = "lcl", ymax = "ucl")) +
-    geom_line() +
-    scale_y_continuous("observed / expected", labels = scales::percent) +
-    facet_wrap(~meetnet, scales = "free", ncol = 2)
-```
-
-### Random effect
-
-```{r}
-
-iid_checked_plot <- iid_checked %>%
-  group_by(meetnet) %>%
-  mutate(x_c = sim_iid - mean(sim_iid),
-         y = exp(x_c + log(1))) %>%
-  ungroup()
-
-iid_checked_plot %>%
-  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
-  ggplot(aes(x = y)) +
-      geom_density() +
-      scale_x_continuous("relative effect", labels = scales::percent) +
-      facet_wrap(~meetnet + sigma_tekst, scales = "free")
-    
-```
-
-
-
-
-
-## Visualisatie model
-
-```{r}
-model_simulate <- models_inlabru %>%
-  transmute(data_simulated = map2(data, indexmodel, simulate_data_model_inlabru))
-
-results_data_simulated <- model_simulate %>%
-  unnest(data_simulated)
-```
-
-
-
-
-```{r, warning=FALSE, fig.height= 9}
-
-ggplot(data = results_data_simulated, aes(x = doy)) + 
-  geom_line(aes(y = mean, group = loc_id, colour = factor(loc_id)), linetype = 2 ) +
-  geom_point(aes(y = y_obs), alpha = 0.5, size = 1) +
-  geom_line(aes(y = mean_year), size = 1, colour = "black") +
-  geom_ribbon(aes(ymin = lci_0.95_year, ymax = uci_0.95_year), alpha = 0.3) +
-  facet_grid(soort_nl ~ jaar, scales = "free") +
-  theme(legend.position = "none")
-```
-```{r, fig.width= 9, fig.height= 9}
-# analyseset_species <- counts_analysis %>%
-#   filter(meetnet == "Speerwaterjuffer")
-# 
-# analyseset_species %>%
-#   ggplot(aes(x = jaar, y = aantal)) +
-#   geom_point() +
-#   facet_wrap(~locatie)
-
-counts_analysis %>%
-  ggplot(aes(x = locatie, y =aantal)) +
-  geom_point(alpha = 0.4, size = 2) +
-  coord_flip() +
-  facet_wrap(~meetnet, scales = "free_y", ncol = 1)
-  
-
-```
 
 ## Documenteer analyse
 
 ```{r}
 
-mypath <- here(str_c("analysis_", species_group, "/output/temp"))
+mypath <- here(str_c("analysis_vlinders/output/temp"))
 
 hashes <-
     tibble(filepath = str_c(mypath, "/",
@@ -1258,7 +1646,7 @@ hashes <-
            md5,
            sha256)
 
-file_name <- here(str_c("analysis_", species_group, "/output/analysis_hashes.csv"))
+file_name <- here(str_c("analysis_vlinders/output/analysis_hashes.csv"))
 
 if (!file.exists(file_name)) {
   
@@ -1282,7 +1670,7 @@ if (!file.exists(file_name)) {
 
 if (new_analysis) {
   
-  new_path <- here(str_c("analysis_", species_group, "/output/", name_analysis, "_", Sys.Date()))
+  new_path <- here(str_c("analysis_vlinders/output/", name_analysis, "_", Sys.Date()))
   
   if (!dir.exists(new_path)) {
     
@@ -1304,133 +1692,4 @@ if (new_analysis) {
 
 ```
 
-
-
-### Effect van lengte tijdsreeks op index
-
-#### Gevlekte witsnuitlibel
-
-```{r,eval=FALSE}
-
-soort <- "Gevlekte witsnuitlibel"
-
-analyseset_soort <- counts_analysis %>%
-  filter(meetnet == soort)
-
-model_soort <- analyseset_soort %>%
-  fit_indexmodel_nbinom_inlabru() 
-  
-index_soort_2020 <- derive_index_inlabru(analyseset_soort, model_soort) %>%
-  mutate(tijdsreeks = "2016-2020")
-
-analyseset_soort <- counts_analysis %>%
-  filter(meetnet == soort) %>%
-  filter(jaar <= 2019)
-
-model_soort <- analyseset_soort %>%
-  fit_indexmodel_nbinom_inlabru() 
-  
-index_soort_2019 <- derive_index_inlabru(analyseset_soort, model_soort) %>%
-  mutate(tijdsreeks = "2016-2019")
-
-analyseset_soort <- counts_analysis %>%
-  filter(meetnet == soort) %>%
-  filter(jaar <= 2018)
-
-model_soort <- analyseset_soort %>%
-  fit_indexmodel_nbinom_inlabru() 
-  
-index_soort_2018 <- derive_index_inlabru(analyseset_soort, model_soort) %>%
-  mutate(tijdsreeks = "2016-2018")
-
-index_soort <- bind_rows(
-  index_soort_2018,
-  index_soort_2019,
-  index_soort_2020
-  
-)
-
-```
-
-
-
-```{r,eval=FALSE}
-
-index_soort %>%
-  mutate(ref_jaar_tekst = str_c("ref. jaar = ", ref_jaar)) %>%
-  filter(parameter == "index") %>%
-  ggplot(aes(y = mean, ymin = lcl_0.95, ymax = ucl_0.95, x = as.character(jaar), group = soort_nl)) +
-  geom_point() +
-  geom_errorbar(width = 0.1) +
-  geom_hline(yintercept = 1, linetype = 3) +
-  geom_line( colour = inbo.steun.blauw, linetype = 2) +
-  #geom_ribbon(alpha = 0.2) + 
-  labs(y = "Jaarlijkse index", x = "Jaar") +
-  #scale_x_continuous(breaks= c(2017, 2018)) +
-  scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
-  facet_wrap(~ tijdsreeks + ref_jaar_tekst)
-```
-
-#### Maanwaterjuffer
-
-```{r,eval=FALSE}
-
-soort <- "Maanwaterjuffer"
-
-analyseset_soort <- counts_analysis %>%
-  filter(meetnet == soort)
-
-model_soort <- analyseset_soort %>%
-  fit_indexmodel_nbinom_inlabru() 
-  
-index_soort_2020 <- derive_index_inlabru(analyseset_soort, model_soort) %>%
-  mutate(tijdsreeks = "2016-2020")
-
-analyseset_soort <- counts_analysis %>%
-  filter(meetnet == soort) %>%
-  filter(jaar <= 2019)
-
-model_soort <- analyseset_soort %>%
-  fit_indexmodel_nbinom_inlabru() 
-  
-index_soort_2019 <- derive_index_inlabru(analyseset_soort, model_soort) %>%
-  mutate(tijdsreeks = "2016-2019")
-
-analyseset_soort <- counts_analysis %>%
-  filter(meetnet == soort) %>%
-  filter(jaar <= 2018)
-
-model_soort <- analyseset_soort %>%
-  fit_indexmodel_nbinom_inlabru() 
-  
-index_soort_2018 <- derive_index_inlabru(analyseset_soort, model_soort) %>%
-  mutate(tijdsreeks = "2016-2018")
-
-index_soort <- bind_rows(
-  index_soort_2018,
-  index_soort_2019,
-  index_soort_2020
-  
-)
-
-```
-
-
-
-```{r,eval=FALSE}
-
-index_soort %>%
-  mutate(ref_jaar_tekst = str_c("ref. jaar = ", ref_jaar)) %>%
-  filter(parameter == "index") %>%
-  ggplot(aes(y = mean, ymin = lcl_0.95, ymax = ucl_0.95, x = as.character(jaar), group = soort_nl)) +
-  geom_point() +
-  geom_errorbar(width = 0.1) +
-  geom_hline(yintercept = 1, linetype = 3) +
-  geom_line( colour = inbo.steun.blauw, linetype = 2) +
-  #geom_ribbon(alpha = 0.2) + 
-  labs(y = "Jaarlijkse index", x = "Jaar") +
-  #scale_x_continuous(breaks= c(2017, 2018)) +
-  scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
-  facet_wrap(~ tijdsreeks + ref_jaar_tekst)
-```
 
