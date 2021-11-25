@@ -1,0 +1,124 @@
+
+# Dataverkenning
+
+## Getelde aantallen
+
+```{r, fig.cap= "Gemiddeld aantal getelde individuen per jaar", eval=FALSE}
+analyseset_locations %>%
+  ggplot(aes(x= jaar, y = aantal)) +  
+  #geom_point(alpha = 0.6, colour = inbo.grijs) +
+  stat_summary(fun.data = "mean_cl_boot",  alpha = 0.8) +
+  facet_wrap(~ soort_nl, scale = "free_y") +
+  labs(y = "Aantal getelde individuen", x = "Jaar") +
+  theme(legend.position = "bottom") 
+```
+
+```{r, fig.height = 8, fig.cap = "Gemiddeld aantal getelde individuen per 100 meter transectlengte"}
+
+analyseset_locations %>%
+  ggplot(aes(x= jaar, y = aantal *100/ lengte_transect)) +  
+  #geom_point(alpha = 0.6, colour = inbo.grijs) +
+  stat_summary(fun.data = "mean_cl_boot",  alpha = 0.8) +
+  facet_wrap(~ soort_nl, scale = "free_y", ncol = 3) +
+  labs(y = "Aantal getelde individuen per 1000m transect", x = "Jaar") +
+  theme(legend.position = "bottom") 
+
+```
+
+
+```{r, fig.height = 11, eval=FALSE}
+analyseset_locations %>%
+  ggplot(aes(x = doy, y = aantal, colour = generatie)) +
+  geom_point(alpha = 0.6) +
+  facet_grid(meetnet ~ jaar, scales = "free_y")
+```
+
+```{r, fig.height= 10, fig.cap= "Getelde aantallen per 100 meter transectlengte"}
+analyseset_locations %>%
+  ggplot(aes(x = doy, y = aantal * 100 / lengte_transect, colour = generatie)) +
+  geom_point(alpha = 0.6) +
+  facet_grid(meetnet ~ jaar, scales = "free_y")
+```
+
+## Seizoenaliteit
+
+```{r, fig.height= 6,  fig.cap= "Vergelijking seizoenaliteit via gam-smoother (enkel voor jaren met minstens 18 observaties)"}
+analyseset_locations %>%
+  group_by(meetnet, jaar) %>%
+  filter(n_distinct(visit_id) > 17) %>%
+  ungroup() %>%
+  mutate(jaar = factor(jaar)) %>%
+  ggplot(aes(x = doy, y = aantal, group = interaction(jaar, generatie), colour = jaar, fill = jaar)) +
+  #geom_point(alpha = 0.4) +
+  geom_smooth(method = "gam", method.args = list(family = poisson),formula = y ~ s(x, bs = "cs", k = 5) , size = 1) +
+  ylim(c(0,35)) +
+  facet_wrap(~ meetnet, scales = "free")
+```
+
+## Effect weersomstandigheden
+
+```{r, fig.height= 6, fig.cap= "Effect van windkracht op getelde aantallen per 100 meter transectlengte"}
+analyseset_locations %>%
+  mutate(aantal_100m = aantal * 100 / lengte_transect) %>%
+  ggplot(aes(x = windkracht, y = aantal_100m)) +
+  geom_boxplot() +
+  facet_wrap(~meetnet, scale = "free_x") + 
+  coord_flip()
+```
+
+
+```{r, fig.height= 6, fig.cap=  "Effect van bewolking op getelde aantallen per 100 meter transectlengte"}
+analyseset_locations %>%
+  mutate(aantal_100m = aantal * 100 / lengte_transect) %>%
+  ggplot(aes(x = bewolking, y = aantal_100m)) +
+  geom_boxplot() +
+  facet_wrap(~meetnet, scales = "free_x") + 
+  coord_flip()
+```
+
+```{r, fig.height= 6, fig.cap =  "Effect van temperatuur op getelde aantallen per 100 meter transectlengte"}
+analyseset_locations %>%
+  mutate(aantal_100m = aantal * 100 / lengte_transect) %>%
+  ggplot(aes(x = temperatuur, y = aantal_100m)) +
+  geom_point(color = "green", alpha = 0.5) +
+  facet_wrap(~meetnet, scales = "free_y") +
+  geom_smooth()
+```
+
+Volgend model geeft globaal gezien (voor alle meetnetten samen) enkel een significant effect van bewolking op de getelde aantallen. 
+
+```{r}
+analyseset_locations_weer <- analyseset_locations %>%
+  mutate(bewolking_max = as.numeric(str_sub(bewolking, start = -4, end = -4)),
+         bewolking_min = ifelse(bewolking_max > 0, as.numeric(str_sub(bewolking, start = -10, end = -10)), 0),
+         bewolking_cont = (bewolking_max + bewolking_min)/2/8,
+         windkracht_cont = as.numeric(str_sub(windkracht, start = -6, end = -6)),
+         temperatuur_scaled = temperatuur - min(temperatuur, na.rm = TRUE),
+         temperatuur_2 = temperatuur_scaled * temperatuur_scaled,
+         aantal_100m = aantal * 100 / lengte_transect)
+
+prec.prior <- list(prec = list(param = c(0.001, 0.001)))
+
+model_conditions <- inla(aantal ~ temperatuur_scaled + temperatuur_2 + windkracht_cont + bewolking_cont + f(meetnet, model = "iid", hyper = prec.prior),
+                                      family = "nbinomial",
+                                      data = analyseset_locations_weer,
+                                      offset = log_section_100,
+                                      control.compute = list(config = TRUE, waic = TRUE),
+                                      control.predictor = list(compute = TRUE))
+
+model_conditions$summary.fixed %>%
+  kable(caption = "Parameterschatting voor variabelen gerelateerd aan weersomstandigheden") %>%
+  kable_styling()
+```
+
+```{r, fig.height= 6, fig.cap= "Gecombineerd effect van bewolking en windkaracht op getelde aantallen"}
+analyseset_locations_weer %>%
+  mutate(aantal_100m = aantal * 100 / lengte_transect) %>%
+  group_by(meetnet) %>%
+  mutate(aantal_100m_scaled = aantal_100m/ max(aantal_100m)) %>%
+  ungroup() %>%
+  ggplot(aes(x = windkracht_cont, y = bewolking_cont, size = aantal_100m_scaled)) +
+  geom_jitter(alpha = 0.4) +
+  facet_wrap(~meetnet)
+```
+

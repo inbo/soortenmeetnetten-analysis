@@ -298,6 +298,7 @@ get_locations_smp <- function(species_group = NULL,
 get_transects_smp <- function(species_group = NULL,
                               only_active = TRUE,
                               only_sample = FALSE,
+                              only_lines = TRUE,
                               file = "raw/meetnetten_locaties.gpkg",
                               path = fileman_up("soortenmeetnetten-data")) {
   
@@ -325,6 +326,11 @@ get_transects_smp <- function(species_group = NULL,
   if (only_active) {
     transects_smp <- transects_smp %>%
       filter(.data$is_active)
+  }
+  
+  if (only_lines) {
+    transects_smp <- transects_smp %>%
+      filter(.data$sectie_lijn)
   }
   
   return(transects_smp)
@@ -987,6 +993,64 @@ derive_index_inla <- function(analyseset_species, indexmodel_nbinom_inla, ref_me
     
 }
   
+
+derive_index_rw_sample <- function(sample) {
+  
+  s <- sample$latent %>%
+    as.data.frame() %>%
+    rownames_to_column(var = "parameter") %>%
+    filter(str_sub(parameter, 1, 4) == "jaar") %>%
+    separate(col = parameter, into = c("var", "jaar_centered"), sep = ":") %>%
+    mutate(jaar_centered = as.numeric(jaar_centered)) %>%
+    select(-var)
+  
+  colnames(s)[2] <- "sample_value"
+  
+  ref_value <- s[s$jaar_centered == 1, "sample_value"]
+  
+  s <- s %>%
+    mutate(index = ifelse(jaar_centered == 1, NA, exp(sample_value - ref_value)),
+           diff_previous_year = exp(sample_value - lag(sample_value))) %>%
+    pivot_longer(cols = -jaar_centered,
+                 names_to = "parameter", values_to = "value" )
+  
+  return(s)
+}
+
+derive_index_rw_inla <- function(analyseset_species, inlamodel_rw, set_seed = 0) {
+  
+  set.seed(set_seed)
+  
+  samples <- inla.posterior.sample(1000, inlamodel_rw , seed = set_seed,num.threads="1:1")
+  
+  quantile_values <- c(0.025, 0.05, 0.20, 0.35,  0.65, 0.80, 0.95, 0.975)
+  
+  estimates_jaar <- map_df(samples, derive_index_rw_sample, .id = "sample") %>%
+    group_by(parameter, jaar_centered) %>%
+    mutate(mean = mean(value),
+           sd = sd(value)) %>%
+    ungroup() %>%
+    group_by(parameter, jaar_centered, mean, sd) %>%
+    summarise(qs = quantile(value, quantile_values, na.rm =TRUE), prob = quantile_values) %>%
+    ungroup() %>%
+    mutate(l_u = ifelse(prob < 0.5, "lcl", "ucl"),
+           ci = ifelse(prob %in% c(0.025, 0.975), "0.95",
+                       ifelse(prob %in% c(0.05, 0.95), "0.90",
+                              ifelse(prob %in% c(0.20, 0.80), "0.60",
+                                     ifelse(prob %in% c(0.35, 0.65), "0.30", NA)))),
+           type = str_c(l_u, "_", ci)) %>%
+    select(-prob, -l_u, -ci) %>%
+    spread(key = type, value = qs)  %>%
+    mutate(soort_nl = unique(analyseset_species$soort_nl),
+           soort_wet = unique(analyseset_species$soort_wet),
+           ref_jaar = min(analyseset_species$jaar),
+           jaar = ref_jaar + jaar_centered -1) %>%
+    select(parameter, soort_nl, soort_wet, jaar, ref_jaar, everything())
+  
+  
+}
+
+
 derive_diff_years_inla <- function(analyseset_species) {
   
   jaar_min <- min(analyseset_species$jaar)
@@ -1501,6 +1565,85 @@ classification_tw <- function(lcl, ucl, threshold_low, treshold_high, reference 
   ) %>%
     factor(levels =  c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?"))
 
+}
+
+fit_indexmodel_rw_nbinom_inla <- function(analyseset_species, offset_var = NULL) {
+  
+  analyseset_species <- analyseset_species %>%
+    mutate(locatie = as.character(locatie),
+           locatie = as.factor(locatie),
+           jaar_centered = jaar - min(jaar),
+           doy_centered = doy - min(doy))
+  
+  formula_indexmodel <- as.formula("aantal ~ f(jaar_centered, model = \"rw1\", 
+                                  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.3, 0.05)))) + 
+                                f(doy_centered, model = \"rw2\", 
+                                  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = \"iid\", 
+                                   hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.05))))")
+  
+  if(is.null(offset_var)) {
+    
+    model <- inla(formula_indexmodel,
+                                      family = "nbinomial",
+                                      data = analyseset_species,
+                                      control.compute = list(config = TRUE, waic = TRUE),
+                                      control.predictor = list(compute = TRUE))
+  } else {
+    
+    analyseset_species2 <- analyseset_species %>%
+      rename(offset = offset_var)
+    
+    model <- inla(formula_indexmodel,
+                                      family = "nbinomial",
+                                      data = analyseset_species2,
+                                      offset = offset,
+                                      control.compute = list(config = TRUE, waic = TRUE),
+                                      control.predictor = list(compute = TRUE))
+    
+  }
+  
+  return(model)
+  
+}
+
+fit_trendmodel_rw_nbinom_inla <- function(analyseset_species, offset_var = NULL) {
+  
+  analyseset_species <- analyseset_species %>%
+    mutate(locatie = as.character(locatie),
+           locatie = as.factor(locatie),
+           year_scaled = jaar - min(jaar),
+           doy_centered = doy - min(doy))
+  
+  formula_indexmodel <- as.formula("aantal ~ year_scaled + 
+                                f(doy_centered, model = \"rw2\", 
+                                  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = \"iid\", 
+                                   hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.05))))")
+  
+  if(is.null(offset_var)) {
+    
+    model <- inla(formula_indexmodel,
+                  family = "nbinomial",
+                  data = analyseset_species,
+                  control.compute = list(config = TRUE, waic = TRUE),
+                  control.predictor = list(compute = TRUE))
+  } else {
+    
+    analyseset_species2 <- analyseset_species %>%
+      rename(offset = offset_var)
+    
+    model <- inla(formula_indexmodel,
+                  family = "nbinomial",
+                  data = analyseset_species2,
+                  offset = offset,
+                  control.compute = list(config = TRUE, waic = TRUE),
+                  control.predictor = list(compute = TRUE))
+    
+  }
+  
+  return(model)
+  
 }
 
 

@@ -1,0 +1,460 @@
+
+# Modellering voor alle soorten
+
+## Keuze model
+
+We opteren voor een model met:
+
++ seizoenseffect via tweede orde random walk voor locatie
++ random intercept voor locatie
++ jaar als continue variabele voor trendmodel
++ jaar als eerste orde random walk  voor indexmodel 
+
+
+
+
+
+```{r, eval = FALSE}
+analyseset_locations_species <- analyseset_locations %>%
+  filter(meetnet == "Heivlinder")
+
+seed <- 20211124
+
+model <- fit_indexmodel_rw_nbinom_inla(analyseset_locations_species, offset_var = "log_section_100")
+
+model2 <- fit_indexmodel_rw_nbinom_inla(analyseset_locations_species, offset_var = "log_section_100")
+
+
+all_equal(model$summary.random$jaar_centered,
+          model2$summary.random$jaar_centered)
+
+# set.seed(seed)
+test <- derive_index_rw_inla(analyseset_locations_species, model, set_seed = seed) %>%
+  select(soort_nl, parameter, mean) %>%
+  filter(parameter == "index")
+
+# set.seed(seed)
+test2 <- derive_index_rw_inla(analyseset_locations_species, model2, set_seed = seed) %>%
+  select(soort_nl, parameter, mean) %>%
+  filter(parameter == "index")
+
+all.equal(test, test2)
+
+
+model_trend <- fit_trendmodel_rw_nbinom_inla(analyseset_locations_species, offset_var = "log_section_100")
+
+test_trend <- derive_trend(analyseset_locations_species, model_trend)
+```
+
+
+
+```{r, eval=FALSE}
+# check reproduceerbaarheid
+seed <- 20211124
+
+set.seed(seed)
+
+analyseset_locations_by_species <- analyseset_locations %>%
+  filter(meetnet %in% c("Heivlinder", "Aardbeivlinder")) %>%
+  group_by(meetnet) %>%
+  nest() %>%
+  mutate(offset_var = "log_section_100",
+         use_seed = seed)
+
+models_inla <- analyseset_locations_by_species %>%
+  mutate(indexmodel = pmap(list(data, offset_var), fit_indexmodel_rw_nbinom_inla),
+         trendmodel = map2(data, offset_var, fit_trendmodel_rw_nbinom_inla))
+
+results_indexmodel <- models_inla %>%
+  transmute(index = pmap(list(data, indexmodel, use_seed), derive_index_rw_inla)) %>%
+  unnest(cols = c(meetnet, index)) %>%
+  filter(parameter == "index")
+
+
+models_inla_compare <- analyseset_locations_by_species %>%
+  mutate(indexmodel = pmap(list(data, offset_var), fit_indexmodel_rw_nbinom_inla),
+         trendmodel = map2(data, offset_var, fit_trendmodel_rw_nbinom_inla))
+
+results_indexmodel_compare <- models_inla_compare %>%
+  transmute(index = pmap(list(data, indexmodel, use_seed), derive_index_rw_inla)) %>%
+  select(meetnet, index) %>%
+  unnest() %>%
+  filter(parameter == "index")
+
+all.equal(results_indexmodel, results_indexmodel_compare)
+
+```
+
+```{r}
+
+seed <- 20211124
+
+set.seed(seed)
+
+analyseset_locations_by_species <- analyseset_locations %>%
+  group_by(meetnet) %>%
+  nest() %>%
+  mutate(offset_var = "log_section_100",
+         use_seed = seed)
+
+models_inla <- analyseset_locations_by_species %>%
+  mutate(indexmodel = pmap(list(data, offset_var), fit_indexmodel_rw_nbinom_inla),
+         trendmodel = map2(data, offset_var, fit_trendmodel_rw_nbinom_inla))
+
+results_indexmodel <- models_inla %>%
+  transmute(index = pmap(list(data, indexmodel, use_seed), derive_index_rw_inla)) %>%
+  unnest(cols = c(meetnet, index))
+
+results_trendmodel  <- models_inla %>%
+  transmute(trend = map2(data, trendmodel, derive_trend)) %>%
+  select(meetnet, trend) %>%
+  unnest()
+
+waic_index  <- models_inla %>%
+  transmute(waic_index =  map2(data, indexmodel, get_waic)) %>%
+  select(meetnet, waic_index) %>%
+  unnest() %>%
+  mutate(model = "indexmodel")
+
+waic_trend  <- models_inla %>%
+  transmute(waic_trend =  map2(data, trendmodel, get_waic)) %>%
+  select(meetnet, waic_trend) %>%
+  unnest() %>%
+  mutate(model = "trendmodel")
+
+results_waic <- bind_rows(waic_index, 
+                         waic_trend) %>%
+  spread(key = "model", value = "waic") %>%
+  mutate(diff_waic = trendmodel - indexmodel,
+         type_trend = ifelse(diff_waic > 0,
+                               "Niet lineair",
+                               ifelse(diff_waic > -2,
+                                      "Quasi lineair", "Lineair")))
+```
+
+
+
+```{r}
+
+results_indexmodel %>%
+  filter(parameter != "sample_vaue") %>%
+  write_vc(file = "results_indexmodel", 
+         root = here(str_c("analysis_vlinders/output/temp")), 
+         sorting = c("parameter", "soort_nl", "jaar"),
+         strict = FALSE)
+
+results_trendmodel %>%
+  write_vc(file = "results_trendmodel", 
+         root = here(str_c("analysis_vlinders/output/temp")), 
+         sorting = c("parameter", "soort_nl"), strict = FALSE)
+
+results_waic %>%
+  write_vc(file = "results_waic", 
+         root = here(str_c("analysis_vlinders/output/temp")), 
+         sorting = c("parameter", "soort_nl"),
+         strict = FALSE)
+
+```
+
+
+### Validatie
+
+```{r}
+model_validation <- models_inla %>%
+  transmute(dispersion_check_model = map(indexmodel, dispersion_check),
+            distribution_check_model = map(indexmodel, fast_distribution_check),
+            iid_check = map(indexmodel, check_random_effect)
+            )
+
+
+dispersion <- model_validation %>%
+  transmute(dispersion_data = map(dispersion_check_model, "data"),
+            dispersion_model = map(dispersion_check_model, "model")) %>%
+  select(meetnet, dispersion_data, dispersion_model) %>%
+  unnest(c(dispersion_data, dispersion_model))
+
+distribution <- model_validation %>%
+  select(meetnet, distribution_check_model) %>%
+  unnest(distribution_check_model) %>%
+  filter(lcl < 0.98 & ucl < 1)
+
+iid_checked <- model_validation %>%
+  select(meetnet, iid_check) %>%
+  unnest(iid_check)
+
+```
+
+#### Dispersie
+
+```{r}
+
+ggplot(data = dispersion, aes(x = dispersion_model)) +
+      geom_density() +
+      geom_vline(data = dispersion, aes(xintercept = dispersion_data), linetype = 2) +
+      facet_wrap(~meetnet, scales = "free_x")
+     
+```
+
+#### Distributie
+
+```{r, fig.height= 8}
+distribution %>%
+  mutate(
+      median = .data$ecdf / .data$median,
+      lcl = .data$ecdf / .data$lcl,
+      ucl = .data$ecdf / .data$ucl
+    ) %>%
+  ggplot(aes_string(x = "x", y = "median")) +
+   # geom_blank(data = data.frame(x = min(x$x), median = c(0.95, 1.05))) +
+    geom_hline(yintercept = 1, linetype = 2) +
+    geom_line(aes_string(y = "lcl"), linetype = 3, alpha = 0.5) +
+    geom_line(aes_string(y = "ucl"), linetype = 3, alpha = 0.5) +
+    geom_ribbon(alpha = 0.1, aes_string(ymin = "lcl", ymax = "ucl")) +
+    geom_line() +
+    scale_y_continuous("observed / expected", labels = scales::percent) +
+    facet_wrap(~meetnet, scales = "free")
+```
+
+#### Random effect
+
+```{r}
+
+iid_checked_plot <- iid_checked %>%
+  group_by(meetnet) %>%
+  mutate(x_c = sim_iid - mean(sim_iid),
+         y = exp(x_c + log(1))) %>%
+  ungroup()
+
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      facet_wrap(~meetnet + sigma_tekst, scales = "free")
+    
+```
+
+
+
+
+
+### Resultaten
+
+
+#### Vergelijking tussen de jaren
+
+```{r}
+verschillen_refjaar <- results_indexmodel %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  select(soort_nl, soort_wet, ref_jaar, jaar, klasse) %>%
+  spread(key = "jaar", value = "klasse") %>%
+  ungroup() %>%
+  select(-meetnet)
+  
+```
+```{r}
+verschillen_refjaar %>%
+  select(-soort_wet) %>%
+  rename("Nederlandse naam" = soort_nl,  Referentiejaar = ref_jaar) %>%
+  kbl(caption = "Verschil in aantallen t.o.v. referentiejaar",
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "lcccccc") %>%
+kable_styling() %>%
+add_header_above(c(" " = 2, "Verschil t.o.v. referentiejaar" = 5))
+```
+
+```{r}
+verschillen_vorigjaar <- results_indexmodel %>%
+  filter(parameter == "diff_previous_year") %>%
+  mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  select(soort_nl, soort_wet, periode, klasse) %>%
+  spread(key = "periode", value = "klasse") %>%
+  ungroup() %>%
+  select(-meetnet)
+  
+```
+
+
+```{r}
+verschillen_vorigjaar %>%
+  select(-soort_wet) %>%
+  rename("Nederlandse naam" = soort_nl) %>%
+  kbl(caption = "Verschil in aantallen voor opeenvolgende jaren",
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "lcccccc") %>%
+kable_styling()
+```
+
+
+#### Trends
+
+```{r, fig.cap = "Schatting en classificatie van trends voor de verschillende soorten met 90%-betrouwbaarheidsinterval"}
+klasse_color <- c("++" = inbo_groen, "+" = inbo_groen, "--" = inbo_rood, "-" = inbo_rood, "?+" = inbo_grijsblauw, "?-" = inbo_grijsblauw, "?" = inbo_grijsblauw, "~" = inbo_geelgr, "+~" = inbo_groen, "-~" = inbo_rood, "R" = inbo_grijsblauw)
+
+trend <- results_trendmodel %>%
+  filter(parameter == "trend_average") %>%
+  mutate(mean_log = log(mean/100 + 1),
+          lcl_0.90_log = log(lcl_0.90/100 + 1),
+         ucl_0.90_log = log(ucl_0.90/100 + 1)) %>%
+  mutate(n_jaar = 6,
+         treshold_low = round((exp(log(0.75)/(n_jaar - 1)) - 1) *100, 1),
+         treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) *100, 1)) %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
+
+
+
+```
+
+```{r}
+
+volgorde_soorten <- (trend %>%
+  arrange(mean))$meetnet
+
+trend %>%
+  mutate(meetnet = factor(meetnet, levels = volgorde_soorten)) %>%
+  ggplot( aes(x = meetnet, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_hline(aes(yintercept = max(log(treshold_low/100 +1))), linetype = 3) +
+  geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Gemiddelde jaarlijkse trend (%)", x = "Soort") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show, limits = c(min(breaks_log), max(breaks_log))) +
+  coord_flip() +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+```
+
+
+#### WAIC
+
+```{r}
+results_waic %>%
+  mutate(indexmodel = round(indexmodel, 1),
+         trendmodel = round(trendmodel, 1),
+         diff_waic = round(diff_waic, 1)) %>%
+  select(meetnet, waic_indexmodel = indexmodel, waic_trendmodel = trendmodel, diff_waic, type_trend) %>%
+  kable() %>%
+  kable_styling()
+```
+
+
+## Documenteer analyse
+
+```{r}
+
+mypath <- here(str_c("analysis_vlinders/output/temp"))
+
+hashes <-
+    tibble(filepath = str_c(mypath, "/",
+        list.files(path = mypath,
+            recursive = TRUE)
+      )) %>%
+    mutate(name_analysis = name_analysis,
+           version = Sys.Date(),
+           filename = str_match(filepath, "(.+\\/)*(.+)")[,3],
+           md5 = map(filepath, function(x) {
+                           file(x) %>% md5 %>% str_c(collapse = '')
+                         }) %>% as.character,
+           sha256 = map(filepath, function(x) {
+                          file(x) %>% sha256 %>% str_c(collapse = '')
+                          }) %>% as.character
+           ) %>%
+    select(name_analysis,
+           version,
+           filename,
+           md5,
+           sha256)
+
+file_name <- here(str_c("analysis_vlinders/output/analysis_hashes.csv"))
+
+if (!file.exists(file_name)) {
+  
+  new_analysis <- TRUE
+  
+  analysis_hashes <- hashes
+
+} else {
+  
+  analysis_hashes <- read_csv(file_name)
+  
+  hashes_new <- hashes %>%
+    anti_join(analysis_hashes, by = c("name_analysis", "filename", "md5", "sha256"))
+  
+  new_analysis <- nrow(hashes_new) > 0
+  
+  analysis_hashes <- bind_rows(analysis_hashes,
+                               hashes)
+  
+}
+
+if (new_analysis) {
+  
+  new_path <- here(str_c("analysis_vlinders/output/", name_analysis, "_", Sys.Date()))
+  
+  if (!dir.exists(new_path)) {
+    
+    dir.create(new_path)
+    
+  }
+
+    file.copy(from = str_c(mypath, "/results_indexmodel.tsv"), to = str_c(new_path, "/results_indexmodel.tsv"), overwrite = TRUE)
+    file.copy(from = str_c(mypath, "/results_indexmodel.yml"), to = str_c(new_path, "/results_indexmodel.yml"), overwrite = TRUE)
+    file.copy(from = str_c(mypath, "/results_trendmodel.tsv"), to = str_c(new_path, "/results_trendmodel.tsv"), overwrite = TRUE)
+    file.copy(from = str_c(mypath, "/results_trendmodel.yml"), to = str_c(new_path, "/results_trendmodel.yml"), overwrite = TRUE)
+    file.copy(from = str_c(mypath, "/results_waic.tsv"), to = str_c(new_path, "/results_waic.tsv"), overwrite = TRUE)
+    file.copy(from = str_c(mypath, "/results_waic.yml"), to = str_c(new_path, "/results_waic.yml"), overwrite = TRUE)
+  
+  
+  analysis_hashes %>%
+    write_csv(file_name)
+  
+}
+
+```
+
+## Gebruikte functies
+
++ fit_indexmodel_rw_nbinom_inla
+
+
+```{r}
+fit_indexmodel_rw_nbinom_inla
+```
++ fit_trendmodel_rw_nbinom_inla
+
+```{r}
+fit_trendmodel_rw_nbinom_inla
+```
+
+
++ derive_index_rw_sample
+
+```{r}
+derive_index_rw_sample
+```
+
+
++ derive_index_rw_inla
+
+```{r}
+derive_index_rw_inla
+```
+
++ derive_trend
+
+```{r}
+derive_trend
+```
+
+
+

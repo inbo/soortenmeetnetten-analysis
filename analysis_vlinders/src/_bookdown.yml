@@ -1,4 +1,4 @@
-book_filename: "libellenmeetnetten_analyse.Rmd"
+book_filename: "vlindermeetnetten_analyse.Rmd"
 output_dir: "../output"
 language:
   label:

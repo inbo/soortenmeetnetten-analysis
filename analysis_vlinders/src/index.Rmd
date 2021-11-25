@@ -2,7 +2,7 @@
 title: "Analyse Vlindermeetnetten"
 author: 
   -
-    name: "Toon Westra, Dirk Maes, Hannes Ledegen, Sam Van De Poel,  Frederic Piesschaert, Thierry Onkelinx, "
+    name: "Toon Westra, Dirk Maes, Hannes Ledegen, Sam Van De Poel,  Frederic Piesschaert, Thierry Onkelinx"
     email: "Toon.Westra@inbo.be"
 subtitle: "Technisch rapport"
 link-citations: TRUE
@@ -19,7 +19,7 @@ output:
 ---
 
 
-```{r setup, include = FALSE,  message = FALSE, warning=FALSE}
+```{r setup, include = FALSE,  message = FALSE, warning=FALSE, cache = FALSE}
 library(knitr)
 options(knitr.kable.NA = '')
 
@@ -42,13 +42,15 @@ library(kableExtra)
 library(units)
 library(effectclass)
 library(openssl)
+library(lubridate)
 ```
 
 
 
 
-```{r}
+```{r, cache=FALSE}
 source(here("src", "functions_smp.R"))
+
 ```
 
 
