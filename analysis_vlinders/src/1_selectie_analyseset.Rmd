@@ -1,6 +1,13 @@
 # Selectie analyseset
 
-## Selectiecriteria
+We voorzien twee types analyses:
+
++ analyse van getelde aantallen van adulten via transecttelling of gebiedstelling
+
++ analyse van eitellingen voor Gentiaanblauwtje
+
+
+## Criteria voor selectie van tellingen
 
 ```{r}
 
@@ -9,11 +16,10 @@ species_group <- "dagvlinders"
 protocol_selection <- c("Vlinders - Transecten",
                         "Vlinders - Gebiedstelling", 
                         "Vlinders - Gebiedstelling (v1)", 
-                        "Vlinders - Gebiedstelling (mobiel)")
+                        "Vlinders - Gebiedstelling (mobiel)",
+                        "Vlinders - Eitellingen")
 
 name_analysis <- "vlinders"
-
-set.seed(47830)
 
 ```
 
@@ -28,16 +34,32 @@ visits <- get_visits_smp(species_group = species_group) %>%
   filter(protocol %in% protocol_selection) %>%
   mutate(protocol = ifelse(str_detect(protocol, "Gebiedstelling"),
                            "Vlinders - Gebiedstelling",
-                           protocol))
+                           protocol)) %>%
+  mutate(voor_analyse = ifelse((meetnet == "Gentiaanblauwtje") & 
+                                 (bezoek_status %in%  c("Conform protocol", "Weersomstandigheden ongunstig")),
+                               TRUE,
+                               voor_analyse))
 
-counts_all <- get_counts_smp(species_group = species_group, count_aggregation = "individuals")
+counts_all <- bind_rows(
+  get_counts_smp(species_group = species_group, count_aggregation = "individuals"),
+)
+
+
+counts_gb <- read_vc(file = "raw/aantallen_gentiaanblauwtje",
+                     root = fileman_up("soortenmeetnetten-data")) %>%
+  mutate(locatie = ifelse(visit_id %in% c(765, 766),
+                          str_c(locatie, "_buitenplot"),
+                          locatie)) %>%
+  mutate(plant = as.numeric(plant))
 
 counts <-  counts_all %>%
 #   filter(primaire_soort) %>%
-  filter(!niet_geteld)
+  filter(!niet_geteld) %>%
+  bind_rows(counts_gb)
 
 covars <- get_covariates_smp(species_group = species_group) %>%
   filter(protocol %in% protocol_selection) %>%
+  filter(meetnet != "Gentiaanblauwtje") %>%
   select(-eenheid) %>%
   pivot_wider(names_from = "bezoekvariabele", values_from = "waarde") %>%
   mutate(bewolking = factor(bewolking, levels = c("heldere hemel (0/8)", "lichtbewolkt (1 tot 2/8)", "halfbewolkt (3 tot 5/8)", "zwaarbewolkt (6 tot 7/8)", "betrokken (8/8)")),
@@ -53,8 +75,9 @@ covars <- get_covariates_smp(species_group = species_group) %>%
 #          doy_mid_generatie = doy_min_generatie + round((doy_max_generatie - doy_min_generatie)/2, 0)) %>%
 #   distinct(meetnet, protocol, generatie, doy_min_generatie, doy_max_generatie, doy_mid_generatie)
 
+
 count_period <- get_characteristics_smp() %>%
-  mutate(doy_min = as.numeric(format(start_telperiode, "%j")),
+    mutate(doy_min = as.numeric(format(start_telperiode, "%j")),
          doy_max = as.numeric(format(einde_telperiode, "%j"))) %>%
   group_by(meetnet, protocol) %>%
   summarise(doy_min = min(doy_min),
@@ -109,8 +132,8 @@ locaties_niet_actief %>%
 
 ```{r}
 counts_sublocation_selection <- visits_selection %>%
-  select(soortgroep, meetnet, protocol, generatie, locatie, jaar, datum, doy, doy_scaled, doy_min, doy_max, doy_mid,  visit_id, n_obs, voor_analyse, is_active, is_sample, bezoek_status, bezoek_status_oud) %>%
-  left_join(select(counts, visit_id, sublocatie, soort_nl, soort_wet, aantal, niet_geteld, primaire_soort), by = "visit_id") %>%
+  select(soortgroep, meetnet, protocol, generatie, locatie, jaar, datum, doy, doy_scaled, doy_min, doy_max, doy_mid,  visit_id, n_obs, voor_analyse, is_active, is_sample, bezoek_status, bezoek_status_oud, notes) %>%
+  left_join(select(counts, visit_id, sublocatie, soort_nl, soort_wet, aantal, niet_geteld, primaire_soort, plant, stengel, knop), by = "visit_id") %>%
   left_join(covars, by = c("meetnet", "protocol", "visit_id")) %>%
   group_by(meetnet, locatie) %>%
   mutate(aantal_totaal = sum(aantal * primaire_soort)) %>%
@@ -147,11 +170,22 @@ locations_not_sample %>%
  
 
 
-## Transectlengte
+## Tellingen imago's
+
+### Lengte van transecten
+
+De lengte van de transecten speelt een belangrijke rol bij de analyse. De lengte bepaalt de zoekinspanning en wordt daarom als offset gebruikt in het analysemodel.
 
 We berekenen de lengte per sectie op basis van de ingevoerde transecten in de meetnetten.be databank. Indien geen transect werd ingevoerd voor een locatie veronderstellen we dat elke sectie 50 meter meet.
 
-Default worden er in meetnetten.be 20 secties aangemaakt per transect. Secties die niet worden geteld worden op inactief gezet. Maar dit is nog niet bij alle transecten gebeurd. Daarom verwijderen we de secties op het einde van een transect waar er nog geen aantallen werden voor ingevoerd. We gaan er daarbij dus vanuit dat die secties niet geteld werden.  
+Default worden er in meetnetten.be 20 secties aangemaakt per transect. Secties die niet worden geteld worden op inactief gezet. Maar dit is nog niet bij alle transecten gebeurd. 
+
+Daarom verwijderen we de secties:
+
++ waarvoor nog geen aantallen (> 0) werden ingevoerd voor de meetnetsoort of een secundaire soort, EN
++ waarvoor er ook geen aantallen werden ingevoerd voor alle secties die volgen op de sectie in kwestie
+
+We gaan er daarbij dus vanuit dat die secties niet geteld werden.  
 
 ```{r}
 transecten <- get_transects_smp(only_active = FALSE,
@@ -170,6 +204,7 @@ transecten <- get_transects_smp(only_active = FALSE,
 ```{r}
 
 check_secties <- counts_sublocation_selection_sample %>%
+  filter(meetnet != "Gentiaanblauwtje") %>%
   mutate(sublocatie = ifelse(protocol == "Vlinders - Gebiedstelling",
                              "sectie1",
                              sublocatie)
@@ -237,7 +272,8 @@ secties_select <- check_secties %>%
   ungroup() %>%
   mutate(lengte_sectie = ifelse(is.na(lengte_sectie), mean_lengte_sectie, lengte_sectie))
   
- counts_sublocation_selection <- counts_sublocation_selection_sample %>%
+ counts_sublocation_transecten <- counts_sublocation_selection_sample %>%
+   filter(meetnet != "Gentiaanblauwtje") %>%
    mutate(sublocatie = ifelse(protocol == "Vlinders - Gebiedstelling",
                              "sectie1",
                              sublocatie)
@@ -262,7 +298,7 @@ secties_deactiveer2 %>%
   kable_styling()
 ```
 
-
+### Sommering van aantallen over de secties
 
 Om de analyse te vereenvoudigen werken we verder met gesommeerde aantallen over het volledige transect. We gebruiken de lengte van het transect als offset. 
 
@@ -272,14 +308,7 @@ Om de analyse te vereenvoudigen werken we verder met gesommeerde aantallen over 
 
 ```{r}
 
-counts_location_selection <- counts_sublocation_selection %>%
-  filter(primaire_soort) %>%
-  group_by(soortgroep, meetnet, soort_nl, soort_wet, protocol, generatie, locatie, jaar, datum, doy, doy_scaled, doy_min, doy_max, doy_mid, visit_id, n_obs, voor_analyse, is_active, is_sample, bezoek_status, windkracht, temperatuur, bewolking) %>%
-  summarise(aantal = sum(aantal),
-         lengte_transect = sum(lengte_sectie)) %>%
-  ungroup()
-
-analyseset_sublocations <- counts_sublocation_selection %>%
+analyseset_transecten_sublocations <- counts_sublocation_transecten %>%
   filter(primaire_soort) %>%
   mutate(fjaar = factor(jaar),
          locatie = factor(locatie),
@@ -288,11 +317,14 @@ analyseset_sublocations <- counts_sublocation_selection %>%
                             ifelse(doy < 175, "generatie1", "generatie2"),
                             "generatie1"))
 
-analyseset_sublocations_by_species <-  analyseset_sublocations %>%
-  group_by(meetnet) %>%
-  nest()
+counts_location_transecten <- counts_sublocation_transecten %>%
+  filter(primaire_soort) %>%
+  group_by(soortgroep, meetnet, soort_nl, soort_wet, protocol, generatie, locatie, jaar, datum, doy, doy_scaled, doy_min, doy_max, doy_mid, visit_id, n_obs, voor_analyse, is_active, is_sample, bezoek_status, windkracht, temperatuur, bewolking) %>%
+  summarise(aantal = sum(aantal),
+         lengte_transect = sum(lengte_sectie)) %>%
+  ungroup()
 
-analyseset_locations <- counts_location_selection %>%
+analyseset_transecten_locations <- counts_location_transecten %>%
   mutate(fjaar = factor(jaar),
          locatie = factor(locatie),
          doy_scaled_2 = doy_scaled * doy_scaled,
@@ -301,35 +333,136 @@ analyseset_locations <- counts_location_selection %>%
                             ifelse(doy < 175, "generatie1", "generatie2"),
                             "generatie1"))
 
-analyseset_locations_by_species <- analyseset_locations %>%
-  group_by(meetnet) %>%
-  nest()
-
-
 ``` 
 
 
 
 ```{r}
 
-write_vc(analyseset_sublocations, file = str_c("analyseset_sublocations_", name_analysis), 
+name_analysis1 <- "vlinders_imago_sectie"
+
+write_vc(analyseset_transecten_sublocations, file = str_c("analyseset_", name_analysis1), 
        root = here(str_c("analysis_vlinders/output/temp")), 
        sorting = c("meetnet", "locatie", "sublocatie", "visit_id"), 
        strict = FALSE)
 
+name_analysis2 <- "vlinders_imago_transect"
 
-write_vc(analyseset_locations, file = str_c("analyseset_locations_", name_analysis), 
+write_vc(analyseset_transecten_locations, file = str_c("analyseset_", name_analysis2), 
        root = here(str_c("analysis_vlinders/output/temp")), 
        sorting = c("meetnet", "locatie",  "visit_id"), 
        strict = FALSE)
   
 ```
 
+## Eitellingen Gentiaanblauwtje
+
+```{r}
+locaties_hierarchy <- counts_sublocation_selection_sample %>%
+  filter(meetnet == "Gentiaanblauwtje") %>%
+  filter(! visit_id %in% c(765, 766)) %>%
+  distinct(locatie) %>%
+  separate(locatie, sep = ":", into = c("deel1", "deel2"), remove = FALSE) %>%
+  mutate(gebied = str_remove(deel1, "1|2|3"),
+         gebied = str_trim(gebied),
+         subgebied = ifelse(gebied %in% c("Zwart water", "Hageven"),  gebied,
+                            ifelse(gebied == "Kamp Beverlo", str_remove_all(deel2, "1|2|3|10|0"),
+                                   ifelse(gebied == "Groot Schietveld", 
+                                          ifelse(str_detect(locatie, "1|2"), "noord", "centraal"),
+                                          NA))),
+         subgebied = str_trim(subgebied),
+         plot = ifelse(gebied == "Kamp Beverlo", str_extract(deel2, " 10| 2| 3| 1"),
+                       str_extract(deel1, "1|2|3")),
+         plot = ifelse(str_detect(locatie, "buiten"),
+                       str_c(plot, "_buitenplot"),
+                       plot),
+         plot = str_trim(plot)) %>%
+  select(-deel1, -deel2)
+  
+
+counts_gb <- counts_sublocation_selection_sample %>% 
+  filter(meetnet == "Gentiaanblauwtje") %>%
+  left_join(locaties_hierarchy, by = "locatie") %>%
+  filter(gebied != "Hageven")
+```
+
+
+
+
+
+### Locaties
+
+In de meetnetlocaties van Gentiaanblauwtje zit er een bepaalde hiërarchie die van belang is bij de analyse.
+We onderscheiden:
+
++ Gebieden
++ Subgebieden
++ Plots (10m x 10m of 20m x 5m)
+
+Er werden twee tellingen (bezoeken met id's 765 en 766) uitgevoerd waarbij de eitjes buiten de 10m x 10m plot werden geteld, maar nog wel binnen de historsische (grotere plot).
+Deze tellingen gebruiken we niet in de trendanalyse.
+
+Onderstaande tabel geeft een overzicht van de indeling van de meetnetlocaties in gebieden, subgebieden en plots:
+
+```{r}
+locaties_hierarchy %>%
+  kable() %>%
+  kable_styling()
+```
+
+In de plot die in Hageven gelegen is komen er geen eitjes van Gentiaanblauwtje meer voor, maar in andere delen van het gebied worden er nog wel eitjes gevonden.
+Daarom nemen we de tellingen in deze plot niet mee in de analyse.
+
+
+
+
+### Analysevariabelen
+
+
++ Totaal aantal eitjes per plot
++ Totaal aantal planten per plot kan als offset gebruikt worden
++ Proportie van planten die eitjes bevatten als indicatie voor de lokale populatiegrootte
++ Proportie van de knoppen die eitjes bevatten als indicatie voor de lokale populatiegrootte
+
+
+```{r}
+
+analyseset_gb <- counts_gb %>%
+  group_by(meetnet, locatie, gebied, subgebied, plot, visit_id, datum, jaar, bezoek_status, notes, plant, stengel, knop) %>%
+  summarise(n_ei_knop = sum(aantal)) %>%
+  ungroup() %>%
+  group_by(meetnet, locatie, gebied, subgebied, plot, visit_id, datum, jaar, bezoek_status, notes, plant) %>%
+  summarise(n_ei_plant = sum(n_ei_knop),
+            n_knop_metei = sum(n_ei_knop > 0),
+            n_knop_zonderei = sum(n_ei_knop == 0)) %>%
+  ungroup() %>%
+  group_by(meetnet, locatie, gebied, subgebied, plot, visit_id, datum, jaar, bezoek_status, notes) %>%
+  summarise(n_ei_totaal = sum(n_ei_plant),
+            n_knop_metei = sum(n_knop_metei),
+            n_knop_zonderei = sum(n_knop_zonderei),
+            n_plant_metei = sum(n_ei_plant > 0),
+            n_plant_zonderei = sum(n_ei_plant == 0)) %>%
+  ungroup()
+
+```
+
+```{r}
+
+name_analysis3 <- "vlinders_eitelling"
+
+write_vc(analyseset_gb, file = str_c("analyseset_", name_analysis), 
+       root = here(str_c("analysis_vlinders/output/temp")), 
+       sorting = c("meetnet", "locatie", "visit_id"), 
+       strict = FALSE)
+  
+```
 
 
 ## Bewaar analyseset
 
 ```{r}
+
+names_analysis <- c(name_analysis1, name_analysis2, name_analysis3)
 
 mypath <- here(str_c("analysis_vlinders/output/temp"))
 
@@ -338,9 +471,9 @@ hashes <-
         list.files(path = mypath,
             recursive = TRUE)
       )) %>%
-    mutate(name_analysis = name_analysis,
-           version = Sys.Date(),
+    mutate(version = Sys.Date(),
            filename = str_match(filepath, "(.+\\/)*(.+)")[,3],
+           name_analysis = str_sub(filename, start = 12, end = -5),
            md5 = map(filepath, function(x) {
                            file(x) %>% md5 %>% str_c(collapse = '')
                          }) %>% as.character,
@@ -374,25 +507,36 @@ if (!file.exists(file_name)) {
   analysis_hashes <- bind_rows(analysis_hashes,
                                hashes)
   
+  names_analysis <- unique(hashes_new$name_analysis) 
+  
 }
 
 if (new_analysis) {
   
-  new_path <- here(str_c("analysis_vlinders/output/", name_analysis, "_", Sys.Date()))
-  
-  if (!dir.exists(new_path)) {
+  for (name_analysis in names_analysis) {
     
-    dir.create(new_path)
-    file.copy(from = str_c(mypath, "/analyseset_locations_vlinders.tsv"), to = str_c(new_path, "/analyseset_locations_vlinders.tsv"), overwrite = TRUE)
-    file.copy(from = str_c(mypath, "/analyseset_locations_vlinders.yml"), to = str_c(new_path, "/analyseset_locations_vlinders.yml"), overwrite = TRUE)
-    file.copy(from = str_c(mypath, "/analyseset_sublocations_vlinders.tsv"), to = str_c(new_path, "/analyseset_sublocations_vlinders.tsv"), overwrite = TRUE)
-    file.copy(from = str_c(mypath, "/analyseset_sublocations_vlinders.yml"), to = str_c(new_path, "/analyseset_sublocations_vlinders.yml"), overwrite = TRUE)
-  }
+     new_path <- here(str_c("analysis_vlinders/output/", name_analysis, "_", Sys.Date()))
+     
+     if (!dir.exists(new_path)) {
+       
+       dir.create(new_path)
+       
+       file.copy(from = str_c(mypath, "/analyseset_", name_analysis,".tsv"), 
+                 to = str_c(new_path,  "/analyseset_", name_analysis,".tsv"), 
+                 overwrite = TRUE)
+       
+       file.copy(from = str_c(mypath, "/analyseset_", name_analysis,".yml"), 
+                 to = str_c(new_path, "/analyseset_", name_analysis,".yml"), 
+                 overwrite = TRUE)
+       }
+     
+     analysis_hashes %>%
+       write_csv(file_name)
+    }
+  } 
+ 
   
-  analysis_hashes %>%
-    write_csv(file_name)
-  
-}
+ 
 
 ```
 

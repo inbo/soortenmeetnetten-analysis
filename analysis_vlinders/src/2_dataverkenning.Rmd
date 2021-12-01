@@ -1,7 +1,10 @@
 
 # Dataverkenning
 
-## Getelde aantallen
+
+## Tellingen imago's
+
+### GemiddeldeGetelde aantallen
 
 ```{r, fig.cap= "Gemiddeld aantal getelde individuen per jaar", eval=FALSE}
 analyseset_locations %>%
@@ -40,7 +43,7 @@ analyseset_locations %>%
   facet_grid(meetnet ~ jaar, scales = "free_y")
 ```
 
-## Seizoenaliteit
+### Seizoenaliteit
 
 ```{r, fig.height= 6,  fig.cap= "Vergelijking seizoenaliteit via gam-smoother (enkel voor jaren met minstens 18 observaties)"}
 analyseset_locations %>%
@@ -55,7 +58,7 @@ analyseset_locations %>%
   facet_wrap(~ meetnet, scales = "free")
 ```
 
-## Effect weersomstandigheden
+### Effect weersomstandigheden
 
 ```{r, fig.height= 6, fig.cap= "Effect van windkracht op getelde aantallen per 100 meter transectlengte"}
 analyseset_locations %>%
@@ -121,4 +124,98 @@ analyseset_locations_weer %>%
   geom_jitter(alpha = 0.4) +
   facet_wrap(~meetnet)
 ```
+## Eitellingen
 
+
+```{r, fig.cap= "Gemiddeld aantal getelde individuen per jaar", eval=FALSE}
+
+analyseset_gb <- analyseset_gb %>%
+  mutate(n_plant = n_plant_metei + n_plant_zonderei,
+         n_knop = n_knop_metei + n_knop_zonderei,
+         prop_aanwezig_plant = n_plant_metei / (n_plant_metei + n_plant_zonderei),
+         prop_aanwezig_knop = n_knop_metei / (n_knop_metei + n_knop_zonderei),
+         n_ei_per10planten = n_ei_totaal/ n_plant * 10)
+
+
+analyseset_gb_long <- analyseset_gb %>%
+  pivot_longer(cols = c(n_ei_totaal, n_plant, n_knop, prop_aanwezig_plant, prop_aanwezig_knop, n_ei_per10planten), names_to = "variabele", values_to = "waarde") 
+
+analyseset_gb_long %>%
+  ggplot(aes(x= jaar, y = waarde)) +  
+  #geom_point(alpha = 0.6, colour = inbo.grijs) +
+  stat_summary(fun.data = "mean_cl_boot",  alpha = 0.8) +
+  facet_wrap(~ variabele, scale = "free_y") +
+  theme(legend.position = "bottom") +
+  geom_smooth()
+```
+
+
+
+```{r}
+analyseset_gb %>%
+ggplot(aes(x = jaar, y = n_ei_totaal, group = plot, colour = plot)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~gebied + subgebied) +
+  ylab("Totaal aantal eitjes per plot")
+  
+```
+
+
+
+```{r}
+analyseset_gb %>%
+  mutate(prop_aanwezig_plant = n_plant_metei / (n_plant_metei + n_plant_zonderei)) %>%
+  ggplot(aes(x = jaar, y = prop_aanwezig_plant, group = plot, colour = plot)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~gebied + subgebied) +
+  ylab("proportie van de planten die eitjes bevatten per plot")
+  
+```
+
+
+```{r}
+analyseset_gb %>%
+  mutate(prop_aanwezig_knop = n_knop_metei / (n_knop_metei + n_knop_zonderei)) %>%
+  ggplot(aes(x = jaar, y = prop_aanwezig_knop, group = plot, colour = plot)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~gebied + subgebied) +
+  ylab("proportie van de knoppen die eitjes bevatten per plot")
+  
+```
+
+
+
+```{r}
+analyseset_gb %>%
+  mutate(n_planten = n_plant_metei + n_plant_zonderei) %>%
+  ggplot(aes(x = jaar, y = n_planten, group = plot, colour = plot)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~gebied + subgebied) +
+  ylab("aantal planten")
+  
+```
+
+```{r}
+analyseset_gb %>%
+  mutate(subgebied = str_c(gebied, "_", subgebied)) %>%
+  ggplot(aes(x = n_knop, y = n_ei_totaal, colour = subgebied)) +
+  geom_point(alpha = 0.8)
+```
+```{r}
+analyseset_gb %>%
+  mutate(subgebied = str_c(gebied, "_", subgebied)) %>%
+  ggplot(aes(x = n_knop, y = n_ei_totaal, colour = factor(jaar))) +
+  geom_point(alpha = 0.8) +
+  facet_wrap(~subgebied)
+```
+```{r}
+analyseset_gb %>%
+  mutate(subgebied = str_c(gebied, "_", subgebied)) %>%
+  ggplot(aes(x = n_knop, y = n_ei_totaal, colour = subgebied)) +
+  geom_point(alpha = 0.8) +
+  facet_wrap(~jaar)
+```

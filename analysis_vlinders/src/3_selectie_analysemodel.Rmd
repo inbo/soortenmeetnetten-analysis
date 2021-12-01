@@ -40,10 +40,11 @@
 ```
 
 
+## Telling imago's
 
-## Modellering van seizoenaliteit
+### Modellering van seizoenaliteit
 
-### Model voor soort met één generaties
+#### Model voor soort met één generaties
 
 Vergelijking tussen twee manieren om seizoenaliteit te modelleren:
  
@@ -55,7 +56,7 @@ Vergelijking tussen twee manieren om seizoenaliteit te modelleren:
 
 ```{r}
 
-analyseset_species_locations <- analyseset_locations %>%
+analyseset_species_locations <- analyseset_transecten_locations %>%
   filter(meetnet == "Veldparelmoervlinder") %>%
   mutate(fjaar = factor(jaar),
          jaar_scaled = jaar - min(jaar) + 1,
@@ -424,7 +425,7 @@ fast_distribution_check(indexmodel_doyrw2_jaarrw1_iid) %>%
 
 
 
-### Model voor soort met twee generaties
+#### Model voor soort met twee generaties
 
 Bij enkele soorten zijn er twee generaties binnen het seizoen. 
 We vergelijken verschillende manieren om de generatie mee op te nemen in het model:
@@ -782,7 +783,7 @@ bind_rows(trend_generatie) %>%
   kable_styling()
 ```
 
-## Effect weersomstandigheden
+### Effect weersomstandigheden
 
 Voor de Aardbeivlinder vergelijken we modellen met en zonder covariabelen gerelateerd aan het weer.
 
@@ -860,6 +861,152 @@ indexmodel_doy_iid_no_weather$summary.fixed %>%
   kable(digits = 4, caption = "Geschatte parameters voor model zonder covariabelen gerelateerd aan weersomstandigheden") %>%
   kable_styling()
 ```
+
+## Eitellingen Gentiaanblauwtje
+
+```{r}
+analyseset_gb <- analyseset_gb %>%
+  mutate(soort_nl = meetnet,
+         soort_wet = meetnet,
+         subgebied = as.factor(subgebied),
+         plot = str_c(subgebied, "_", plot),
+         plot = as.factor(plot),
+         locatie = as.factor(locatie),
+         jaar_centered = jaar - min(jaar),
+         log_10planten = log(n_plant_metei + n_plant_zonderei)/10) %>%
+  filter(jaar != 2021)
+
+
+indexmodel_locatie_zonder_offset <- inla(n_ei_totaal ~  f(jaar_centered, model = "rw1",
+                                       hyper = list(theta = list(prior = "pc.prec", 
+                                                                 param = c(0.3, 0.05))))  + 
+                             f(locatie, model = "iid", 
+                               hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                           family = "nbinomial",
+                           data = analyseset_gb,
+                           control.compute = list(config = TRUE, waic = TRUE),
+                           control.predictor = list(compute = TRUE))
+
+
+index_locatie_zonder_offset <- derive_index_rw_inla(analyseset_gb, indexmodel_zonder_offset) %>%
+  filter(parameter == "index") %>%
+  mutate(model_offset = "geen offset",
+         model_locatie = "plot",
+         waic = indexmodel_zonder_offset$waic$waic)
+
+indexmodel_subgebied_plot_zonder_offset <- inla(n_ei_totaal ~  f(jaar_centered, model = "rw1",
+                                       hyper = list(theta = list(prior = "pc.prec", 
+                                                                 param = c(0.3, 0.05))))  + 
+                             f(subgebied, model = "iid", 
+                               hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) +
+                             f(plot, model = "iid", 
+                               hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) ,
+                           family = "nbinomial",
+                           data = analyseset_gb,
+                           control.compute = list(config = TRUE, waic = TRUE),
+                           control.predictor = list(compute = TRUE))
+
+index_subgebied_plot_zonder_offset <- derive_index_rw_inla(analyseset_gb,
+                                                    indexmodel_subgebied_plot_zonder_offset) %>%
+  filter(parameter == "index")  %>%
+  mutate(model_offset = "geen offset",
+         model_locatie = "subgebied/plot",
+         waic = indexmodel_subgebied_plot_zonder_offset$waic$waic)
+
+indexmodel_locatie_met_offset <- inla(n_ei_totaal ~  f(jaar_centered, model = "rw1",
+                                       hyper = list(theta = list(prior = "pc.prec", 
+                                                                 param = c(0.3, 0.05))))  + 
+                             f(locatie, model = "iid", 
+                               hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                           family = "nbinomial",
+                           data = analyseset_gb,
+                           offset = log_10planten, 
+                           control.compute = list(config = TRUE, waic = TRUE),
+                           control.predictor = list(compute = TRUE))
+
+
+index_locatie_met_offset <- derive_index_rw_inla(analyseset_gb, indexmodel_locatie_met_offset) %>%
+  filter(parameter == "index")  %>%
+  mutate(model_offset = "offset",
+         model_locatie = "plot",
+         waic = indexmodel_locatie_met_offset$waic$waic)
+
+indexmodel_subgebied_plot_met_offset <- inla(n_ei_totaal ~  f(jaar_centered, model = "rw1",
+                                       hyper = list(theta = list(prior = "pc.prec", 
+                                                                 param = c(0.3, 0.05))))  + 
+                             f(subgebied, model = "iid", 
+                               hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) +
+                             f(plot, model = "iid", 
+                               hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) ,
+                           family = "nbinomial",
+                           data = analyseset_gb,
+                           offset = log_10planten,
+                           control.compute = list(config = TRUE, waic = TRUE),
+                           control.predictor = list(compute = TRUE))
+
+index_subgebied_plot_met_offset <- derive_index_rw_inla(analyseset_gb,
+                                                    indexmodel_subgebied_plot_met_offset) %>%
+  filter(parameter == "index") %>%
+   mutate(model_offset = "offset",
+         model_locatie = "subgebied/plot",
+         waic = indexmodel_subgebied_plot_met_offset$waic$waic)
+```
+
+```{r}
+sigma_rw_est <- indexmodel_subgebied_plot_met_offset$marginals.hyperpar$`Precision for jaar_centered` %>%
+  inla.emarginal(fun = to_sigma)
+
+indexmodel_subgebied_plot_met_offset$summary.random$jaar_centered %>%
+  select(ID, mean, lcl = `0.025quant`, ucl = `0.975quant`) %>%
+  mutate_at(c("mean", "lcl", "ucl"), exp) %>%
+  ggplot(aes(x= ID, y = mean, ymin = lcl, ymax = ucl)) +
+  geom_ribbon(alpha = 0.2) + 
+  geom_line() +
+  labs(title = bquote(sigma ~ " rw1 =" ~ .(round(sigma_rw_est, 3))),
+       x = "jaar", y = "relative effect")
+```
+
+
+```{r}
+
+compare_index <- bind_rows(index_locatie_met_offset,
+          index_locatie_zonder_offset,
+          index_subgebied_plot_zonder_offset,
+          index_subgebied_plot_met_offset) 
+
+```
+
+
+```{r}
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+compare_index %>%
+  filter(mean != 0) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1) %>%
+  mutate(klasse = as.character(classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)),
+         ref_jaar) %>%
+  ggplot(aes(x= jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  facet_grid(model_offset ~ model_locatie) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) 
+```
+
+```{r}
+distinct(compare_index, model_offset, model_locatie, waic) %>%
+  kable() %>%
+  kable_styling()
+```
+
+
 
 ## Informatie per locatie
 
