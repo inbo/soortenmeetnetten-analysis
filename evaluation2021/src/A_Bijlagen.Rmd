@@ -42,3 +42,95 @@ tabel_locaties %>%
             )
             
 ```
+
+
+
+## Tabel met ruwe trends in aantallen per locatie {#h:bijlagetrend}
+
+Onderstaande kaart en tabel toont een ruwe inschatting van de trend in getelde aantallen per locatie. Deze inschatting is enkel gemaakt wanneer aan volgende voorwaarden is voldaan:
+
++ de locaties werden in minstens twee verschillende jaren geteld;
++ er werden minstens vijf tellingen uitgevoerd. 
+
+```{r}
+
+tabel_trend_locatie <- trend_locatie_klasse %>%
+  ungroup() %>%
+  mutate(trend_lcl0.95 = ifelse(se > 100, NA, trend_lcl0.95 ),
+         trend_ucl0.95 = ifelse(se > 100, NA, trend_ucl0.95),
+         klasse = ifelse(se < 100, as.character(klasse), 
+                         ifelse(trend < -95, "--", 
+                                ifelse(trend > 95, "++", NA)))) %>%
+  mutate(trend_show = str_c(round(trend, 1), 
+                            " (", 
+                            ifelse(is.na(trend_lcl0.95), "?", round(trend_lcl0.95, 1)), 
+                            "; ", 
+                            ifelse(is.na(trend_ucl0.95), "?", round(trend_ucl0.95, 1)),
+                            ")"),
+         periode = str_c(year_min, " - ", year_max)) %>%
+  select(soortgroep, meetnet, locatie, protocol, periode, trend = trend_show, klasse)
+
+locaties_trend <- locaties_actief %>%
+  select(meetnet, locatie) %>%
+  st_point_on_surface() %>%
+  inner_join(tabel_trend_locatie, by = c("meetnet", "locatie")) %>%
+  mutate(trend_beschrijving = ifelse(klasse == "++", "sterke toename",
+                                     ifelse(klasse == "--", "sterke afname",
+                                             ifelse(klasse %in% c("+", "+~"), "toename",
+                                                    ifelse(klasse %in% c("-", "-~"), "afname",
+                                                           ifelse(klasse == "~", "stabiel", "onzeker"))))),
+         trend_beschrijving = factor(trend_beschrijving, levels = c("sterke afname", "afname", "stabiel", "toename", "sterke toename", "onzeker")),
+         label_show = str_c(meetnet, " - ", locatie, ": ", trend_beschrijving)) %>%
+  select(soortgroep, meetnet, locatie, periode, "trend (%)" = trend, klasse, "trend beschrijving" = trend_beschrijving, label_show) %>%
+  arrange(soortgroep, meetnet, locatie)
+
+
+
+            
+```
+
+```{r}
+
+factpal <- colorFactor(c(inbo_rood, inbo_steun_donkerroos, inbo_steun_blauw, inbo_lichtgroen, inbo_groen, inbo_grijs),
+                       locaties_trend$`trend beschrijving`)
+
+# Wrap data frame in SharedData
+sd <- SharedData$new(locaties_trend)
+
+# Create a filter input
+
+bscols(filter_select("soortgroep", "Soortgroep", sd, group = ~soortgroep, multiple = FALSE),
+       filter_select("meetnet", "Meetnet", sd, group = ~meetnet),
+       filter_select("trend beschrijving", "Trend", sd, group = ~`trend beschrijving`))
+
+# Use SharedData like a dataframe with Crosstalk-enabled widgets
+
+  leaflet(sd) %>% 
+    addTiles() %>% 
+    addCircleMarkers(color = ~factpal(`trend beschrijving`), 
+                     opacity = 0.8,
+                     popup = ~label_show) %>%
+    addLegend(pal = factpal, values = ~`trend beschrijving`,
+    title = "Trend in getelde aantallen")
+  
+  
+sd %>%
+  datatable(rownames = FALSE,
+            filter = 'top',
+            extensions = c('Buttons', 'Scroller', 'FixedColumns'),
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'pdf', 'csv', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              deferRender = TRUE,
+               scrollY = 400,
+               scrollX = TRUE,
+              columnDefs = list(list(visible=FALSE, targets= c( 0, 7, 8)))
+                   
+              )
+            )
+
+
+
+```
+

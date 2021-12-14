@@ -47,6 +47,7 @@ library(here)
 library(git2rdata)
 library(n2khab)
 library(lubridate)
+library(effectclass)
 
 source("../../src/functions_smp.R")
 
