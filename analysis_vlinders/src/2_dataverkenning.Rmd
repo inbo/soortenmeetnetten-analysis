@@ -7,10 +7,11 @@
 ### GemiddeldeGetelde aantallen
 
 ```{r, fig.cap= "Gemiddeld aantal getelde individuen per jaar", eval=FALSE}
-analyseset_locations %>%
+analyseset_transecten_locations %>%
   ggplot(aes(x= jaar, y = aantal)) +  
   #geom_point(alpha = 0.6, colour = inbo.grijs) +
   stat_summary(fun.data = "mean_cl_boot",  alpha = 0.8) +
+  geom_smooth(method = "gam", method.args = list(family = poisson),formula = y ~ s(x, bs = "cs", k = 4)) +
   facet_wrap(~ soort_nl, scale = "free_y") +
   labs(y = "Aantal getelde individuen", x = "Jaar") +
   theme(legend.position = "bottom") 
@@ -18,10 +19,11 @@ analyseset_locations %>%
 
 ```{r, fig.height = 8, fig.cap = "Gemiddeld aantal getelde individuen per 100 meter transectlengte"}
 
-analyseset_locations %>%
+analyseset_transecten_locations %>%
   ggplot(aes(x= jaar, y = aantal *100/ lengte_transect)) +  
   #geom_point(alpha = 0.6, colour = inbo.grijs) +
   stat_summary(fun.data = "mean_cl_boot",  alpha = 0.8) +
+  geom_smooth(se = FALSE) +
   facet_wrap(~ soort_nl, scale = "free_y", ncol = 3) +
   labs(y = "Aantal getelde individuen per 1000m transect", x = "Jaar") +
   theme(legend.position = "bottom") 
@@ -30,14 +32,14 @@ analyseset_locations %>%
 
 
 ```{r, fig.height = 11, eval=FALSE}
-analyseset_locations %>%
+analyseset_transecten_locations %>%
   ggplot(aes(x = doy, y = aantal, colour = generatie)) +
   geom_point(alpha = 0.6) +
   facet_grid(meetnet ~ jaar, scales = "free_y")
 ```
 
 ```{r, fig.height= 10, fig.cap= "Getelde aantallen per 100 meter transectlengte"}
-analyseset_locations %>%
+analyseset_transecten_locations %>%
   ggplot(aes(x = doy, y = aantal * 100 / lengte_transect, colour = generatie)) +
   geom_point(alpha = 0.6) +
   facet_grid(meetnet ~ jaar, scales = "free_y")
@@ -46,7 +48,7 @@ analyseset_locations %>%
 ### Seizoenaliteit
 
 ```{r, fig.height= 6,  fig.cap= "Vergelijking seizoenaliteit via gam-smoother (enkel voor jaren met minstens 18 observaties)"}
-analyseset_locations %>%
+analyseset_transecten_locations %>%
   group_by(meetnet, jaar) %>%
   filter(n_distinct(visit_id) > 17) %>%
   ungroup() %>%
@@ -61,7 +63,7 @@ analyseset_locations %>%
 ### Effect weersomstandigheden
 
 ```{r, fig.height= 6, fig.cap= "Effect van windkracht op getelde aantallen per 100 meter transectlengte"}
-analyseset_locations %>%
+analyseset_transecten_locations %>%
   mutate(aantal_100m = aantal * 100 / lengte_transect) %>%
   ggplot(aes(x = windkracht, y = aantal_100m)) +
   geom_boxplot() +
@@ -71,7 +73,7 @@ analyseset_locations %>%
 
 
 ```{r, fig.height= 6, fig.cap=  "Effect van bewolking op getelde aantallen per 100 meter transectlengte"}
-analyseset_locations %>%
+analyseset_transecten_locations %>%
   mutate(aantal_100m = aantal * 100 / lengte_transect) %>%
   ggplot(aes(x = bewolking, y = aantal_100m)) +
   geom_boxplot() +
@@ -80,7 +82,7 @@ analyseset_locations %>%
 ```
 
 ```{r, fig.height= 6, fig.cap =  "Effect van temperatuur op getelde aantallen per 100 meter transectlengte"}
-analyseset_locations %>%
+analyseset_transecten_locations %>%
   mutate(aantal_100m = aantal * 100 / lengte_transect) %>%
   ggplot(aes(x = temperatuur, y = aantal_100m)) +
   geom_point(color = "green", alpha = 0.5) +
@@ -91,7 +93,7 @@ analyseset_locations %>%
 Volgend model geeft globaal gezien (voor alle meetnetten samen) enkel een significant effect van bewolking op de getelde aantallen. 
 
 ```{r}
-analyseset_locations_weer <- analyseset_locations %>%
+analyseset_transecten_locations_weer <- analyseset_transecten_locations %>%
   mutate(bewolking_max = as.numeric(str_sub(bewolking, start = -4, end = -4)),
          bewolking_min = ifelse(bewolking_max > 0, as.numeric(str_sub(bewolking, start = -10, end = -10)), 0),
          bewolking_cont = (bewolking_max + bewolking_min)/2/8,
@@ -104,7 +106,7 @@ prec.prior <- list(prec = list(param = c(0.001, 0.001)))
 
 model_conditions <- inla(aantal ~ temperatuur_scaled + temperatuur_2 + windkracht_cont + bewolking_cont + f(meetnet, model = "iid", hyper = prec.prior),
                                       family = "nbinomial",
-                                      data = analyseset_locations_weer,
+                                      data = analyseset_transecten_locations_weer,
                                       offset = log_section_100,
                                       control.compute = list(config = TRUE, waic = TRUE),
                                       control.predictor = list(compute = TRUE))
@@ -115,7 +117,7 @@ model_conditions$summary.fixed %>%
 ```
 
 ```{r, fig.height= 6, fig.cap= "Gecombineerd effect van bewolking en windkaracht op getelde aantallen"}
-analyseset_locations_weer %>%
+analyseset_transecten_locations_weer %>%
   mutate(aantal_100m = aantal * 100 / lengte_transect) %>%
   group_by(meetnet) %>%
   mutate(aantal_100m_scaled = aantal_100m/ max(aantal_100m)) %>%
@@ -127,7 +129,7 @@ analyseset_locations_weer %>%
 ## Eitellingen
 
 
-```{r, fig.cap= "Gemiddeld aantal getelde individuen per jaar", eval=FALSE}
+```{r, fig.cap= "Gemiddeld aantal getelde individuen per jaar"}
 
 analyseset_gb <- analyseset_gb %>%
   mutate(n_plant = n_plant_metei + n_plant_zonderei,
@@ -146,7 +148,7 @@ analyseset_gb_long %>%
   stat_summary(fun.data = "mean_cl_boot",  alpha = 0.8) +
   facet_wrap(~ variabele, scale = "free_y") +
   theme(legend.position = "bottom") +
-  geom_smooth()
+  geom_smooth(se = FALSE)
 ```
 
 
@@ -165,7 +167,6 @@ ggplot(aes(x = jaar, y = n_ei_totaal, group = plot, colour = plot)) +
 
 ```{r}
 analyseset_gb %>%
-  mutate(prop_aanwezig_plant = n_plant_metei / (n_plant_metei + n_plant_zonderei)) %>%
   ggplot(aes(x = jaar, y = prop_aanwezig_plant, group = plot, colour = plot)) +
   geom_point() +
   geom_line() +
@@ -177,8 +178,7 @@ analyseset_gb %>%
 
 ```{r}
 analyseset_gb %>%
-  mutate(prop_aanwezig_knop = n_knop_metei / (n_knop_metei + n_knop_zonderei)) %>%
-  ggplot(aes(x = jaar, y = prop_aanwezig_knop, group = plot, colour = plot)) +
+ ggplot(aes(x = jaar, y = prop_aanwezig_knop, group = plot, colour = plot)) +
   geom_point() +
   geom_line() +
   facet_wrap(~gebied + subgebied) +
@@ -190,8 +190,7 @@ analyseset_gb %>%
 
 ```{r}
 analyseset_gb %>%
-  mutate(n_planten = n_plant_metei + n_plant_zonderei) %>%
-  ggplot(aes(x = jaar, y = n_planten, group = plot, colour = plot)) +
+ ggplot(aes(x = jaar, y = n_plant, group = plot, colour = plot)) +
   geom_point() +
   geom_line() +
   facet_wrap(~gebied + subgebied) +
@@ -212,6 +211,8 @@ analyseset_gb %>%
   geom_point(alpha = 0.8) +
   facet_wrap(~subgebied)
 ```
+
+
 ```{r}
 analyseset_gb %>%
   mutate(subgebied = str_c(gebied, "_", subgebied)) %>%

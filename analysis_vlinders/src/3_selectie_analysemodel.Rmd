@@ -864,18 +864,21 @@ indexmodel_doy_iid_no_weather$summary.fixed %>%
 
 ## Eitellingen Gentiaanblauwtje
 
+### Analyse aantal eitjes
+
+#### Verschil tussen de jaren
+
 ```{r}
 analyseset_gb <- analyseset_gb %>%
-  mutate(soort_nl = meetnet,
+  mutate(fjaar = factor(jaar),
+          soort_nl = meetnet,
          soort_wet = meetnet,
          subgebied = as.factor(subgebied),
          plot = str_c(subgebied, "_", plot),
          plot = as.factor(plot),
          locatie = as.factor(locatie),
          jaar_centered = jaar - min(jaar),
-         log_10planten = log(n_plant_metei + n_plant_zonderei)/10) %>%
-  filter(jaar != 2021)
-
+         log_10planten = log(n_plant_metei + n_plant_zonderei)/10)
 
 indexmodel_locatie_zonder_offset <- inla(n_ei_totaal ~  f(jaar_centered, model = "rw1",
                                        hyper = list(theta = list(prior = "pc.prec", 
@@ -888,11 +891,11 @@ indexmodel_locatie_zonder_offset <- inla(n_ei_totaal ~  f(jaar_centered, model =
                            control.predictor = list(compute = TRUE))
 
 
-index_locatie_zonder_offset <- derive_index_rw_inla(analyseset_gb, indexmodel_zonder_offset) %>%
+index_locatie_zonder_offset <- derive_index_rw_inla(analyseset_gb, indexmodel_locatie_zonder_offset) %>%
   filter(parameter == "index") %>%
   mutate(model_offset = "geen offset",
          model_locatie = "plot",
-         waic = indexmodel_zonder_offset$waic$waic)
+         waic = indexmodel_locatie_zonder_offset$waic$waic)
 
 indexmodel_subgebied_plot_zonder_offset <- inla(n_ei_totaal ~  f(jaar_centered, model = "rw1",
                                        hyper = list(theta = list(prior = "pc.prec", 
@@ -950,6 +953,25 @@ index_subgebied_plot_met_offset <- derive_index_rw_inla(analyseset_gb,
    mutate(model_offset = "offset",
          model_locatie = "subgebied/plot",
          waic = indexmodel_subgebied_plot_met_offset$waic$waic)
+
+
+indexmodel_subgebied_plot_met_offset2 <- inla(n_ei_totaal ~  fjaar  + 
+                             f(subgebied, model = "iid", 
+                               hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) +
+                             f(plot, model = "iid", 
+                               hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) ,
+                           family = "nbinomial",
+                           data = analyseset_gb,
+                           offset = log_10planten,
+                           control.compute = list(config = TRUE, waic = TRUE),
+                           control.predictor = list(compute = TRUE))
+
+index_subgebied_plot_met_offset2 <- derive_index_inla(analyseset_gb,
+                                                    indexmodel_subgebied_plot_met_offset2) %>%
+  filter(parameter == "index") %>%
+   mutate(model_offset = "offset",
+         model_locatie = "subgebied/plot",
+         waic = indexmodel_subgebied_plot_met_offset2$waic$waic)
 ```
 
 ```{r}
@@ -1006,6 +1028,139 @@ distinct(compare_index, model_offset, model_locatie, waic) %>%
   kable_styling()
 ```
 
+```{r}
+
+compare_index2 <- bind_rows(index_subgebied_plot_met_offset %>%
+                              mutate(jaareffect = "rw1"),
+                            index_subgebied_plot_met_offset2 %>%
+                              mutate(jaareffect = "jaar als factor")) 
+
+```
+
+
+```{r}
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+compare_index2 %>%
+  filter(mean != 0) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1) %>%
+  mutate(klasse = as.character(classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)),
+         ref_jaar) %>%
+  ggplot(aes(x= jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  facet_grid(jaareffect ~ model_locatie) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) 
+```
+
+
+
+```{r}
+distinct(compare_index2, jaareffect, model_locatie, waic) %>%
+  kable() %>%
+  kable_styling()
+```
+
+#### Trend
+
+```{r}
+
+analyseset_gb <- analyseset_gb %>%
+  mutate(year_scaled = jaar_centered)
+
+trendmodel_offset <- inla(n_ei_totaal ~  year_scaled  + 
+                             f(subgebied, model = "iid", 
+                               hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) +
+                             f(plot, model = "iid", 
+                               hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) ,
+                           family = "nbinomial",
+                           data = analyseset_gb,
+                           offset = log_10planten,
+                           control.compute = list(config = TRUE, waic = TRUE),
+                           control.predictor = list(compute = TRUE))
+
+trend_offset <- derive_trend(analyseset_gb, trendmodel_offset) %>%
+   mutate(model_offset = "offset",
+         model_locatie = "subgebied/plot",
+         waic = trendmodel_rw1$waic$waic)
+
+trendmodel_geen_offset <- inla(n_ei_totaal ~  year_scaled  + 
+                             f(subgebied, model = "iid", 
+                               hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) +
+                             f(plot, model = "iid", 
+                               hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) ,
+                           family = "nbinomial",
+                           data = analyseset_gb,
+                           control.compute = list(config = TRUE, waic = TRUE),
+                           control.predictor = list(compute = TRUE))
+
+trend_geen_offset <- derive_trend(analyseset_gb, trendmodel_geen_offset) %>%
+   mutate(model_offset = "geen offset",
+         model_locatie = "subgebied/plot",
+         waic = trendmodel_rw1$waic$waic)
+
+```
+
+
+```{r}
+bind_rows(trend_offset,
+          trend_geen_offset) %>%
+  select(model_offset, model_locatie, parameter, mean, lcl_0.90, ucl_0.90) %>%
+  kable() %>%
+  kable_styling()
+```
+
+### Aandeel planten met eitjes
+
+```{r}
+model_propplanten_rw1 <- inla(n_plant_metei ~  f(jaar_centered, model = "rw1",
+                                       hyper = list(theta = list(prior = "pc.prec", 
+                                                                 param = c(0.3, 0.05))))  + 
+                             f(subgebied, model = "iid", 
+                               hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) +
+                             f(plot, model = "iid", 
+                               hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) ,
+                           family = "binomial",
+                           Ntrials = n_plant,
+                           data = analyseset_gb,
+                           control.compute = list(config = TRUE, waic = TRUE),
+                           control.predictor = list(compute = TRUE))
+summary(model_propplanten_rw1)
+
+
+propplanten_rw1 <- derive_index_rw_inla(analyseset_gb,
+                                                    model_propplanten_rw1) %>%
+   mutate(model_jaareffect = "rw1",
+         waic = model_propplanten_rw1$waic$waic)
+
+
+indexmodel_subgebied_plot_met_offset2 <- inla(n_ei_totaal ~  fjaar  + 
+                             f(subgebied, model = "iid", 
+                               hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) +
+                             f(plot, model = "iid", 
+                               hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) ,
+                           family = "nbinomial",
+                           data = analyseset_gb,
+                           offset = log_10planten,
+                           control.compute = list(config = TRUE, waic = TRUE),
+                           control.predictor = list(compute = TRUE))
+
+index_subgebied_plot_met_offset2 <- derive_index_inla(analyseset_gb,
+                                                    indexmodel_subgebied_plot_met_offset2) %>%
+  filter(parameter == "index") %>%
+   mutate(model_offset = "offset",
+         model_locatie = "subgebied/plot",
+         waic = indexmodel_subgebied_plot_met_offset2$waic$waic)
+```
+
 
 
 ## Informatie per locatie
@@ -1029,10 +1184,10 @@ analyseset_species_locations %>%
   theme(legend.position = "bottom") 
 ```
 
-
+### via random slope
 
 ```{r}
-### via random slope
+
 
 analyseset_species_locations <- analyseset_species_locations %>%
   mutate(fjaar = factor(jaar),

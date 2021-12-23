@@ -19,7 +19,6 @@ protocol_selection <- c("Vlinders - Transecten",
                         "Vlinders - Gebiedstelling (mobiel)",
                         "Vlinders - Eitellingen")
 
-name_analysis <- "vlinders"
 
 ```
 
@@ -450,7 +449,7 @@ analyseset_gb <- counts_gb %>%
 
 name_analysis3 <- "vlinders_eitelling"
 
-write_vc(analyseset_gb, file = str_c("analyseset_", name_analysis), 
+write_vc(analyseset_gb, file = str_c("analyseset_", name_analysis3), 
        root = here(str_c("analysis_vlinders/output/temp")), 
        sorting = c("meetnet", "locatie", "visit_id"), 
        strict = FALSE)
@@ -497,7 +496,7 @@ if (!file.exists(file_name)) {
 
 } else {
   
-  analysis_hashes <- read_csv(file_name)
+  analysis_hashes <- read_csv2(file_name)
   
   hashes_new <- hashes %>%
     anti_join(analysis_hashes, by = c("name_analysis", "filename", "md5", "sha256"))
@@ -531,7 +530,7 @@ if (new_analysis) {
        }
      
      analysis_hashes %>%
-       write_csv(file_name)
+       write_csv2(file_name)
     }
   } 
  
