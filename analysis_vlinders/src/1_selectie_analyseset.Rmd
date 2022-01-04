@@ -171,7 +171,26 @@ locations_not_sample %>%
 
 ## Tellingen imago's
 
-### Lengte van transecten
+### Gebiedstellingen
+
+```{r}
+analyseset_gebied <- counts_sublocation_selection_sample %>%
+  filter(protocol == "Vlinders - Gebiedstelling") %>%
+  filter(primaire_soort) %>%
+  mutate(fjaar = factor(jaar),
+         locatie = factor(locatie),
+         doy_scaled_2 = doy_scaled * doy_scaled)
+
+name_analysis0 <- "vlinders_imago_gebied"
+
+write_vc(analyseset_gebied, file = str_c("analyseset_", name_analysis0), 
+       root = here(str_c("analysis_vlinders/output/temp")), 
+       sorting = c("meetnet", "locatie", "sublocatie", "visit_id"), 
+       strict = FALSE)
+```
+
+
+### Transecttellingen
 
 De lengte van de transecten speelt een belangrijke rol bij de analyse. De lengte bepaalt de zoekinspanning en wordt daarom als offset gebruikt in het analysemodel.
 
@@ -203,11 +222,7 @@ transecten <- get_transects_smp(only_active = FALSE,
 ```{r}
 
 check_secties <- counts_sublocation_selection_sample %>%
-  filter(meetnet != "Gentiaanblauwtje") %>%
-  mutate(sublocatie = ifelse(protocol == "Vlinders - Gebiedstelling",
-                             "sectie1",
-                             sublocatie)
-         ) %>%
+  filter(protocol == "Vlinders - Transecten") %>%
   group_by(meetnet, protocol, locatie, sublocatie, is_sample) %>%
   summarise(n_visits = n_distinct(visit_id),
             aantal_primair = sum(aantal * primaire_soort),
@@ -297,7 +312,7 @@ secties_deactiveer2 %>%
   kable_styling()
 ```
 
-### Sommering van aantallen over de secties
+#### Sommering van aantallen over de secties
 
 Om de analyse te vereenvoudigen werken we verder met gesommeerde aantallen over het volledige transect. We gebruiken de lengte van het transect als offset. 
 
@@ -337,6 +352,8 @@ analyseset_transecten_locations <- counts_location_transecten %>%
 
 
 ```{r}
+
+
 
 name_analysis1 <- "vlinders_imago_sectie"
 
@@ -461,7 +478,7 @@ write_vc(analyseset_gb, file = str_c("analyseset_", name_analysis3),
 
 ```{r}
 
-names_analysis <- c(name_analysis1, name_analysis2, name_analysis3)
+names_analysis <- c(name_analysis0, name_analysis1, name_analysis2, name_analysis3)
 
 mypath <- here(str_c("analysis_vlinders/output/temp"))
 
@@ -472,7 +489,7 @@ hashes <-
       )) %>%
     mutate(version = Sys.Date(),
            filename = str_match(filepath, "(.+\\/)*(.+)")[,3],
-           name_analysis = str_sub(filename, start = 12, end = -5),
+           name_analysis = str_extract(filename, str_c(names_analysis, collapse =  "|")),
            md5 = map(filepath, function(x) {
                            file(x) %>% md5 %>% str_c(collapse = '')
                          }) %>% as.character,
@@ -484,9 +501,10 @@ hashes <-
            version,
            filename,
            md5,
-           sha256)
+           sha256) %>%
+  filter(str_detect(filename, "analyseset"))
 
-file_name <- here(str_c("analysis_vlinders/output/analysis_hashes.csv"))
+file_name <- here(str_c("analysis_vlinders/output/analysis_hashes.tsv"))
 
 if (!file.exists(file_name)) {
   
@@ -496,7 +514,7 @@ if (!file.exists(file_name)) {
 
 } else {
   
-  analysis_hashes <- read_csv2(file_name)
+  analysis_hashes <- read_vc(file = "analysis_hashes", root = here("analysis_vlinders/output/"))
   
   hashes_new <- hashes %>%
     anti_join(analysis_hashes, by = c("name_analysis", "filename", "md5", "sha256"))
@@ -514,7 +532,7 @@ if (new_analysis) {
   
   for (name_analysis in names_analysis) {
     
-     new_path <- here(str_c("analysis_vlinders/output/", name_analysis, "_", Sys.Date()))
+     new_path <- here(str_c("analysis_vlinders/output/analyseset/", name_analysis, "_", Sys.Date()))
      
      if (!dir.exists(new_path)) {
        
@@ -529,9 +547,12 @@ if (new_analysis) {
                  overwrite = TRUE)
        }
      
-     analysis_hashes %>%
-       write_csv2(file_name)
-    }
+     
+  }
+  
+  analysis_hashes %>%
+       write_vc(file = "analysis_hashes", root = here("analysis_vlinders/output/"), sorting = c("name_analysis", "version", "filename"), strict = FALSE)
+  
   } 
  
   

@@ -1017,6 +1017,8 @@ derive_index_rw_sample <- function(sample) {
   return(s)
 }
 
+
+
 derive_index_rw_inla <- function(analyseset_species, inlamodel_rw, set_seed = 0) {
   
   set.seed(set_seed)
@@ -1050,6 +1052,61 @@ derive_index_rw_inla <- function(analyseset_species, inlamodel_rw, set_seed = 0)
   
 }
 
+derive_prob_rw_inla <- function(analyseset_species, inlamodel_rw, set_seed = 0) {
+  
+  set.seed(set_seed)
+  
+  samples <- inla.posterior.sample(1000, inlamodel_rw , seed = set_seed,num.threads="1:1")
+  
+  quantile_values <- c(0.025, 0.05, 0.20, 0.35,  0.65, 0.80, 0.95, 0.975)
+  
+  estimates_jaar <- map_df(samples, derive_prob_rw_sample, .id = "sample") %>%
+    group_by(parameter, jaar_centered) %>%
+    mutate(mean = mean(value),
+           sd = sd(value)) %>%
+    ungroup() %>%
+    group_by(parameter, jaar_centered, mean, sd) %>%
+    summarise(qs = quantile(value, quantile_values, na.rm =TRUE), prob = quantile_values) %>%
+    ungroup() %>%
+    mutate(l_u = ifelse(prob < 0.5, "lcl", "ucl"),
+           ci = ifelse(prob %in% c(0.025, 0.975), "0.95",
+                       ifelse(prob %in% c(0.05, 0.95), "0.90",
+                              ifelse(prob %in% c(0.20, 0.80), "0.60",
+                                     ifelse(prob %in% c(0.35, 0.65), "0.30", NA)))),
+           type = str_c(l_u, "_", ci)) %>%
+    select(-prob, -l_u, -ci) %>%
+    spread(key = type, value = qs)  %>%
+    mutate(soort_nl = unique(analyseset_species$soort_nl),
+           soort_wet = unique(analyseset_species$soort_wet),
+           ref_jaar = min(analyseset_species$jaar),
+           jaar = ref_jaar + jaar_centered -1) %>%
+    select(parameter, soort_nl, soort_wet, jaar, ref_jaar, everything())
+  
+  
+}
+
+
+derive_prob_rw_sample <- function(sample) {
+  
+  s <- sample$latent %>%
+    as.data.frame() %>%
+    rownames_to_column(var = "parameter") %>%
+    filter(str_sub(parameter, 1, 4) == "jaar") %>%
+    separate(col = parameter, into = c("var", "jaar_centered"), sep = ":") %>%
+    mutate(jaar_centered = as.numeric(jaar_centered)) %>%
+    select(-var)
+  
+  colnames(s)[2] <- "sample_value"
+  
+  ref_value <- s[s$jaar_centered == 1, "sample_value"]
+  
+  s <- s %>%
+    mutate(prob = plogis(sample_value)) %>%
+    pivot_longer(cols = -jaar_centered,
+                 names_to = "parameter", values_to = "value" )
+  
+  return(s)
+}
 
 derive_diff_years_inla <- function(analyseset_species) {
   
