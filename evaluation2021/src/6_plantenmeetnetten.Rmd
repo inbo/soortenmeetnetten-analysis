@@ -128,8 +128,7 @@ overzicht_planten %>%
 ```
 
 ```{r}
-extra_tellingen <-  read_vc(file = "processed/data_plantenmeetnetten_2020", root = fileman_up("soortenmeetnetten-data")) %>%
-  filter(is.na(visit_id)) %>%
+extra_tellingen <-  read_csv2(file.path(path, "plantenmeetnetten_extra_2021.csv")) %>%
   filter(locatie != "" & !is.na(locatie)) %>%
   group_by(meetnet) %>%
   summarise(locaties_geteld = n_distinct(locatie)) %>%
@@ -296,5 +295,90 @@ bezoeken_dubbels_soortgroep %>%
   )
   
 ```
+
+
+
+
+### Verschillende tellers/jaar/locatie
+
+```{r}
+# aantallen_planten <- st_read(dsn = file.path(fileman_up("soortenmeetnetten-data"), "raw/planten_puntlocaties.gpkg"), crs = 4326)
+# 
+# aantallen_planten <- aantallen_planten %>%
+#   mutate(jaar = year(datum)) %>%
+#   group_by(meetnet, jaar, locatie) %>%
+#   mutate(n_tellers_jaar = n_distinct(waarnemer)) %>%
+#   ungroup()
+# 
+# aantallen_planten_check <- aantallen_planten %>%
+#   filter(n_tellers_jaar > 1) %>%
+#   filter(jaar == year_evaluation)
+# 
+# bezoeken_herhaling <-  bezoeken   %>%
+#   filter(soortgroep == "planten") %>%
+#   filter(jaar == year_evaluation) %>%
+#   group_by(meetnet, locatie, jaar) %>%
+#   summarise(n_bezoeken_jaar = n_distinct(datum),
+#             n_waarnemers_jaar = n_distinct(hoofdteller),
+#             waarnemers = str_c(unique(hoofdteller), collapse = "; ")) %>%
+#   ungroup() %>%
+#   filter(n_bezoeken_jaar > 1)
+
+
+bezoeken_herhaling2 <- aantallen_planten_bezoek %>%
+    mutate(jaar = year(datum)) %>%
+   filter(jaar == year_evaluation) %>%
+  group_by(meetnet, locatie, jaar) %>%
+  mutate(n_bezoeken_jaar = n_distinct(datum),
+          n_waarnemers_jaar = n_distinct(hoofdteller)) %>%
+  ungroup() %>%
+  filter(n_bezoeken_jaar > 1, n_waarnemers_jaar > 1)
+
+write_csv2(bezoeken_herhaling2, "../output/locaties_verschillende_waarnemers.csv")
+
+# aantallen_planten_mn_check_herhaling <- get_counts_smp(species_group = "planten") %>%
+#   filter(puntlocatie == 1) %>%
+#   filter(validatie != -1) %>%
+#   mutate(hoofdteller = str_c(first_name, " ", last_name)) %>%
+#   mutate(bron = "meetnetten.be") %>%
+#   semi_join(bezoeken_herhaling2, by = "visit_id")
+# 
+# 
+# aantallen_planten_check_herhaling <- read_vc(file = "data_waarnemingen_migratie2021", root = path) %>%
+#   semi_join(bezoeken_herhaling2, by = "visit_id") %>%
+#   st_as_sf(coords = c("x_coord", "y_coord"), crs = 31370) %>%
+#   st_transform(crs = 4326)
+
+
+aantallen_planten_check_herhaling <- read_csv2("C:/Users/toon_westra/Rprojecten/soortenmeetnetten-data/processed/data_planten_2021.csv") %>%
+  semi_join(bezoeken_herhaling2, by = "visit_id") %>%
+  arrange(meetnet, locatie, hoofdteller, datum) %>%
+  st_as_sf(coords = c("x", "y"), crs = 31370)
+
+st_write(aantallen_planten_check_herhaling, "../output/check_planten.gpkg", "planten_meerdere_waarnemers", delete_layer = TRUE)
+```
+
+```{r}
+
+bezoeken_herhaling2 %>%
+  select(meetnet, locatie, datum, visit_id, hoofdteller, n_waarnemers_jaar, floroncode = code_all) %>%
+  arrange(meetnet, locatie, datum) %>%
+  filter(n_waarnemers_jaar > 1) %>%
+  datatable(
+        rownames = FALSE,
+        filter = 'top',
+        extensions = c('Buttons', 'Scroller'),
+        options = list(
+          dom = 'Bfrtip',
+          buttons = c('copy', 'excel'),
+          language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+          deferRender = TRUE,
+          autoWidth = TRUE,
+          columnDefs = list(list(width = '15%', targets = c(1)))
+          )
+  )
+  
+```
+
 
 

@@ -49,9 +49,9 @@ In Tabel \@ref(tab:overzichtTellingenzoogdieren1) evalueren we de jaardoelen. In
 tabel_rapport %>%
   arrange(meetnet) %>%
    filter(soortgroep %in% soortgroep_sel,
-          jaar == year_evaluation) %>%
+          jaar == year_evaluation | jaar == str_c(year_evaluation - 1, " - ", year_evaluation)) %>%
   filter(type_locatie == "Meetnetlocatie") %>%
-  select(meetnet, protocol, "aantal locaties", jaardoel, "doelbereik jaar (%)", "tellingen conform protocol", "tellingen niet uitvoerbaar",  "locaties voldoende geteld - totaal", "oppervlakte geteld") %>%
+  select(meetnet, protocol, "aantal locaties", telseizoen = jaar, jaardoel, "doelbereik jaar (%)", "tellingen conform protocol", "tellingen niet uitvoerbaar",  "locaties voldoende geteld - totaal", "oppervlakte geteld") %>%
   kable(caption = "Evaluatie van de jaardoelen", 
         align = c("l", "l", "l","c","c", "c", "c", "c", "c", "c", "c")) %>%
  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),

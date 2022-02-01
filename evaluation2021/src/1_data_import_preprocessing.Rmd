@@ -101,9 +101,6 @@ check <- bezoeken %>%
 
 # overzicht uitgevoerde bezoeken
 overzicht_taken_uitgevoerd <- bezoeken %>%
-  # mutate(jaardoel = ifelse(meetnet == "Boomkikker" & str_sub(locatie, 1, 7) == "Merkske", FALSE, jaardoel)) %>% #NOG AANPASSEN IN MEETNETTEN.BE
-  # mutate(jaardoel = ifelse(meetnet == "Kamsalamander" & locatie %in% c("Antitankgracht Haacht - Poel 15", "De Brand - Poel 6", "Vallei van de Mark - Poel 1"), TRUE, jaardoel)) %>% #NOG AANPASSEN IN MEETNETTEN.BE
-  #  mutate(jaardoel = ifelse(meetnet == "Kamsalamander" & locatie %in% c("Antitankgracht Haacht - Poel 16", "De Brand - Poel n31", "Lo-Relinge - Poel 3"), FALSE, jaardoel)) %>%
   # mutate(jaardoel = ifelse(meetnet == "Gentiaanblauwtje", TRUE, jaardoel)) %>% #NOG aanpasen in Meetnetten.be
   group_by(soortgroep,  meetnet, protocol, jaar, locatie, taak, bezoek_status, jaardoel) %>%
   summarise(aantal_tellingen = n()) %>%
@@ -127,8 +124,11 @@ overzicht_locaties <- overzicht_taken_uitgevoerd_wide %>%
   # mutate(aantal_taken_nu = ifelse(is.na(aantal_taken_nu ),0, aantal_taken_nu)) %>%
   # mutate(aantal_taken_nu = ifelse(jaar >= 2018, aantal_tellingen_gvm, aantal_taken_nu)) %>%
   left_join(metadata_overzicht, by = c("meetnet","protocol")) %>% #vanaf 2018 rekenen we het aantal tellingen 'geen veldwerk mogelijk' mee 
-  mutate(meetcyclus = ceiling((jaar - opstartjaar + 1)/duur_meetcyclus),
+  mutate(meetcyclus = ifelse(meetnet == "Kamsalamander", 
+                             ifelse(jaar == opstartjaar, 1, ceiling((jaar - opstartjaar )/duur_meetcyclus)),
+                             ceiling((jaar - opstartjaar + 1)/duur_meetcyclus)),
          jaar_in_meetcyclus = (jaar - opstartjaar + 1) - (meetcyclus - 1) * duur_meetcyclus,
+         jaar_in_meetcyclus = ifelse(meetnet == "Kamsalamander", (jaar - opstartjaar) - (meetcyclus - 1) * duur_meetcyclus + (meetcyclus == 1), jaar_in_meetcyclus),
          is_sample = ifelse(is.na(is_sample), FALSE, is_sample),
          is_sample_history = ifelse(is.na(is_sample_history), TRUE, is_sample_history), #enkele bezoeken voor gedelete locaties
          is_active = ifelse(is.na(is_active), FALSE, is_active))
@@ -163,41 +163,6 @@ evaluatie_locaties <- evaluatie_locaties %>%
 
 ```
 
-```{r checkkam}
-
-# taken_locaties <- taken %>%
-#   group_by(meetnet, locatie) %>%
-#   summarise(taaklocatie = 1,
-#             wp = str_c(unique(werkpakket), collapse = " - ")) %>%
-#   ungroup()
-# 
-# evaluatie_locaties_check <- evaluatie_locaties %>%
-#   left_join(taken_locaties, by = c("meetnet", "locatie")) %>%
-#   mutate(taaklocatie = ifelse(is.na(taaklocatie), 0, taaklocatie)) %>%
-#   filter(meetnet == "Kamsalamander") %>%
-#   select(meetnet, protocol, locatie, is_sample, is_sample_history, jaar, aantal_tellingen_cp, aantal_tellingen_gvm, voldoende_geteld, taaklocatie, wp) %>%
-#   filter(is_sample_history == 0, 
-#          taaklocatie == 1,
-#          voldoende_geteld == 1) %>%
-#   filter(!(wp == "veldwerk 2017" & jaar > 2017)) 
-
-steekproeflocaties_kamsalamander_oud <- taken %>%
-  filter(meetnet == "Kamsalamander") %>%
-  filter(werkpakket == "veldwerk 2017") %>%
-  distinct(werkpakket, locatie)
-
-check_extra <- evaluatie_locaties %>%
-  filter(meetnet == "Kamsalamander") %>%
-  filter(voldoende_geteld == 1) %>%
-  filter(locatie %in% steekproeflocaties_kamsalamander_oud$locatie) %>%
-  # filter(!is_sample) %>%
-  filter(jaar == 2017)
-           
-evaluatie_locaties <- evaluatie_locaties %>%
-  mutate(is_sample_history = ifelse((meetnet == "Kamsalamander") & 
-                                      (locatie %in% steekproeflocaties_kamsalamander_oud$locatie) &
-                                      (jaar == 2017), 1, is_sample_history))
-```
 
 
 ```{r}
@@ -240,11 +205,13 @@ check <- overzicht_meetnetten %>%
 
 ```{r}
 aantallen_planten_bezoek <- get_counts_smp(species_group = "planten") %>%
-   mutate(locatie = ifelse(locatie == "Dolaag (d5-56-41)", "Walenbos - Dolaag (d5-56-41)", locatie)) %>% #AAN TE PASSEN in MEETNETTEN
+   # mutate(locatie = ifelse(locatie == "Dolaag (d5-56-41)", "Walenbos - Dolaag (d5-56-41)", locatie)) %>% #AAN TE PASSEN in MEETNETTEN
   filter(puntlocatie == 1) %>%
   filter(validatie != -1) %>%
-  group_by(meetnet, locatie, datum, visit_id, track) %>%
-  summarise(n_puntlocaties = n()) %>%
+  mutate(hoofdteller = str_c(first_name, " ", last_name)) %>%
+  group_by(meetnet, locatie, datum, visit_id, track, hoofdteller) %>%
+  summarise(n_puntlocaties = n(),
+            code_all = str_c(code, collapse = "-")) %>%
   ungroup() %>%
   mutate(bron = "meetnetten.be")
 
@@ -253,14 +220,17 @@ path <- file.path(fileman_up("soortenmeetnetten-data"), "output/contole_plantend
 
 path <- "C:/Users/toon_westra/Rprojecten/soortenmeetnetten-data/output/controle_plantendata"
 
-aantallen_planten_extern <- read_vc(file = "data_waarnemingen_2021", root = path) %>%
+aantallen_planten_extern <- read_vc(file = "data_waarnemingen_migratie2021", root = path) %>%
   filter(!is.na(visit_id)) %>%
+  filter(!is.na(floroncode)) %>%
   filter(! visit_id %in% aantallen_planten_bezoek$visit_id) %>%
   group_by(meetnet, locatie, datum, visit_id) %>%
-  summarise(n_puntlocaties = n_distinct(x_coord)) %>%
+  summarise(n_puntlocaties = n_distinct(x_coord),
+            code_all = str_c(floroncode, collapse = "-")) %>%
   ungroup() %>%
   mutate(bron = "waarnemingen.be",
-         track = FALSE)
+         track = FALSE) %>%
+  inner_join(select(bezoeken, visit_id, hoofdteller), by = "visit_id")
 
 aantallen_planten_bezoek <- bind_rows(aantallen_planten_bezoek,
                                aantallen_planten_extern)
@@ -269,7 +239,7 @@ bezoeken_planten <- bezoeken %>%
   filter(soortgroep == "planten") %>%
    # mutate(locatie = ifelse(locatie == "Dolaag (d5-56-41)", "Walenbos - Dolaag (d5-56-41)", locatie)) %>% #AAN TE PASSEN in MEETNETTEN
   left_join(locaties_metadata, by = c("meetnet", "locatie")) %>%
-  left_join(aantallen_planten_bezoek, by = c("meetnet", "locatie", "datum", "visit_id")) %>%
+  left_join(select(aantallen_planten_bezoek, - hoofdteller), by = c("meetnet", "locatie", "datum", "visit_id")) %>%
   mutate(type_data = ifelse(is.na(track), "telling_nt_ingevoerd",
                             ifelse(track, "met_track", "zonder_track"))) %>%
   mutate(n_puntlocaties = ifelse(is.na(n_puntlocaties), 0, n_puntlocaties))
@@ -357,8 +327,15 @@ overzicht_todo_planten <- overzicht_alle_locaties_planten %>%
   filter(is.na(jaar)) %>%
   select(meetnet, locatie)
 
-write.csv2(overzicht_todo_planten, "../output/planten_todo_meetcyclus2.csv", row.names = FALSE)
+overzicht_todo_planten_met_bezoeken <- bezoeken_planten %>%
+  filter(jaar >= 2019) %>%
+  semi_join(overzicht_todo_planten, by = c("meetnet", "locatie")) %>%
+  anti_join(overzicht_locaties_planten, by = c("meetnet", "locatie"))
 
+overzicht_todo_planten <- overzicht_todo_planten %>%
+  mutate(bezoek_meetnetten = ifelse(locatie %in% overzicht_todo_planten_met_bezoeken$locatie, "ja", "nee"))
+
+write.csv2(overzicht_todo_planten, "../output/planten_todo_meetcyclus2.csv", row.names = FALSE)
 
 overzicht_bezoeken_planten <- bezoeken_planten %>%
   filter(jaar == year_evaluation) %>%
@@ -381,22 +358,28 @@ burchten_das <- data_extern %>%
   group_by(jaar, locatie, gebied) %>%
   summarise(aantal_tellingen_cp = n()) %>%
   ungroup() %>%
+  bind_rows(data.frame(jaar = 2021,
+                       locatie = "burcht_dummy",
+                       gebied = c("Haspengouw", "Voeren"),
+                       aantal_tellingen_cp = 0)) %>%
   mutate(soortgroep = "zoogdieren",
          meetnet = "Das",
          protocol = "Inhaalslag",
-         voldoende_geteld = 1) %>%
-  group_by(locatie, gebied) %>%
-  mutate(voldoende_geteld_cyclus = 1,
-         voldoende_geteld_nieuw = ifelse(rank(jaar) == 1, 1, 0)) %>%
+         voldoende_geteld = ifelse(locatie == "burcht_dummy", 0, 1),
+         meetcyclus = ifelse(jaar <= 2018, 1, 2),
+         jaar_in_meetcyclus = (jaar + 1 - min(jaar)) - 3 * (meetcyclus- 1)) %>%
+  group_by(locatie, gebied, meetcyclus) %>%
+  mutate(voldoende_geteld_cyclus = ifelse(locatie == "burcht_dummy", 0, 1),
+         voldoende_geteld_nieuw = ifelse(rank(jaar) == 1, ifelse(locatie == "burcht_dummy", 0, 1), 0)) %>%
   ungroup()
 
 overzicht_meetnet_das <- burchten_das %>%
-  group_by(soortgroep, meetnet, protocol, jaar, gebied) %>%
+  group_by(soortgroep, meetnet, protocol, jaar, gebied, meetcyclus, jaar_in_meetcyclus) %>%
   summarise(aantal_voldoende_geteld = sum(voldoende_geteld),
             aantal_voldoende_geteld_nieuw = sum(voldoende_geteld_nieuw),
             aantal_tellingen_cp = sum(aantal_tellingen_cp)) %>%
   ungroup() %>%
-  group_by(soortgroep, meetnet, protocol, gebied) %>%
+  group_by(soortgroep, meetnet, protocol, gebied, meetcyclus) %>%
   mutate(aantal_voldoende_geteld_cyclus = sum(aantal_voldoende_geteld_nieuw)) %>%
   ungroup() %>%
   mutate(is_sample_history = 1,
@@ -413,7 +396,7 @@ data_extra <- read.csv2("../data/overzicht_soorten_buiten_mn.csv", stringsAsFact
   rename(is_sample_history = steekproeflocatie) %>%
   #left_join(meetnetten_metadata, by = c("meetnet", "is_sample_history")) %>%
   rename(aantal_tellingen_gvm = aantal_taken_nu) %>%
-  mutate(aantal_tellingen_jaardoel = aantal_tellingen_cp)
+  mutate(aantal_tellingen_jaardoel = aantal_tellingen_cp + aantal_tellingen_gvm)
 
 overzicht_meetnetten_all <- overzicht_meetnetten %>%
   mutate(is_sample_history = as.integer(is_sample_history)) %>%
@@ -445,6 +428,8 @@ doelbereik_jaar_totaal <- overzicht_meetnetten_all_doel %>%
   summarise(doelbereik_totaal = sum(aantal_eenheid_doel * doelbereik_jaar_m) / sum(aantal_eenheid_doel)) %>%
   ungroup()
 
+write.csv2(doelbereik_jaar_totaal, "../output/doelbereik_jaar_totaal.csv")
+
 doelbereik_cyclus_totaal <- overzicht_meetnetten_all_doel %>%
   filter(jaar_in_meetcyclus == duur_meetcyclus) %>%
   filter(!is.na(doelbereik_cyclus)) %>%
@@ -452,6 +437,7 @@ doelbereik_cyclus_totaal <- overzicht_meetnetten_all_doel %>%
   summarise(doelbereik_totaal = sum(cyclusdoel * doelbereik_cyclus_m) / sum(cyclusdoel)) %>%
   ungroup()
   
+write.csv2(doelbereik_cyclus_totaal, "../output/doelbereik_cyclus_totaal.csv")
 
 ```
 
@@ -475,7 +461,8 @@ tabel_rapport <- overzicht_meetnetten_all_doel %>%
          doelbereik_jaar = round(doelbereik_jaar, 0),
          doelbereik_cyclus = round(doelbereik_cyclus, 0),
          type_locatie = ifelse(is_sample_history == 1, "Meetnetlocatie", "Extra locatie" ),
-         jaar_i_n = str_c(jaar_in_meetcyclus, "/", duur_meetcyclus) ) %>%
+         jaar_i_n = str_c(jaar_in_meetcyclus, "/", duur_meetcyclus) ,
+         jaar = ifelse(meetnet == "Otter", str_c(jaar - 1, " - ", jaar), as.character(jaar))) %>%
   arrange(desc(type_locatie), soortgroep, protocol, meetnet)   %>%
   select(soortgroep, meetnet, protocol, jaar, type_locatie, duur_meetcyclus,
          jaar_in_meetcyclus,
@@ -485,6 +472,7 @@ tabel_rapport <- overzicht_meetnetten_all_doel %>%
          "doel meetcyclus" = cyclusdoel,
          "tellingen conform protocol" = aantal_tellingen_cp,
          "tellingen niet uitvoerbaar" = aantal_tellingen_gvm,
+         "locaties geteld" = aantal_locatie_geteld,
          "locaties voldoende geteld - totaal" = aantal_voldoende_geteld,
          "locaties voldoende geteld - nieuw" = aantal_voldoende_geteld_nieuw,
          "locaties voldoende geteld - cyclus" = aantal_voldoende_geteld_cyclus,
@@ -499,7 +487,8 @@ tabel_rapport <- overzicht_meetnetten_all_doel %>%
 ```{r}
 tabel_stuurgroep <- overzicht_meetnetten_all_doel %>% 
   anti_join(meetnetten_niet_actief, by = c("meetnet", "protocol")) %>%
-  filter(jaar == year_evaluation) %>%
+  filter(jaar == year_evaluation | jaar == str_c(year_evaluation - 1, " - ", year_evaluation)) %>%
+  filter(meetnet != "Vleermuizen - Wintertellingen") %>%
   #filter((jaardoel > 0 & !is.na(jaardoel)) | cyclusdoel > 0 | is_sample_history == 0 ) %>%
   mutate(Jaardoel = ifelse(is_sample_history == 1, 
                            jaardoel,
@@ -508,6 +497,7 @@ tabel_stuurgroep <- overzicht_meetnetten_all_doel %>%
                              cyclusdoel,
                              ""),
          doelbereik_jaar = round(doelbereik_jaar, 0),
+         doelbereik_jaar = ifelse(Jaardoel == 0, NA, doelbereik_jaar),
          eenheid_cyclus = ifelse(is_sample_history == 1,
                              "locaties",
                              ""),

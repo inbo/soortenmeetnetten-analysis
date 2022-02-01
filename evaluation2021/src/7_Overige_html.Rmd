@@ -52,7 +52,7 @@ tabel_rapport %>%
    filter(soortgroep %in% soortgroep_sel,
           jaar == year_evaluation) %>%
   filter(type_locatie == "Meetnetlocatie") %>%
-  select(meetnet,  protocol, "aantal locaties", jaardoel, "doelbereik jaar (%)", "tellingen conform protocol", "tellingen niet uitvoerbaar",  "locaties voldoende geteld - totaal", "locaties voldoende geteld - nieuw") %>%
+  select(meetnet,  protocol, "aantal locaties", jaardoel, "doelbereik jaar (%)", "tellingen conform protocol", "tellingen niet uitvoerbaar",  "locaties geteld",  "locaties voldoende geteld - totaal", "locaties voldoende geteld - nieuw") %>%
   kable(caption = "Evaluatie van de jaardoelen", 
         align = c("l", "l", "l","c","c", "c", "c", "c", "c", "c", "c")) %>%
  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
