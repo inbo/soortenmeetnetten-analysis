@@ -862,6 +862,40 @@ indexmodel_doy_iid_no_weather$summary.fixed %>%
   kable_styling()
 ```
 
+### Vergelijking meetcycli
+
+```{r}
+
+analyseset_species_locations <- analyseset_transecten_locations %>%
+  filter(meetnet == "Heivlinder") %>%
+  mutate( jaar_scaled = jaar - min(jaar),
+         locatie = as.character(locatie),
+         locatie = as.factor(locatie),
+         doy_scaled2 = doy - min(doy),
+         meetcyclus = ifelse(jaar <= 2018, "2016_2018", "2019_2021"),
+         meetcyclus = factor(meetcyclus))
+
+indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ meetcyclus  + 
+                                f(doy_scaled2, model = "rw2", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = "iid", 
+                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                              family = "nbinomial",
+                              data = analyseset_species_locations,
+                              offset = log_section_100,
+                              control.compute = list(config = TRUE, waic = TRUE),
+                              control.predictor = list(compute = TRUE))
+
+index_meetcyclus <- derive_index_meetcyclus_inla(analyseset_species_locations,
+                             indexmodel_doyrw2_iid_meetcyclus)
+
+index_meetcyclus %>%
+  kable() %>%
+  kable_styling()
+```
+
+
+
 ## Eitellingen Gentiaanblauwtje
 
 ### Analyse aantal eitjes
