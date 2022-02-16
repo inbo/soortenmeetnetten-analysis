@@ -16,11 +16,6 @@ output:
       smooth_scroll: FALSE
     number_sections: TRUE
     split_by: "chapter+number"
-  bookdown::gitbook:
-    split_by: "chapter+number"
-    template: !expr INBOmd::inbo_rapport_css("html")
-  bookdown::pdf_book:
-    base_format: INBOmd::inbo_rapport
 
 ---
 

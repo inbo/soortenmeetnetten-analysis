@@ -80,6 +80,8 @@ obs_most_recent <- data_zeggekorfslak_all %>%
    mutate(laatste_wmn = ifelse((2021 - maxjaar_buffer) >= 12,  ">= 12 jaar geleden",
                               ifelse((2021 - maxjaar_buffer) >= 6,  "tussen 6 en 12 jaar geleden", "< 6 jaar geleden")),
          laatste_wmn = factor(laatste_wmn, levels = c(">= 12 jaar geleden", "tussen 6 en 12 jaar geleden", "< 6 jaar geleden")))
+
+st_write(obs_most_recent, "../output/inhaalslag_zeggekorfslak.gpkg", "recentste_waarnemingen", driver = "gpkg")
   
 ```
 

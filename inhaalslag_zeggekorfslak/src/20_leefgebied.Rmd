@@ -197,6 +197,11 @@ habitatmap_leefgebied_variant_union <-  habitatmap_leefgebied_variant %>%
   group_by(type_leefgebied) %>%
   summarise(n_pol = n()) %>%
   ungroup()
+
+
+st_write(habitatmap_leefgebied_variant, "../output/inhaalslag_zeggekorfslak.gpkg", "leefgebied_2020", driver = "gpkg")
+
+st_write(habitatmap_leefgebied_variant, "../output/inhaalslag_zeggekorfslak.gpkg", "rbbmc", driver = "gpkg")
 ```
 
 
@@ -397,6 +402,8 @@ locaties_prioritair <- locaties_prioritair %>%
   filter(meetnet == "Zeggekorfslak") %>%
   st_transform(31370) %>%
   select(meetnet, locatie)
+
+st_write(locaties_prioritair, "../output/inhaalslag_zeggekorfslak.gpkg", "locaties_zeggekorfslak_meetnetten", driver = "gpkg")
 
 overlay_locatie_rbbmc <- habitatmap_rbbmc_polygons %>%
   st_join(locaties_prioritair, largest = TRUE) %>%
