@@ -434,7 +434,8 @@ doelbereik_cyclus_totaal <- overzicht_meetnetten_all_doel %>%
   filter(jaar_in_meetcyclus == duur_meetcyclus) %>%
   filter(!is.na(doelbereik_cyclus)) %>%
   group_by(jaar) %>%
-  summarise(doelbereik_totaal = sum(cyclusdoel * doelbereik_cyclus_m) / sum(cyclusdoel)) %>%
+  summarise(doelbereik_totaal = sum(cyclusdoel * doelbereik_cyclus_m) / sum(cyclusdoel),
+            meetnetten_evaluatie = str_c(meetnet, collapse = "; ")) %>%
   ungroup()
   
 write.csv2(doelbereik_cyclus_totaal, "../output/doelbereik_cyclus_totaal.csv")
