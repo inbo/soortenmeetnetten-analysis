@@ -494,11 +494,14 @@ calculate_monitoring_effort <- function(species_group = NULL, aggregation_level 
 get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
   
   counts_visit <- get_counts_smp(species_group = species_group) %>%
+    mutate(protocol = str_remove(protocol, "\\(v1\\)")) %>%
+    mutate(protocol = str_remove(protocol, "\\(mobiel\\)")) %>%
+    mutate(protocol = str_trim(protocol)) %>%
     group_by(soortgroep, meetnet, protocol, locatie, visit_id, jaar, datum, soort_nl, soort_wet, primaire_soort, geslacht, activiteit, levensstadium, checklist) %>%
     summarise(aantal = sum(aantal, na.rm = TRUE)) %>%
     ungroup() %>%
     filter(!is.na(soort_nl)) %>%
-    mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort))
+    mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) 
   
   if (aggregation == "meetnet") {
 
@@ -533,6 +536,9 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
     
     summary_counts_lifestage <- get_counts_smp(species_group = species_group, count_aggregation = "lifestage") %>%
       filter(!is.na(soort_nl)) %>%
+      mutate(protocol = str_remove(protocol, "\\(v1\\)")) %>%
+      mutate(protocol = str_remove(protocol, "\\(mobiel\\)")) %>%
+      mutate(protocol = str_trim(protocol)) %>%
       mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
       group_by(primaire_soort, soortgroep, meetnet, protocol, jaar, soort_nl, soort_wet, levensstadium) %>%
       summarise(aantal_totaal = sum(aantal),
@@ -547,7 +553,13 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
     
     summary_counts_individuals <- get_counts_smp(species_group = species_group, count_aggregation = "lifestage") %>%
       filter(!is.na(soort_nl)) %>%
+      mutate(protocol = str_remove(protocol, "\\(v1\\)")) %>%
+      mutate(protocol = str_remove(protocol, "\\(mobiel\\)")) %>%
+      mutate(protocol = str_trim(protocol)) %>%
       mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+      group_by(soortgroep, meetnet, protocol, locatie, visit_id, jaar, datum, soort_nl, soort_wet, primaire_soort, levensstadium) %>%
+      summarise(aantal = sum(aantal, na.rm = TRUE)) %>%
+      ungroup() %>%
       group_by(primaire_soort, soortgroep, meetnet, protocol, jaar, soort_nl, soort_wet) %>%
       summarise(aantal_totaal = sum(aantal),
                 #aantal_gemiddeld = round(mean(aantal),1),
@@ -607,6 +619,9 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
     
     summary_counts_lifestage <- get_counts_smp(species_group = species_group, count_aggregation = "lifestage") %>%
       filter(!is.na(soort_nl)) %>%
+      mutate(protocol = str_remove(protocol, "\\(v1\\)")) %>%
+      mutate(protocol = str_remove(protocol, "\\(mobiel\\)")) %>%
+      mutate(protocol = str_trim(protocol)) %>%
       mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
       group_by(primaire_soort, soortgroep, meetnet, protocol, jaar, locatie, soort_nl, soort_wet, levensstadium) %>%
       summarise(aantal_totaal = sum(aantal),
@@ -621,6 +636,9 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
     
     summary_counts_individuals <- get_counts_smp(species_group = species_group, count_aggregation = "lifestage") %>%
       filter(!is.na(soort_nl)) %>%
+      mutate(protocol = str_remove(protocol, "\\(v1\\)")) %>%
+      mutate(protocol = str_remove(protocol, "\\(mobiel\\)")) %>%
+      mutate(protocol = str_trim(protocol)) %>%
       mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
       group_by(primaire_soort, soortgroep, meetnet, protocol, jaar, locatie, soort_nl, soort_wet) %>%
       summarise(aantal_totaal = sum(aantal),
@@ -646,7 +664,10 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
 
 get_summary_distribution <- function(species_group = NULL, aggregation_periode = "year") {
   
-  counts <- get_counts_smp(species_group = species_group) %>%
+  counts <- get_counts_smp(species_group = species_group) %>%    
+    mutate(protocol = str_remove(protocol, "\\(v1\\)")) %>%
+    mutate(protocol = str_remove(protocol, "\\(mobiel\\)")) %>%
+    mutate(protocol = str_trim(protocol)) %>%
     filter(!is.na(soort_nl)) %>%
     mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort))
   
@@ -991,6 +1012,44 @@ derive_index_inla <- function(analyseset_species, indexmodel_nbinom_inla, ref_me
   
   return(predict_year_inla)
     
+}
+
+derive_index_meetcyclus_inla <- function(analyseset_species, indexmodel_nbinom_inla, set_seed = 0) {
+  
+
+    fun = function(...) {exp(meetcyclus2019_2021)}
+  
+  model_inla.samples <- inla.posterior.sample(1000, indexmodel_nbinom_inla, seed = set_seed, num.threads="1:1")
+  
+  quantile_values <- c(0.025, 0.05, 0.20, 0.35,  0.65, 0.80, 0.95, 0.975)
+  
+  predict_year_inla <- inla.posterior.sample.eval(fun, model_inla.samples) %>%
+    as.data.frame() %>%
+    mutate(meetcyclus = "meetcyclus2019_2021") %>%
+    gather(starts_with("sample"), key = "sample", value = "waarde") %>%
+    group_by(meetcyclus) %>%
+    mutate(mean = mean(waarde),
+           sd = sd(waarde)) %>%
+    ungroup() %>%
+    group_by(meetcyclus, mean, sd) %>%
+    summarise(qs = quantile(waarde, quantile_values), prob = quantile_values) %>%
+    ungroup() %>%
+    mutate(l_u = ifelse(prob < 0.5, "lcl", "ucl"),
+           ci = ifelse(prob %in% c(0.025, 0.975), "0.95",
+                       ifelse(prob %in% c(0.05, 0.95), "0.90",
+                              ifelse(prob %in% c(0.20, 0.80), "0.60",
+                                     ifelse(prob %in% c(0.35, 0.65), "0.30", NA)))),
+           type = str_c(l_u, "_", ci)) %>%
+    select(-prob, -l_u, -ci) %>%
+    spread(key = type, value = qs) %>%
+    mutate(soort_nl = unique(analyseset_species$soort_nl),
+           soort_wet = unique(analyseset_species$soort_wet),
+           parameter = "index",
+           meetcyclus_ref = "meetcyclus2016_2018") %>%
+    select(parameter, soort_nl, soort_wet, meetcyclus, everything())
+  
+  return(predict_year_inla)
+  
 }
   
 
@@ -1560,9 +1619,9 @@ simulate_data_model_inlabru <- function(analyseset_species, model_inlabru) {
   return(result)
 }
 
-get_results_analysis <- function(path = "analysis_libellen", name_analysis) {
+get_results_analysis <- function(path = "analysis_vlinders", name_analysis) {
   
-  if (dir.exists(here(path))) {
+  if (dir.exists(fileman_up(path))) {
     
     if (dir.exists(here(path, "output", name_analysis))) {
       
