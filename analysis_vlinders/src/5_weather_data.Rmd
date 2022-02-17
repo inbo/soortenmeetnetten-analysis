@@ -1,0 +1,233 @@
+# Weergegevens
+
+## VMM meetstations
+
+```{r}
+library(wateRinfo)
+
+supported_variables()
+```
+
+```{r}
+
+supported_frequencies(variable_name = "neerslag")
+```
+
+```{r}
+# extract the available stations for a predefined variable
+
+
+
+```
+
+
+```{r, eval = FALSE}
+
+get_monthly_rainfall <- function(sation_no_select, from = "2016-01-01", to = "2021-12-31") {
+  
+  ts_id_select <-  (get_variables(sation_no_select) %>%
+    filter(parametertype_name == "N",
+           ts_name == "MaandTotaal"))$ts_id
+  
+  rainfall_1month_station <- get_timeseries_tsid(ts_id = ts_id_select,
+                                               from = from,
+                                               to = to)
+  
+  return(rainfall_1month_station)
+    
+}
+
+variable_of_interest <- "neerslag"
+
+stations <- get_stations(variable_of_interest) %>%
+  select(station_no, station_name, station_latitude, station_longitude)
+
+rainfall_1month <- stations %>%
+  group_by(station_no) %>%
+  do(get_monthly_rainfall(.$station_no)) %>%
+  ungroup()
+
+rainfall_1month_station <- rainfall_1month %>%
+  left_join(stations, by = "station_no") %>%
+  mutate(jaar = year(Timestamp),
+         maand= month(Timestamp))
+
+write_csv2(rainfall_1month_station, "../output/weather_data/rainfall_monthly.csv")
+```
+
+```{r}
+rainfall_1month_station <- read_csv2( "../output/weather_data/rainfall_monthly.csv")
+
+rainfall_1month_station %>%
+  mutate(datum = as.Date(Timestamp)) %>%
+  filter(!is.na(Value)) %>%
+  # group_by(datum, jaar, maand) %>%
+  # summarise(neerslag = mean(Value, na.rm = TRUE)) %>%
+  # ungroup() %>%
+  ggplot(aes(x = datum, y = Value, group = station_no)) +
+  geom_line(alpha = 0.3) +
+  facet_wrap(~jaar, scales = "free_x") +
+  scale_x_date(date_labels = "%b",
+               date_minor_breaks = "1 month")
+  
+```
+
+
+```{r, eval = FALSE}
+
+get_monthly_temperature <- function(station_no_select, from = "2016-01-01", to = "2021-12-31") {
+  
+  ts_id_select <-  (get_variables(station_no_select) %>%
+    filter(parametertype_name == "Ta",
+           stationparameter_name == "Ta(1.75m)",
+           ts_name == "MaandGem"))$ts_id
+  
+  data_station <- get_timeseries_tsid(ts_id = ts_id_select,
+                                               from = from,
+                                               to = to)
+  
+  return(data_station)
+    
+}
+
+get_data_waterinfo <- function(station_no_select, from = "2016-01-01", to = "2021-12-31", parametertype = "Ta", stationparameter = "Ta(1.75m)", ts = "MaandGem") {
+  
+  ts_id_select <-  get_variables(station_no_select) %>%
+    filter(parametertype_name == parametertype,
+           stationparameter_name == stationparameter,
+           ts_name == ts)
+  
+  if (nrow(ts_id_select) == 1) {
+    
+    data_station <- get_timeseries_tsid(ts_id = ts_id_select$ts_id,
+                                               from = from,
+                                               to = to) %>%
+      rename(quality_code = "Quality Code", value = Value, timestamp = Timestamp) %>%
+      mutate(parametertype_name = parametertype, stationparameter_name = stationparameter, ts_name = ts)
+    
+  } else {
+    
+    data_station <- data.frame(value = NA,
+                               timestamp = NA,
+                               quality_code = NA) %>%
+      mutate(parametertype_name = parametertype, stationparameter_name = stationparameter, ts_name = ts)      %>%
+      mutate(note = ifelse(nrow(ts_id_select) == 0, "No time series is available for specified parameters at the selected station",
+                           "Several time series are available for specified parameters at the selected station. Be more specific."))
+    
+  }
+  
+  return(data_station)
+    
+}
+
+variable_of_interest <- "neerslag"
+stations_neerslag <- get_stations(variable_of_interest) %>%
+  select(station_no, station_name, station_latitude, station_longitude)
+
+check <- get_variables("P03_041")
+stations <- get_stations(variable_of_interest) %>%
+  select(station_no, station_name, station_latitude, station_longitude)
+
+temperature_1month <- stations %>%
+  group_by(station_no) %>%
+  do(get_monthly_temperature(.$station_no)) %>%
+  ungroup()
+
+temperature_1month_station <- temperature_1month %>%
+  left_join(stations, by = "station_no") %>%
+  mutate(jaar = year(Timestamp),
+         maand= month(Timestamp))
+
+temperature_daily <- stations %>%
+  group_by(station_no) %>%
+  do(get_data_waterinfo(station_no_select = .$station_no, ts = "DagGem")) %>%
+  ungroup()
+
+temperature_daily_station <- temperature_daily %>%
+  left_join(stations, by = "station_no") %>%
+  mutate(jaar = year(Timestamp),
+         maand= month(Timestamp))
+
+spi_3 <- stations_neerslag %>%
+  expand_grid(ts = c("Day.AlarmStatus", "Day.AlarmStatus.O", "Day.Cmd.O")) %>%
+  group_by(station_no, station_name, station_latitude, station_longitude, ts) %>%
+  do(get_data_waterinfo(station_no_select = .$station_no, ts = .$ts, parametertype = "SPI", stationparameter = "SPI-3")) %>%
+  ungroup()
+
+spi_3 <- stations_neerslag %>%
+  group_by(station_no, station_name, station_latitude, station_longitude) %>%
+  do(get_data_waterinfo(station_no_select = .$station_no, ts = "Day.Cmd.O" , parametertype = "SPI", stationparameter = "SPI-3")) %>%
+  ungroup()
+
+spi_1 <- stations_neerslag %>%
+  group_by(station_no, station_name, station_latitude, station_longitude) %>%
+  do(get_data_waterinfo(station_no_select = .$station_no, ts = "Day.Cmd.O" , parametertype = "SPI", stationparameter = "SPI-1")) %>%
+  ungroup()
+
+test <- get_data_waterinfo(station_no_select = stations_neerslag[1,]$station_no, ts = "Day.AlarmStatus" , parametertype = "SPI", stationparameter = "SPI-3")
+  
+write_csv2(temperature_1month_station, "../output/weather_data/temperature_monthly.csv")
+write_csv2(temperature_daily_station, "../output/weather_data/temperature_daily.csv")
+write_csv2(spi_1, "../output/weather_data/spi_1.csv")
+write_csv2(spi_3, "../output/weather_data/spi_3.csv")
+```
+
+```{r}
+temperature_1month_station <- read_csv2( "../output/weather_data/temperature_monthly.csv")
+temperature_daily_station <- read_csv2( "../output/weather_data/temperature_daily.csv")
+
+temperature_daily_station %>%
+  mutate(datum = as.Date(Timestamp)) %>%
+  filter(!is.na(Value)) %>%
+  # group_by(datum, jaar, maand) %>%
+  # summarise(neerslag = mean(Value, na.rm = TRUE)) %>%
+  # ungroup() %>%
+  ggplot(aes(x = datum, y = Value, group = station_no)) +
+  geom_line(alpha = 0.3) +
+  facet_wrap(~jaar, scales = "free_x") +
+  scale_x_date(date_labels = "%b",
+               date_minor_breaks = "1 month")
+  
+```
+
+```{r}
+spi_1 <- read_csv2("../output/weather_data/spi_1.csv")
+
+spi_1 %>%
+  mutate(datum = as.Date(timestamp),
+         jaar = year(timestamp)) %>%
+  group_by(datum, jaar) %>%
+  summarise(value = mean(value)) %>%
+  ungroup() %>%
+  filter(!is.na(value)) %>%
+  ggplot(aes(x = datum, y = value)) +
+  geom_line(alpha = 1) +
+  geom_hline(yintercept = 0, colour = "black", linetype = 2, alpha = 0.8) +
+  geom_hline(yintercept = 2, colour = inbo_steun_blauw, alpha = 0.8) +
+  geom_hline(yintercept = -2, colour = inbo_rood, alpha = 0.8) +
+  facet_wrap(~jaar, scales = "free_x") +
+  scale_x_date(date_labels = "%b",
+               date_minor_breaks = "1 month") +
+  ylab("SPI-1")
+```
+```{r}
+spi_3 <- read_csv2("../output/weather_data/spi_3.csv")
+
+spi_3 %>%
+  mutate(datum = as.Date(timestamp),
+         jaar = year(timestamp)) %>%
+  group_by(datum, jaar) %>%
+  summarise(value = mean(value)) %>%
+  ungroup() %>%
+  filter(!is.na(value)) %>%
+  ggplot(aes(x = datum, y = value)) +
+  geom_line(alpha = 1) +
+  geom_hline(yintercept = 0, colour = "black", linetype = 2, alpha = 0.8) +
+  geom_hline(yintercept = 2, colour = inbo_steun_blauw, alpha = 0.8) +
+  geom_hline(yintercept = -2, colour = inbo_rood, alpha = 0.8) +
+  facet_wrap(~jaar, scales = "free_x") +
+  scale_x_date(date_labels = "%b",
+               date_minor_breaks = "1 month") +
+  ylab("SPI-3")
+```
+
