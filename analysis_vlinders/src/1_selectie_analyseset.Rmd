@@ -24,12 +24,12 @@ protocol_selection <- c("Vlinders - Transecten",
 
 ```{r select data, warning = FALSE}
 
-locatie_detail <- get_locations_smp() %>%
+locatie_detail <- get_locations_smp(path = "../data") %>%
   st_drop_geometry() %>%
   filter(locatie_type == "locatie") %>%
   select(meetnet, locatie, is_active, is_sample)
 
-visits <- get_visits_smp(species_group = species_group) %>%
+visits <- get_visits_smp(species_group = species_group, path = "../data") %>%
   filter(protocol %in% protocol_selection) %>%
   mutate(protocol = ifelse(str_detect(protocol, "Gebiedstelling"),
                            "Vlinders - Gebiedstelling",
@@ -39,13 +39,16 @@ visits <- get_visits_smp(species_group = species_group) %>%
                                TRUE,
                                voor_analyse))
 
-counts_all <- bind_rows(
-  get_counts_smp(species_group = species_group, count_aggregation = "individuals"),
-)
+counts_all <- get_counts_smp(species_group = species_group, path = "../data")
 
-
+counts_all <- counts_all %>%
+  group_by(soortgroep, meetnet, protocol, jaar, datum, doy, locatie, sublocatie, visit_id, niet_geteld, checklist, species_id, soort_nl, soort_wet, primaire_soort, sample_id, type_aantal) %>%
+  summarise(aantal = sum(aantal)) %>%
+  ungroup() %>%
+  filter(meetnet != "Gentiaanblauwtje")
+  
 counts_gb <- read_vc(file = "raw/aantallen_gentiaanblauwtje",
-                     root = fileman_up("soortenmeetnetten-data")) %>%
+                     root = "../data") %>%
   mutate(locatie = ifelse(visit_id %in% c(765, 766),
                           str_c(locatie, "_buitenplot"),
                           locatie)) %>%
@@ -56,7 +59,7 @@ counts <-  counts_all %>%
   filter(!niet_geteld) %>%
   bind_rows(counts_gb)
 
-covars <- get_covariates_smp(species_group = species_group) %>%
+covars <- get_covariates_smp(species_group = species_group, path = "../data") %>%
   filter(protocol %in% protocol_selection) %>%
   filter(meetnet != "Gentiaanblauwtje") %>%
   select(-eenheid) %>%
@@ -67,15 +70,8 @@ covars <- get_covariates_smp(species_group = species_group) %>%
   mutate(protocol = ifelse(str_detect(protocol, "Gebiedstelling"),
                            "Vlinders - Gebiedstelling",
                            protocol))
-  
-# count_period_generatie <- get_characteristics_smp() %>%
-#   mutate(doy_min_generatie = as.numeric(format(start_telperiode, "%j")),
-#          doy_max_generatie = as.numeric(format(einde_telperiode, "%j")),
-#          doy_mid_generatie = doy_min_generatie + round((doy_max_generatie - doy_min_generatie)/2, 0)) %>%
-#   distinct(meetnet, protocol, generatie, doy_min_generatie, doy_max_generatie, doy_mid_generatie)
 
-
-count_period <- get_characteristics_smp() %>%
+count_period <- get_characteristics_smp(path = "../data") %>%
     mutate(doy_min = as.numeric(format(start_telperiode, "%j")),
          doy_max = as.numeric(format(einde_telperiode, "%j"))) %>%
   group_by(meetnet, protocol) %>%
@@ -132,7 +128,7 @@ locaties_niet_actief %>%
 ```{r}
 counts_sublocation_selection <- visits_selection %>%
   select(soortgroep, meetnet, protocol, generatie, locatie, jaar, datum, doy, doy_scaled, doy_min, doy_max, doy_mid,  visit_id, n_obs, voor_analyse, is_active, is_sample, bezoek_status, bezoek_status_oud, notes) %>%
-  left_join(select(counts, visit_id, sublocatie, soort_nl, soort_wet, aantal, niet_geteld, primaire_soort, plant, stengel, knop), by = "visit_id") %>%
+  left_join(select(counts, visit_id, sublocatie, soort_nl, soort_wet, aantal, niet_geteld, primaire_soort, plant, stengel, knop, type_aantal), by = "visit_id") %>%
   left_join(covars, by = c("meetnet", "protocol", "visit_id")) %>%
   group_by(meetnet, locatie) %>%
   mutate(aantal_totaal = sum(aantal * primaire_soort)) %>%
@@ -176,6 +172,7 @@ locations_not_sample %>%
 ```{r}
 analyseset_gebied <- counts_sublocation_selection_sample %>%
   filter(protocol == "Vlinders - Gebiedstelling") %>%
+  filter(type_aantal == "totaal gezien") %>%
   filter(primaire_soort) %>%
   mutate(fjaar = factor(jaar),
          locatie = factor(locatie),
@@ -315,10 +312,6 @@ secties_deactiveer2 %>%
 #### Sommering van aantallen over de secties
 
 Om de analyse te vereenvoudigen werken we verder met gesommeerde aantallen over het volledige transect. We gebruiken de lengte van het transect als offset. 
-
-
-
-
 
 ```{r}
 

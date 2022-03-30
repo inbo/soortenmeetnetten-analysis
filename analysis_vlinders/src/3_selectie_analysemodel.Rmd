@@ -1,44 +1,6 @@
 
 # Selectie analysemodellen
 
-```{r}
-# overleg Thierry
-# sectie met enkel nullen verwijderen
-# correlatiestructuur secties --> welke staan in verbinding 
-# 
-# jaar -> 1ste orde rw
-# seizoen -> 2de orde rw -> week?
-# dag -> starten vanaf 1
-# inlatools simuleren
-# sigma rw voldoende klein, 1ste orde kleiner dan 2de orde
-# priors zelf instellen
-# sigma = 1 random intercept
-# sigma =0.3 1ste orde rw
-# sigma = 0.01 2de orde rw
-# offset inlabru als covariaat met aangepaste prior --> control.fixed -> naam_var + precisie -> offset: precisie hoog zetten -> gemiddelde op 1 zetten
-# 
-# rw plotten
-# 
-# rw met interactie generatie wrap()
-# 
-# temp herschalen
-# 
-# gecorreleerde random slope en random intercept
-# 
-# of kijken naar residuals per locatie: verschil tov van gemiddelde trend
-# 
-# derive_index
-# lijst
-# posterior.sample : map latent --> matrix --> rijen met fjaar selecteren
-
-
-
-
-
-
-
-```
-
 
 ## Telling imago's
 

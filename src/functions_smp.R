@@ -122,6 +122,7 @@ get_counts_smp <- function(species_group = NULL,
     if (count_aggregation == "individuals") {
       
       counts_smp <- counts_smp %>%
+        filter(type_aantal != "maximum samen gezien") %>%
         mutate(multiply_count = ifelse(activiteit == "copula" | (activiteit == "eiafzettend" & geslacht == "U"), 2, 1)) %>%
         group_by(soortgroep, meetnet, protocol, jaar, datum, doy, locatie, sublocatie, visit_id, niet_geteld, checklist, species_id, soort_nl, soort_wet, primaire_soort, sample_id) %>%
         summarise(aantal = sum(aantal * multiply_count)) %>%
@@ -130,6 +131,7 @@ get_counts_smp <- function(species_group = NULL,
     } else if (count_aggregation == "lifestage") {
       
       counts_smp <- counts_smp %>%
+        filter(type_aantal != "maximum samen gezien") %>%
         mutate(levensstadium = ifelse(levensstadium == "imago (niet uitgekleurd)", "imago", levensstadium),
           multiply_count = ifelse(activiteit == "copula" | (activiteit == "eiafzettend" & geslacht == "U"), 2, 1)) %>%
         group_by(soortgroep, meetnet, protocol, jaar, datum, doy, locatie,  sublocatie, visit_id, niet_geteld, checklist, species_id, soort_nl, soort_wet, primaire_soort, sample_id, levensstadium) %>%
@@ -491,12 +493,15 @@ calculate_monitoring_effort <- function(species_group = NULL, aggregation_level 
   
 }
 
-get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
+get_summary_counts <- function(species_group = NULL, aggregation = "meetnet", 
+                               file = "raw/aantallen",
+                               path = fileman_up("soortenmeetnetten-data")) {
   
-  counts_visit <- get_counts_smp(species_group = species_group) %>%
+  counts_visit <- get_counts_smp(species_group = species_group, file = file, path = path) %>%
     mutate(protocol = str_remove(protocol, "\\(v1\\)")) %>%
     mutate(protocol = str_remove(protocol, "\\(mobiel\\)")) %>%
     mutate(protocol = str_trim(protocol)) %>%
+    filter(type_aantal != "maximum samen gezien") %>%
     group_by(soortgroep, meetnet, protocol, locatie, visit_id, jaar, datum, soort_nl, soort_wet, primaire_soort, geslacht, activiteit, levensstadium, checklist) %>%
     summarise(aantal = sum(aantal, na.rm = TRUE)) %>%
     ungroup() %>%
@@ -534,7 +539,7 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
       mutate(visits_calc = ifelse(primaire_soort, visits, visits_checklist + visits_none_checklist),
              aantal_gemiddeld = round(aantal_totaal/visits_calc, 1))
     
-    summary_counts_lifestage <- get_counts_smp(species_group = species_group, count_aggregation = "lifestage") %>%
+    summary_counts_lifestage <- get_counts_smp(species_group = species_group, count_aggregation = "lifestage", file = file, path = path) %>%
       filter(!is.na(soort_nl)) %>%
       mutate(protocol = str_remove(protocol, "\\(v1\\)")) %>%
       mutate(protocol = str_remove(protocol, "\\(mobiel\\)")) %>%
@@ -551,7 +556,7 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
       mutate(visits_calc = ifelse(primaire_soort, visits, visits_checklist + visits_none_checklist),
              aantal_gemiddeld = round(aantal_totaal/visits_calc, 1))
     
-    summary_counts_individuals <- get_counts_smp(species_group = species_group, count_aggregation = "lifestage") %>%
+    summary_counts_individuals <- get_counts_smp(species_group = species_group, count_aggregation = "lifestage", file = file, path = path) %>%
       filter(!is.na(soort_nl)) %>%
       mutate(protocol = str_remove(protocol, "\\(v1\\)")) %>%
       mutate(protocol = str_remove(protocol, "\\(mobiel\\)")) %>%
@@ -617,7 +622,7 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
       mutate(visits_calc = ifelse(primaire_soort, visits, visits_checklist + visits_none_checklist),
              aantal_gemiddeld = round(aantal_totaal/visits_calc, 1))
     
-    summary_counts_lifestage <- get_counts_smp(species_group = species_group, count_aggregation = "lifestage") %>%
+    summary_counts_lifestage <- get_counts_smp(species_group = species_group, count_aggregation = "lifestage", file = file, path = path) %>%
       filter(!is.na(soort_nl)) %>%
       mutate(protocol = str_remove(protocol, "\\(v1\\)")) %>%
       mutate(protocol = str_remove(protocol, "\\(mobiel\\)")) %>%
@@ -634,7 +639,7 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
       mutate(visits_calc = ifelse(primaire_soort, visits, visits_checklist + visits_none_checklist),
              aantal_gemiddeld = round(aantal_totaal/visits_calc, 1))
     
-    summary_counts_individuals <- get_counts_smp(species_group = species_group, count_aggregation = "lifestage") %>%
+    summary_counts_individuals <- get_counts_smp(species_group = species_group, count_aggregation = "lifestage", file = file, path = path) %>%
       filter(!is.na(soort_nl)) %>%
       mutate(protocol = str_remove(protocol, "\\(v1\\)")) %>%
       mutate(protocol = str_remove(protocol, "\\(mobiel\\)")) %>%
@@ -662,13 +667,16 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet") {
   
 }
 
-get_summary_distribution <- function(species_group = NULL, aggregation_periode = "year") {
+get_summary_distribution <- function(species_group = NULL, aggregation_periode = "year", 
+                                     file = "raw/aantallen",
+                                     path = fileman_up("soortenmeetnetten-data")) {
   
-  counts <- get_counts_smp(species_group = species_group) %>%    
+  counts <- get_counts_smp(species_group = species_group, file = file, path = path) %>%    
     mutate(protocol = str_remove(protocol, "\\(v1\\)")) %>%
     mutate(protocol = str_remove(protocol, "\\(mobiel\\)")) %>%
     mutate(protocol = str_trim(protocol)) %>%
     filter(!is.na(soort_nl)) %>%
+    filter(type_aantal != "maximum samen gezien") %>%
     mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort))
   
   if (aggregation_periode == "year") {
