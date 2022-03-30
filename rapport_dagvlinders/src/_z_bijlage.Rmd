@@ -1,0 +1,65 @@
+
+# Bijlage: Beschrijving van de analyse {#h:bijlagec}
+
+## Selectie van gegevens voor de analyse 
+
+De gegevens die we gebruiken voor de analyse moeten aan volgende voorwaarden voldoen:
+
++ de gegevens zijn afkomstig van meetnetten die al minstens drie jaar lopen;
+
++ de gegevens zijn afkomstig van tellocaties waar de doelsoort van het meetnet al minstens tijdens één bezoek werd waargenomen;
+
++ de gegevens werden ingezameld volgens het veldwerkprotocol.
+
+
+
+
+## Herschaling van de data
+
+Om tot een goede schatting van modelparameters te komen, moeten we het dagnummer in het jaar waarop de telling is uitgevoerd herschalen en centreren. Dit doen we op basis van het dagnummer dat in midden van de telperiode ligt ($dagnr_{mid}$):
+$$D = \frac{dagnr - dagnr_{mid}}{28}$$
+
+## Model voor verschillen tussen de jaren
+
+Via dit model modelleren we de getelde aantallen als functie van het jaar, het dagnummer en het kwadraat van het dagnummer. We gebruiken jaar als categorische variabele, zodat we een schatting per jaar krijgen. Op basis van de tweedegraads polynoom van het dagnummer modelleren we het seizoenseffect op de getelde aantallen. Ten slotte voegen we een locatie-effect toe aan het model onder de vorm van een *random intercept*. Hiermee geven we aan dat tellingen op eenzelfde locatie gecorreleerd zijn. Bij de transecttellingen van imago's en larvenhuidjes hebben niet alle transecten dezelfde lengte. We houden hiermee rekening door de transectlengte (in meter) gedeeld door 100 als *offset* toe te voegen aan het model. Hierdoor worden de resultaten uitgedrukt als (verschil in) aantallen per 100 meter transectlengte.             
+
+Op basis van dit model maken we een schatting van:
+
+* de jaarlijkse index: het procentueel verschil in aantallen (per 100 meter transectlengte) tussen een bepaald jaar en een referentiejaar;
+
+* de gemiddelde maximale telling (per 100 meter transectlengte) binnen het telseizoen per jaar.
+
+We maken gebruik van een generalised linear mixed model (GLMM), waarbij we aannemen dat het getelde aantal $C_{ldj}$ op locatie $l$, dag $d$ en jaar $j$ een negatief binomiale distributie volgt met gemiddelde $\mu_{ldj}$ en overdispersie parameter $k$.
+
+$$C_{ldj} \sim {NB}(\mu_{ldj}, k)$$
+
+$$\operatorname{E}[C_{ldj}]=\mu_{ldj}$$
+$$\operatorname{var}(C_{ldj})=\mu_{ldj}+\frac{\mu_{ldj}^2}{k}$$
+We maken gebruik van  onderstaande link functie.
+
+$$\log(\mu_{ldj}) = \eta_{ldj}$$
+De verklarende variabelen zijn jaar (als categorische variabele) $J_{j}$, het herschaalde dagnummer binnen een jaar $D_{d}$ en het kwadraat van het herschaalde dagnummer $D_{d}^2$:    
+
+$$\eta_{ldj}= \beta_{0} + \beta_{j}J_{j} + \beta_{1}D_{d} + \beta_{2}D_{d}^2 + b_{l}$$
+ $b_{l}$ is een random intercept voor locatie $l$. Het volgt een normale distributie met gemiddelde 0 en variantie $\sigma_{l}^2$:  
+ 
+$$b_{l} \sim {N(0,\sigma_{l}^2)} $$
+
+## Model voor jaarlijkse trend
+
+Om de lineaire trend te schatten gebruiken we jaar als continue variabele $J$. Verder is het model identiek aan het eerder beschreven model voor verschillen tussen de jaren. 
+
+Dit model gebruiken we voor volgende schattingen:
+
+* gemiddelde jaarlijkse lineaire trend in aantallen (per 100 meter transectlengte), m.a.w. de percentage vooruitgang of achteruitgang per jaar;
+
+* totale trend in aantallen (per 100 meter transectlengte) over de volledige periode, m.a.w. de percentage vooruitgang of achteruitgang over de hele periode. 
+
+We krijgen dus:
+
+$$\eta_{ldj}= \beta_{0} + \beta_{1}J + \beta_{2}D_{d} + \beta_{3}D_{d}^2 + b_{l}$$
+waarbij $e^{\beta_1}$ de relatieve trend weergeeft. 
+
+
+
+

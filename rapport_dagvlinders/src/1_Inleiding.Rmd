@@ -1,0 +1,42 @@
+
+```{r, message=FALSE}
+path <- fileman_up("soortenmeetnetten-analysis")
+
+source(file.path(path, "src/functions_smp.R"))
+
+data_path <- file.path(path, "analysis_vlinders/data")
+```
+
+# Inleiding
+
+```{r}
+
+scientific_names <- get_counts_smp(species_group = "dagvlinders", path = data_path) %>%
+  filter(primaire_soort) %>%
+  distinct(meetnet, soort_wet) %>%
+  bind_rows(data.frame(meetnet = "Gentiaanblauwtje",
+                       soort_wet = "Phengaris alcon"))
+
+meetnet_characteristics <- get_characteristics_smp(species_group = "dagvlinders", path = data_path) %>%
+ filter(is_sample) %>%
+  left_join(scientific_names, by = "meetnet") %>%
+  mutate(protocol = ifelse(protocol == "Vlinders - Transecten", "Transecttelling",
+                           ifelse(protocol == "Vlinders - Gebiedstelling", "Gebiedstelling", "Eitelling")))
+
+meetnetten_links <- str_c(str_c("[", unique(meetnet_characteristics$meetnet), "]", collapse = ", ")) 
+
+
+```
+
+
+Betrouwbare informatie over de toestand en trends van dier- en plantensoorten in Vlaanderen is van
+groot belang voor de onderbouwing van het Vlaamse soortenbeleid en voor de rapportage over de Natura 2000-soorten aan Europa [@adriaens_monitoring_2011]. Daarom werden in de periode 2016-2020 soortenmeetnetten opgestart voor de langetermijn monitoring van 65 Vlaamse en Europees prioritaire soorten [@westra_voortgangsrapport_2019]. Elk meetnet bestaat uit een aantal vooraf vastgelegde locaties, waar één of meerdere soorten via een gestandaardiseerd methode geteld worden [@de_knijf_monitoring_2014]. 
+
+De soortenmeetnetten zijn een citizen science project, wat betekent dat vrijwilligers de tellingen uitvoeren. Natuurpunt Studie staat in voor de coördinatie en aansturing van de vrijwilligers en het Instituut voor Natuur- en Bosonderzoek (INBO) verwerkt de telgegevens. Het Agentschap voor Natuur en Bos (ANB) en het INBO staan in voor de financiering. Voor de planning van de tellingen en het invoeren van gegevens werd het webportaal [meetnetten.be](https://www.meetnetten.be) ontwikkeld. 
+
+In dit rapport stellen we de eerste resultaten voor van de verschillende dagvlindermeetnetten [@maes_monitoringsprotocol_2019]. We geven eerst wat achtergrond over het [ontwerp van de meetnetten] en de [analyse van de telgegevens]. Daarna doen we een [verkenning van de aantallen] en geven we een [overzicht van de resultaten] van de statistische analyses. Ten slotte bespreken we de resultaten voor elk meetnet ([Aardbeivlinder](#aardbeivlinder), [Argusvlinder](#argusvlinder), [Bruin dikkopje](#bruindikkopje), [Bruine eikenpage](#bruineeikenpage), [Gentiaanblauwtje](#gentiaanblauwtje), [Grote weerschijnvlinder](#groteweerschijnvlinder), [Heivlinder](#heivlinder), [Klaverblauwtje](#klaverblauwjte), [Kommavlinder](#kommavlinder), [Moerasparelmoervlinder](#moerasparelmoervlinder), [Oranje zandoogje](#oranjezandoogje) en [Veldparelmoervlinder](#veldparelmoervlinder)).   
+
+Naast de soortspeciefieke dagvlindermeetnetten, bestaat er in Vlaanderen ook het meetnet Algemene Vlindermonitoring voor het opvolgen van algemenere dagvlindersoorten. Dit meetnet loopt al sinds 1991. Voor de resultaten van dit meetnet verwijzen we naar @maes_2020.  
+
+`r ifelse(!html_output, "Dit rapport bevat enkele interactieve figuren die alleen kunnen bekeken worden op de [website versie](https://inbo.github.io/soortenmeetnetten-dagvlindersrapport-2021/) van dit rapport.", "")`
+

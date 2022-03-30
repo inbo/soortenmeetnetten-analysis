@@ -1,0 +1,3 @@
+\appendix
+
+`r ifelse(knitr::is_html_output(), "# Referenties {-}\n\n<div id='refs'></div>\n\n# (APPENDIX) Bijlage {-}", "")`

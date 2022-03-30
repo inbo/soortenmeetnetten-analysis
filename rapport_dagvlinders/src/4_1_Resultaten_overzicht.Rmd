@@ -1,0 +1,316 @@
+
+# Overzicht van de resultaten
+
+```{r}
+name_analysis_gebiedstelling <- "output/results/vlinders_imago_gebied_2022-03-28"
+name_analysis_transecttelling <- "output/results/vlinders_imago_transect_2022-03-28"
+name_analysis_eitelling <- "output/results/vlinders_eitelling_2022-03-28"
+
+path_results <- fileman_up("analysis_vlinders")
+
+results_indexmodel_gebiedstelling <- read_vc(file = "results_indexmodel_vlinders_imago_gebied", 
+                                             root = file.path(path_results, name_analysis_gebiedstelling))
+results_indexmodel_transecttelling <- read_vc(file = "results_indexmodel_vlinders_imago_transect", 
+                                             root = file.path(path_results, name_analysis_transecttelling))
+results_indexmodel_eitelling <- read_vc(file = "results_indexmodel_vlinders_eitelling", 
+                                             root = file.path(path_results, name_analysis_eitelling))
+
+results_indexmodel_meetcyclus_transecttelling <- read_vc(file = "results_indexmodel_meetcyclusvlinders_imago_transect", 
+                                             root = file.path(path_results, name_analysis_transecttelling))
+
+result_indexmodel <- bind_rows(
+  results_indexmodel_gebiedstelling,
+  results_indexmodel_transecttelling,
+  results_indexmodel_eitelling) %>%
+  arrange(meetnet)
+
+results_trendmodel_gebiedstelling <- read_vc(file = "results_trendmodel_vlinders_imago_gebied", 
+                                             root = file.path(path_results, name_analysis_gebiedstelling))
+results_trendmodel_transecttelling <- read_vc(file = "results_trendmodel_vlinders_imago_transect", 
+                                             root = file.path(path_results, name_analysis_transecttelling))
+results_trendmodel_eitelling <- read_vc(file = "results_trendmodel_vlinders_eitelling", 
+                                             root = file.path(path_results, name_analysis_eitelling))
+
+result_trendmodel <- bind_rows(
+  results_trendmodel_gebiedstelling,
+  results_trendmodel_transecttelling,
+  results_trendmodel_eitelling) %>%
+  arrange(meetnet)
+
+results_waic_gebiedstelling <- read_vc(file = "results_waic_vlinders_imago_gebied", 
+                                             root = file.path(path_results, name_analysis_gebiedstelling))
+results_waic_transecttelling <- read_vc(file = "results_waic_vlinders_imago_transect", 
+                                             root = file.path(path_results, name_analysis_transecttelling))
+results_waic_eitelling <- read_vc(file = "results_waic_vlinders_eitelling", 
+                                             root = file.path(path_results, name_analysis_eitelling))
+
+result_waic <- bind_rows(
+  results_waic_gebiedstelling,
+  results_waic_transecttelling,
+  results_waic_eitelling)
+
+
+trend_klasses <- trend_klasses %>%
+  arrange(klasse) %>%
+  mutate(tekst = str_c(klasse_output, " = ", klasse_naam))
+  
+# if(html_output){
+  
+  legend_klasses <- str_c(" (", str_c(trend_klasses$tekst, collapse = "; "), ")")
+  
+  legend_klasses_index <- str_c(" (R = referentie; ", str_c(trend_klasses$tekst, collapse = "; "), ")")
+# } else {
+#   legend_klasses <- ""
+# }
+
+  species_in_analysis <- unique(result_indexmodel$meetnet) %>%
+    str_c(collapse = ", ")
+  
+# 
+#   legend_klasses <- "(zie paragraaf \\@ref(h:classtrend) voor verklaring van de symbolen en de referentielijnen)"
+#   legend_klasses_index <- "(zie paragraaf \\@ref(h:classtrend) voor verklaring van de symbolen en de referentielijnen)"
+```
+
+In dit onderdeel geven we een overzicht van de resultaten van de analyses voor Aardbeivlinder, Argusvlinder, Bruin dikkopje, Bruine eikenpage, Gentiaanblauwtje, Grote weerschijnvlinder, Heivlinder, Klaverblauwtje, Kommavlinder, Oranje zandoogje en Veldparelmoervlinder. Het meetnet Moerasparelmoervlinder ging pas in 2020 van start waardoor het nog te vroeg is voor een analyse uit te voeren.    
+
+## Verschillen tussen de jaren
+
+Tabel \@ref(tab:tabelverschil) geeft de verschillen in aantallen t.o.v. het referentiejaar. Als referentiejaar kiezen we hier het jaar waarin het meetnet van start ging. 
+We geven de verschillen weer aan de hand van de [classificatie](#h:classtrend) zoals besproken in paragraaf \@ref(h:classtrend), waarbij we -25 % als ondergrens en +33 % als bovengrens nemen.
+
+```{r}
+verschillen_jaren <- result_indexmodel %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(lcl_0.90)) %>%
+  filter(is.na(model_description) | model_description == "without offset") %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  select(soort_nl, soort_wet, ref_jaar, jaar, klasse) %>%
+  left_join(select(trend_klasses, klasse, klasse_output), by = "klasse") %>%
+  select(-klasse) %>%
+  spread(key = "jaar", value = "klasse_output", fill = "")
+  
+# if (html_output) {
+#   verschillen_jaren <- verschillen_jaren %>%
+#     # mutate(klasse = format(klasse, type = "markdown")) %>%
+#     # spread(key = "jaar", value = "klasse") %>%
+#     mutate(soort_nl = str_c("[", soort_nl, "]"))
+# }
+
+# write.csv2(verschillen_jaren, "../output/tabel_test.csv", row.names = FALSE)
+```
+
+```{r tabelverschil,eval=TRUE}
+
+verschillen_jaren %>%
+  select(-soort_wet) %>%
+  rename("Nederlandse naam" = soort_nl,  Referentiejaar = ref_jaar) %>%
+  kable(caption = str_c("Verschil in aantallen t.o.v. referentiejaar", legend_klasses),
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "lccccc",
+     format = format_table) %>%
+kable_styling(font_size = font_size_table) %>%
+add_header_above(c(" " = 2, "Verschil t.o.v. referentiejaar" = 5))
+
+```
+
+Een andere manier om de jaarlijkse verschillen voor te stellen is door steeds de verschillen tussen twee opeenvolgende jaren te bepalen zoals in \@ref(tab:tabelverschil2).
+
+
+```{r }
+verschillen_vorigjaar <- result_indexmodel %>%
+  filter(is.na(model_description) | model_description == "without offset") %>%
+  filter(parameter == "diff_previous_year") %>%
+  mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  select(model_description, soort_nl, soort_wet, periode, klasse) %>%
+  left_join(select(trend_klasses, klasse, klasse_output), by = "klasse") %>%
+  select(-klasse) %>%
+  spread(key = "periode", value = "klasse_output", fill = "") %>%
+  ungroup() %>%
+  select(-model_description)
+
+# if (html_output) {
+#   verschillen_vorigjaar <- verschillen_vorigjaar %>%
+#     # mutate(klasse = format(klasse, type = "markdown")) %>%
+#     # spread(key = "jaar", value = "klasse") %>%
+#     mutate(soort_nl = str_c("[", soort_nl, "]"))
+# }
+  
+```
+
+
+```{r tabelverschil2}
+verschillen_vorigjaar %>%
+  select(-soort_wet) %>%
+  rename("Nederlandse naam" = soort_nl) %>%
+  kable(caption = "Verschil in aantallen voor opeenvolgende jaren",
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "lcccccc",
+     format = format_table) %>%
+kable_styling(font_size = font_size_table)
+```
+
+## Verschillen tussen de meetcycli
+
+Bij soorten die geteld worden met een meetcyclus van drie jaar, zullen de verschillen tussen de jaren voor een deel afhankelijk zijn van welke locaties er elk jaar geteld worden. 
+Daarom is het ook nuttig om periodes van drie jaar (die overeenkomen met een meetcyclus) met elkaar te vergelijken. Voor Heivlinder en Argusvlinder werden er al twee meetcycli afgerond (2016 - 2018 en 2019 - 2021) en kunnen we dus deze beide periodes vergelijken (Tabel \@ref(tab:tabelverschil3)). Het meetnet Oranje zandoogje ging in 2017 van start, waardoor de tweede cyclus afloopt in 2022 en we pas dan beide meetcycli kunnen vergelijken.
+
+```{r}
+verschillen_cyclus <- results_indexmodel_meetcyclus_transecttelling %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  select(soort_nl, soort_wet, meetcyclus_ref, meetcyclus, klasse) %>%
+  mutate(meetcyclus_ref = "2016 - 2018",
+         meetcyclus = "2019 - 2021") %>%
+  left_join(select(trend_klasses, klasse, klasse_output), by = "klasse") %>%
+  select(-klasse) %>%
+  spread(key = "meetcyclus", value = "klasse_output", fill = "")
+  
+# if (html_output) {
+#   verschillen_cyclus <- verschillen_cyclus %>%
+#     # mutate(klasse = format(klasse, type = "markdown")) %>%
+#     # spread(key = "jaar", value = "klasse") %>%
+#     mutate(soort_nl = str_c("[", soort_nl, "]"))
+# }
+
+# write.csv2(verschillen_jaren, "../output/tabel_test.csv", row.names = FALSE)
+```
+
+```{r tabelverschil3, eval=TRUE}
+
+verschillen_cyclus %>%
+  select(-soort_wet) %>%
+  rename("Nederlandse naam" = soort_nl,  "Referentie meetcyclus" = meetcyclus_ref) %>%
+  kable(caption = str_c("Verschil in aantallen t.o.v. referentie meetcyclus", legend_klasses),
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "lccccc",
+     format = format_table) %>%
+kable_styling(font_size = font_size_table) %>%
+add_header_above(c(" " = 2, "Verschil t.o.v. referentie meetcyclus" = 1))
+
+```
+
+
+## Trends
+
+```{r}
+
+trend <- result_trendmodel %>%
+  mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
+         n_jaar = jaar_max - jaar_min + 1,
+         treshold_low = ifelse(parameter == "trend_average", 
+                               round((exp(log(0.75)/(n_jaar - 1)) - 1) *100, 1),
+                               -25),
+         treshold_high = ifelse(parameter == "trend_average", 
+                                round((exp(log(1.33)/(n_jaar - 1)) - 1) *100, 1),
+                                33)) %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) %>%
+  filter(model_description == "without offset" | is.na(model_description))
+
+```
+
+In Tabel \@ref(tab:tabtrendresultaat) geven we een overzicht van de gemiddelde jaarlijkse trend en de totale trend over de meetnetperiode. We duiden ook aan of de trend al dan niet lineair is. Een lineaire trend betekent dat de jaarlijkse daling of stijging relatief constant is. Bij een niet-lineaire trend fluctueren de aantallen sterk van jaar tot jaar, maar hebben we gemiddeld gezien over de hele tijdsperiode wel een stijging of een daling.
+
+```{r }
+waic <- result_waic %>%
+  filter(model_description == "without offset" | is.na(model_description)) %>%
+  distinct(meetnet, type_trend)
+
+trend_klasses_ch <- trend_klasses %>%
+  mutate(klasse = as.character(klasse)) %>%
+  select(klasse, klasse_output)
+
+overzicht_trend_tabel <- trend %>%
+  left_join(waic, by = "meetnet") %>%
+  arrange(desc(trend)) %>%
+  mutate(trend = round(mean, 0),
+         trend_lcl = round(lcl_0.90, 0),
+         trend_ucl = round(ucl_0.90, 0),
+         trend_tbl = str_c(ifelse(trend > 0, "+", ""),
+                           trend, "% (",
+                           ifelse(trend_lcl > 0, "+", ""),
+                           trend_lcl, "%; ",
+                           ifelse(trend_ucl > 0, "+", ""),
+                           trend_ucl, "%)")
+         ) %>%
+  select(parameter, soort_nl, soort_wet, periode_tekst, klasse, trend_tbl, type_trend) %>%
+  spread(key = "parameter", value = "trend_tbl") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(trend_klasses_ch, by = "klasse") %>%
+  select("Nederlandse naam" = soort_nl,  Periode = periode_tekst, Klasse = klasse_output, Interpretatie = type_trend, "Jaarlijkse wijziging" = trend_average, "Wijziging over de looptijd" = trend_total)
+
+if (html_output) {
+  overzicht_trend_tabel <- overzicht_trend_tabel %>%
+    mutate(`Nederlandse naam` = str_c("[", `Nederlandse naam`, "]"))
+} else {
+  overzicht_trend_tabel <- overzicht_trend_tabel %>%
+    mutate(`Jaarlijkse wijziging` = str_replace_all(`Jaarlijkse wijziging`, "%", "\\\\%"),
+           `Wijziging over de looptijd` = str_replace_all(`Wijziging over de looptijd`, "%", "\\\\%"))
+}
+
+
+```
+
+
+```{r tabtrendresultaat, eval = TRUE}
+
+overzicht_trend_tabel %>%
+  kable(align = "lcclcc",
+        caption = str_c("Jaarlijkse wijziging en wijziging over de looptijd", legend_klasses),
+      booktabs = TRUE,
+      escape = FALSE,
+     format = format_table)  %>%
+  kable_styling(font_size = font_size_table,
+                latex_options = "scale_down")
+```
+\needspace{50mm}
+
+De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in Figuur \@ref(fig:figtrend). De x-as van deze figuur heeft een logaritmische schaal. Een halvering (-50 %) is immers een even sterk effect als een verdubbeling (+100 %). Opnieuw maken we gebruik van de [classificatie](#h:classtrend) zoals besproken in paragraaf \@ref(h:classtrend) met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over de meetperiode. Voor een periode van zes jaar (2016 - 2021) komt de ondergrens overeen met een gemiddelde jaarlijkse trend van -5,6 % en de bovengrens met een gemiddelde jaarlijkse trend van +5,9 %. 
+
+```{r figtrend, fig.cap= str_c("Gemiddelde jaarlijkse trend met 90 \\% betrouwbaarheidsinterval ", legend_klasses, ". De stippellijnen tonen de referentiewaarde (0 \\%), de ondergrens (-6.7 \\%) en de bovengrens (+7.4 \\%) waarop de classificatie gebaseerd is.")}
+
+order_trend <- (trend %>%
+  filter(parameter == "trend_average") %>%
+  arrange(mean))$soort_nl
+
+trend <- trend %>%
+  mutate(mean_log = log(mean/100 + 1),
+          lcl_0.90_log = log(lcl_0.90/100 + 1),
+         ucl_0.90_log = log(ucl_0.90/100 + 1))
+
+breaks_log <- log(c(-75, -50, -25, 0, 33, 100)/100 + 1)
+labels_show <- str_c(c(-75, -50, -25, 0, 33, 100), " %")
+
+trend %>%
+  filter(parameter == "trend_average") %>%
+  mutate(soort_nl = factor(soort_nl, levels = order_trend)) %>%
+  #ggplot( aes(x = soort_nl, y = mean/100, ymin = lcl_0.90/100, ymax = ucl_0.90/100, label = klasse, colour = klasse)) +
+  ggplot( aes(x = soort_nl, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_hline(aes(yintercept = max(log(treshold_low/100 +1))), linetype = 3) +
+  geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3) +
+  # geom_hline(aes(yintercept = max(treshold_low/100)), linetype = 3) +
+  # geom_hline(aes(yintercept = min(treshold_high/100)), linetype = 3) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  # geom_errorbar(aes(ymin = lcl_0.60/100, ymax = ucl_0.60/100), width = 0, size = 10, alpha = 0.3) +
+  # geom_errorbar(aes(ymin = lcl_0.30/100, ymax = ucl_0.30/100), width = 0, size = 10, alpha = 0.3) +
+  # stat_effect(threshold = c(treshold_low/100, treshold_high/100), reference = 0, size = 3) +
+  # scale_effect() +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Gemiddelde jaarlijkse trend (%)", x = "Soort") +
+  #scale_y_continuous(breaks = c(-50, -25, 0, 33, 100)/100, labels = scales::percent, limits = c(-0.6, 1)) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show, limits = c(min(breaks_log), max(breaks_log))) +
+  coord_flip() +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+# trend -> (exp(x) - 1) * 100
+# x -> log(trend/100 + 1)
+```
+
+
+
+

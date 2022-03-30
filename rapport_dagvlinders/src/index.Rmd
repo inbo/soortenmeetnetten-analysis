@@ -1,0 +1,167 @@
+
+--- 
+title: Resultaten van de dagvlindermeetnetten in Vlaanderen
+subtitle: Periode 2016 - 2021
+author: 
+  - firstname: Toon
+    name: Westra
+    email: Toon.Westra@inbo.be
+    orcid: 0000-0003-2478-9459
+  - firstname: Dirk
+    name: Maes
+    orcid: 0000-0002-7947-3788
+  - firstname: Sam
+    name: Van De Poel
+    orcid: 0000-0001-6251-3766
+  - firstname: Thierry
+    name: Onkelinx
+    orcid: 0000-0001-8804-4216
+shortauthor: Westra, T., Maes, D., Van De Poel, S. en Onkelinx, T.
+corresponding: Toon.Westra@inbo.be
+reviewer:
+  - firstname: Marc
+    name: Pollet
+    email: Marc.Pollete@inbo.be
+    orcid: 0000-0001-5198-5928
+year: 2022
+cover_photo: 
+cover_description: "Heivlinder"
+cover: 
+doi: doi.org/10.21436/inbor.70771847
+reportnr: 1
+depotnr: D/2022/3241/021
+ordernr:
+
+embargo:
+print:
+  copies: 0
+  motivation:
+  pages:
+floatbarrier: "subsection"
+
+github-repo:
+bibliography: references.bib
+link-citations: TRUE
+site: bookdown::bookdown_site
+
+always_allow_html: true
+
+output:
+  INBOmd::gitbook: default
+  INBOmd::report: default
+  INBOmd::ebook: default
+  bookdown::dont_run: default
+  bookdown::word_document2:
+    toc: true
+  bookdown::html_document2:
+    toc: true
+    toc_float:
+      collapsed: FALSE
+      smooth_scroll: FALSE
+    number_sections: TRUE
+  
+---
+
+
+
+```{r setup, include = FALSE, message=FALSE, warning = FALSE}
+
+library(knitr)
+opts_chunk$set(
+  echo = FALSE, 
+  eval = TRUE,
+  cache = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 180 / 25.4,
+  fig.height = 120 / 25.4,
+  fig.align = "center"
+)
+library(ggplot2)
+library(tidyverse)
+library(sf)
+library(n2khab)
+library(INBOtheme) # remotes::install_github("inbo/INBOtheme")
+library(kableExtra)
+library(crosstalk)
+library(leaflet)
+library(plotly)
+library(DT)
+library(htmltools)
+library(effectclass)
+library(here)
+library(lubridate)
+
+if (interactive()) {
+  theme_set(theme_inbo(base_size = 10))
+} else {
+  switch(
+    opts_knit$get("rmarkdown.pandoc.to"),
+    html = {
+      opts_chunk$set(dev = "png", dpi = 72)
+      theme_set(theme_inbo(base_size = 12))
+    },
+    latex = {
+      opts_chunk$set(dev = "cairo_pdf", dpi = 300)
+      theme_set(theme_inbo(base_size = 12))
+      update_geom_defaults("point", list(size = 1.5))
+    },
+    epub3 = {
+      opts_chunk$set(dev = "png", dpi = 300)
+      theme_set(theme_inbo(base_size = 12))
+    }
+  )
+}
+
+doc.type <- knitr::opts_knit$get('rmarkdown.pandoc.to')
+
+if (is.null(doc.type)) {
+  doc.type = "html"
+}
+# doc.type <- "pdf"
+html_output <- doc.type == "html"
+font_size_table <- ifelse(html_output, 11, 8)
+format_table <- ifelse(doc.type == "docx", "simple", doc.type)
+options(dplyr.summarise.inform = FALSE)
+# options(kableExtra.auto_format = FALSE)
+
+
+```
+
+# Dankwoord {-}
+
+We wensen in de eerste plaats alle vrijwilligers te bedanken voor de vele tellingen die ze hebben uitgevoerd voor de dagvlindermeetnetten. Wim Veraghtert willen we bedanken voor de coördinatie van het veldwerk. Frederic Piesschaert bedanken we voor de technische ondersteuning bij de invoer van de gegevens via meetnetten.be en de bevraging van de meetnetten-databank. We bedanken ook de (ex-)leden van de stuurgroep van het soortenmeetnettenproject: Bernard Van Elegem, Véronique Verbist, Samuel De Rycke, Koen Van Keer, Hannes Ledegen, Wouter Vanreusel, Marc Herremans, Maurice Hoffmann en Marc Pollet.
+
+# Samenvatting {-}
+
+Via de soortenmeetnetten ([meetnetten.be](https://www.meetnetten.be)) willen het Instituut voor Natuur- en Bosonderzoek (INBO) en het Agentschap voor Natuur en Bos (ANB) betrouwbare informatie verzamelen over prioritaire soorten in Vlaanderen. Deze meetnetten bestaan uit een aantal vastgelegde locaties die specifiek geselecteerd werden voor elke soort. Op deze locaties voeren vrijwilligers op een gestandaardiseerde manier tellingen uit onder coördinatie van Natuurpunt Studie.
+
+Dit rapport toont de eerste resultaten van de dagvlindermeetnetten voor de periode 2016 - 2010. In die periode zien we: 
+
++ een sterke afname van Argusvlinder (*Lasiommata megera*), Bruin dikkopje (*Erynnis tages*), Grote weerschijnvlinder (*Apatura iris*), Kommavlinder (*Hesperia comma*) en Heivlinder (*Hipparchia semele*),
++ een afname van Aardbeivlinder (*Pyrgus malvae*) en Gentiaanblauwtje (*Phengaris alcon*),
++ een toename van Oranje zandoogje (*Pyronia tithonus*),
++ een mogelijke toename van Veldparelmoervlinder (*Melitaea cinxia*).
+
+Deze trends komen in grote lijnen overeen met de resultaten van de Nederlandse dagvlindermeetnetten. De belangrijkste oorzaken van de afname in aantallen zijn vermoedelijk de recente droge zomers en stikstofdepositie.   
+
+Voor Bruine eikenpage (*Satyrium ilicis*), Klaverblauwtje (*Cyaniris semiargus*) en Moerasparelmoervlinder (*Euphydryas aurinia*) is de trend nog onzeker en zullen we over enkele jaren een betere inschatting kunnen maken van de trend.     
+
+
+# English abstract {-}
+
+\benglish
+
+The species monitoring programme [meetnetten.be](https://www.meetnetten.be) aims at collecting reliable information on priority species in Flanders. It consists of a series of monitoring schemes which were designed by the Research Institute for Nature and Forest (INBO). Species are counted by volunteers in a standardized way under the coordination of the NGO Natuurpunt. 
+
+This report shows the first results of the butterfly monitoring schemes for the period 2016 - 2021. In this period we see:
+
++ a strong decrease in abundance of the Wall brown (*Lasiommata megera*), the Dingy skipper (*Erynnis tages*), the Purple emperor (*Apatura iris*), the Silver-spotted skipper (*Hesperia comma*), and the Grayling (*Hipparchia semele*),
++ a decrease in abundance of the Grizzled skipper (*Pyrgus malvae*) and the Alcon blue (*Phengaris alcon*),
++ an increase in abundance of the Gatekeeper (*Pyronia tithonus*),
++ a possible increase of the Glanville fritillary (*Melitaea cinxia*).
+
+For other priority butterfly species we are not able to detect a reliable trend yet. This is the case for following species: Ilex hairstreak (*Satyrium ilicis*), Mazarine blue (*Cyaniris semiargus*) and Marsh fritillary (*Euphydryas aurinia*).       
+
+
+\eenglish

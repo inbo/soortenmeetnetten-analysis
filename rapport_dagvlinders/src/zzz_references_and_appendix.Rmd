@@ -1,0 +1,189 @@
+
+```{r references, results = "asis", echo = FALSE}
+# insert the references at this position
+# set appendix = FALSE, when the report has no appendix
+INBOmd::references(appendix = TRUE)
+```
+
+# Bijlage: Beschrijving van de analyse {#h:bijlagec}
+
+## Selectie van gegevens voor de analyse 
+
+De gegevens die we gebruiken voor de analyse moeten aan volgende voorwaarden voldoen:
+
++ de gegevens zijn afkomstig van meetnetten die al minstens drie jaar lopen (dit is enkel voor het meetnet Moerasparelmoervlinder nog niet het geval);
+
++ de gegevens zijn afkomstig van tellocaties waar de doelsoort van het meetnet al minstens tijdens één bezoek werd waargenomen (locaties met enkel nulwaarnemingen zijn niet relevant voor het bepalen van trends of verschillen tussen de jaren);
+
++ de gegevens werden ingezameld volgens het veldwerkprotocol.
+
+
+## Model voor verschillen tussen de jaren
+
+Via een statistisch model analyseren we de getelde aantallen als functie van het jaar en het dagnummer. Op die manier krijgen we een schatting per jaar en houden we ook rekening met het seizoenseffect op de getelde aantallen. We voegen ook een locatie-effect toe aan het model onder de vorm van een *random intercept*. Hiermee geven we aan dat tellingen op eenzelfde locatie gecorreleerd zijn. 
+
+Bij de transecttellingen sommeren we de aantallen over alle getelde secties. In de analyse houden we er ook rekening mee dat de transecten niet allemaal dezelfde lengte hebben. Dit doen we door de transectlengte (in meter) gedeeld door 100 als *offset* toe te voegen aan het model. Hierdoor worden de resultaten uitgedrukt als (verschil in) aantallen per 100 meter transectlengte.             
+
+Op basis van dit model maken we een schatting van de jaarlijkse index. Dit is het procentueel verschil in aantallen (per 100 meter transectlengte) tussen een bepaald jaar en een referentiejaar.
+
+We maken gebruik van een generalised linear mixed model (GLMM), waarbij we aannemen dat het getelde aantal $C_{ldj}$ op locatie $l$, dag $d$ en jaar $j$ een negatief binomiale distributie volgt met gemiddelde $\mu_{ldj}$ en overdispersie parameter $k$.
+
+$$C_{ldj} \sim {NB}(\mu_{ldj}, k)$$
+
+$$\operatorname{E}[C_{ldj}]=\mu_{ldj}$$
+$$\operatorname{var}(C_{ldj})=\mu_{ldj}+\frac{\mu_{ldj}^2}{k}$$
+We maken gebruik van  onderstaande link functie.
+
+$$\log(\mu_{ldj}) = \eta_{ldj}$$
+De lineaire predictor $\log(\mu_{ldj})$ hangt af van volgende termen:
+
++ $b_{l}$: een random intercept voor locatie $l$. Het volgt een normale distributie met gemiddelde 0 en variantie $\sigma_{l}^2$.
+
++ $b_{d}$ het effect van jaar $d$. Dit effect modelleert een tweede orde random walk. Het tweede orde verschil $\Delta^2 b_d=b_d - 2b_{d-1} + b_{d-2}$ volgt een normale verdeling met gemiddelde 0 en variantie $\sigma_{d}^2$.
+
++ $b_{j}$ het effect van jaar $j$. Dit effect modelleert een eerste orde random walk. Het verschil tussen twee opeenvolgende jaren $\Delta b_j=b_j - b_{j-1}$ volgt een normale verdeling met gemiddelde 0 en variantie $\sigma_{j}^2$.
+
+
+
+
+$$\eta_{ldj}= \beta_{0} + b_{l} + b_{d} + b_{j}$$
+ 
+ 
+$$b_{l} \sim {N(0,\sigma_{l}^2)} $$
+$$\Delta^2 b_d \sim {N(0,\sigma_{d}^2)} $$
+$$\Delta b_j \sim {N(0,\sigma_{j}^2)} $$
+
+
+## Model voor jaarlijkse trend
+
+Om de lineaire trend te schatten gebruiken we jaar als continue variabele $J$. Verder is het model identiek aan het eerder beschreven model voor verschillen tussen de jaren. 
+
+Dit model gebruiken we voor volgende schattingen:
+
+* gemiddelde jaarlijkse lineaire trend in aantallen (per 100 meter transectlengte), m.a.w. de percentage vooruitgang of achteruitgang per jaar;
+
+* totale trend in aantallen (per 100 meter transectlengte) over de volledige periode, m.a.w. de percentage vooruitgang of achteruitgang over de hele periode. 
+
+We krijgen dus:
+
+$$\eta_{ldj}= \beta_{0} + \beta_{1}J +  b_{l} +  b_{d}$$
+waarbij $e^{\beta_1}$ de relatieve trend weergeeft. 
+
+# Bijlage: Reproduceerbaarheid van de analyses {#h:bijlager}
+
+De analyses werden uitgevoerd via de programmeertaal R. De R-scripts staan onder versiebeheer via volgende GitHub repository: [inbo/soortenmeetnetten-analysis](https://github.com/inbo/soortenmeetnetten-analysis) en zijn publiek toegankelijk.
+
+Meer specifiek gebeuren de analyses voor de dagvlindermeetnetten via de scripts in de folder [inbo/soortenmeetnetten-analysis/analysis_vlinders/src](https://github.com/inbo/soortenmeetnetten-analysis/tree/master/analysis_vlinders/src). De ruwe data die we gebruiken voor de analyse zijn niet publiek beschikbaar omdat het om gevoelige data gaat. De ruwe data zijn wel beschikbaar via [deze Google Drive folder](https://drive.google.com/drive/folders/1u0qnNQe6BO3aUzFjQrp2cZB7aoHv01gf), die enkel toegankelijk is op verzoek.
+
+# Bijlage: Verkenning aantallen secundaire soorten {#h:bijlageo}
+
+Voor de secundaire soorten berekenen we het gemiddeld aantal getelde exemplaren per bezoek per jaar over alle meetnetten met transecttellingen. Let wel, zowel de meetnetlocaties als de telperiodes werden geselecteerd in functie van de primaire soorten. De tellingen zijn daarom niet volledig representatief om op schaal Vlaanderen een uitspraak te doen over de secundaire soorten, waardoor de resultaten mogelijks vertekend zijn. De nodige voorzichtigheid is dus geboden bij de interpretatie van de resultaten.   
+
+Bij de secundaire soorten is het belangrijk om nulwaarnemingen (een soort werd niet waargenomen) in rekening te brengen. In tegenstelling tot de primaire soorten, voeren de tellers nulwaarnemingen van secundaire soorten meestal niet in in meetnetten.be. Wel kunnen tellers aangeven of bij een bezoek al dan niet alle waargenomen secundaire soorten werden ingevoerd. Wanneer de teller aangeeft dat alle soorten werden geteld, kunnen we er dus vanuit gaan dat de soorten die niet werden genoteerd ook niet werden waargenomen (nulwaarnemingen). Om een overmaat aan nulwaarnemingen te vermijden, houden we ook rekening met de vliegperiode per soort. Dit doen we door enkel nulwaarnemingen te weerhouden voor bezoeken die zich binnen de vliegperiode van de soort bevinden. Als ruwe proxy voor de vliegperiode nemen we per soort de vroegste datum en laatste datum waarop de soort werd waargenomen. We doen dit enkel voor de soorten die relatief vaak gezien werden (totaal aantal getelde individuen groter dan 50).
+
+
+
+
+```{r}
+count_period <- counts %>%
+  filter(protocol == "Vlinders - Transecten") %>%
+  filter(aantal > 0) %>%
+  group_by(soort_nl) %>%
+  summarise(min_count_period = min(doy),
+            max_count_period = max(doy)) %>%
+  ungroup()
+
+count_secundair <- counts %>%
+  filter(protocol == "Vlinders - Transecten") %>%
+  filter(!is.na(soort_nl)) %>%
+  filter(!soort_nl %in% meetnet_characteristics$meetnet) %>%
+  group_by(visit_id, jaar, datum, doy, meetnet, protocol, locatie, checklist, soort_nl, soort_wet) %>%
+  summarise(aantal_bezoek = sum(aantal)) %>%
+  ungroup()
+
+visits_checklist <- count_secundair %>%
+  filter(checklist) %>%
+  distinct(meetnet, visit_id, jaar, datum, doy, locatie, checklist)
+
+n_nochecklist <- count_secundair %>%
+  filter(!checklist) %>%
+  group_by(soort_nl, jaar) %>%
+  summarise(n_visits_no_checklist = n_distinct(visit_id)) %>%
+  ungroup()
+
+soort <- "Bruin zandoogje"
+
+n_checklists <- NULL
+
+for (soort in count_period$soort_nl) {
+  
+  min_period <- (count_period %>%
+    filter(soort_nl == soort))$min_count_period
+  
+  max_period <- (count_period %>%
+    filter(soort_nl == soort))$max_count_period
+  
+  visits_checklist_period <- visits_checklist %>%
+    group_by(jaar) %>%
+    summarise(n_visits_checklist = sum((doy >= min_period) & (doy <= max_period))) %>%
+    ungroup() %>%
+    mutate(soort_nl = soort)
+
+  n_checklists <- bind_rows(n_checklists,
+                            visits_checklist_period)
+  
+}
+
+count_secundair_jaar <- count_secundair %>%
+  arrange(meetnet) %>%
+  group_by(jaar, protocol, soort_nl, soort_wet) %>%
+  summarise(aantal = sum(aantal_bezoek),
+            n_locaties = n_distinct(locatie),
+            meetnetten = str_c(unique(meetnet), collapse = ", ")) %>%
+  ungroup() %>%
+  group_by(soort_nl) %>%
+  mutate(totaal = sum(aantal)) %>%
+  ungroup() %>%
+  left_join(count_period, by = "soort_nl") %>%
+  left_join(n_checklists, by = c("soort_nl", "jaar")) %>%
+  left_join(n_nochecklist, by =  c("soort_nl", "jaar")) %>%
+  mutate(n_visits_no_checklist = replace_na(n_visits_no_checklist, 0)) %>%
+  mutate(aantal_gemiddeld = aantal / (n_visits_checklist + n_visits_no_checklist)) %>%
+  arrange(soort_nl, jaar)
+
+# 
+# summary_table_secundair <- summary_table %>%
+#   filter(!is.na(soort_nl)) %>%
+#   mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+#   filter(!soort_nl %in% meetnet_characteristics$meetnet) %>%
+#   group_by(jaar, soort_nl, soort_wet) %>%
+#   summarise(aantal_totaal = sum(aantal_totaal),
+#             aanwezig_totaal = sum(locaties_species_year),
+#             visits_calc_totaal = sum(visits_calc),
+#             visits_overige_totaal = sum(visits_overige),
+#             visits_totaal = sum(visits)) %>%
+#   ungroup() %>%
+#   mutate(aantal_gemiddeld = round(aantal_totaal/visits_calc_totaal, 2),
+#          aantal_gemiddeld_overige = round(aantal_totaal/visits_overige_totaal),
+#          proportie_aanwezig = round(aanwezig_totaal/ visits_calc_totaal *100, 0)) %>%
+#   ungroup() %>%
+#   filter(aantal_totaal > 0) %>%
+#   arrange(soort_nl,  jaar)
+```
+
+Figuur \@ref(fig:figsec) toont de gemiddelde getelde aantallen per jaar en de totale aantallen over alle jaren.  
+
+```{r figsec, fig.height= 11, fig.cap = "Gemiddeld aantal getelde individuen per bezoek en per jaar voor de verschillende secundaire soorten in de meetnetten met transecttellingen"}
+count_secundair_jaar %>%
+  filter(totaal > 50) %>%
+  mutate(show_facet = str_c(soort_nl, " (tot = ", totaal, ")")) %>%
+  ggplot(aes(x = jaar, y = aantal_gemiddeld, group = soort_nl)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~show_facet, scales = "free_y", ncol = 3) +
+  ylab("Gemiddeld aantal per bezoek") +
+  xlab("Jaar") +
+  theme(axis.text.x = element_text(angle = 90),
+        strip.text = element_text(size = 8, colour = "black"))
+```
+

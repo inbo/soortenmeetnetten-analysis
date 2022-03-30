@@ -1,0 +1,280 @@
+
+
+# Methodiek
+
+
+## Ontwerp van de meetnetten
+
+In een meetnet tellen vrijwilligers specifieke soorten op vastgelegde locaties via een gestandaardiseerde telmethode. Een dergelijke gestructureerde monitoring geeft de beste garantie op betrouwbare informatie over de toestand en trends van soorten op schaal Vlaanderen. Het ontwerp van de dagvlindermeetnetten wordt in detail beschreven in het monitoringsprotocol dagvlinders [@maes_monitoringsprotocol_2019]. Dit is een tweede versie van het monitoringsprotocol waarin enkele aanpassingen zijn gebeurd ten opzichte van de eerste versie [@maes_monitoringsprotocol_2015]. Het monitoringsprotocol is gebaseerd op de blauwdruk voor soortenmonitoring [@de_knijf_monitoring_2014].    
+
+We vatten de belangrijkste onderdelen van de dagvlindermeetnetten nog eens kort samen.    
+
+
+### Selectie van de soorten
+
+Voor twee groepen van soorten streven we naar een monitoring op basis van meetnetten: Europees prioritaire soorten en Vlaams prioritaire soorten [@westra_inleiding_2014].
+
++ De **Europees prioritaire soorten** (EPS) zijn de zogenaamde **Natura 2000 - soorten** die op Bijlage II en/of Bijlage IV van de Europese Habitatrichtlijn (HRL) staan.  
+
++ De **Vlaams prioritaire soorten** (VPS) staan niet op een bijlage van de HRL (het zijn dus geen Natura 2000 - soorten), maar ze worden wel als prioritair beschouwd voor het Vlaamse natuurbeleid, vaak omwille van het feit dat ze in Vlaanderen en/of Europa op de Rode Lijst staan. 
+
+
+In Tabel \@ref(tab:tabsoorten) tonen we de geselecteerde dagvlindersoorten, de beleidsrelevantie van de soorten en het jaar waarin het meetnet voor die soort van start ging. 
+
+
+```{r tabsoorten}
+
+if (doc.type == "docx") {
+  meetnet_characteristics %>%
+  select("Nederlandse naam" = meetnet, "Wetenschappelijke naam" = soort_wet, Beleidsrelevantie = type_soort, "Start meetnet" = opstartjaar) %>%
+    unique() %>%
+  kable(caption = "Overzicht van de dagvlinders waarvoor een meetnet bestaat met onderscheid tussen Europees prioritaire (EPS) en Vlaams prioritaire soorten (VPS), en met het jaar waarin de monitoring werd opgestart",
+        format = "simple",
+        booktabs = TRUE,
+        align = c("l", "l", "c", "c"),
+      row.names = FALSE)
+} else {
+  meetnet_characteristics %>%
+  select("Nederlandse naam" = meetnet, "Wetenschappelijke naam" = soort_wet, Beleidsrelevantie = type_soort, "Start meetnet" = opstartjaar) %>%
+    unique() %>%
+  kbl(caption = "Overzicht van de dagvlinders waarvoor een meetnet bestaat met onderscheid tussen Europees prioritaire (EPS) en Vlaams prioritaire soorten (VPS), en met het jaar waarin de monitoring werd opgestart",
+        escape = FALSE,
+        booktabs = TRUE,
+        align = c("l", "l", "c", "c"),
+      row.names = FALSE) %>%
+  kable_styling(font_size = font_size_table) %>%
+  column_spec(2, italic = TRUE) 
+}
+
+```
+
+\needspace{50mm}
+
+### Telmethode
+
+De dagvlinders worden geteld op basis van de drie volgende veldprotocollen:
+
+- **Transecttelling imago's**. Hierbij worden imago’s (adulten) van dagvlinders op een vaste route (van bij voorkeur 1000 meter) geteld die binnen de denkbeeldige kooi van maximaal 2,5 m links en rechts en maximaal 5 m voor de teller vliegen. De route wordt opgedeeld in secties van 50 meter die aan een constant tempo gewandeld worden. De tellers noteren de aantallen per sectie.
+
+- **Gebiedstelling imago's**. Binnen een vooraf afgebakend telgebied worden de vlinders geteld gedurende een vastgelegde tijd van bv. 1 uur. Ook hier wordt een vast transect gevolgd, maar er hoeft geen rekening gehouden te worden met de denkbeeldige kooi en er kan meer tijd gespendeerd worden in de buurt van interessante plekjes. 
+
+- **Eitelling**. Deze methode gebruiken we voor het Gentiaanblauwtje. De tellers tellen alle eitjes op Klokjesgentianen binnen een proefvlak van 100 m².
+
+Een overzicht van de gebruikte veldprotocollen vind je in Tabel \@ref(tab:tabkarakteristiekentelperiode). Voor elke soort vermelden we de telperiode waarin de tellingen gebeuren en het aantal bezoeken per telperiode. Afhankelijk van de weersomstandigheden, kan de telperiode vervroegd of verlaat worden in een bepaald jaar. Bij Argusvlinder, Bruin dikkopje en Klaverblauwtje komen er verschillende generaties voor binnen een jaar. Voor deze soorten zijn er daarom twee telperiodes, één voor elke generatie. 
+
+```{r tabkarakteristiekentelperiode}
+
+if (html_output) {
+
+  meetnet_telperiode_table <- meetnet_characteristics %>%
+  mutate(start_telperiode = format(start_telperiode, "%d/%m"),
+         einde_telperiode = format(einde_telperiode, "%d/%m"),
+         telperiode = str_c(start_telperiode, " - ", einde_telperiode)) %>%
+  distinct(meetnet, protocol, generatie, bezoeken, telperiode) %>%
+  pivot_wider(names_from = "generatie", values_from = "telperiode", values_fill = "") %>%
+  select(Meetnet = meetnet, Veldprotocol =  protocol,  "Telperiode 1^ste^ generatie" = generatie1, "Telperiode 2^de^ generatie" = generatie2, "Aantal bezoeken per telperiode" = bezoeken)
+  
+} else {
+
+  meetnet_telperiode_table <- meetnet_characteristics %>%
+  mutate(start_telperiode = format(start_telperiode, "%d/%m"),
+         einde_telperiode = format(einde_telperiode, "%d/%m"),
+         telperiode = str_c(start_telperiode, " - ", einde_telperiode)) %>%
+  distinct(meetnet, protocol, generatie, bezoeken, telperiode) %>%
+  pivot_wider(names_from = "generatie", values_from = "telperiode", values_fill = "") %>%
+  select(Meetnet = meetnet, Veldprotocol =  protocol,  "Telperiode 1" = generatie1, "Telperiode 2" = generatie2, "Aantal bezoeken per telperiode" = bezoeken)
+
+}
+
+
+table <- meetnet_telperiode_table %>%
+  kable(caption = "Overzicht van de karakteristieken van de dagvlindermeetnetten: veldprotocol, telperiode, aantal bezoeken",
+        align = "llccc",
+        booktabs = TRUE,
+        format = format_table) 
+
+if (doc.type == "docx") {
+  
+  table
+  
+} else {
+  
+  table %>%
+  kable_styling(font_size = font_size_table) %>%
+   column_spec(5, width = "10em")
+  
+}
+
+```
+
+### Selectie van de meetnetlocaties
+
+Wanneer er van een bepaalde soort minder dan 30 populaties voorkomen in Vlaanderen, worden alle populaties opgenomen in het meetnet. We spreken dan van een integrale monitoring. Wanneer er meer dan 30 populaties zijn, is het niet meer haalbaar om al die populaties te tellen. We selecteren dan 30 populaties via een willekeurige steekproef. Tabel \@ref(tab:tabkarakteristiekenselectie) toont voor elk meetnet het aantal meetnetlocaties/populaties en of de soort integraal dan wel via een steekproef wordt geteld. De tabel geeft ook de duur van de meetcyclus weer. Dit is de periode waarin alle meetnetlocaties geteld worden. Een meetcyclus van drie jaar betekent dus dat elke meetnetlocatie om de drie jaar geteld wordt. Voor de soorten met een integrale selectie worden alle meetnetlocaties jaarlijks geteld.
+
+Door de recente toename in verspreiding van de Grote weerschijnvlinder, is ook het aantal populaties in 2021 toegenomen van 10 naar 41. Voorlopig hebben we echter nog geen steekproef getrokken voor dit meetnet. We wachten nog even af of deze populaties stand houden.  
+
+```{r tabkarakteristiekenselectie}
+
+meetnet_selectie_table <- meetnet_characteristics %>%
+  mutate(n_locaties = ifelse(meetnet == "Heivlinder", 30, n_locaties)) %>%
+  select(Meetnet = meetnet, "Selectie" = type, "Aantal meetnetlocaties" = n_locaties, "Duur meetcyclus (jaar)" = duur_meetcyclus) %>%
+  unique()
+
+table <- meetnet_selectie_table %>%
+  kable(caption = "Overzicht van de karakteristieken van de dagvlindermeetnetten: selectie van locaties, aantal locaties en duur van de meetcyclus",
+        align = "llcc",
+        booktabs = TRUE,
+        format = format_table,
+        row.names = FALSE) 
+
+if (doc.type == "docx") {
+  
+  table
+  
+} else {
+  
+  table %>%
+  kable_styling( font_size = font_size_table)
+  
+}
+
+
+```
+
+`r ifelse(doc.type == "html", "De exacte ligging van de meetnetlocaties maken we niet publiek. Figuur \\@ref(fig:figlocaties) geeft wel de *vervaagde* ligging van de meetnetlocaties weer. De meetnetlocaties worden hierin weergegeven in het centrum van het 5 x 5 km UTM-hok waarin de locatie is gelegen. Sommige UTM-hokken bevatten meerdere meetnetlocaties. Hoe donkerder de blauwe kleur van de punten, hoe meer meetnetlocaties. Elk punt heeft een label dat aangeeft hoeveel meetnetlocaties per meetnet het UTM-hok bevat. De label wordt getoond als je met de muis over de punten gaat. Je kan ook een of meerdere meetnetten selecteren via het selectievenster.", "")`
+
+```{r loc, warning=FALSE}
+
+locaties <- get_locations_smp(species_group = "dagvlinders") %>%
+  filter(locatie_type == "locatie") %>%
+  st_transform(crs = 31370) %>%
+  add_tag_utm(size_km = 5) %>%
+  st_drop_geometry()
+
+locaties_utm <- read_utm(size_km = 5) %>%
+  inner_join(locaties, by = "tag_utm") %>%
+  group_by(tag_utm, meetnet) %>%
+  mutate(label = str_c(unique(meetnet), " (", dplyr::n(), ")")) %>%
+  ungroup() %>%
+  group_by(tag_utm) %>%
+  mutate(label = str_c(unique(label), collapse = ", "),
+         n = dplyr::n(),
+         n_meetnet = n_distinct(meetnet)) %>%
+  ungroup() %>%
+  st_transform(crs = 31370) %>%
+  st_centroid() %>%
+  st_transform(crs =4326) 
+
+# locaties_utm5_jitter <- rbind(
+#   locaties_utm5 %>%
+#   filter(n > 1) %>%
+#   st_jitter(2000),
+#   locaties_utm5 %>%
+#   filter(n == 1)) %>%
+#   st_transform(crs = 4326)
+
+provincies <- read_provincies()
+
+utm <- read_utm(size_km = 5)
+
+utm_vl <- utm[provincies,] %>%
+  st_transform(crs =4326) %>%
+  filter(tag_utm %in% locaties_utm$tag_utm)
+```
+
+```{r,  eval = html_output}
+
+locaties_shared <- SharedData$new(locaties_utm)
+
+bscols(
+  list(
+    bscols(
+      widths = c(8, 4),
+      NULL,
+      filter_select("meetnet", "Selecteer meetnet", locaties_shared, ~meetnet)
+  ),
+       leaflet(locaties_shared, options = leafletOptions(maxZoom = 11)) %>%
+                addTiles() %>%
+                addCircles(stroke = FALSE, label = ~label, opacity = 0.8, radius = 1500) %>%
+                addPolygons(data = utm_vl, weight = 1, color = "blue", fill = FALSE, opacity = 0.5)
+       )
+  )
+
+
+```
+
+```{r figlocaties, fig.cap = "Locaties van de dagvlindermeetnetten vervaagd tot op het niveau van een 5 x 5 km UTM-hok", eval= html_output}
+include_graphics("../image/dummy_figuur.png")
+```
+
+## Ingezamelde telgegevens
+
+
+```{r, message=FALSE, warning=FALSE}
+monitoring_effort_meetnet <- calculate_monitoring_effort(species_group = "dagvlinders",
+                                                 aggregation_level = "meetnet")
+
+monitoring_effort_soortgroep <- calculate_monitoring_effort(species_group = "dagvlinders",
+                                                 aggregation_level = "species_group") %>%
+  mutate(meetnet = "Alle dagvlindermeetnetten")
+
+monitoring_effort_overall <- calculate_monitoring_effort(species_group = "dagvlinders",
+                                                 aggregation_level = "overall")
+
+monitoring_effort <- monitoring_effort_meetnet %>%
+  bind_rows(monitoring_effort_soortgroep) %>%
+  arrange(meetnet)
+
+```
+
+Tellers voeren de telgegevens in via het web portaal [meetnetten.be](https://www.meetnetten.be/) of via de mobiele [meetnetten-app](https://play.google.com/store/apps/details?id=nl.zostera.meetnetten&hl=nl).
+Sinds de start van de meetnetten in 2016 tot en met 2021 hebben `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellers", "aantal"]` tellers `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellingen", "aantal"]` dagvlindertellingen op `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellocaties", "aantal"]` meetnetlocaties ingevoerd. In Figuur \@ref(fig:figinspanning) zien we de trend van de tellingen in de tijd voor alle dagvlindermeetnetten samen. Het aantal getelde locaties nam sterk toe in de periode 2016 tot 2018, wat te verklaren is doordat er jaarlijks een aantal nieuwe meetnetten werden opgestart. De daling van het aantal tellingen in 2021 is waarschijnlijk te wijten aan de slechte weersomstandigheden waardoor er minder geschikte telmomenten waren.
+
+
+
+
+
+
+
+```{r figinspanning,  fig.cap = "Monitoringinspanning voor alle dagvlindermeetnetten samen", warning=TRUE}
+
+plot1 <- monitoring_effort_soortgroep %>%
+  ggplot(aes(x = jaar, y = aantal, colour = monitoringsinspanning)) +
+  geom_point() +
+  geom_line() +
+  ylim(0, NA) +
+  labs(x = "Jaar", y = "Aantal") 
+
+if (html_output) {
+  
+  ggplotly(plot1)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+  
+} else {
+  
+  plot1
+}
+
+```
+
+
+
+
+
+## Dataontsluiting
+
+De databank die onderdeel uitmaakt van [meetnetten.be](www.meetnetten.be) is enkel toegankelijk binnen het INBO. Maar op regelmatige basis maakt het INBO datasets publiek toegankelijk via [GBIF](https://www.gbif.org/) (Global Biodiversity Information Facility). Omdat het meestal om kwetsbare soorten gaat, passen we op de datasets een vervaging toe van 1, 5 of 10 km toe afhankelijk van de soort. Deze vervaging komt overeen met de vervagingsregels die toegepast worden op waarnemingen.be. De publiek ontsloten datasets bevatten dus niet de exacte tellocaties.  
+
+Voor de dagvlindermeetnetten gaat het om volgende datasets:
+
++ Gebiedstelling van imago's [@piesschaert_sitecounts_2021];
++ Transecttelling van imago's [@piesschaert_transects_2021];
++ Eitelling Gentiaanblauwtje [@piesschaert_eggcounts_2021].
+
+

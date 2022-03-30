@@ -1,0 +1,176 @@
+# Weersomstandigheden
+
+```{r}
+spi_3 <- read_csv2("../../analysis_vlinders/output/weather_data/spi_3.csv")
+
+neerslag <- read_csv2("../../analysis_vlinders/output/weather_data/rainfall_monthly.csv")
+
+temperatuur <- read_csv2("../../analysis_vlinders/output/weather_data/temperature_monthly.csv")
+```
+
+Weersomstandigheden hebben een groot effect op de jaarlijkse schommelingen in aantallen van dagvlinders. Daarom geven we in dit hoofdstuk een beknopt overzicht van de gemiddelde maandelijkse temperatuur, neerslag en droogte in de periode 2016 - 2021. Deze gegevens kunnen helpen bij de interpretatie van de analyseresultaten. Het is echter niet de bedoeling om in dit rapport de effecten van weersomstandigheden op de schommelingen in dagvlinderaantallen te modelleren.  
+
+We maken gebruik van de gegevens van de meetstations van Vlaamse Milieumaatschappij (VMM) die te raadplegen zijn via de website [www.waterinfo.be](www.waterinfo.be). De gegevens werden ingelezen via het R-packagde wateRinfo [@vanhoey_2022].
+
+
+
+## Temperatuur
+
+
+```{r}
+temperatuur_show <- temperatuur %>%
+  filter(!is.na(Value)) %>%
+  mutate(datum = as.Date(Timestamp) - 15,
+         maand = month(datum),
+         jaar = year(datum)) %>%
+  group_by(datum, maand, jaar) %>%
+  summarise(temperatuur_jaar = mean(Value)) %>%
+  ungroup() %>%
+  group_by(maand) %>%
+  mutate(temperatuur = mean(temperatuur_jaar)) %>%
+  ungroup() %>%
+  mutate(temperatuur_verschil = temperatuur_jaar - temperatuur)
+
+temperatuur_stations <- temperatuur %>%
+  distinct(station_name, station_latitude, station_longitude) %>%
+  st_as_sf(coords = c("station_longitude", "station_latitude"), crs = 4326)
+  
+```
+
+Voor temperatuur maken we gebruik van de maandelijkse gemiddelde temperatuur van `r nrow(temperatuur_stations)` meetstations (Figuur \@ref(fig:figmeet1)).
+Op basis hiervan maken we voor elke maand een inschatting in hoeverre de temperatuur afwijkt t.o.v. het gemiddelde in de periode 2016 - 2021. Dit kan via volgende stappen:
+
+* bereken het gemiddelde per maand en per jaar van de maandelijks gemiddelde temperatuur over alle stations (waarde 1),
+* bereken het gemiddelde per maand van de maandelijks gemiddelde temperatuur over alle stations en over alle jaren in de periode 2016 - 2021 (waarde 2),
+* bereken het verschil tussen waarde 1 en waarde 2.
+
+```{r figmeet1, fig.height = 3, fig.cap = "VMM meetstations waar o.a. temperatuur gemeten wordt"}
+
+vlaanderen <- read_sf(dsn = file.path(data_path, "gis/provincies"), layer =  "Provincies2015", crs = 31370) %>%
+  st_transform(crs = 4326)
+
+ggplot() +
+  geom_sf(data = vlaanderen) +
+  geom_sf(data = temperatuur_stations, size = 3, alpha = 0.6)
+```
+
+Het resultaat hiervan vind je in Figuur \@ref(fig:figtemp).
+
+
+```{r figtemp, fig.height = 5, fig.cap = "Verschil in temperatuur t.o.v. de gemiddelde temperatuur over de periode 2016 - 2021 op basis van de gemiddelde maandelijkse temperatuur van de VMM-meetstations"}
+temperatuur_show  %>%
+  mutate(Temperatuur = ifelse(temperatuur_verschil > 0, "Warmer dan gemiddeld", "Kouder dan gemiddeld")) %>%
+  ggplot(aes(x = datum, y = temperatuur_verschil, fill = Temperatuur)) +
+  geom_bar(alpha = 1, stat = "identity") +
+  # geom_smooth() +
+  geom_hline(yintercept = 0,  alpha = 0.8) +
+  # geom_hline(yintercept = 2, colour = inbo_steun_blauw, alpha = 0.8) +
+  # geom_hline(yintercept = -2, colour = inbo_rood, alpha = 0.8) +
+  facet_wrap(~jaar, scales = "free_x") +
+  scale_x_date(date_labels = "%b",
+               date_minor_breaks = "1 month") +
+  ylab("Verschil in temperatuur (°C) t.o.v. gemiddelde 2016 - 2021") +
+  xlab("Maand") +
+  scale_fill_manual(values = c(inbo_steun_blauw, inbo_rood))  +
+  theme(legend.position = "bottom")
+```
+
+
+
+## Neerslag
+
+```{r}
+neerslag_show <- neerslag %>%
+  filter(!is.na(Value)) %>%
+  mutate(datum = as.Date(Timestamp) - 15,
+         maand = month(datum),
+         jaar = year(datum)) %>%
+  group_by(datum, maand, jaar) %>%
+  summarise(neerslag_jaar = mean(Value)) %>%
+  ungroup() %>%
+  group_by(maand) %>%
+  mutate(neerslag = mean(neerslag_jaar)) %>%
+  ungroup() %>%
+  mutate(neerslag_verschil = neerslag_jaar - neerslag)
+
+neerslag_stations <- neerslag %>%
+  distinct(station_name, station_latitude, station_longitude) %>%
+  st_as_sf(coords = c("station_longitude", "station_latitude"), crs = 4326)
+  
+
+```
+
+Voor neerslag maken we gebruik van de maandelijkse totale neerslag van `r nrow(neerslag_stations)` meetstations (Figuur \@ref(fig:figmeet1)).
+Op basis hiervan maken we voor elke maand een inschatting in hoeverre de totale neerslag afwijkt t.o.v. het gemiddelde in de periode 2016 - 2021. Dit doen we op dezelefde manier als voor temperatuur.
+
+```{r figmeet, fig.height= 3, fig.cap = "VMM meetstations waar o.a. neerslag gemeten wordt"}
+
+ggplot() +
+  geom_sf(data = vlaanderen) +
+  geom_sf(data = neerslag_stations, size = 3, alpha = 0.6)
+```
+
+
+Het resultaat hiervan vind je in Figuur \@ref(fig:figrain).
+
+```{r figrain, fig.height = 5, fig.cap = "Verschil in neerslag t.o.v. de gemiddelde neerslag over de periode 2016 - 2021 op basis van de totale maandelijkse neerslag opgemeten in de VMM-meetstations"}
+neerslag_show  %>%
+  mutate(Neerslag = ifelse(neerslag_verschil > 0, "Natter dan gemiddeld", "Droger dan gemiddeld")) %>%
+  ggplot(aes(x = datum, y = neerslag_verschil, fill = Neerslag)) +
+  geom_bar(alpha = 1, stat = "identity") +
+  # geom_smooth() +
+  geom_hline(yintercept = 0,  alpha = 0.8) +
+  # geom_hline(yintercept = 2, colour = inbo_steun_blauw, alpha = 0.8) +
+  # geom_hline(yintercept = -2, colour = inbo_rood, alpha = 0.8) +
+  facet_wrap(~jaar, scales = "free_x") +
+  scale_x_date(date_labels = "%b",
+               date_minor_breaks = "1 month") +
+  ylab("Verschil in neerslag (mm) t.o.v. gemiddelde 2016 - 2021") +
+  xlab("Maand") +
+  scale_fill_manual(values = c( inbo_rood, inbo_steun_blauw)) +
+  theme(legend.position = "bottom") 
+```
+
+## Standardized Precipitation Index (SPI)
+
+De VMM stelt ook de Standardized Precipitation Index (SPI) ter beschikking. De SPI-3 indicatorgeeft weer hoe droog of hoe nat de voorbije maand voorbije 3 maanden (SPI-3) waren ten opzichte van dezelfde periode van het jaar in de voorbije 30 jaar te Ukkel. De SPI-3 is gebaseerd op de gegevens van de neerslagstations van de VMM. Vanaf een waarde lager dan -2 spreken we van 'extreem droog' en bij een waarde hoger dan 2 van 'extreem nat'.
+
+\needspace{100mm}
+
+In Figuur \@ref(fig:figspi) tonen we de gemiddelde SPI-3 waarden per maand over alle meetstations.
+
+
+
+```{r figspi, fig.height = 5,  fig.cap = "De Standardized Precipitation Index met een accumilatieperiode van 3 maand (SPI-3) voor de periode 2016- 2021"}
+
+spi_stations <- spi_3 %>%
+  distinct(station_name, station_latitude, station_longitude) %>%
+  st_as_sf(coords = c("station_longitude", "station_latitude"))
+
+spi_3 %>%
+  mutate(datum = as.Date(timestamp),
+         jaar = year(timestamp),
+         maand = month(timestamp)) %>%
+  filter(!is.na(value)) %>%
+  group_by(maand, jaar) %>%
+  summarise(value = mean(value),
+            datum = mean(datum)) %>%
+  ungroup() %>%
+  filter(!is.na(value)) %>%
+  mutate("SPI-3" = ifelse(value > 0, "Natter dan gemiddeld", "Droger dan gemiddeld")) %>%
+  ggplot(aes(x = datum, y = value, fill = `SPI-3`)) +
+  # geom_line(alpha = 1) +
+  geom_bar(alpha = 1, stat = "identity") +
+  # geom_smooth() +
+  geom_hline(yintercept = 0, colour = "black", linetype = 1, alpha = 0.8) +
+  geom_hline(yintercept = 2, colour = inbo_steun_blauw, alpha = 0.8) +
+  geom_hline(yintercept = -2, colour = inbo_rood, alpha = 0.8) +
+  facet_wrap(~jaar, scales = "free_x") +
+  scale_x_date(date_labels = "%b",
+               date_minor_breaks = "1 month") +
+  ylab("SPI-3")  +
+  xlab("Maand") +
+  scale_fill_manual(values = c( inbo_rood, inbo_steun_blauw)) +
+  theme(legend.position = "bottom") 
+```
+

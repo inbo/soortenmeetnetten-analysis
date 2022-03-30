@@ -1,0 +1,2197 @@
+# Resultaten per meetnet {#detailresultaat}
+
+In dit onderdeel van het rapport geven we een overzicht van de resultaten per meetnet. 
+
+Voor elk meetnet tonen we:
+
++ de karakteristieken van het meetnet;
++ de jaarlijkse monitoringsinspanning (het aantal tellers, het aantal tellocaties en het aantal tellingen);
++ de jaarlijkse verschillen in aantallen met t.o.v. het referentiejaar (eerste jaar van het meetnet);
++ de verschillen tussen opeenvolgende jaren;
++ de gemiddelde jaarlijkse trend.
+
+We vergelijken de trends ook met de resultaten van de Nederlandse vlindermeetnetten [@van_swaay_2022] en bespreken kort mogelijke oorzaken van de trends.  
+
+Voor een verklaring van de symbolen en referentielijnen in de figuren verwijzen we naar paragraaf \@ref(h:classtrend). 
+
+
+```{r preparedata}
+klassenamen <- trend_klasses %>%
+  select(klasse, klasse_naam, klasse_output) %>%
+  mutate(klasse = as.character(klasse))
+
+result_indexmodel_refvalue <- result_indexmodel %>%
+  filter(parameter == "index") %>%
+  distinct(meetnet, parameter, soort_nl, soort_wet, ref_jaar) %>%
+  mutate(jaar = ref_jaar,
+         mean = 1,
+         klasse = "R") 
+
+result_indexmodel_table <- result_indexmodel %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(lcl_0.90)) %>%
+  mutate(klasse = as.character(classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1))) %>%
+  bind_rows(result_indexmodel_refvalue) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+result_verschil_table <- result_indexmodel %>%
+  filter(parameter == "diff_previous_year") %>%
+  mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
+  filter(!is.na(lcl_0.90)) %>%
+  mutate(klasse = as.character(classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1))) %>%
+  bind_rows(result_indexmodel_refvalue) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+result_indexmodel_cyclus_refvalue <- results_indexmodel_meetcyclus_transecttelling %>%
+  distinct(soort_nl, soort_wet, meetcyclus_ref) %>%
+  mutate(meetcyclus = "2016 - 2018",
+         mean = 1,
+         klasse = "R") 
+
+result_indexmodel_cyclus_table <- results_indexmodel_meetcyclus_transecttelling %>%
+  mutate(klasse = as.character(classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)),
+         meetcyclus = "2019 - 2021") %>%
+  bind_rows(result_indexmodel_cyclus_refvalue) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+summary_table_overige <- summary_table %>%
+  filter(!is.na(soort_nl)) %>%
+  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+  # filter(!primaire_soort) %>%
+  group_by(meetnet, primaire_soort, soort_nl, soort_wet) %>%
+  summarise(aantal_totaal = sum(aantal_totaal),
+            aanwezig_totaal = sum(locaties_species_year),
+            visits_calc_totaal = sum(visits_calc),
+            visits_overige_totaal = sum(visits_overige),
+            visits_totaal = sum(visits)) %>%
+  ungroup() %>%
+  mutate(aantal_gemiddeld = round(aantal_totaal/visits_calc_totaal, 2),
+         aantal_gemiddeld_overige = round(aantal_totaal/visits_overige_totaal),
+         proportie_aanwezig = round(aanwezig_totaal/ visits_calc_totaal *100, 0)) %>%
+  ungroup() %>%
+  filter(aantal_totaal > 0) %>%
+  arrange(meetnet, desc(aantal_totaal)) 
+
+```
+
+\pagebreak
+
+## Aardbeivlinder (*Pyrgus malvae*) {#aardbeivlinder}
+
+```{r}
+m <- "Aardbeivlinder"
+l <- "imago"
+
+```
+
+```{r, fig.cap= str_c(m,  " (Foto: Valerie Goethals)"), out.width = "50%"}
+include_graphics("../image/aardbeivlinder.jpg")
+```
+
+### Meetnetkarakteristieken
+
+```{r meetnetkaraktaard}
+bind_rows(meetnet_telperiode_table %>%
+            filter(Meetnet == m) %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken"),
+          meetnet_selectie_table %>%
+            filter(Meetnet == m) %>%
+            unique() %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken")
+  ) %>%
+  filter(Meetnetkarakteristieken != "") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kable(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE,
+     format = format_table) %>%
+  kable_styling(full_width = FALSE)
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffaard) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. De vier meetnetlocaties werden elk jaar voldoende geteld.    
+
+```{r moneffaard, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m), fig.height= 3}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+if (html_output) {
+  
+  ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+} else {
+  plot_m
+}
+
+```
+
+### Vergelijking tussen de jaren
+
+Figuur \@ref(fig:changesaard) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2aard) tonen we de verschillen tussen opeenvolgende jaren. 
+
+```{r changesaard,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+ref_jaar <- (meetnet_characteristics %>%
+  filter(meetnet == m))$opstartjaar %>%
+  unique()
+  
+size_bar <- 50 * 2.54 / (2021 - ref_jaar + 1)
+size_bar2 <- 50 * 2.54 / (2021 - ref_jaar)
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+
+```{r changes2aard,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+result_verschil_table %>%
+  filter(meetnet == m) %>%
+  filter(!is.na(periode)) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar2, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil tussen opeenvolgende jaren", x = "Periode") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
+Ook in Nederland neemt de Aardbeivlinder vooral de laatste drie jaren af op de algemene vlinderroutes [@van_swaay_2022].
+
+\pagebreak
+
+## Argusvlinder (*Lasiommata megera*) {#argusvlinder}
+
+```{r}
+m <- "Argusvlinder"
+l <- "imago"
+
+```
+
+```{r, fig.cap= str_c(m,  " (Foto: Valerie Goethals)"), out.width = "50%"}
+include_graphics("../image/argusvlinder.jpg")
+```
+
+### Meetnetkarakteristieken
+
+```{r meetnetkaraktav}
+bind_rows(meetnet_telperiode_table %>%
+            filter(Meetnet == m) %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken"),
+          meetnet_selectie_table %>%
+            filter(Meetnet == m) %>%
+            unique() %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken")
+  ) %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE,
+     format = format_table) %>%
+  kable_styling(full_width = FALSE)
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffav) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. Het is opvallend dat in het laatste jaar van de driejarige meetcyclus (2019 en 2021) er minder tellingen worden uitgevoerd. Het zijn dan vaak de minder 'interessante' locaties die overblijven om geteld te worden. 
+
+```{r moneffav,  fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m), fig.height = 3}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+
+if (html_output) {
+  
+  ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+} else {
+  plot_m
+}
+```
+
+### Vergelijking tussen de jaren
+
+Figuur \@ref(fig:changesav) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2av) tonen we de verschillen tussen opeenvolgende jaren. 
+
+```{r changesav,  fig.width= 5, fig.height = 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+ref_jaar <- (meetnet_characteristics %>%
+  filter(meetnet == m))$opstartjaar %>%
+  unique()
+  
+size_bar <- 50 * 2.54 / (2021 - ref_jaar + 1)
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  filter(meetnet == m) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  facet_wrap(~ meetnet + ref_jaar_tekst, ncol = 2) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+```{r changes2av,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+size_bar <- 50 * 2.54 / (2021 - ref_jaar)
+
+result_verschil_table %>%
+  filter(meetnet == m) %>%
+  filter(!is.na(periode)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil tussen opeenvolgende jaren", x = "Periode") +
+  facet_wrap(~ meetnet) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+```
+
+### Vergelijking tussen de meetcycli
+
+Bij Argusvlinder werken we met een meetcyclus van drie jaar, waardoor elke locatie in principe om de drie jaar geteld wordt. Elk jaar binnen een meetcyclus wordt er dus een andere set locaties geteld en dat zal de jaarlijkse verschillen voor een deel bepalen. Daarom tonen we in Figuur \@ref(fig:changesavcyclus) ook de verschillen tussen de meetcyclus 2016 - 2018 en 2019 - 2020. Daarbij vergelijken we dus de aantallen voor eenzelfde set aan locaties.   
+
+```{r changesavcyclus,  fig.width= 4, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen per meetcyclus t.o.v. referentie meetcyclus met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+result_indexmodel_cyclus_table %>%
+  mutate(ref_cyclus_tekst = "Referentie meetcyclus =  2016 - 2018") %>%
+  filter(soort_nl == m) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = meetcyclus, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 40 * 2.58 /2, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil t.o.v. referentie meetcyclus", x = "Meetcyclus") +
+  facet_wrap(~ soort_nl + ref_cyclus_tekst, ncol = 2) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
+Ook in Nederland blijft de Argusvlinder sterk achteruitgaan [@van_swaay_2022]. Vermoedelijke oorzaken zijn de recente droge zomers en stikstofdepositie [@klop_2015], maar ook het regionaal opwarmen van het klimaat kan een rol spelen [@van_dyck_2015].
+
+\pagebreak
+
+## Bruin dikkopje (*Erynnis tages*) {#bruindikkopje}
+
+```{r}
+m <- "Bruin dikkopje"
+l <- "imago"
+
+```
+
+```{r, fig.cap= str_c(m,  " (foto: Valerie Goethals)"), out.width = "50%"}
+include_graphics("../image/bruin_dikkopje.jpg")
+```
+
+### Meetnetkarakteristieken
+
+```{r meetnetkaraktbdik}
+bind_rows(meetnet_telperiode_table %>%
+            filter(Meetnet == m) %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken"),
+          meetnet_selectie_table %>%
+            filter(Meetnet == m) %>%
+            unique() %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken")
+  ) %>%
+  filter(Meetnetkarakteristieken != "") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE,
+     format = format_table) %>%
+  kable_styling(full_width = FALSE, font_size = font_size_table)
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffbdik) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. De vier meetnetlocaties werden elk jaar voldoende geteld.   
+
+```{r moneffbdik, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m), fig.height = 3}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+
+if (html_output) {
+  
+  ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+} else {
+  plot_m
+}
+```
+
+### Vergelijking tussen de jaren
+
+Figuur \@ref(fig:changesbd) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2bd) tonen we de verschillen tussen opeenvolgende jaren. 
+
+```{r changesbd,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+ref_jaar <- (meetnet_characteristics %>%
+  filter(meetnet == m))$opstartjaar %>%
+  unique()
+  
+size_bar <- 50 * 2.54 / (2021 - ref_jaar + 1)
+size_bar2 <- 50 * 2.54 / (2021 - ref_jaar)
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+
+```{r changes2bd,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+result_verschil_table %>%
+  filter(meetnet == m) %>%
+  filter(!is.na(periode)) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar2, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil tussen opeenvolgende jaren", x = "Periode") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont het `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
+In Nederland kende het Bruin dikkopje een piekjaar in 2018, maar nadien nemen ook daar de aantallen sterk af [@van_swaay_2022].
+
+\pagebreak
+
+## Bruine eikenpage (*Satyrium ilicis*){#bruieeikenpage}
+
+```{r}
+m <- "Bruine eikenpage"
+l <- "imago"
+
+```
+
+```{r, fig.cap= str_c(m,  " (foto: Valerie Goethals)"), out.width = "50%"}
+include_graphics("../image/bruine_eikenpage.jpg")
+```
+
+### Meetnetkarakteristieken
+
+```{r meetnetkaraktbeik}
+bind_rows(meetnet_telperiode_table %>%
+            filter(Meetnet == m) %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken"),
+          meetnet_selectie_table %>%
+            filter(Meetnet == m) %>%
+            unique() %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken")
+  ) %>%
+  filter(Meetnetkarakteristieken != "") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE,
+     format = format_table) %>%
+  kable_styling(full_width = FALSE, font_size = font_size_table)
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffbeik) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. De monitoringinspanning wordt goed volgehouden doorheen de jaren. Er is wel een lichte achteruitgang van het aantal tellingen in 2021, wat mogelijks te verklaren is door de minder geschikte weersomstandigheden als gevolg van de natte zomer in 2021.    
+
+```{r moneffbeik, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m), fig.height = 3}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+
+if (html_output) {
+  
+  ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+} else {
+  plot_m
+}
+```
+
+### Vergelijking tussen de jaren
+
+Figuur \@ref(fig:changesbeik) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2beik) tonen we de verschillen tussen opeenvolgende jaren. 
+
+```{r changesbeik,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+ref_jaar <- (meetnet_characteristics %>%
+  filter(meetnet == m))$opstartjaar %>%
+  unique()
+  
+size_bar <- 50 * 2.54 / (2021 - ref_jaar + 1)
+size_bar2 <- 50 * 2.54 / (2021 - ref_jaar)
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+
+```{r changes2beik,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+result_verschil_table %>%
+  filter(meetnet == m) %>%
+  filter(!is.na(periode)) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar2, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil tussen opeenvolgende jaren", x = "Periode") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
+In tegenstelling tot in Nederland was 2021 en goed jaar voor de Bruine eikenpage in Vlaanderen [@van_swaay_2022]. Een reden voor dit verschil tussen beide regio’s is niet onmiddellijk aan te geven.
+
+
+\pagebreak
+
+
+## Gentiaanblauwtje (*Phengaris alcon*){#gentiaanblauwtje}
+
+```{r}
+m <- "Gentiaanblauwtje"
+l <- "imago"
+
+```
+
+```{r, fig.cap= str_c(m,  " (foto: Dirk Maes)"), out.width= "50%"}
+include_graphics("../image/gentiaanblauwtje2.jpg")
+```
+
+
+
+### Meetnetkarakteristieken
+
+```{r meetnetkaraktgentb}
+bind_rows(meetnet_telperiode_table %>%
+            filter(Meetnet == m) %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken"),
+          meetnet_selectie_table %>%
+            filter(Meetnet == m) %>%
+            unique() %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken")
+  ) %>%
+  filter(Meetnetkarakteristieken != "") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE,
+     format = format_table) %>%
+  kable_styling(full_width = FALSE, font_size = font_size_table)
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffgentb) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. De monitoringinspanning wordt goed volgehouden doorheen de jaren. Het totaal aantal tellers neem in 2021 wel af t.o.v. 2020.  
+
+```{r moneffgentb, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m), fig.height = 3}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+
+if (html_output) {
+  
+  ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+} else {
+  plot_m
+}
+```
+
+### Vergelijking tussen de jaren
+
+Figuur \@ref(fig:changesgentb) toont de jaarlijkse verschillen in aantallen t.o.v. referentiejaar.
+
+Figuur \@ref(fig:changesgentb) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2gentb) tonen we de verschillen tussen opeenvolgende jaren. 
+
+```{r changesgentb,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+ref_jaar <- (meetnet_characteristics %>%
+  filter(meetnet == m))$opstartjaar %>%
+  unique()
+  
+size_bar <- 50 * 2.54 / (2021 - ref_jaar + 1)
+size_bar2 <- 50 * 2.54 / (2021 - ref_jaar)
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  filter(model_description == "without offset" | is.na(model_description)) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+
+```{r changes2gentb,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+result_verschil_table %>%
+  filter(meetnet == m) %>%
+  filter(model_description == "without offset" | is.na(model_description)) %>%
+  filter(!is.na(periode)) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar2, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil tussen opeenvolgende jaren", x = "Periode") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+```
+
+
+
+In Figuur \@ref(fig:changesgentb2) houden we ook rekening met het aantal Klokjesgentianen die aanwezig zijn binnen elke getelde plot. De figuur toont de jaarlijkse verschillen in aantallen per plant t.o.v. referentiejaar.
+
+```{r changesgentb2,  fig.width= 5, fig.height = 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen per plant t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  filter(model_description == "with offset" | is.na(model_description)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  facet_wrap(~ meetnet + ref_jaar_tekst, ncol = 2) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+```{r changes2gentb2,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen per plant tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+result_verschil_table %>%
+  filter(meetnet == m) %>%
+  filter(model_description == "with offset") %>%
+  filter(!is.na(periode)) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar2, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil tussen opeenvolgende jaren", x = "Periode") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+```
+
+### Trend
+
+```{r}
+
+trend_gb <- result_trendmodel %>%
+  mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
+         n_jaar = jaar_max - jaar_min + 1,
+         treshold_low = ifelse(parameter == "trend_average", 
+                               round((exp(log(0.75)/(n_jaar - 1)) - 1) *100, 1),
+                               -25),
+         treshold_high = ifelse(parameter == "trend_average", 
+                                round((exp(log(1.33)/(n_jaar - 1)) - 1) *100, 1),
+                                33)) %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0))
+  
+trend_average_meetnet <- trend_gb %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_average_meetnet_offset <- trend_average_meetnet %>%
+  filter(model_description == "with offset")
+
+trend_average_meetnet_no_offset <- trend_average_meetnet %>%
+  filter(model_description == "without offset")
+
+trend_total_meetnet <- trend_gb %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+trend_total_meetnet_offset <- trend_total_meetnet %>%
+  filter(model_description == "with offset")
+
+trend_total_meetnet_no_offset <- trend_total_meetnet %>%
+  filter(model_description == "without offset")
+```
+
+Over de periode `r trend_average_meetnet_no_offset$periode_tekst` vertoont het `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet_no_offset$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet_no_offset$lcl_0.90, 0)` % en `r round(trend_average_meetnet_no_offset$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet_no_offset$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet_no_offset$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet_no_offset$klasse_naam, "** (", trend_average_meetnet_no_offset$klasse_output, ") van de ", m, " in deze periode."))`
+
+Ook in Nederland neemt Gentiaanblauwtje al jaren lang af en verdwijnen er ongeveer twee populaties per jaar [@van_swaay_2022]. De lange droogteperiode in de zomers van 2019 en 2020 zijn hier vermoedelijk de oorzaak van.
+
+Wanneer we rekening houden met de aanwezige Klokjesgentianen binnen de getelde plots, dan bekomen we een gemiddelde jaarlijkse trend in aantal eitjes per plant van `r round(trend_average_meetnet_offset$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet_offset$lcl_0.90, 0)` % en `r round(trend_average_meetnet_offset$ucl_0.90, 0)` %.
+`r ifelse(trend_average_meetnet_offset$klasse_naam == "onbekend", str_c("De trend in aantal eitjes per plant is dus **onbekend** (", trend_average_meetnet_offset$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet_offset$klasse_naam, "** (", trend_average_meetnet_offset$klasse_output, ") van het aantal eitjes per plant in deze periode."))`
+
+\pagebreak
+
+## Grote weerschijnvlinder (*Apatura iris*) {#groteweerschijnvlinder}
+
+```{r}
+m <- "Grote weerschijnvlinder"
+l <- "imago"
+
+```
+
+```{r, fig.cap= str_c(m,  " (foto: Valeire Goethals)"), out.width = "50%"}
+include_graphics("../image/Grote weerschijnvlinder.jpg")
+```
+
+### Meetnetkarakteristieken
+
+```{r meetnetkaraktgweer}
+bind_rows(meetnet_telperiode_table %>%
+            filter(Meetnet == m) %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken"),
+          meetnet_selectie_table %>%
+            filter(Meetnet == m) %>%
+            unique() %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken")
+  ) %>%
+  filter(Meetnetkarakteristieken != "") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE,
+     format = format_table) %>%
+  kable_styling(full_width = FALSE, font_size = font_size_table)
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffgweer) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. In het laatste jaar neemt het aantal tellingen toe omdat er en groot aantal nieuwe locaties werd toegevoegd aan het meetnet.   
+
+```{r moneffgweer, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m), fig.height = 3}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+
+if (html_output) {
+  
+  ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+} else {
+  plot_m
+}
+```
+
+### Vergelijking tussen de jaren
+
+Figuur \@ref(fig:changesgent) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2gent) tonen we de verschillen tussen opeenvolgende jaren. 
+
+```{r changesgent,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+ref_jaar <- (meetnet_characteristics %>%
+  filter(meetnet == m))$opstartjaar %>%
+  unique()
+  
+size_bar <- 50 * 2.54 / (2021 - ref_jaar + 1)
+size_bar2 <- 50 * 2.54 / (2021 - ref_jaar)
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+
+```{r changes2gent,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+result_verschil_table %>%
+  filter(meetnet == m) %>%
+  filter(!is.na(periode)) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar2, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil tussen opeenvolgende jaren", x = "Periode") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
+Na een eerdere sterke uitbreiding van de Grote weerschijnvlinder in Vlaanderen [@maes_2021] waarbij heel wat bosgebieden snel gekoloniseerd werden door de soort, lijkt er terug een afname ingezet te zijn. De droogte van de zomers 2019 en 2020 zouden daar voor iets tussen kunnen zitten, aangezien de Grote weerschijnvlinder gebonden is aan redelijk vochtige bossen.
+
+
+\pagebreak
+
+## Heivlinder (*Hipparchia semele*) {#heivlinder}
+
+```{r}
+m <- "Heivlinder"
+l <- "imago"
+
+```
+
+```{r, fig.cap= str_c(m,  " (foto: Dirk Maes)"), out.width = "50%"}
+include_graphics("../image/Heivlinder.jpg")
+```
+
+### Meetnetkarakteristieken
+
+```{r meetnetkaraktheiv}
+bind_rows(meetnet_telperiode_table %>%
+            filter(Meetnet == m) %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken"),
+          meetnet_selectie_table %>%
+            filter(Meetnet == m) %>%
+            unique() %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken")
+  ) %>%
+  filter(Meetnetkarakteristieken != "") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE,
+     format = format_table) %>%
+  kable_styling(full_width = FALSE, font_size = font_size_table)
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffheiv) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. In de eerste driejarige meetcyclus (2016 - 2018) werden er vooral in het eerste jaar heel veel tellingen uitgevoerd. In de tweede meetcyclus zijn de tellingen beter verdeeld over de jaren. De impact hiervan op de geschatte trend lijkt ons eerder beperkt.    
+
+```{r moneffheiv, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m), fig.height = 3}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+
+if (html_output) {
+  
+  ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+} else {
+  plot_m
+}
+```
+
+### Vergelijking tussen de jaren
+
+Figuur \@ref(fig:changesheiv) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2heiv) tonen we de verschillen tussen opeenvolgende jaren. 
+
+```{r changesheiv,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+ref_jaar <- (meetnet_characteristics %>%
+  filter(meetnet == m))$opstartjaar %>%
+  unique()
+  
+size_bar <- 50 * 2.54 / (2021 - ref_jaar + 1)
+size_bar2 <- 50 * 2.54 / (2021 - ref_jaar)
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+
+```{r changes2heiv,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+result_verschil_table %>%
+  filter(meetnet == m) %>%
+  filter(!is.na(periode)) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar2, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil tussen opeenvolgende jaren", x = "Periode") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+
+### Vergelijking tussen de meetcycli
+
+Net als bij Argusvlinder, heeft het meetnet Heivlinder een meetcyclus van drie jaar. Daarom tonen we in Figuur \@ref(fig:changeshvcyclus) ook de verschillen tussen de meetcyclus 2016 - 2018 en 2019 - 2020. Daarbij vergelijken we dus de aantallen voor eenzelfde set aan locaties.   
+
+```{r changeshvcyclus,  fig.width= 4, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen per meetcyclus t.o.v. referentie meetcyclus met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+result_indexmodel_cyclus_table %>%
+  mutate(ref_cyclus_tekst = "Referentie meetcyclus =  2016 - 2018") %>%
+  filter(soort_nl == m) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = meetcyclus, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 40 * 2.58 /2, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil t.o.v. referentie meetcyclus", x = "Meetcyclus") +
+  facet_wrap(~ soort_nl + ref_cyclus_tekst, ncol = 2) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
+
+De Heivlinder neemt ook in Nederland sterk of op de monitoringroutes [@van_swaay_2022]. Ondanks het feit dat het een soort is van droge heide of kustduinen, kan de soort niet goed tegen extreme droogte zoals in de zomers van 2019 en 2020. Hierdoor verdorren veel waardplanten en sterven de rupsen. Er moet echter een kanttekening gemaakt worden bij de getelde aantallen op de monitoringroutes. Bij extreme temperaturen zoeken Heivlinders bosranden of grotere alleenstaande bomen op om af te koelen [@de_ro_2022]. Hierdoor worden ze dus gemist op de vlinderroutes die op de open heide- of duinstukken liggen waar de soort bij “normaal” weer meestal vertoeven. Dit zou geleid kunnen hebben tot een vertekend beeld in de trend van de Heivlinder.  
+
+\pagebreak
+
+## Klaverblauwtje (*Cyaniris semiargus*) {#klaverblauwtje}
+
+```{r}
+m <- "Klaverblauwtje"
+l <- "imago"
+
+```
+
+```{r, fig.cap= str_c(m,  " (foto: Valerie Goethals)"), out.width = "50%"}
+include_graphics("../image/Klaverblauwtje_vrouwtje.jpg")
+```
+
+### Meetnetkarakteristieken
+
+```{r meetnetkaraktklav}
+bind_rows(meetnet_telperiode_table %>%
+            filter(Meetnet == m) %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken"),
+          meetnet_selectie_table %>%
+            filter(Meetnet == m) %>%
+            unique() %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken")
+  ) %>%
+  filter(Meetnetkarakteristieken != "") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE,
+     format = format_table) %>%
+  kable_styling(full_width = FALSE, font_size = font_size_table)
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffklav) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. Tot en met 2020 bestond het meetnet slechts uit één locatie. In 2021 werd het meetnet uitgebreid tot 7 locaties wat de toename in het aantal tellingen verklaart.   
+
+```{r moneffklav, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m), fig.height = 3}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+
+if (html_output) {
+  
+  ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+} else {
+  plot_m
+}
+```
+
+### Vergelijking tussen de jaren
+
+Figuur \@ref(fig:changeskb) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2kb) tonen we de verschillen tussen opeenvolgende jaren. 
+
+```{r changeskb,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+ref_jaar <- (meetnet_characteristics %>%
+  filter(meetnet == m))$opstartjaar %>%
+  unique()
+  
+size_bar <- 50 * 2.54 / (2021 - ref_jaar + 1)
+size_bar2 <- 50 * 2.54 / (2021 - ref_jaar)
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+
+```{r changes2kb,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+result_verschil_table %>%
+  filter(meetnet == m) %>%
+  filter(!is.na(periode)) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar2, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil tussen opeenvolgende jaren", x = "Periode") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont het `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
+In tegenstelling tot Vlaanderen, neemt het Klaverblauwtje op de Nederlandse vlinderroutes sterk toe de laatste jaren [@van_swaay_2022]. De reden voor dit verschil tussen Vlaanderen en Nederland is niet duidelijk. We moeten hier de kanttekening maken dat dit meetnet tot en met 2020 volledig gebaseerd was op slechts één locatie. Hierdoor kunnen resultaten al snel beïnvloed worden door erg lokale omstandigheden zoals een bepaald begrazingsregime. In deze periode is het Klaverblauwtje ook gaan uitbreiden waardoor er sinds 2021 zeven locaties opgenomen zijn in het meetnet. In de toekomst zal dit een robuuster resultaat opleveren wat betreft de toestand van de soort op Vlaamse schaal.
+
+
+\pagebreak
+
+## Kommavlinder (*Hesperia comma*) {#kommavlinder}
+
+```{r}
+m <- "Kommavlinder"
+l <- "imago"
+
+```
+
+```{r, fig.cap= str_c(m,  " (foto: Dirk Maes)"), out.width = "50%"}
+include_graphics("../image/Kommavlinder.jpg")
+```
+
+### Meetnetkarakteristieken
+
+```{r meetnetkaraktkomma}
+bind_rows(meetnet_telperiode_table %>%
+            filter(Meetnet == m) %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken"),
+          meetnet_selectie_table %>%
+            filter(Meetnet == m) %>%
+            unique() %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken")
+  ) %>%
+  filter(Meetnetkarakteristieken != "") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE,
+     format = format_table) %>%
+  kable_styling(full_width = FALSE, font_size = font_size_table)
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffkomma) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. De monitoringinspanning wordt goed volgehouden doorheen de jaren.   
+
+```{r moneffkomma, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m), fig.height = 3}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+
+if (html_output) {
+  
+  ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+} else {
+  plot_m
+}
+```
+
+### Vergelijking tussen de jaren
+
+Figuur \@ref(fig:changeskv) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2kv) tonen we de verschillen tussen opeenvolgende jaren. 
+
+```{r changeskv,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+ref_jaar <- (meetnet_characteristics %>%
+  filter(meetnet == m))$opstartjaar %>%
+  unique()
+  
+size_bar <- 50 * 2.54 / (2021 - ref_jaar + 1)
+size_bar2 <- 50 * 2.54 / (2021 - ref_jaar)
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+
+```{r changes2kv,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+result_verschil_table %>%
+  filter(meetnet == m) %>%
+  filter(!is.na(periode)) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar2, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil tussen opeenvolgende jaren", x = "Periode") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
+Kommavlinder neemt ook in Nederland sterk aof op de monitoringroutes [@van_swaay_2022]. Ondanks het feit dat het een soort is van droge heide, kan de soort niet goed tegen extreme droogte zoals in de zomers van 2019 en 2020. Hierdoor verdorren veel waardplanten en sterven de rupsen. De reden voor de lichte toename in 2021 is onduidelijk.
+
+\pagebreak
+
+## Oranje zandoogje (*Pyronia tithonus*) {#oranjezandoogje}
+
+```{r}
+m <- "Oranje zandoogje"
+l <- "imago"
+
+```
+
+```{r, fig.cap= str_c(m,  " (foto: Valerie Goethals)"), out.width = "50%"}
+include_graphics("../image/Oranje zandoogje.jpg")
+```
+
+### Meetnetkarakteristieken
+
+```{r meetnetkaraktoz}
+bind_rows(meetnet_telperiode_table %>%
+            filter(Meetnet == m) %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken"),
+          meetnet_selectie_table %>%
+            filter(Meetnet == m) %>%
+            unique() %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken")
+  ) %>%
+  filter(Meetnetkarakteristieken != "") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE,
+     format = format_table) %>%
+  kable_styling(full_width = FALSE, font_size = font_size_table)
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffoz) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`. Het aantal tellingen ligt relatief hoger in het eerste jaar van de driejarige meetcyclus (2017 en 2020) t.o.v. de andere jaren. Het effect hiervan op de geschatte trend lijkt ons echter relatief beperkt.   
+
+```{r moneffoz, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m), fig.height = 3}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+
+if (html_output) {
+  
+  ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+} else {
+  plot_m
+}
+```
+
+### Vergelijking tussen de jaren
+
+Figuur \@ref(fig:changesoz) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2oz) tonen we de verschillen tussen opeenvolgende jaren. 
+
+```{r changesoz,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+ref_jaar <- (meetnet_characteristics %>%
+  filter(meetnet == m))$opstartjaar %>%
+  unique()
+  
+size_bar <- 50 * 2.54 / (2021 - ref_jaar + 1)
+size_bar2 <- 50 * 2.54 / (2021 - ref_jaar)
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+
+```{r changes2oz,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+result_verschil_table %>%
+  filter(meetnet == m) %>%
+  filter(!is.na(periode)) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar2, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil tussen opeenvolgende jaren", x = "Periode") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont het `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
+Ook in Nederland nemen de aantallen van het Oranje zandoogje de laatste jaren toe [@van_swaay_2022]. In Oost-Europa echter belandt het Oranje zandoogje steeds vaker op regionale Rode Lijsten en in sommige landen is de soort recent zelfs uitgestorven [@maes_2019]. Vlaanderen (en Nederland) dragen daarom een grote verantwoordelijkheid voor deze voorlopig nog zeer talrijke en algemene soort. Dit is ook de reden waarom deze soort een Vlaams prioritaire soort (VPS) is en dus is opgenomen in de meetnetten. 
+\pagebreak
+
+## Veldparelmoervlinder (*Melitaea cinxia*) {#veldparelmoervlinder}
+
+```{r}
+m <- "Veldparelmoervlinder"
+l <- "imago"
+
+```
+
+```{r, fig.cap= str_c(m,  " (foto: Dirk Maes)"), out.width = "50%"}
+include_graphics("../image/Veldparelmoervlinder.jpg")
+```
+
+### Meetnetkarakteristieken
+
+```{r meetnetkaraktvpv}
+bind_rows(meetnet_telperiode_table %>%
+            filter(Meetnet == m) %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken"),
+          meetnet_selectie_table %>%
+            filter(Meetnet == m) %>%
+            unique() %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken")
+  ) %>%
+  filter(Meetnetkarakteristieken != "") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE,
+     format = format_table) %>%
+  kable_styling(full_width = FALSE, font_size = font_size_table)
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffvpv) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.   
+
+```{r moneffvpv, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m), fig.height = 3}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+
+if (html_output) {
+  
+  ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+} else {
+  plot_m
+}
+```
+
+### Vergelijking tussen de jaren
+Figuur \@ref(fig:changesvp) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2vp) tonen we de verschillen tussen opeenvolgende jaren. 
+
+```{r changesvp,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+ref_jaar <- (meetnet_characteristics %>%
+  filter(meetnet == m))$opstartjaar %>%
+  unique()
+  
+size_bar <- 50 * 2.54 / (2021 - ref_jaar + 1)
+size_bar2 <- 50 * 2.54 / (2021 - ref_jaar)
+
+result_indexmodel_table %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  # filter(parameter == "index") %>%
+  filter(meetnet == m) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet + ref_jaar_tekst) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+
+```{r changes2vp,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+result_verschil_table %>%
+  filter(meetnet == m) %>%
+  filter(!is.na(periode)) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar2, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  # geom_line( colour = inbo.steun.blauw, size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil tussen opeenvolgende jaren", x = "Periode") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ meetnet) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+
+```
+
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- trend %>%
+  filter(meetnet == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
+
+Ook in Nederland neemt de Veldparelmoervlinder de laatste jaren toe [@van_swaay_2022]. De soort breidt zijn verspreiding ook nog steeds verder uit, vooral in het noorden van de Kempen [@maes_2021].
+
+\pagebreak
+
+## Moerasparelmoervlinder (*Euphydryas aurinia*) {#moerasparelmoervlinder}
+
+```{r}
+m <- "Moerasparelmoervlinder"
+l <- "imago"
+
+```
+
+
+### Meetnetkarakteristieken
+
+```{r meetnetkaraktmpv}
+bind_rows(meetnet_telperiode_table %>%
+            filter(Meetnet == m) %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken"),
+          meetnet_selectie_table %>%
+            filter(Meetnet == m) %>%
+            unique() %>%
+            gather(-Meetnet, key = "Variabele", value = "Meetnetkarakteristieken")
+  ) %>%
+  filter(Meetnetkarakteristieken != "") %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  kbl(align = "lc", 
+        caption = str_c("Karakteristieken van het meetnet ", m),
+        booktabs = TRUE,
+     format = format_table) %>%
+  kable_styling(full_width = FALSE, font_size = font_size_table)
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:moneffmpv) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.   
+
+```{r moneffmpv, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m), fig.height = 3}
+
+plot_m <- monitoring_effort %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+
+if (html_output) {
+  
+  ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+} else {
+  plot_m
+}
+```
+
+
+
+### Getelde aantallen in het meetnet `r m` 
+
+```{r, eval=TRUE}
+summary_table_m <- summary_table_overige %>%
+  filter(meetnet == m)
+  
+top_5 <- summary_table_m %>%
+  filter(!primaire_soort) %>%
+  slice_max(order_by = aantal_totaal, n = 5)
+
+```
+
+
+Het meetnet Moerasparelmoervlinder bestaat maar uit één locatie en loopt nog maar twee jaar. Hierdoor zijn er nog onvoldoende gegevens om een trend te schatten. We geven wel in Figuur \@ref(fig:overigefigmpv) het gemiddeld aantal getelde exemplaren per bezoek voor 2020 en 2021. De gemiddelde aantallen lagen iets lager in 2021.
+
+```{r overigefigmpv, fig.cap = str_c("Gemiddeld aantal getelde individuen per bezoek voor ", m, " en de vijf meest voorkomende andere dagvlindersoorten van het meetnet ", m), fig.height = 3}
+
+plot <- summary_table %>% 
+  filter(meetnet == m) %>%
+  mutate(jaar = as.character(jaar)) %>%
+  filter(soort_nl %in% top_5$soort_nl | soort_nl == m) %>%
+  ggplot(aes(x = jaar, y = aantal_gemiddeld, colour = soort_nl, shape = soort_nl, group = soort_nl)) +
+  geom_point() +
+  geom_line() + 
+  ylim(0, NA) +
+  labs(x = "Jaar", y = "Gemiddeld aantal per bezoek", colour = "Soort", shape = "Soort") 
+
+if(html_output) {
+  
+   ggplotly(plot) %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian", 
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  ) 
+  
+} else {
+  
+  plot
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

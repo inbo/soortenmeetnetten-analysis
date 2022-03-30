@@ -1,0 +1,333 @@
+
+# Verkenning van de aantallen
+
+In dit onderdeel geven we een overzicht van de aantallen waargenomen tijdens de tellingen.
+
+```{r, message=FALSE}
+
+counts <- get_counts_smp("dagvlinders", count_aggregation = "individuen", path = data_path) %>%
+  mutate(jaar = factor(jaar)) 
+
+covariabelen <- get_covariates_smp(path = data_path)
+
+summary_counts <- (get_summary_counts(species_group = "dagvlinders"))$individuals
+
+summary_distribution <- (get_summary_distribution("dagvlinders"))$individuals
+
+summary_distribution_all_years <- get_summary_distribution(species_group = "dagvlinders", aggregation_periode = "all_years")
+summary_distribution_all_years_ind <- summary_distribution_all_years$individuals
+
+summary_table <- summary_counts %>%
+  left_join(summary_distribution, by = c("primaire_soort", "soortgroep", "meetnet", "protocol", "jaar", "soort_nl", "soort_wet")) %>%
+  group_by(primaire_soort, soort_nl) %>%
+  mutate(tot = sum(aantal_totaal)) %>%
+  ungroup() %>%
+  arrange(meetnet, jaar)
+  
+summary_counts_locatie <- get_summary_counts("dagvlinders", "locatie")
+
+summary_counts_locatie <- summary_counts_locatie$individuals
+
+n_species <- n_distinct((summary_counts %>%
+                          filter(!is.na(soort_nl),
+                                 soort_nl != "Witje spec."))$soort_nl)
+species <- unique((summary_counts %>%
+                          filter(!is.na(soort_nl)))$soort_nl)
+```
+
+## Aantallen voor de prioritaire soorten 
+
+### Totale en gemiddelde aantallen per bezoek
+
+Tabel \@ref(tab:tabaantaltot) toont per soort en per jaar:
+
+- het totaal aantal getelde individuen voor de transecttellingen en gebiedstellingen en het totaal aantal getelde eitjes voor Gentiaanblauwtje;
+- het gemiddeld aantal getelde individuen/eitjes per bezoek;
+- het aantal meetnetlocaties waar de soort werd waargenomen;
+- de proportie van de bezochte meetnetlocaties waar de soort werd waargenomen.
+
+```{r tabaantaltot, eval=TRUE}
+
+table <- summary_table %>% 
+  # mutate(aantal_gemiddeld = color_bar("lightgreen")(aantal_gemiddeld),
+  #        proportie_locaties_aanwezig = color_bar("lightgreen")(proportie_locaties_aanwezig)) %>%
+  filter(!is.na(soort_nl)) %>%
+  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+  filter(primaire_soort) %>%
+  mutate(jaar = factor(jaar),
+         soort_nl = ifelse(soort_nl == "Gentiaanblauwtje", "Gentiaanblauwtje (eitjes)", soort_nl),
+         soort_nl = factor(soort_nl),) %>%
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet,  Jaar = jaar, "Totaal" = aantal_totaal, "Gemiddeld" = aantal_gemiddeld, "Locaties" = locaties_aanwezig, "Proportie (%)" = proportie_locaties_aanwezig) %>%
+  kable(caption = "Overzicht getelde aantallen voor de prioritaire soorten (Totaal = totaal aantal getelde individuen/eitjes, Gemiddeld = gemiddeld aantal getelde individuen/eitjes per bezoek, Locaties = aantal meetnetlocaties waar de soort werd waargenomen, Proportie = proportie van de bezochte meetnetlocaties waar de soort werd waargenomen)",
+      format = format_table,
+      booktabs = TRUE,
+      longtable = TRUE,
+      align = "llccccc") 
+
+if (doc.type == "docx") {
+  
+  table
+  
+} else {
+  
+  table %>%
+  kable_styling(bootstrap_options = c( "condensed"), 
+                font_size = font_size_table,
+                latex_options = c("scale_down", "repeat_header"),
+                repeat_header_text = "(vervolg)") %>%
+  column_spec(2, italic = TRUE) %>%
+  collapse_rows(c(1,2, 3), target = 1, valign = "top", latex_hline = "major") %>%
+  scroll_box(width = "100%", height = "600px", fixed_thead = TRUE) 
+  
+}
+```
+
+
+
+`r ifelse(html_output, "### Aantallen per meetnetlocatie", "")`
+
+```{r,  message=FALSE}
+
+details_locatie_m <- locaties_utm %>%
+  select(meetnet, locatie, tag_utm) %>%
+  mutate(tag_utm = as.character(tag_utm)) %>%
+  group_by(meetnet, tag_utm) %>%
+  mutate(tag_locatie = str_c(tag_utm, "-", rank(locatie))) %>%
+  ungroup() %>%
+  left_join(filter(summary_counts_locatie, primaire_soort), by = c("meetnet", "locatie")) %>%
+  filter(!is.na(soort_nl)) %>%
+  group_by(tag_locatie, meetnet) %>%
+  mutate(aantal_totaal_overall = sum(aantal_totaal),
+         aantal_gemiddeld_overall = round(sum(aantal_totaal)/sum(visits), 1),
+         label_locatie = str_c("<p>", meetnet, "-", tag_locatie, ": <b>", aantal_gemiddeld_overall, "</b></br></p>")) %>%
+  ungroup() %>%
+  group_by(tag_utm, meetnet) %>%
+  mutate(meetnetlocaties_utm = n_distinct(locatie),
+           # voorkomen_utm = sum(aantal_totaal) > 0,
+           # aantal_totaal_utm = sum(aantal_totaal),
+          label = str_c(unique(label_locatie),  collapse = " ")) %>%
+  ungroup() 
+  
+details_locatie_m_tabel <- details_locatie_m %>%
+  arrange(meetnet, locatie) %>%
+  select("Soort" = meetnet, "Locatie code" = tag_locatie, jaar, aantal_gemiddeld, aantal_gemiddeld_overall, label) %>%
+  spread(key = "jaar", value = "aantal_gemiddeld") %>%
+  mutate(radiusCircle = 500 + (5000 - 500) * sqrt(aantal_gemiddeld_overall/pi)/max(sqrt(aantal_gemiddeld_overall/pi), na.rm = TRUE) ,
+         radiusCircleMarker = 2 + (20 - 2) * sqrt(aantal_gemiddeld_overall/pi)/max(sqrt(aantal_gemiddeld_overall/pi), na.rm = TRUE)) %>%
+  filter(!is.na(aantal_gemiddeld_overall)) %>%
+  rename("Volledige periode" = aantal_gemiddeld_overall)
+  
+
+utm_meetnet <- utm_vl %>%
+  filter(tag_utm %in% details_locatie_m$tag_utm)
+```
+
+`r ifelse(html_output, "In onderstaande kaart en bijhorende tabel geven we een overzicht van het gemiddeld getelde aantal individuen per soort en per meetnetlocatie. De meetnetlocaties worden weergegeven in de centroïde van het 5 km x 5 km UTM-hok waarin de locatie gelegen is. De oppervlakte van de punten is evenredig met het gemiddeld getelde aantal imago's per bezoek over de volledige periode (2016 - 2020). In de bijhorende tabel geven we ook het gemiddeld getelde aantal individuen per bezoek voor elk jaar. Gezien we de exacte locaties niet weergeven in dit rapport, kennen we hier aan elke locatie een code toe die refereert naar het overeenkomstige UTM-hok. Als je in de tabel een rij selecteert, krijg je in de kaart de (vervaagde) locatie te zien.", "")`         
+
+
+```{r, eval = html_output}
+
+sd_locaties <- SharedData$new(details_locatie_m_tabel)
+
+
+bscols(list(
+          bscols(
+            widths = c(8, 4),
+            NULL,
+            filter_select("meetnet", "Selecteer meetnet", sd_locaties, ~Soort)
+  ),
+            leaflet(sd_locaties, options = leafletOptions(maxZoom = 11)) %>%
+              addTiles() %>%
+              #addCircles(stroke = FALSE,  radius = ~radiusCircle,  label = ~label, fillOpacity = 0.4) %>%
+              addCircleMarkers(stroke = FALSE,  radius = ~radiusCircleMarker,  label =  ~lapply(label, HTML),  fillOpacity = 0.4) %>%
+              addPolygons(data = utm_meetnet, weight = 1, color = "blue", fill = FALSE, opacity = 0.5),
+  
+            datatable(sd_locaties, 
+                    rownames = FALSE, 
+                    extensions="Scroller", 
+                    style="bootstrap",
+                    class="compact", 
+                    width="100%",
+                    options=list(columnDefs = list(list(visible=FALSE, targets= c( 3, 4, 11, 12)))),
+                    caption = str_c("Gemiddeld getelde aantallen per bezoek en per locatie")) %>%
+            formatStyle(columns = c(1, 2, 3, 4, 5), fontSize = '9 pt')
+        )
+)
+
+# 
+# plot_ly(sd_locaties, x = ~jaar, y = ~aantal_gemiddeld) %>%
+#           add_lines(linetype = ~tag_locatie) 
+```
+
+```{r figlocatiesaantallen, fig.cap = "Gemiddelde getelde aantallen per meetnetlocatie", eval= html_output}
+include_graphics("../image/dummy_figuur.png")
+```
+
+
+## Aantallen voor de secundaire soorten
+
+Elk dagvlindermeetnet is specifiek ontworpen voor één bepaalde prioritaire soort. Naast de prioritaire soort is het ook mogelijk om andere dagvlinders die tijdens de telling worden waargenomen, te noteren. We noemen deze de secundaire soorten. Deze gegevens kunnen zeker een meerwaarde zijn, maar we moeten wel voorzichtig zijn bij het interpreteren of analyseren van deze gegevens. Zowel de tellocaties als de telperiode zijn immers specifiek gekozen voor de prioritaire soorten. Dat maakt dat de aantallen voor de secundaire soorten niet altijd representatief zijn voor een uitspraak op schaal Vlaanderen.  
+  
+Voor de trends over de periode 1991 - 2019 van de algemenere dagvlinders in Vlaanderen verwijzen naar het rapport over de algemene dagvlindermonitoring [@maes_2020].  
+  
+In Tabel \@ref(tab:tabaantaltotoverige) geven we het totaal aantal getelde individuen van de secundaire soorten voor alle soortspecifieke dagvlindermeetnetten samen. In totaal werden er `r n_species` soorten waargenomen. De soorten worden gerangschikt volgens getelde aantallen van hoog naar laag. De tabel bevat ook prioritaire soorten, maar dit zijn dan de aantallen die geteld werden in locaties van andere meetnetten (Bv. Oranje zandoogje beschouwen we als secundaire soort in het meetnet Argusvlinder). 
+
+In Bijlage \@ref(h:bijlageo) geven we een overzicht van de gemiddelde getelde aantallen per jaar voor de algemenere secundaire soorten.  
+
+\needspace{50mm}
+
+```{r , message=FALSE}
+
+summary_distribution_all_years <- get_summary_distribution("dagvlinders", aggregation_periode = "all_years")
+
+check <- summary_distribution_all_years$individuals
+
+summary_distribution_all_years_ind <- summary_distribution_all_years$individuals %>%
+    filter(!primaire_soort) %>%
+    group_by(primaire_soort, soort_nl, soort_wet) %>%
+  summarise(locatie_geteld = sum(locatie_geteld),
+            locaties_aanwezig = sum(locaties_aanwezig)) %>%
+  ungroup() %>%
+  mutate(proportie = round(locaties_aanwezig/locatie_geteld  * 100, 1)) 
+
+summary_table_all_years <- summary_table %>%
+  filter(!is.na(soort_nl)) %>%
+  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+  filter(!primaire_soort) %>%
+  group_by(primaire_soort, soort_nl, soort_wet) %>%
+  summarise(aantal_totaal = sum(aantal_totaal),
+            aanwezig_totaal = sum(locaties_species_year),
+            bezoeken = sum(visits_calc)) %>%
+  ungroup() %>%
+  mutate(aantal_gemiddeld = round(aantal_totaal/ bezoeken, 2),
+         proportie_geteld = round(aanwezig_totaal/ bezoeken, 2)) %>%
+  filter(aantal_totaal > 0) %>%
+  arrange(desc(aantal_totaal))
+
+```
+
+```{r tabaantaltotoverige, eval=TRUE}
+summary_table_all_years %>% 
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Totaal" = aantal_totaal) %>%
+  kbl(caption = "Totaal aantal getelde overige soorten voor alle dagvlindermeetnetten samen",
+     longtable = TRUE,
+      booktabs = TRUE,
+     format = format_table) %>%
+  kable_styling(bootstrap_options = c( "condensed"), 
+                font_size = font_size_table,
+                latex_options = c("scale_down", "repeat_header"),
+                ,
+                repeat_header_text = "(vervolg)") %>%
+  column_spec(2, italic = TRUE) %>%
+  scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
+```
+
+De rangschikking van het aantal getelde secundaire soorten is zeer vergelijkbaar met die op de algemene vlinderroutes in Nederland [@van_swaay_2022].
+
+
+
+
+
+```{r, fig.height = 20, eval = FALSE}
+counts %>% 
+  group_by(soort_nl) %>%
+  mutate(tot = sum(aantal)) %>%
+  ungroup() %>%
+  filter(tot > 100) %>%
+  filter(!primaire_soort) %>%
+  ggplot(aes(x= jaar, y = aantal)) +  
+  #geom_point(alpha = 0.6, colour = inbo.grijs) +
+  stat_summary(fun.data = "mean_cl_boot", colour = inbo.groen) +
+  facet_wrap(~ soort_nl, scale = "free_y", ncol = 3) +
+  labs(y = "Aantal getelde individuen", x = "Jaar") +
+  theme(legend.position = "bottom") +
+  ylim(0, NA)
+``` 
+
+
+
+
+```{r, eval = FALSE}
+summary_table %>% 
+  select(-bezoeken, -locaties_geteld, - aantal_maximum) %>%
+  filter(!is.na(soort_nl)) %>%
+  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
+  filter(!primaire_soort) %>%
+  arrange(desc(tot)) %>%
+  mutate(jaar = factor(jaar),
+         soort_nl = factor(soort_nl)) %>%
+  select(soort_nl, soort_wet, jaar, "totaal aantal" = aantal_totaal, "gemiddeld aantal" = aantal_gemiddeld, locaties = locaties_aanwezig, "proportie locaties (%)" = proportie_locaties_aanwezig) %>%
+  # select(-soortgroep, -soort_nl) %>%
+  datatable(rownames = FALSE,
+            filter = 'top',
+            extensions = 'Buttons', 
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'pdf', 'csv', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              initComplete = JS(
+                            "function(settings, json) {",
+                            "$(this.api().table().header()).css({'background-color': '#959B38'});",
+                            "}")
+              )
+            )
+```
+
+
+
+```{r, eval = FALSE}
+summary_counts_type_primair %>%
+  filter(!primaire_soort) %>%
+  select(-primaire_soort) %>%
+  datatable(rownames = FALSE,
+            filter = 'top',
+            extensions = 'Buttons', 
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'pdf', 'csv', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              initComplete = JS(
+                            "function(settings, json) {",
+                            "$(this.api().table().header()).css({'background-color': '#959B38'});",
+                            "}")
+              )
+            )
+
+```
+
+
+
+```{r, eval = FALSE}
+aantallen_bezoek <- get_counts_smp("libellen") %>%
+  group_by(soortgroep, meetnet, protocol, locatie, visit_id, checklist, jaar, datum, soort_nl, soort_wet, primaire_soort, geslacht, activiteit, levensstadium) %>%
+  summarise(aantal = sum(aantal, na.rm = TRUE),
+            n_subsamples = n()) %>%
+  ungroup() %>%
+  mutate(geslacht = ifelse(geslacht == "M", "mannelijk", 
+                           ifelse(geslacht == "F", "vrouwelijk", "onbekend")))
+
+diversity <- aantallen_bezoek %>% 
+  group_by(soortgroep, meetnet, protocol, locatie, visit_id, checklist, soort_nl, soort_wet) %>%
+  summarise(aanwezig = sum(aantal) > 0) %>%
+  ungroup() %>%
+  filter(aanwezig) %>%
+  group_by(meetnet, protocol, locatie) %>%
+  summarise(n_soorten = n_distinct(soort_wet),
+            n_bezoeken = n_distinct(visit_id)) %>%
+  ungroup()
+
+checklists <- aantallen_bezoek %>%
+  distinct(soortgroep, meetnet, protocol, locatie, visit_id, checklist) %>%
+  group_by(meetnet, protocol, locatie) %>%
+  summarise(n_checklists = sum(checklist)) %>%
+  ungroup()
+  
+diversity <- diversity %>%
+  left_join(checklists, by = c("meetnet", "protocol", "locatie"))
+
+```
+
+
+
+
+
