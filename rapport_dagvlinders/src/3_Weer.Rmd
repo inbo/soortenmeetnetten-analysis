@@ -54,7 +54,7 @@ ggplot() +
   geom_sf(data = temperatuur_stations, size = 3, alpha = 0.6)
 ```
 
-Het resultaat hiervan vind je in Figuur \@ref(fig:figtemp).
+Het resultaat hiervan vind je in Figuur \@ref(fig:figtemp). 2017 en 2020 blijken de warmste jaren te zijn, terwijl 2016 en 2021 relatief koudere jaren zijn. 2018 wordt gekenmerkt door koude temperaturen in januari en februari, maar relatief warme temperaturen in maart, april en juni.
 
 
 ```{r figtemp, fig.height = 5, fig.cap = "Verschil in temperatuur t.o.v. de gemiddelde temperatuur over de periode 2016 - 2021 op basis van de gemiddelde maandelijkse temperatuur van de VMM-meetstations"}
@@ -101,7 +101,7 @@ neerslag_stations <- neerslag %>%
 ```
 
 Voor neerslag maken we gebruik van de maandelijkse totale neerslag van `r nrow(neerslag_stations)` meetstations (Figuur \@ref(fig:figmeet1)).
-Op basis hiervan maken we voor elke maand een inschatting in hoeverre de totale neerslag afwijkt t.o.v. het gemiddelde in de periode 2016 - 2021. Dit doen we op dezelefde manier als voor temperatuur.
+Op basis hiervan maken we voor elke maand een inschatting in hoeverre de totale neerslag afwijkt t.o.v. het gemiddelde in de periode 2016 - 2021. Dit doen we op dezelfde manier als voor temperatuur.
 
 ```{r figmeet, fig.height= 3, fig.cap = "VMM meetstations waar o.a. neerslag gemeten wordt"}
 
@@ -111,7 +111,7 @@ ggplot() +
 ```
 
 
-Het resultaat hiervan vind je in Figuur \@ref(fig:figrain).
+Het resultaat hiervan vind je in Figuur \@ref(fig:figrain). Periodes met relatief veel neerslag zijn de eerste helft van 2016, de tweede helft van 2017 en de zomer van 2021. In 2018 viel er het minste regen.
 
 ```{r figrain, fig.height = 5, fig.cap = "Verschil in neerslag t.o.v. de gemiddelde neerslag over de periode 2016 - 2021 op basis van de totale maandelijkse neerslag opgemeten in de VMM-meetstations"}
 neerslag_show  %>%
@@ -133,11 +133,11 @@ neerslag_show  %>%
 
 ## Standardized Precipitation Index (SPI)
 
-De VMM stelt ook de Standardized Precipitation Index (SPI) ter beschikking. De SPI-3 indicatorgeeft weer hoe droog of hoe nat de voorbije maand voorbije 3 maanden (SPI-3) waren ten opzichte van dezelfde periode van het jaar in de voorbije 30 jaar te Ukkel. De SPI-3 is gebaseerd op de gegevens van de neerslagstations van de VMM. Vanaf een waarde lager dan -2 spreken we van 'extreem droog' en bij een waarde hoger dan 2 van 'extreem nat'.
+De VMM stelt ook de Standardized Precipitation Index (SPI) ter beschikking. De SPI-3 indicator geeft weer hoe droog of hoe nat de voorbije 3 maanden (SPI-3) waren ten opzichte van dezelfde periode van het jaar in de voorbije 30 jaar te Ukkel. De SPI-3 is gebaseerd op de gegevens van de neerslagstations van de VMM. Vanaf een waarde lager dan -2 spreken we van 'extreem droog' en bij een waarde hoger dan 2 van 'extreem nat'.
 
 \needspace{100mm}
 
-In Figuur \@ref(fig:figspi) tonen we de gemiddelde SPI-3 waarden per maand over alle meetstations.
+In Figuur \@ref(fig:figspi) tonen we de gemiddelde SPI-3 waarden per maand over alle meetstations. We zien extreme droogte in de maand juni van 2017, in de maand juli en augustus van 2018 en in de maand juni van 2020. Opvallend is ook de lange periode van droogte tussen september 2016 en augustus 2017 en tussen juli 2018 en januari 2019. Nattere periodes zien we in de eerste helft van 2016 en in de zomer van 2021.  
 
 
 

@@ -4,7 +4,7 @@ Op basis van de getelde aantallen maken we een schatting van de trend per soort 
 
 Naast trends willen we ook inzicht krijgen hoe de aantallen verschillen van jaar tot jaar. Op basis hiervan kunnen we dus slechte of goede jaren identificeren ten opzichte van een referentiejaar (hiervoor kiezen we meestal het eerste jaar in het meetnet). 
 
-Voor de analyse maken we gebruik van zogenaamde *generalized linear mixed models* (GLMM). Voor een bespreking van de technische achtergrond van deze modellen verwijzen we naar Bijlage \@ref(h:bijlagec). In Bijlage \@ref(h:bijlager) geven we informatie over de reproduceerbaarheid van de analyses.   
+Voor de analyse maken we gebruik van zogenaamde *generalized linear mixed models* (GLMM). Voor een bespreking van de technische achtergrond van deze modellen verwijzen we naar Bijlage \@ref(bijlage1). In Bijlage \@ref(bijlage2) geven we informatie over de reproduceerbaarheid van de analyses.   
 
 
 ## Interpretatie van de analyseresultaten {#h:classtrend}

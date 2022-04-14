@@ -148,9 +148,9 @@ if (html_output) {
 
 ### Vergelijking tussen de jaren
 
-Figuur \@ref(fig:changesaard) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2aard) tonen we de verschillen tussen opeenvolgende jaren. 
+Figuur \@ref(fig:changesaard) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). We zien in 2018 een mogelijke toename in aantallen t.o.v. het referentiejaar 2017, maar van 2019 tot 2021 zien we steeds een mogelijke afname t.o.v. 2017. In Figuur \@ref(fig:changes2aard) tonen we de verschillen tussen opeenvolgende jaren en daar zien we dat de sterkste daling gebeurde tussen 2018 en 2019, waarna de aantallen relatief constant bleven.  
 
-```{r changesaard,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changesaard,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar (weergegeven in de figuur met R) met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -188,7 +188,7 @@ result_indexmodel_table %>%
 ```
 
 
-```{r changes2aard,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changes2aard,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -233,7 +233,7 @@ trend_total_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 Ook in Nederland neemt de Aardbeivlinder vooral de laatste drie jaren af op de algemene vlinderroutes [@van_swaay_2022].
 
@@ -306,7 +306,7 @@ if (html_output) {
 
 Figuur \@ref(fig:changesav) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2av) tonen we de verschillen tussen opeenvolgende jaren. 
 
-```{r changesav,  fig.width= 5, fig.height = 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changesav,  fig.width= 5, fig.height = 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -336,7 +336,7 @@ result_indexmodel_table %>%
 
 ```
 
-```{r changes2av,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changes2av,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -363,9 +363,9 @@ result_verschil_table %>%
 
 ### Vergelijking tussen de meetcycli
 
-Bij Argusvlinder werken we met een meetcyclus van drie jaar, waardoor elke locatie in principe om de drie jaar geteld wordt. Elk jaar binnen een meetcyclus wordt er dus een andere set locaties geteld en dat zal de jaarlijkse verschillen voor een deel bepalen. Daarom tonen we in Figuur \@ref(fig:changesavcyclus) ook de verschillen tussen de meetcyclus 2016 - 2018 en 2019 - 2020. Daarbij vergelijken we dus de aantallen voor eenzelfde set aan locaties.   
+Bij Argusvlinder werken we met een meetcyclus van drie jaar, waardoor elke locatie in principe om de drie jaar geteld wordt. Elk jaar binnen een meetcyclus wordt er dus een andere set locaties geteld en dat zal de jaarlijkse verschillen voor een deel bepalen. Daarom tonen we in Figuur \@ref(fig:changesavcyclus) ook de verschillen tussen de meetcyclus 2016 - 2018 en 2019 - 2020. Daarbij vergelijken we dus de aantallen voor eenzelfde set aan locaties. We zien bij benadering een halvering in aantallen in de periode 2019 - 2021 t.o.v. de periode 2016 - 2018.   
 
-```{r changesavcyclus,  fig.width= 4, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen per meetcyclus t.o.v. referentie meetcyclus met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changesavcyclus,  fig.width= 4, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen per meetcyclus t.o.v. referentie meetcyclus met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -406,7 +406,7 @@ trend_total_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 Ook in Nederland blijft de Argusvlinder sterk achteruitgaan [@van_swaay_2022]. Vermoedelijke oorzaken zijn de recente droge zomers en stikstofdepositie [@klop_2015], maar ook het regionaal opwarmen van het klimaat kan een rol spelen [@van_dyck_2015].
 
@@ -442,7 +442,7 @@ bind_rows(meetnet_telperiode_table %>%
         caption = str_c("Karakteristieken van het meetnet ", m),
         booktabs = TRUE,
      format = format_table) %>%
-  kable_styling(full_width = FALSE, font_size = font_size_table)
+  kable_styling(full_width = FALSE)
 ```
 
 ### Aantal tellingen, tellers en getelde locaties
@@ -478,9 +478,11 @@ if (html_output) {
 
 ### Vergelijking tussen de jaren
 
-Figuur \@ref(fig:changesbd) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2bd) tonen we de verschillen tussen opeenvolgende jaren. 
+Figuur \@ref(fig:changesbd) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2bd) tonen we de verschillen tussen opeenvolgende jaren. In 2018 en 2019 blijven de aantallen nog relatief stabiel t.o.v. de referentieperiode 2017, maar in 2020 en 2021 zijn de aantallen duidelijk een stuk lager en waarschijnlijk meer dan gehalveerd t.o.v. het referentiejaar. De sterkste daling vond plaats tussen 2019 en 2020. 
 
-```{r changesbd,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+
+
+```{r changesbd,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -518,7 +520,7 @@ result_indexmodel_table %>%
 ```
 
 
-```{r changes2bd,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changes2bd,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -563,7 +565,7 @@ trend_total_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont het `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont het `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 In Nederland kende het Bruin dikkopje een piekjaar in 2018, maar nadien nemen ook daar de aantallen sterk af [@van_swaay_2022].
 
@@ -599,7 +601,7 @@ bind_rows(meetnet_telperiode_table %>%
         caption = str_c("Karakteristieken van het meetnet ", m),
         booktabs = TRUE,
      format = format_table) %>%
-  kable_styling(full_width = FALSE, font_size = font_size_table)
+  kable_styling(full_width = FALSE)
 ```
 
 ### Aantal tellingen, tellers en getelde locaties
@@ -635,9 +637,9 @@ if (html_output) {
 
 ### Vergelijking tussen de jaren
 
-Figuur \@ref(fig:changesbeik) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2beik) tonen we de verschillen tussen opeenvolgende jaren. 
+In 2019 en 2020 is er een afname in aantallen t.o.v. het referentiejaar 2018, maar in 2021 lijken de aantallen weer op het niveau van 2018 te zijn gekomen (Figuur \@ref(fig:changesbeik)). In 2021 zien we dan ook een duidelijke toename in aantallen t.o.v. het jaar voordien (Figuur \@ref(fig:changes2beik)). 
 
-```{r changesbeik,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changesbeik,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -675,7 +677,7 @@ result_indexmodel_table %>%
 ```
 
 
-```{r changes2beik,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changes2beik,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -720,9 +722,9 @@ trend_total_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
-In tegenstelling tot in Nederland was 2021 en goed jaar voor de Bruine eikenpage in Vlaanderen [@van_swaay_2022]. Een reden voor dit verschil tussen beide regio’s is niet onmiddellijk aan te geven.
+In tegenstelling met Nederland was 2021 een goed jaar voor de Bruine eikenpage in Vlaanderen [@van_swaay_2022]. Een reden voor dit verschil tussen beide regio’s is niet onmiddellijk aan te geven.
 
 
 \pagebreak
@@ -760,7 +762,7 @@ bind_rows(meetnet_telperiode_table %>%
         caption = str_c("Karakteristieken van het meetnet ", m),
         booktabs = TRUE,
      format = format_table) %>%
-  kable_styling(full_width = FALSE, font_size = font_size_table)
+  kable_styling(full_width = FALSE)
 ```
 
 ### Aantal tellingen, tellers en getelde locaties
@@ -796,11 +798,9 @@ if (html_output) {
 
 ### Vergelijking tussen de jaren
 
-Figuur \@ref(fig:changesgentb) toont de jaarlijkse verschillen in aantallen t.o.v. referentiejaar.
+De aantallen lijken geleidelijk te dalen t.o.v. 2016 (Figuur \@ref(fig:changesgentb)), maar de onzekerheid op de schattingen is vrij groot. In Figuur \@ref(fig:changes2gentb) zien we elk jaar een mogelijke afname in aantallen t.o.v. het jaar voordien. 
 
-Figuur \@ref(fig:changesgentb) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2gentb) tonen we de verschillen tussen opeenvolgende jaren. 
-
-```{r changesgentb,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changesgentb,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -839,7 +839,7 @@ result_indexmodel_table %>%
 ```
 
 
-```{r changes2gentb,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changes2gentb,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -870,9 +870,9 @@ result_verschil_table %>%
 
 
 
-In Figuur \@ref(fig:changesgentb2) houden we ook rekening met het aantal Klokjesgentianen die aanwezig zijn binnen elke getelde plot. De figuur toont de jaarlijkse verschillen in aantallen per plant t.o.v. referentiejaar.
+In Figuur \@ref(fig:changesgentb2) en Figuur \@ref(fig:changes2gentb2) houden we ook rekening met het aantal Klokjesgentianen die aanwezig zijn binnen elke getelde plot. De figuren toont de jaarlijkse verschillen in aantallen per plant. We zien dat in 2020 en 2021 er een mogelijke toename was in het aantal eitjes per plant t.o.v. het jaar voordien (Figuur \@ref(fig:changes2gentb2)).Het totaal aantal eitjes neemt in 2020 en 2021 vermoedelijk wel af (\@ref(fig:changesgentb2)). Dit betekent dat er dus ook minder Klokjesgentianen waren in 2020 en 2021 t.o.v. de jaren voordien.   
 
-```{r changesgentb2,  fig.width= 5, fig.height = 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen per plant t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor ", m, ".")}
+```{r changesgentb2,  fig.width= 5, fig.height = 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen per plant t.o.v. referentiejaar met het 90\\% betrouwbaarheidsinterval voor ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -898,7 +898,7 @@ result_indexmodel_table %>%
 
 ```
 
-```{r changes2gentb2,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen per plant tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changes2gentb2,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen per plant tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -965,12 +965,12 @@ trend_total_meetnet_no_offset <- trend_total_meetnet %>%
   filter(model_description == "without offset")
 ```
 
-Over de periode `r trend_average_meetnet_no_offset$periode_tekst` vertoont het `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet_no_offset$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet_no_offset$lcl_0.90, 0)` % en `r round(trend_average_meetnet_no_offset$ucl_0.90, 0)` %. 
+Over de periode `r trend_average_meetnet_no_offset$periode_tekst` vertoont het `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet_no_offset$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet_no_offset$lcl_0.90, 0)` % en `r round(trend_average_meetnet_no_offset$ucl_0.90, 0)` %. 
 `r ifelse(trend_average_meetnet_no_offset$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet_no_offset$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet_no_offset$klasse_naam, "** (", trend_average_meetnet_no_offset$klasse_output, ") van de ", m, " in deze periode."))`
 
-Ook in Nederland neemt Gentiaanblauwtje al jaren lang af en verdwijnen er ongeveer twee populaties per jaar [@van_swaay_2022]. De lange droogteperiode in de zomers van 2019 en 2020 zijn hier vermoedelijk de oorzaak van.
+Ook in Nederland neemt Gentiaanblauwtje al jaren lang af en verdwijnen er ongeveer twee populaties per jaar [@van_swaay_2022]. De lange droogteperiode in de zomers van 2019 en 2020 zijn hier vermoedelijk de oorzaak van. Dit zorgt er ook voor dat het aantal Klokjesgentianen afneemt.  
 
-Wanneer we rekening houden met de aanwezige Klokjesgentianen binnen de getelde plots, dan bekomen we een gemiddelde jaarlijkse trend in aantal eitjes per plant van `r round(trend_average_meetnet_offset$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet_offset$lcl_0.90, 0)` % en `r round(trend_average_meetnet_offset$ucl_0.90, 0)` %.
+Wanneer we rekening houden met de aanwezige Klokjesgentianen binnen de getelde plots, dan bekomen we een gemiddelde jaarlijkse trend in aantal eitjes per plant van `r round(trend_average_meetnet_offset$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet_offset$lcl_0.90, 0)` % en `r round(trend_average_meetnet_offset$ucl_0.90, 0)` %.
 `r ifelse(trend_average_meetnet_offset$klasse_naam == "onbekend", str_c("De trend in aantal eitjes per plant is dus **onbekend** (", trend_average_meetnet_offset$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet_offset$klasse_naam, "** (", trend_average_meetnet_offset$klasse_output, ") van het aantal eitjes per plant in deze periode."))`
 
 \pagebreak
@@ -1005,7 +1005,7 @@ bind_rows(meetnet_telperiode_table %>%
         caption = str_c("Karakteristieken van het meetnet ", m),
         booktabs = TRUE,
      format = format_table) %>%
-  kable_styling(full_width = FALSE, font_size = font_size_table)
+  kable_styling(full_width = FALSE)
 ```
 
 ### Aantal tellingen, tellers en getelde locaties
@@ -1041,9 +1041,9 @@ if (html_output) {
 
 ### Vergelijking tussen de jaren
 
-Figuur \@ref(fig:changesgent) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2gent) tonen we de verschillen tussen opeenvolgende jaren. 
+Figuur \@ref(fig:changesgent) toont een sterke afname in aantallen voor 2019, 2020 en 2021 in vergelijking met het referentiejaar 2018. In Figuur \@ref(fig:changes2gent) zien we vooral in 2019 een sterke daling in aantallen, maar ook een mogelijke toename in 2021 t.o.v. het jaar voordien. 
 
-```{r changesgent,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changesgent,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -1081,7 +1081,7 @@ result_indexmodel_table %>%
 ```
 
 
-```{r changes2gent,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changes2gent,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -1126,7 +1126,7 @@ trend_total_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 Na een eerdere sterke uitbreiding van de Grote weerschijnvlinder in Vlaanderen [@maes_2021] waarbij heel wat bosgebieden snel gekoloniseerd werden door de soort, lijkt er terug een afname ingezet te zijn. De droogte van de zomers 2019 en 2020 zouden daar voor iets tussen kunnen zitten, aangezien de Grote weerschijnvlinder gebonden is aan redelijk vochtige bossen.
 
@@ -1163,7 +1163,7 @@ bind_rows(meetnet_telperiode_table %>%
         caption = str_c("Karakteristieken van het meetnet ", m),
         booktabs = TRUE,
      format = format_table) %>%
-  kable_styling(full_width = FALSE, font_size = font_size_table)
+  kable_styling(full_width = FALSE)
 ```
 
 ### Aantal tellingen, tellers en getelde locaties
@@ -1201,7 +1201,7 @@ if (html_output) {
 
 Figuur \@ref(fig:changesheiv) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2heiv) tonen we de verschillen tussen opeenvolgende jaren. 
 
-```{r changesheiv,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changesheiv,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -1239,7 +1239,7 @@ result_indexmodel_table %>%
 ```
 
 
-```{r changes2heiv,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changes2heiv,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -1271,9 +1271,9 @@ result_verschil_table %>%
 
 ### Vergelijking tussen de meetcycli
 
-Net als bij Argusvlinder, heeft het meetnet Heivlinder een meetcyclus van drie jaar. Daarom tonen we in Figuur \@ref(fig:changeshvcyclus) ook de verschillen tussen de meetcyclus 2016 - 2018 en 2019 - 2020. Daarbij vergelijken we dus de aantallen voor eenzelfde set aan locaties.   
+Net als bij Argusvlinder, heeft het meetnet Heivlinder een meetcyclus van drie jaar. Daarom tonen we in Figuur \@ref(fig:changeshvcyclus) de verschillen tussen de meetcyclus 2016 - 2018 en 2019 - 2020. Daarbij vergelijken we dus de aantallen voor eenzelfde set aan locaties. In de periode 2019 - 2021 zien we een sterke afname in aantallen van meer dan 50% t.o.v. de periode 2016 - 2018.      
 
-```{r changeshvcyclus,  fig.width= 4, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen per meetcyclus t.o.v. referentie meetcyclus met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changeshvcyclus,  fig.width= 4, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen per meetcyclus t.o.v. referentie meetcyclus met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -1313,10 +1313,10 @@ trend_total_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
-De Heivlinder neemt ook in Nederland sterk of op de monitoringroutes [@van_swaay_2022]. Ondanks het feit dat het een soort is van droge heide of kustduinen, kan de soort niet goed tegen extreme droogte zoals in de zomers van 2019 en 2020. Hierdoor verdorren veel waardplanten en sterven de rupsen. Er moet echter een kanttekening gemaakt worden bij de getelde aantallen op de monitoringroutes. Bij extreme temperaturen zoeken Heivlinders bosranden of grotere alleenstaande bomen op om af te koelen [@de_ro_2022]. Hierdoor worden ze dus gemist op de vlinderroutes die op de open heide- of duinstukken liggen waar de soort bij “normaal” weer meestal vertoeven. Dit zou geleid kunnen hebben tot een vertekend beeld in de trend van de Heivlinder.  
+De Heivlinder neemt ook in Nederland sterk of op de monitoringroutes [@van_swaay_2022]. Ondanks het feit dat het een soort is van droge heide of kustduinen, lijkt de soort niet goed bestand tegen extreme droogte zoals in de zomers van 2019 en 2020. Hierdoor verdorren veel waardplanten en sterven er veel rupsen. Er moet echter een kanttekening gemaakt worden bij de getelde aantallen op de monitoringroutes. Bij extreme temperaturen zoeken Heivlinders bosranden of grotere alleenstaande bomen op om af te koelen [@de_ro_2022]. Hierdoor worden ze dus gemist op de vlinderroutes die op de open heide- of duinstukken liggen waar de soort bij “normaal” weer meestal vertoeven. Dit zou geleid kunnen hebben tot een vertekend beeld in de trend van de Heivlinder. Om deze vertekening te vermijden in de toekomst is het veldprotocol aangepast zodanig dat op extreem warme dagen er geen tellingen mogen uitgevoerd worden. 
 
 \pagebreak
 
@@ -1350,7 +1350,7 @@ bind_rows(meetnet_telperiode_table %>%
         caption = str_c("Karakteristieken van het meetnet ", m),
         booktabs = TRUE,
      format = format_table) %>%
-  kable_styling(full_width = FALSE, font_size = font_size_table)
+  kable_styling(full_width = FALSE)
 ```
 
 ### Aantal tellingen, tellers en getelde locaties
@@ -1386,9 +1386,9 @@ if (html_output) {
 
 ### Vergelijking tussen de jaren
 
-Figuur \@ref(fig:changeskb) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2kb) tonen we de verschillen tussen opeenvolgende jaren. 
+Figuur \@ref(fig:changeskb) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2kb) tonen we de verschillen tussen opeenvolgende jaren. We zien dat er 2018 een sterke afname in aantallen plaatsvond, waarna de aantallen min of meer stabiel bleven. 
 
-```{r changeskb,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changeskb,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -1426,7 +1426,7 @@ result_indexmodel_table %>%
 ```
 
 
-```{r changes2kb,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changes2kb,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -1472,7 +1472,7 @@ trend_total_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont het `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont het `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 In tegenstelling tot Vlaanderen, neemt het Klaverblauwtje op de Nederlandse vlinderroutes sterk toe de laatste jaren [@van_swaay_2022]. De reden voor dit verschil tussen Vlaanderen en Nederland is niet duidelijk. We moeten hier de kanttekening maken dat dit meetnet tot en met 2020 volledig gebaseerd was op slechts één locatie. Hierdoor kunnen resultaten al snel beïnvloed worden door erg lokale omstandigheden zoals een bepaald begrazingsregime. In deze periode is het Klaverblauwtje ook gaan uitbreiden waardoor er sinds 2021 zeven locaties opgenomen zijn in het meetnet. In de toekomst zal dit een robuuster resultaat opleveren wat betreft de toestand van de soort op Vlaamse schaal.
 
@@ -1509,7 +1509,7 @@ bind_rows(meetnet_telperiode_table %>%
         caption = str_c("Karakteristieken van het meetnet ", m),
         booktabs = TRUE,
      format = format_table) %>%
-  kable_styling(full_width = FALSE, font_size = font_size_table)
+  kable_styling(full_width = FALSE)
 ```
 
 ### Aantal tellingen, tellers en getelde locaties
@@ -1545,12 +1545,12 @@ if (html_output) {
 
 ### Vergelijking tussen de jaren
 
-Figuur \@ref(fig:changeskv) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2kv) tonen we de verschillen tussen opeenvolgende jaren. 
+Figuur \@ref(fig:changeskv) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2kv) tonen we de verschillen tussen opeenvolgende jaren. Vanaf 2018 zijn de aantallen meer dan gehalveerd t.o.v. het referentiejaar 2016. Vooral in 2018 en 2019 vond er een sterke afname plaats, maar in 2021 zien we een toename t.o.v. het jaar voordien. De aantallen in 2021 blijven echter nog ver onder het niveau van 2016.    
 
-```{r changeskv,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changeskv,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
-breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
-labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+breaks_log <- log(c(0.2, 0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-80, -50, -25, 0, 33, 100), " %")
 
 ref_jaar <- (meetnet_characteristics %>%
   filter(meetnet == m))$opstartjaar %>%
@@ -1585,7 +1585,7 @@ result_indexmodel_table %>%
 ```
 
 
-```{r changes2kv,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changes2kv,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -1631,7 +1631,7 @@ trend_total_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 Kommavlinder neemt ook in Nederland sterk aof op de monitoringroutes [@van_swaay_2022]. Ondanks het feit dat het een soort is van droge heide, kan de soort niet goed tegen extreme droogte zoals in de zomers van 2019 en 2020. Hierdoor verdorren veel waardplanten en sterven de rupsen. De reden voor de lichte toename in 2021 is onduidelijk.
 
@@ -1667,7 +1667,7 @@ bind_rows(meetnet_telperiode_table %>%
         caption = str_c("Karakteristieken van het meetnet ", m),
         booktabs = TRUE,
      format = format_table) %>%
-  kable_styling(full_width = FALSE, font_size = font_size_table)
+  kable_styling(full_width = FALSE)
 ```
 
 ### Aantal tellingen, tellers en getelde locaties
@@ -1705,7 +1705,7 @@ if (html_output) {
 
 Figuur \@ref(fig:changesoz) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2oz) tonen we de verschillen tussen opeenvolgende jaren. 
 
-```{r changesoz,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changesoz,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -1743,7 +1743,7 @@ result_indexmodel_table %>%
 ```
 
 
-```{r changes2oz,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changes2oz,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -1789,7 +1789,7 @@ trend_total_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont het `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont het `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 Ook in Nederland nemen de aantallen van het Oranje zandoogje de laatste jaren toe [@van_swaay_2022]. In Oost-Europa echter belandt het Oranje zandoogje steeds vaker op regionale Rode Lijsten en in sommige landen is de soort recent zelfs uitgestorven [@maes_2019]. Vlaanderen (en Nederland) dragen daarom een grote verantwoordelijkheid voor deze voorlopig nog zeer talrijke en algemene soort. Dit is ook de reden waarom deze soort een Vlaams prioritaire soort (VPS) is en dus is opgenomen in de meetnetten. 
 \pagebreak
@@ -1824,7 +1824,7 @@ bind_rows(meetnet_telperiode_table %>%
         caption = str_c("Karakteristieken van het meetnet ", m),
         booktabs = TRUE,
      format = format_table) %>%
-  kable_styling(full_width = FALSE, font_size = font_size_table)
+  kable_styling(full_width = FALSE)
 ```
 
 ### Aantal tellingen, tellers en getelde locaties
@@ -1859,9 +1859,9 @@ if (html_output) {
 ```
 
 ### Vergelijking tussen de jaren
-Figuur \@ref(fig:changesvp) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet). In Figuur \@ref(fig:changes2vp) tonen we de verschillen tussen opeenvolgende jaren. 
+De aantallen van Veldparelmoervlinder lijken relatief stabiel te zijn sinds 2016, al is er redelijk wat onzekerheid (brede betrouwbaarheidsintervallen) op de schattingen van de jaarlijkse verschillen in Figuur \@ref(fig:changesvp) en Figuur \@ref(fig:changes2vp). 
 
-```{r changesvp,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changesvp,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -1899,7 +1899,7 @@ result_indexmodel_table %>%
 ```
 
 
-```{r changes2vp,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90 \\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r changes2vp,  fig.width = 5, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
@@ -1945,7 +1945,7 @@ trend_total_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %. 
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 Ook in Nederland neemt de Veldparelmoervlinder de laatste jaren toe [@van_swaay_2022]. De soort breidt zijn verspreiding ook nog steeds verder uit, vooral in het noorden van de Kempen [@maes_2021].
@@ -1979,7 +1979,7 @@ bind_rows(meetnet_telperiode_table %>%
         caption = str_c("Karakteristieken van het meetnet ", m),
         booktabs = TRUE,
      format = format_table) %>%
-  kable_styling(full_width = FALSE, font_size = font_size_table)
+  kable_styling(full_width = FALSE)
 ```
 
 ### Aantal tellingen, tellers en getelde locaties
@@ -2013,6 +2013,7 @@ if (html_output) {
 }
 ```
 
+\needspace{100mm}
 
 
 ### Getelde aantallen in het meetnet `r m` 
@@ -2030,7 +2031,7 @@ top_5 <- summary_table_m %>%
 
 Het meetnet Moerasparelmoervlinder bestaat maar uit één locatie en loopt nog maar twee jaar. Hierdoor zijn er nog onvoldoende gegevens om een trend te schatten. We geven wel in Figuur \@ref(fig:overigefigmpv) het gemiddeld aantal getelde exemplaren per bezoek voor 2020 en 2021. De gemiddelde aantallen lagen iets lager in 2021.
 
-```{r overigefigmpv, fig.cap = str_c("Gemiddeld aantal getelde individuen per bezoek voor ", m, " en de vijf meest voorkomende andere dagvlindersoorten van het meetnet ", m), fig.height = 3}
+```{r overigefigmpv, fig.cap = str_c("Gemiddeld aantal getelde individuen per bezoek voor ", m), fig.height = 3}
 
 plot <- summary_table %>% 
   filter(meetnet == m) %>%

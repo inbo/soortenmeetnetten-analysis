@@ -3,9 +3,9 @@
 # Methodiek
 
 
-## Ontwerp van de meetnetten
+## Ontwerp van de soortenmeetnetten
 
-In een meetnet tellen vrijwilligers specifieke soorten op vastgelegde locaties via een gestandaardiseerde telmethode. Een dergelijke gestructureerde monitoring geeft de beste garantie op betrouwbare informatie over de toestand en trends van soorten op schaal Vlaanderen. Het ontwerp van de dagvlindermeetnetten wordt in detail beschreven in het monitoringsprotocol dagvlinders [@maes_monitoringsprotocol_2019]. Dit is een tweede versie van het monitoringsprotocol waarin enkele aanpassingen zijn gebeurd ten opzichte van de eerste versie [@maes_monitoringsprotocol_2015]. Het monitoringsprotocol is gebaseerd op de blauwdruk voor soortenmonitoring [@de_knijf_monitoring_2014].    
+In een meetnet tellen vrijwilligers specifieke soorten op vastgelegde locaties via een gestandaardiseerde telmethode. Een dergelijke gestructureerde monitoring biedt de beste garantie op betrouwbare informatie over de toestand en trends van soorten op schaal Vlaanderen. Het ontwerp van de dagvlindermeetnetten wordt in detail beschreven in het monitoringsprotocol dagvlinders [@maes_monitoringsprotocol_2019]. Dit is een tweede versie van het monitoringsprotocol waarin enkele aanpassingen zijn gebeurd ten opzichte van de eerste versie [@maes_monitoringsprotocol_2015]. Het monitoringsprotocol is gebaseerd op de blauwdruk voor soortenmonitoring [@de_knijf_monitoring_2014].    
 
 We vatten de belangrijkste onderdelen van de dagvlindermeetnetten nog eens kort samen.    
 
@@ -52,7 +52,7 @@ if (doc.type == "docx") {
 
 ### Telmethode
 
-De dagvlinders worden geteld op basis van de drie volgende veldprotocollen:
+De dagvlinders worden geteld op basis van één van de drie volgende veldprotocollen:
 
 - **Transecttelling imago's**. Hierbij worden imago’s (adulten) van dagvlinders op een vaste route (van bij voorkeur 1000 meter) geteld die binnen de denkbeeldige kooi van maximaal 2,5 m links en rechts en maximaal 5 m voor de teller vliegen. De route wordt opgedeeld in secties van 50 meter die aan een constant tempo gewandeld worden. De tellers noteren de aantallen per sectie.
 
@@ -60,7 +60,9 @@ De dagvlinders worden geteld op basis van de drie volgende veldprotocollen:
 
 - **Eitelling**. Deze methode gebruiken we voor het Gentiaanblauwtje. De tellers tellen alle eitjes op Klokjesgentianen binnen een proefvlak van 100 m².
 
-Een overzicht van de gebruikte veldprotocollen vind je in Tabel \@ref(tab:tabkarakteristiekentelperiode). Voor elke soort vermelden we de telperiode waarin de tellingen gebeuren en het aantal bezoeken per telperiode. Afhankelijk van de weersomstandigheden, kan de telperiode vervroegd of verlaat worden in een bepaald jaar. Bij Argusvlinder, Bruin dikkopje en Klaverblauwtje komen er verschillende generaties voor binnen een jaar. Voor deze soorten zijn er daarom twee telperiodes, één voor elke generatie. 
+Een overzicht van de gebruikte veldprotocollen vind je in Tabel \@ref(tab:tabkarakteristiekentelperiode). Voor elke soort vermelden we de telperiode(s) waarin de tellingen gebeuren en het aantal bezoeken per telperiode. Afhankelijk van de weersomstandigheden, kan de telperiode vervroegd of verlaat worden in een bepaald jaar. Bij Argusvlinder, Bruin dikkopje en Klaverblauwtje komen er verschillende generaties voor binnen een jaar. Voor deze soorten zijn er daarom twee telperiodes, één voor elke generatie. 
+
+Bruine eikenpage werd in eerste instantie opgevolgd via eitellingen, maar dit bleek moeilijk haalbaar door de lage detectiekans van de eitjes. Daarom schakelden we in 2018 over naar gebiedstellingen van imago's. 
 
 ```{r tabkarakteristiekentelperiode}
 
@@ -109,9 +111,11 @@ if (doc.type == "docx") {
 
 ### Selectie van de meetnetlocaties
 
-Wanneer er van een bepaalde soort minder dan 30 populaties voorkomen in Vlaanderen, worden alle populaties opgenomen in het meetnet. We spreken dan van een integrale monitoring. Wanneer er meer dan 30 populaties zijn, is het niet meer haalbaar om al die populaties te tellen. We selecteren dan 30 populaties via een willekeurige steekproef. Tabel \@ref(tab:tabkarakteristiekenselectie) toont voor elk meetnet het aantal meetnetlocaties/populaties en of de soort integraal dan wel via een steekproef wordt geteld. De tabel geeft ook de duur van de meetcyclus weer. Dit is de periode waarin alle meetnetlocaties geteld worden. Een meetcyclus van drie jaar betekent dus dat elke meetnetlocatie om de drie jaar geteld wordt. Voor de soorten met een integrale selectie worden alle meetnetlocaties jaarlijks geteld.
+Wanneer er van een bepaalde soort minder dan 30 populaties voorkomen in Vlaanderen, worden alle populaties opgenomen in het meetnet. We spreken dan van een integrale monitoring. Wanneer er meer dan 30 populaties zijn, is het niet meer haalbaar om alle populaties te tellen. We selecteren dan 30 populaties via een willekeurige steekproef. Tabel \@ref(tab:tabkarakteristiekenselectie) toont voor elk meetnet het aantal meetnetlocaties/populaties en of de soort integraal dan wel via een steekproef wordt geteld. De tabel geeft ook de duur van de meetcyclus weer. Dit is de periode waarin alle meetnetlocaties geteld worden. Een meetcyclus van drie jaar betekent dus dat elke meetnetlocatie om de drie jaar geteld wordt. Voor de soorten met een integrale selectie worden alle meetnetlocaties jaarlijks geteld.
 
-Door de recente toename in verspreiding van de Grote weerschijnvlinder, is ook het aantal populaties in 2021 toegenomen van 10 naar 41. Voorlopig hebben we echter nog geen steekproef getrokken voor dit meetnet. We wachten nog even af of deze populaties stand houden.  
+We moeten er uiteraard ook mee rekening houden dat het aantal populaties verandert in de tijd. Bij de integrale monitoring voegen we nieuwe locaties met populaties toe aan het meetnet, zolang de grens van 30 locaties niet wordt overschreden. In het geval van een steekproef, zullen we een nieuwe steekproef trekken wanneer de verspreiding van de populaties sterk wijzigt. Daarbij gebruiken we een methode die garandeert dat een zo groot mogelijk aandeel van de oorspronkelijk geselecteerde locaties behouden blijft.      
+
+Een voorbeeld van een zeer dynamische soort is de Grote weerschijnvlinder. Door de recente toename in verspreiding van de Grote weerschijnvlinder, is ook het aantal populaties in 2021 toegenomen van 10 naar 41. Voorlopig hebben we echter nog geen steekproef getrokken voor dit meetnet. We wachten nog even af of deze populaties stand houden.   
 
 ```{r tabkarakteristiekenselectie}
 
@@ -189,12 +193,12 @@ locaties_shared <- SharedData$new(locaties_utm)
 bscols(
   list(
     bscols(
-      widths = c(8, 4),
+      widths = c(7, 4),
       NULL,
       filter_select("meetnet", "Selecteer meetnet", locaties_shared, ~meetnet)
   ),
        leaflet(locaties_shared, options = leafletOptions(maxZoom = 11)) %>%
-                addTiles() %>%
+                addProviderTiles("OpenStreetMap") %>%
                 addCircles(stroke = FALSE, label = ~label, opacity = 0.8, radius = 1500) %>%
                 addPolygons(data = utm_vl, weight = 1, color = "blue", fill = FALSE, opacity = 0.5)
        )
@@ -269,7 +273,7 @@ if (html_output) {
 
 ## Dataontsluiting
 
-De databank die onderdeel uitmaakt van [meetnetten.be](www.meetnetten.be) is enkel toegankelijk binnen het INBO. Maar op regelmatige basis maakt het INBO datasets publiek toegankelijk via [GBIF](https://www.gbif.org/) (Global Biodiversity Information Facility). Omdat het meestal om kwetsbare soorten gaat, passen we op de datasets een vervaging toe van 1, 5 of 10 km toe afhankelijk van de soort. Deze vervaging komt overeen met de vervagingsregels die toegepast worden op waarnemingen.be. De publiek ontsloten datasets bevatten dus niet de exacte tellocaties.  
+De databank die onderdeel uitmaakt van [meetnetten.be](www.meetnetten.be) is enkel toegankelijk binnen het INBO. Op regelmatige basis maakt het INBO datasets publiek toegankelijk via [GBIF](https://www.gbif.org/) (Global Biodiversity Information Facility). Omdat het meestal om kwetsbare soorten gaat, passen we op de datasets een vervaging toe van 1, 5 of 10 km toe afhankelijk van de soort. Deze vervaging komt overeen met de vervagingsregels die toegepast worden op waarnemingen.be. De publiek ontsloten datasets bevatten dus niet de exacte tellocaties.  
 
 Voor de dagvlindermeetnetten gaat het om volgende datasets:
 
@@ -277,4 +281,5 @@ Voor de dagvlindermeetnetten gaat het om volgende datasets:
 + Transecttelling van imago's [@piesschaert_transects_2021];
 + Eitelling Gentiaanblauwtje [@piesschaert_eggcounts_2021].
 
+Deze datasets worden op regelmatige basis (normaal gezien elk jaar) geupdate.
 

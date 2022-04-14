@@ -5,7 +5,7 @@
 INBOmd::references(appendix = TRUE)
 ```
 
-# Bijlage: Beschrijving van de analyse {#h:bijlagec}
+# Beschrijving van de analyse {#bijlage1}
 
 ## Selectie van gegevens voor de analyse 
 
@@ -69,13 +69,13 @@ We krijgen dus:
 $$\eta_{ldj}= \beta_{0} + \beta_{1}J +  b_{l} +  b_{d}$$
 waarbij $e^{\beta_1}$ de relatieve trend weergeeft. 
 
-# Bijlage: Reproduceerbaarheid van de analyses {#h:bijlager}
+# Bijlage: Reproduceerbaarheid van de analyses {#bijlage2}
 
-De analyses werden uitgevoerd via de programmeertaal R. De R-scripts staan onder versiebeheer via volgende GitHub repository: [inbo/soortenmeetnetten-analysis](https://github.com/inbo/soortenmeetnetten-analysis) en zijn publiek toegankelijk.
+De analyses werden uitgevoerd via de programmeertaal R [@R]. De R-scripts staan onder versiebeheer via volgende GitHub repository: [inbo/soortenmeetnetten-analysis](https://github.com/inbo/soortenmeetnetten-analysis) en zijn publiek toegankelijk.
 
 Meer specifiek gebeuren de analyses voor de dagvlindermeetnetten via de scripts in de folder [inbo/soortenmeetnetten-analysis/analysis_vlinders/src](https://github.com/inbo/soortenmeetnetten-analysis/tree/master/analysis_vlinders/src). De ruwe data die we gebruiken voor de analyse zijn niet publiek beschikbaar omdat het om gevoelige data gaat. De ruwe data zijn wel beschikbaar via [deze Google Drive folder](https://drive.google.com/drive/folders/1u0qnNQe6BO3aUzFjQrp2cZB7aoHv01gf), die enkel toegankelijk is op verzoek.
 
-# Bijlage: Verkenning aantallen secundaire soorten {#h:bijlageo}
+# Verkenning aantallen secundaire soorten {#bijlage3}
 
 Voor de secundaire soorten berekenen we het gemiddeld aantal getelde exemplaren per bezoek per jaar over alle meetnetten met transecttellingen. Let wel, zowel de meetnetlocaties als de telperiodes werden geselecteerd in functie van de primaire soorten. De tellingen zijn daarom niet volledig representatief om op schaal Vlaanderen een uitspraak te doen over de secundaire soorten, waardoor de resultaten mogelijks vertekend zijn. De nodige voorzichtigheid is dus geboden bij de interpretatie van de resultaten.   
 

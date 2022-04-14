@@ -114,7 +114,7 @@ add_header_above(c(" " = 2, "Verschil t.o.v. referentiejaar" = 5))
 
 ```
 
-Een andere manier om de jaarlijkse verschillen voor te stellen is door steeds de verschillen tussen twee opeenvolgende jaren te bepalen zoals in \@ref(tab:tabelverschil2).
+Een andere manier om de jaarlijkse verschillen voor te stellen is door steeds de verschillen tussen twee opeenvolgende jaren te bepalen zoals in \@ref(tab:tabelverschil2). Op die manier krijgen we bijkomende informatie over hoe de aantallen variëren over de jaren. Voor Kommavlinder zien we bijvoorbeeld een sterke afname in aantallen voor de jaren 2018 tot 2021 in vergelijking met het referentiejaar 2016. Maar als we de opeenvolgende jaren vergelijken zien we in 2021 een toename in aantallen in vergelijking met 2020.   
 
 
 ```{r }
@@ -156,7 +156,8 @@ kable_styling(font_size = font_size_table)
 ## Verschillen tussen de meetcycli
 
 Bij soorten die geteld worden met een meetcyclus van drie jaar, zullen de verschillen tussen de jaren voor een deel afhankelijk zijn van welke locaties er elk jaar geteld worden. 
-Daarom is het ook nuttig om periodes van drie jaar (die overeenkomen met een meetcyclus) met elkaar te vergelijken. Voor Heivlinder en Argusvlinder werden er al twee meetcycli afgerond (2016 - 2018 en 2019 - 2021) en kunnen we dus deze beide periodes vergelijken (Tabel \@ref(tab:tabelverschil3)). Het meetnet Oranje zandoogje ging in 2017 van start, waardoor de tweede cyclus afloopt in 2022 en we pas dan beide meetcycli kunnen vergelijken.
+Daarom is het ook nuttig om periodes van drie jaar (die overeenkomen met een meetcyclus) met elkaar te vergelijken. Voor Heivlinder en Argusvlinder werden er al twee meetcycli afgerond (2016 - 2018 en 2019 - 2021) en kunnen we dus deze beide periodes vergelijken (Tabel \@ref(tab:tabelverschil3)). Voor beide soorten zien we een sterke afname in de periode 2019 - 2021 t.o.v. de periode 2016 - 2018. 
+Het meetnet Oranje zandoogje ging in 2017 van start, waardoor de tweede cyclus afloopt in 2022 en we pas dan beide meetcycli kunnen vergelijken.
 
 ```{r}
 verschillen_cyclus <- results_indexmodel_meetcyclus_transecttelling %>%

@@ -25,7 +25,7 @@ reviewer:
     orcid: 0000-0001-5198-5928
 year: 2022
 cover_photo: 
-cover_description: "Heivlinder"
+cover_description: "Bruin dikkopje (Foto: Valerie Goethals)"
 cover: 
 doi: doi.org/10.21436/inbor.70771847
 reportnr: 1
@@ -130,13 +130,13 @@ options(dplyr.summarise.inform = FALSE)
 
 # Dankwoord {-}
 
-We wensen in de eerste plaats alle vrijwilligers te bedanken voor de vele tellingen die ze hebben uitgevoerd voor de dagvlindermeetnetten. Wim Veraghtert willen we bedanken voor de coördinatie van het veldwerk. Frederic Piesschaert bedanken we voor de technische ondersteuning bij de invoer van de gegevens via meetnetten.be en de bevraging van de meetnetten-databank. We bedanken ook de (ex-)leden van de stuurgroep van het soortenmeetnettenproject: Bernard Van Elegem, Véronique Verbist, Samuel De Rycke, Koen Van Keer, Hannes Ledegen, Wouter Vanreusel, Marc Herremans, Maurice Hoffmann en Marc Pollet.
+We wensen in de eerste plaats alle vrijwilligers te bedanken voor de vele tellingen die ze hebben uitgevoerd voor de dagvlindermeetnetten. Wim Veraghtert willen we bedanken voor de coördinatie van het veldwerk. Frederic Piesschaert bedanken we voor de technische ondersteuning bij de invoer van de gegevens via meetnetten.be en de bevraging van de meetnetten-databank. We bedanken ook de actieve leden en ex-leden van de stuurgroep van het project 'Langetermijn monitoring van beleidsrelevante soorten via meetnetten in Vlaanderen': Bernard Van Elegem, Véronique Verbist, Samuel De Rycke, Koen Van Keer, Hannes Ledegen, Wouter Vanreusel, Marc Herremans, Maurice Hoffmann en Marc Pollet. Ten slotte willen we Marc Pollet bedanken voor het kritisch nalezen van dit rapport. 
 
 # Samenvatting {-}
 
 Via de soortenmeetnetten ([meetnetten.be](https://www.meetnetten.be)) willen het Instituut voor Natuur- en Bosonderzoek (INBO) en het Agentschap voor Natuur en Bos (ANB) betrouwbare informatie verzamelen over prioritaire soorten in Vlaanderen. Deze meetnetten bestaan uit een aantal vastgelegde locaties die specifiek geselecteerd werden voor elke soort. Op deze locaties voeren vrijwilligers op een gestandaardiseerde manier tellingen uit onder coördinatie van Natuurpunt Studie.
 
-Dit rapport toont de eerste resultaten van de dagvlindermeetnetten voor de periode 2016 - 2010. In die periode zien we: 
+Dit rapport toont de eerste resultaten van de dagvlindermeetnetten voor de periode 2016 - 2021. In die periode zien we: 
 
 + een sterke afname van Argusvlinder (*Lasiommata megera*), Bruin dikkopje (*Erynnis tages*), Grote weerschijnvlinder (*Apatura iris*), Kommavlinder (*Hesperia comma*) en Heivlinder (*Hipparchia semele*),
 + een afname van Aardbeivlinder (*Pyrgus malvae*) en Gentiaanblauwtje (*Phengaris alcon*),

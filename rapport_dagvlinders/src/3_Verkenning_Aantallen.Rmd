@@ -132,7 +132,7 @@ sd_locaties <- SharedData$new(details_locatie_m_tabel)
 
 bscols(list(
           bscols(
-            widths = c(8, 4),
+            widths = c(7, 3),
             NULL,
             filter_select("meetnet", "Selecteer meetnet", sd_locaties, ~Soort)
   ),
@@ -142,15 +142,27 @@ bscols(list(
               addCircleMarkers(stroke = FALSE,  radius = ~radiusCircleMarker,  label =  ~lapply(label, HTML),  fillOpacity = 0.4) %>%
               addPolygons(data = utm_meetnet, weight = 1, color = "blue", fill = FALSE, opacity = 0.5),
   
-            datatable(sd_locaties, 
-                    rownames = FALSE, 
-                    extensions="Scroller", 
-                    style="bootstrap",
-                    class="compact", 
-                    width="100%",
-                    options=list(columnDefs = list(list(visible=FALSE, targets= c( 3, 4, 11, 12)))),
-                    caption = str_c("Gemiddeld getelde aantallen per bezoek en per locatie")) %>%
-            formatStyle(columns = c(1, 2, 3, 4, 5), fontSize = '9 pt')
+          # bscols(widths = c(11, 1),
+          #   datatable(sd_locaties, 
+          #           rownames = FALSE, 
+          #           extensions="Scroller", 
+          #           style="bootstrap",
+          #           class="compact",
+          #           width="100%",
+          #           options=list(columnDefs = list(list(visible=FALSE, targets= c( 3, 4, 11, 12)))),
+          #           caption = str_c("Gemiddeld getelde aantallen per bezoek en per locatie")) %>%
+          #   formatStyle(columns = c(1, 2, 3, 4, 5), fontSize = '8 pt'),
+          #   NULL)
+        bscols(widths = c(1, 10, 1),
+               NULL,
+               datatable(sd_locaties,
+                      rownames = FALSE,
+                      class="compact",
+                      width="100%",
+                       options=list(columnDefs = list(list(visible=FALSE, targets= c( 3, 4, 11, 12))))
+            ),
+            NULL)
+                      
         )
 )
 
@@ -164,15 +176,16 @@ include_graphics("../image/dummy_figuur.png")
 ```
 
 
+
 ## Aantallen voor de secundaire soorten
 
-Elk dagvlindermeetnet is specifiek ontworpen voor één bepaalde prioritaire soort. Naast de prioritaire soort is het ook mogelijk om andere dagvlinders die tijdens de telling worden waargenomen, te noteren. We noemen deze de secundaire soorten. Deze gegevens kunnen zeker een meerwaarde zijn, maar we moeten wel voorzichtig zijn bij het interpreteren of analyseren van deze gegevens. Zowel de tellocaties als de telperiode zijn immers specifiek gekozen voor de prioritaire soorten. Dat maakt dat de aantallen voor de secundaire soorten niet altijd representatief zijn voor een uitspraak op schaal Vlaanderen.  
+Elk dagvlindermeetnet is specifiek ontworpen voor één bepaalde prioritaire soort. Naast de prioritaire soort is het ook mogelijk om andere dagvlinders te noteren die tijdens de telling worden waargenomen. We noemen deze de secundaire soorten. Deze gegevens kunnen zeker een meerwaarde zijn, maar we moeten wel voorzichtig zijn bij het interpreteren of analyseren ervan. Zowel de tellocaties als de telperiode zijn immers specifiek gekozen voor de prioritaire soorten. Dat maakt dat de aantallen voor de secundaire soorten niet altijd representatief zijn voor een uitspraak op schaal Vlaanderen.  
   
 Voor de trends over de periode 1991 - 2019 van de algemenere dagvlinders in Vlaanderen verwijzen naar het rapport over de algemene dagvlindermonitoring [@maes_2020].  
   
 In Tabel \@ref(tab:tabaantaltotoverige) geven we het totaal aantal getelde individuen van de secundaire soorten voor alle soortspecifieke dagvlindermeetnetten samen. In totaal werden er `r n_species` soorten waargenomen. De soorten worden gerangschikt volgens getelde aantallen van hoog naar laag. De tabel bevat ook prioritaire soorten, maar dit zijn dan de aantallen die geteld werden in locaties van andere meetnetten (Bv. Oranje zandoogje beschouwen we als secundaire soort in het meetnet Argusvlinder). 
 
-In Bijlage \@ref(h:bijlageo) geven we een overzicht van de gemiddelde getelde aantallen per jaar voor de algemenere secundaire soorten.  
+In Bijlage \@ref(bijlage3) geven we een overzicht van de gemiddelde getelde aantallen per jaar voor de algemenere secundaire soorten.  
 
 \needspace{50mm}
 
@@ -223,111 +236,6 @@ summary_table_all_years %>%
 ```
 
 De rangschikking van het aantal getelde secundaire soorten is zeer vergelijkbaar met die op de algemene vlinderroutes in Nederland [@van_swaay_2022].
-
-
-
-
-
-```{r, fig.height = 20, eval = FALSE}
-counts %>% 
-  group_by(soort_nl) %>%
-  mutate(tot = sum(aantal)) %>%
-  ungroup() %>%
-  filter(tot > 100) %>%
-  filter(!primaire_soort) %>%
-  ggplot(aes(x= jaar, y = aantal)) +  
-  #geom_point(alpha = 0.6, colour = inbo.grijs) +
-  stat_summary(fun.data = "mean_cl_boot", colour = inbo.groen) +
-  facet_wrap(~ soort_nl, scale = "free_y", ncol = 3) +
-  labs(y = "Aantal getelde individuen", x = "Jaar") +
-  theme(legend.position = "bottom") +
-  ylim(0, NA)
-``` 
-
-
-
-
-```{r, eval = FALSE}
-summary_table %>% 
-  select(-bezoeken, -locaties_geteld, - aantal_maximum) %>%
-  filter(!is.na(soort_nl)) %>%
-  mutate(primaire_soort = ifelse(is.na(primaire_soort), FALSE, primaire_soort)) %>%
-  filter(!primaire_soort) %>%
-  arrange(desc(tot)) %>%
-  mutate(jaar = factor(jaar),
-         soort_nl = factor(soort_nl)) %>%
-  select(soort_nl, soort_wet, jaar, "totaal aantal" = aantal_totaal, "gemiddeld aantal" = aantal_gemiddeld, locaties = locaties_aanwezig, "proportie locaties (%)" = proportie_locaties_aanwezig) %>%
-  # select(-soortgroep, -soort_nl) %>%
-  datatable(rownames = FALSE,
-            filter = 'top',
-            extensions = 'Buttons', 
-            options = list(
-              dom = 'Bfrtip',
-              buttons = c('copy', 'pdf', 'csv', 'excel'),
-              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
-              initComplete = JS(
-                            "function(settings, json) {",
-                            "$(this.api().table().header()).css({'background-color': '#959B38'});",
-                            "}")
-              )
-            )
-```
-
-
-
-```{r, eval = FALSE}
-summary_counts_type_primair %>%
-  filter(!primaire_soort) %>%
-  select(-primaire_soort) %>%
-  datatable(rownames = FALSE,
-            filter = 'top',
-            extensions = 'Buttons', 
-            options = list(
-              dom = 'Bfrtip',
-              buttons = c('copy', 'pdf', 'csv', 'excel'),
-              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
-              initComplete = JS(
-                            "function(settings, json) {",
-                            "$(this.api().table().header()).css({'background-color': '#959B38'});",
-                            "}")
-              )
-            )
-
-```
-
-
-
-```{r, eval = FALSE}
-aantallen_bezoek <- get_counts_smp("libellen") %>%
-  group_by(soortgroep, meetnet, protocol, locatie, visit_id, checklist, jaar, datum, soort_nl, soort_wet, primaire_soort, geslacht, activiteit, levensstadium) %>%
-  summarise(aantal = sum(aantal, na.rm = TRUE),
-            n_subsamples = n()) %>%
-  ungroup() %>%
-  mutate(geslacht = ifelse(geslacht == "M", "mannelijk", 
-                           ifelse(geslacht == "F", "vrouwelijk", "onbekend")))
-
-diversity <- aantallen_bezoek %>% 
-  group_by(soortgroep, meetnet, protocol, locatie, visit_id, checklist, soort_nl, soort_wet) %>%
-  summarise(aanwezig = sum(aantal) > 0) %>%
-  ungroup() %>%
-  filter(aanwezig) %>%
-  group_by(meetnet, protocol, locatie) %>%
-  summarise(n_soorten = n_distinct(soort_wet),
-            n_bezoeken = n_distinct(visit_id)) %>%
-  ungroup()
-
-checklists <- aantallen_bezoek %>%
-  distinct(soortgroep, meetnet, protocol, locatie, visit_id, checklist) %>%
-  group_by(meetnet, protocol, locatie) %>%
-  summarise(n_checklists = sum(checklist)) %>%
-  ungroup()
-  
-diversity <- diversity %>%
-  left_join(checklists, by = c("meetnet", "protocol", "locatie"))
-
-```
-
-
 
 
 
