@@ -90,7 +90,7 @@ l <- "imago"
 
 ```
 
-```{r, fig.cap= str_c(m,  " (Foto: Valerie Goethals)"), out.width = "50%"}
+```{r, fig.cap= str_c(m,  " (Foto: Valérie Goethals)"), out.width = "50%"}
 include_graphics("../image/aardbeivlinder.jpg")
 ```
 
@@ -247,7 +247,7 @@ l <- "imago"
 
 ```
 
-```{r, fig.cap= str_c(m,  " (Foto: Valerie Goethals)"), out.width = "50%"}
+```{r, fig.cap= str_c(m,  " (Foto: Valérie Goethals)"), out.width = "50%"}
 include_graphics("../image/argusvlinder.jpg")
 ```
 
@@ -420,7 +420,7 @@ l <- "imago"
 
 ```
 
-```{r, fig.cap= str_c(m,  " (foto: Valerie Goethals)"), out.width = "50%"}
+```{r, fig.cap= str_c(m,  " (foto: Valérie Goethals)"), out.width = "50%"}
 include_graphics("../image/bruin_dikkopje.jpg")
 ```
 
@@ -579,7 +579,7 @@ l <- "imago"
 
 ```
 
-```{r, fig.cap= str_c(m,  " (foto: Valerie Goethals)"), out.width = "50%"}
+```{r, fig.cap= str_c(m,  " (foto: Valérie Goethals)"), out.width = "50%"}
 include_graphics("../image/bruine_eikenpage.jpg")
 ```
 
@@ -983,7 +983,7 @@ l <- "imago"
 
 ```
 
-```{r, fig.cap= str_c(m,  " (foto: Valeire Goethals)"), out.width = "50%"}
+```{r, fig.cap= str_c(m,  " (foto: Valérie Goethals)"), out.width = "50%"}
 include_graphics("../image/Grote weerschijnvlinder.jpg")
 ```
 
@@ -1328,7 +1328,7 @@ l <- "imago"
 
 ```
 
-```{r, fig.cap= str_c(m,  " (foto: Valerie Goethals)"), out.width = "50%"}
+```{r, fig.cap= str_c(m,  " (foto: Valérie Goethals)"), out.width = "50%"}
 include_graphics("../image/Klaverblauwtje_vrouwtje.jpg")
 ```
 
@@ -1645,7 +1645,7 @@ l <- "imago"
 
 ```
 
-```{r, fig.cap= str_c(m,  " (foto: Valerie Goethals)"), out.width = "50%"}
+```{r, fig.cap= str_c(m,  " (foto: Valérie Goethals)"), out.width = "50%"}
 include_graphics("../image/Oranje zandoogje.jpg")
 ```
 
