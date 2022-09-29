@@ -24,10 +24,7 @@ output:
 library(knitr)
 options(knitr.kable.NA = '')
 
-library(showtext)
 
-showtext_auto()
-font_add("Calibri", "Calibri.TTF")
 ```
 
 

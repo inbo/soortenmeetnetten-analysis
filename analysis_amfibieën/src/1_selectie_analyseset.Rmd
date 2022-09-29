@@ -1,0 +1,250 @@
+# Selectie analyseset
+
+
+
+```{r}
+
+species_group <- "amfibieën"
+
+species <- "Boomkikker"
+
+```
+
+## Preprocessing
+
++ Bij het protocol voor larvetellingen werden initieel de aantallen per schep ingevoerd. Later werd het protocol gewijzigd en werd het totaal aantal larven en het aantal schepbewegingen ingevoerd. We sommeren de aantallen per schep en werken verder met de totalen en het aantal schepbewegingen.
+
++ Bij larvetellingen wordt ook aangegeven of er enkel larventellingen, enkel tellingen van metamorfen of beide tellingen werden uitgevoerd. In de databank wordt er een nul gegenereerd voor aantal larven ook al geeft men aan dat er enkel metamorfen werden geteld. Ook omgekeerd is dit het geval voor aantal metamorfen. Deze nullen zetten we om naar ontbrekende waarden.    
+
+
+```{r select data, warning = FALSE}
+
+visits <- get_visits_smp(species_group = species_group) %>%
+  mutate(protocol = ifelse(protocol == "Amfibieën - Fuiken (v1)", 
+                           "Amfibieën - Fuiken", 
+                           protocol),
+         protocol = ifelse(protocol == "Vuursalamander - Transect (v1)", 
+                           "Vuursalamander - Transect", 
+                           protocol),
+         protocol = ifelse(protocol == "Amfibieën - Larven", "Amfibieën - Larven en metamorfen", protocol)) %>%
+  filter(meetnet == species) %>%
+  mutate(locatie = str_remove(locatie, "NR "))
+
+unique(visits$meetnet)
+unique(visits$protocol)
+
+locatie_detail <- get_locations_smp() %>%
+  st_drop_geometry() %>%
+  filter(locatie_type == "locatie") %>%
+  select(meetnet, locatie, is_active, is_sample) %>%
+  semi_join(visits, by = "meetnet") %>%
+  mutate(locatie = str_remove(locatie, "NR "),
+         cluster = ifelse(str_detect(locatie, " - "), 
+                          str_sub(locatie,  end = str_locate(locatie, " - ")),
+                          locatie),
+         cluster = str_remove_all(cluster, str_c(as.character(c(0:9)), collapse = "|")),
+         cluster = str_trim(cluster),
+         poel = ifelse(str_detect(locatie, "10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25"),
+                       str_extract(locatie, "10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25"),
+                       str_extract(locatie, "1|2|3|4|5|6|7|8|9")),
+         poel = ifelse(cluster == "Merkske",  str_sub(locatie, start = str_locate(locatie, "B")[,"start"]),
+                       poel),
+         poel = ifelse(is.na(poel), "1", poel))
+
+covar <- get_covariates_smp(species_group = species_group) %>%
+  filter(meetnet == species)
+
+catch_effort <- covar %>%
+  filter(bezoekvariabele %in% c("aantal keer geschept", "zoekinspanning")) %>%
+  select(visit_id, bezoekvariabele, waarde) %>%
+  pivot_wider(names_from = bezoekvariabele, values_from = waarde) %>%
+  rename(n_catch = "aantal keer geschept") %>%
+  mutate(n_catch = as.numeric(n_catch))
+
+counts_all <- get_counts_smp(species_group = species_group) %>%
+  filter(meetnet == species) %>%
+  group_by(protocol, visit_id, soort_nl, soort_wet, primaire_soort, levensstadium) %>%
+  summarise(aantal = sum(aantal),
+            n_records = n()) %>%
+  ungroup() %>%
+  left_join(catch_effort, by = "visit_id") %>%
+  mutate(larvetelling = zoekinspanning %in% c("alleen larven geschept", "larven geschept en metamorfen op land geteld") | (is.na(zoekinspanning) & levensstadium == "larve"),
+         metamorftelling = zoekinspanning %in% c("alleen metamorfen op land geteld", "larven geschept en metamorfen op land geteld")) %>%
+  mutate(aantal = ifelse(levensstadium == "larve" & larvetelling, aantal, 
+                         ifelse(levensstadium == "metamorf" & metamorftelling, aantal,
+                                ifelse(levensstadium == "adult", aantal, NA)))) %>%
+  filter(!((protocol == "Amfibieën - Larven en metamorfen") & (levensstadium == "adult")))
+
+count_period <- get_characteristics_smp() %>%
+    mutate(doy_min = as.numeric(format(start_telperiode, "%j")),
+         doy_max = as.numeric(format(einde_telperiode, "%j"))) %>%
+  group_by(meetnet, protocol) %>%
+  summarise(doy_min = min(doy_min),
+            doy_max = max(doy_max)) %>%
+  ungroup() %>%
+  mutate(doy_mid = doy_min + round((doy_max - doy_min)/2, 0)) %>%
+  distinct(meetnet, protocol, doy_min, doy_max, doy_mid)
+
+
+```
+
+## Criteria voor selectie van tellingen
+
+
++ We selecteren bezoeken, die geschikt zijn voor analyse (voor_analyse = TRUE), aan actieve locaties
+
+```{r}
+visits_selection <- visits %>%
+  left_join(locatie_detail, by = c("meetnet", "locatie")) %>%
+  filter(voor_analyse & !is.na(is_active)) %>%
+  left_join(count_period, by = c("meetnet", "protocol")) %>%
+  mutate(doy_scaled = (doy - doy_mid)/28,
+         fjaar = factor(jaar)) %>%
+  group_by(soortgroep, meetnet, protocol, locatie, jaar, fjaar) %>%
+  mutate(n_obs = n_distinct(visit_id)) %>%
+  ungroup()
+
+locaties_niet_actief <- visits %>%
+  distinct(meetnet, locatie) %>%
+  anti_join(visits_selection, by = c("meetnet", "locatie"))
+
+locaties_niet_actief %>%
+  kable(caption = "Niet actieve locaties waarvoor bezoeken niet geselecteerd werden") %>%
+  kable_styling()
+```
+
++ We selecteren voorlopig alle waarnemingen
+
+```{r}
+counts_sublocation_selection <- visits_selection %>%
+  select(soortgroep, meetnet, protocol, cluster, poel, locatie, jaar, datum, doy, doy_scaled, doy_min, doy_max, doy_mid,  visit_id, n_obs, voor_analyse, is_active, is_sample, bezoek_status, bezoek_status_oud, notes) %>%
+  inner_join(select(counts_all, visit_id,  soort_nl, soort_wet, aantal, levensstadium, primaire_soort, n_catch, zoekinspanning, larvetelling, metamorftelling), by = "visit_id") %>%
+  group_by(meetnet, protocol, locatie) %>%
+  mutate(aantal_totaal = sum(aantal * primaire_soort)) %>%
+  ungroup() 
+#%>%
+  #filter(aantal_totaal > 0)
+
+locations_absence <- counts_sublocation_selection %>%
+  group_by(meetnet, protocol, locatie, is_sample, aantal_totaal) %>%
+  summarise(n_visits = n_distinct(visit_id)) %>%
+  ungroup() %>%
+  filter(aantal_totaal == 0)
+
+locations_absence %>%
+  kable(caption = "Locaties met enkel nulwaarnemingen") %>%
+  kable_styling()
+```
+
+ + We selecteren enkel locaties die behoren tot de steekproef
+ 
+```{r}
+counts_sublocation_selection_sample <- counts_sublocation_selection %>%
+  filter(is_sample)
+
+analyseset <- counts_sublocation_selection
+
+locations_not_sample <- counts_sublocation_selection %>%
+  group_by(meetnet, locatie) %>%
+  summarise(n_visits = n_distinct(visit_id)) %>%
+  ungroup() %>%
+  anti_join(counts_sublocation_selection_sample, by = c("meetnet", "locatie"))
+
+locations_not_sample %>%
+  kable(caption = "Locaties die niet tot de steekproef behoren") %>%
+  kable_styling()
+```
+ 
+
+
+
+
+
+## Bewaar analyseset
+
+```{r, eval = FALSE}
+
+names_analysis <- c(name_analysis0, name_analysis1, name_analysis2, name_analysis3)
+
+mypath <- here(str_c("analysis_vlinders/output/temp"))
+
+hashes <-
+    tibble(filepath = str_c(mypath, "/",
+        list.files(path = mypath,
+            recursive = TRUE)
+      )) %>%
+    mutate(version = Sys.Date(),
+           filename = str_match(filepath, "(.+\\/)*(.+)")[,3],
+           name_analysis = str_extract(filename, str_c(names_analysis, collapse =  "|")),
+           md5 = map(filepath, function(x) {
+                           file(x) %>% md5 %>% str_c(collapse = '')
+                         }) %>% as.character,
+           sha256 = map(filepath, function(x) {
+                          file(x) %>% sha256 %>% str_c(collapse = '')
+                          }) %>% as.character
+           ) %>%
+    select(name_analysis,
+           version,
+           filename,
+           md5,
+           sha256) %>%
+  filter(str_detect(filename, "analyseset"))
+
+file_name <- here(str_c("analysis_vlinders/output/analysis_hashes.tsv"))
+
+if (!file.exists(file_name)) {
+  
+  new_analysis <- TRUE
+  
+  analysis_hashes <- hashes
+
+} else {
+  
+  analysis_hashes <- read_vc(file = "analysis_hashes", root = here("analysis_vlinders/output/"))
+  
+  hashes_new <- hashes %>%
+    anti_join(analysis_hashes, by = c("name_analysis", "filename", "md5", "sha256"))
+  
+  new_analysis <- nrow(hashes_new) > 0
+  
+  analysis_hashes <- bind_rows(analysis_hashes,
+                               hashes)
+  
+  names_analysis <- unique(hashes_new$name_analysis) 
+  
+}
+
+if (new_analysis) {
+  
+  for (name_analysis in names_analysis) {
+    
+     new_path <- here(str_c("analysis_vlinders/output/analyseset/", name_analysis, "_", Sys.Date()))
+     
+     if (!dir.exists(new_path)) {
+       
+       dir.create(new_path)
+       
+       file.copy(from = str_c(mypath, "/analyseset_", name_analysis,".tsv"), 
+                 to = str_c(new_path,  "/analyseset_", name_analysis,".tsv"), 
+                 overwrite = TRUE)
+       
+       file.copy(from = str_c(mypath, "/analyseset_", name_analysis,".yml"), 
+                 to = str_c(new_path, "/analyseset_", name_analysis,".yml"), 
+                 overwrite = TRUE)
+       }
+     
+     
+  }
+  
+  analysis_hashes %>%
+       write_vc(file = "analysis_hashes", root = here("analysis_vlinders/output/"), sorting = c("name_analysis", "version", "filename"), strict = FALSE)
+  
+  } 
+ 
+  
+ 
+
+```
+
+
+
