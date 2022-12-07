@@ -1,20 +1,14 @@
-# Selectie analyseset boomkikker
+# Selectie analyseset kamsalamander
 
 ```{r}
 
 species_group <- "amfibieën"
 
-species <- "Boomkikker"
+species <- "Kamsalamander"
 
 ```
 
-
 ## Preprocessing
-
-+ Bij het protocol voor larvetellingen werden initieel de aantallen per schep ingevoerd. Later werd het protocol gewijzigd en werd het totaal aantal larven en het aantal schepbewegingen ingevoerd. We sommeren de aantallen per schep en werken verder met de totalen en het aantal schepbewegingen.
-
-+ Bij larvetellingen wordt ook aangegeven of er enkel larventellingen, enkel tellingen van metamorfen of beide tellingen werden uitgevoerd. In de databank wordt er een nul gegenereerd voor aantal larven ook al geeft men aan dat er enkel metamorfen werden geteld. Ook omgekeerd is dit het geval voor aantal metamorfen. Deze nullen zetten we om naar ontbrekende waarden.    
-
 
 ```{r select data, warning = FALSE}
 
@@ -39,40 +33,25 @@ locatie_detail <- get_locations_smp(only_active = FALSE) %>%
                           locatie),
          cluster = str_remove_all(cluster, str_c(as.character(c(0:9)), collapse = "|")),
          cluster = str_trim(cluster),
-         poel = ifelse(str_detect(locatie, "10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25"),
-                       str_extract(locatie, "10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25"),
-                       str_extract(locatie, "1|2|3|4|5|6|7|8|9")),
-         poel = ifelse(cluster == "Merkske",  str_sub(locatie, start = str_locate(locatie, "B")[,"start"]),
-                       poel),
-         poel = ifelse(is.na(poel), "1", poel))
+         poel =  str_extract(locatie, str_c(str_c("(n|[:space:])", c(1:35), "([:alpha:]|$)"), collapse = "|")),
+         poel = ifelse(is.na(poel), "1", poel)) 
 
 covar <- get_covariates_smp(species_group = species_group) %>%
   filter(meetnet == species)
 
-catch_effort <- covar %>%
-  filter(bezoekvariabele %in% c("aantal keer geschept", "zoekinspanning")) %>%
-  select(visit_id, bezoekvariabele, waarde) %>%
-  pivot_wider(names_from = bezoekvariabele, values_from = waarde) %>%
-  rename(n_catch = "aantal keer geschept") %>%
-  mutate(n_catch = as.numeric(n_catch))
-
 counts_all <- get_counts_smp(species_group = species_group) %>%
   filter(meetnet == species) %>%
-  group_by(protocol, visit_id, soort_nl, soort_wet, primaire_soort, levensstadium) %>%
+  filter(protocol == "Amfibieën - Fuiken") %>%
+  group_by(protocol, visit_id) %>%
+  mutate( n_fuiken = n_distinct(sample_id)) %>%
+  group_by(visit_id, n_fuiken, soort_nl, soort_wet, primaire_soort, levensstadium, geslacht) %>%
   summarise(aantal = sum(aantal),
             n_records = n()) %>%
-  ungroup() %>%
-  left_join(catch_effort, by = "visit_id") %>%
-  mutate(larvetelling = zoekinspanning %in% c("alleen larven geschept", "larven geschept en metamorfen op land geteld") | (is.na(zoekinspanning) & levensstadium == "larve"),
-         metamorftelling = zoekinspanning %in% c("alleen metamorfen op land geteld", "larven geschept en metamorfen op land geteld")) %>%
-  mutate(aantal = ifelse(levensstadium == "larve" & larvetelling, aantal, 
-                         ifelse(levensstadium == "metamorf" & metamorftelling, aantal,
-                                ifelse(levensstadium == "adult", aantal, NA)))) %>%
-  filter(!((protocol == "Amfibieën - Larven en metamorfen") & (levensstadium == "adult")))
+  ungroup() 
 
 dataset <-  visits %>%
   left_join(locatie_detail, by = c("meetnet", "locatie")) %>%
-  inner_join(select(counts_all, visit_id,  soort_nl, soort_wet, aantal, levensstadium, primaire_soort, n_catch, zoekinspanning, larvetelling, metamorftelling), by = "visit_id") 
+  inner_join(counts_all, by = "visit_id") 
   
   
 ```
@@ -174,9 +153,6 @@ dataset_check3 %>%
   datatable(rownames = FALSE)
 ```
 
-
-
-
 ```{r}
 duur_cyclus <- 3
 start_cyclus <- 2016
@@ -188,7 +164,7 @@ analyseset <- dataset %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus -1) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, doy, visit_id, bezoek_status, zoekinspanning, larvetelling, metamorftelling, n_catch, primaire_soort, soort_nl, soort_wet, levensstadium, aantal)
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, doy, bezoek_status, zoekinspanning, larvetelling, metamorftelling, n_catch, primaire_soort, soort_nl, soort_wet, levensstadium, aantal)
 ```
 
 

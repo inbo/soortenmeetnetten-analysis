@@ -1,0 +1,68 @@
+# Analyse
+
+## Boomkikker adulten
+
+```{r}
+analyseset_boomkikker_adult <- analyseset_adult %>%
+  mutate(meetcyclus_n = meetcyclus,
+         meetcyclus = ifelse(meetcyclus == 1, "2016_2018", "2019_2021"))
+
+indexmodel_iid <- inla(formula = aantal ~ meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_boomkikker_adult,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+par_indexmodel_iid <- indexmodel_iid$summary.fixed
+
+indexmodel_iid$summary.fixed
+
+results_index <- derive_index_meetcyclus_inla(analyseset_boomkikker_adult, indexmodel_iid, set_seed = 1231)
+
+results_index2 <- derive_index_meetcyclus_inla(analyseset_boomkikker_adult, indexmodel_iid, set_seed = 1231)
+
+bind_rows(results_index,
+          results_index2)
+```
+
+# Resultaten
+
+### Vergelijking tussen de jaren
+
+```{r}
+
+verschillen_refcyclus <- results_index %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  select( soort_nl, soort_wet, meetcyclus_ref, meetcyclus, klasse, mean, lcl_0.90, ucl_0.90) 
+  
+```
+
+```{r}
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+verschillen_refcyclus %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1) %>%
+  mutate(klasse = as.character(classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1))) %>%
+  ggplot(aes(x= meetcyclus, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Vreschil t.o.v. referentiemeetcyclus", x = "meetcyclus") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) 
+```
+

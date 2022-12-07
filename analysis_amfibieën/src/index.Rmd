@@ -2,7 +2,7 @@
 title: "Analyse Amfibiënmeetnetten"
 author: 
   -
-    name: "Toon Westra, Jeroen Speybroeck, Hannes Ledegen, Sam Van De Poel,  Frederic Piesschaert, Thierry Onkelinx"
+    name: "Toon Westra, Jeroen Speybroeck, Loïc van Doorn, Sam Van De Poel,  Frederic Piesschaert, Thierry Onkelinx"
     email: "Toon.Westra@inbo.be"
 subtitle: "Technisch rapport"
 ordernr: "Rapporten van het Instituut voor Natuur- en Bosonderzoek 2020 (xx)"
@@ -24,6 +24,16 @@ output:
 library(knitr)
 options(knitr.kable.NA = '')
 
+opts_chunk$set(
+  echo = FALSE, 
+  eval = TRUE,
+  cache = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 180 / 25.4,
+  fig.height = 120 / 25.4,
+  fig.align = "center"
+)
 
 ```
 
@@ -58,17 +68,5 @@ library(lme4)
 source(here("src", "functions_smp.R"))
 ```
 
-# Dankwoord {-}
-
-
-# Samenvatting {-}
-
-
-# English abstract {-}
-
-\benglish
-
-
-\eenglish
 
 

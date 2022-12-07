@@ -276,6 +276,7 @@ data_predict %>%
   geom_point(aes(y = aantal_100m_obs, x = doy)) +
   facet_wrap(~fjaar)
 ```
+
 ```{r, fig.cap= "Gemodelleerde en geobserveerde aantallen voor Veldparelmoervlinder op basis van model met 2de graads polynoom voor doy en 1ste orde random walk voor jaar"}
 
 data_predict <- data_combine %>%
@@ -1246,7 +1247,7 @@ summary(model_trendprop_jaarfactor)
 We willen ook een (ruw) signaal krijgen als een bepaalde locatie sterk achteruitgaat of sterk vooruitgaat. Hiervoor testen we een model uit met random intercept en random slope.
 
 ```{r}
-analyseset_species_locations <- analyseset_locations %>%
+analyseset_species_locations <- analyseset_transecten_locations %>%
   filter(meetnet == "Veldparelmoervlinder")
 ```
 

@@ -6,33 +6,16 @@
 
 analyseset <- analyseset %>%
   filter(primaire_soort) %>%
-  mutate(meetcyclus = ifelse(jaar <= 2018, "2016 - 2018",
-                             ifelse(jaar <=  2021, "2019 - 2021", "2022 - 2024"))) %>%
   group_by(locatie, protocol) %>%
-  mutate(paired = n_distinct(meetcyclus) > 1)
+  mutate(paired = n_distinct(meetcyclus) > 1) %>%
+  ungroup() %>%
+  mutate(periode = str_c(meetcyclus_start, " - ", meetcyclus_end))
 
 ```
 
 ## Overzicht tellingen
 
-```{r}
-locatie_overzicht <- locatie_detail %>%
-  group_by(meetnet) %>%
-  mutate(n_clusters = n_distinct(cluster)) %>%
-  ungroup() %>%
-  group_by(meetnet, n_clusters, is_sample) %>%
-  summarise(n_poel = n()) %>%
-  ungroup()
-  
-locatie_overzicht %>%
-  kable() %>%
-  kable_styling() %>%
-  collapse_rows(c(1,2))
-```
-
-
-
-
+### Tijdstip van de tellingen
 
 ```{r, fig.height=9}
 
@@ -41,6 +24,22 @@ analyseset %>%
   geom_point(alpha = 0.3) +
   facet_wrap(~cluster, scales = "free_y")
 ```
+
++ poelen in clusters meestal in zelfde jaar geteld
+  + confounding tussen cluster en jaar
+  + jaar niet meenemen in model, enkel meetcyclus
++ Merkske enkel in tweede meetcyclus opgemeten
+  + Merkske niet meenemen om trend te bepalen
++ Er zijn ook al tellingen van de 3de meetcyclus, maar 3de meetcyclus is nog niet afgerond dus die tellingen nemen we niet mee
+
+```{r}
+analyseset <- analyseset %>%
+  filter(jaar <= 2021)
+```
+
+
+### Verschil steekproeflocaties niet-steekproeflocaties
+
 ```{r}
 analyseset %>%
   ggplot(aes(x = is_sample, y = aantal, colour = is_sample)) +
@@ -48,7 +47,7 @@ analyseset %>%
   stat_summary(fun.data = "mean_cl_boot", colour = "red") +
   facet_wrap(~ levensstadium, scales = "free_y")
 ```
-
++ Weinig verchil in aantallen
 
 
 ## Vergelijking meetcycli: alle meetpunten
@@ -57,7 +56,7 @@ analyseset %>%
 
 ```{r}
 analyseset %>%
-  ggplot(aes(x = meetcyclus, y = aantal, colour = is_sample)) +
+  ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
   geom_jitter(alpha = 0.3) +
   stat_summary(fun.data = "mean_cl_boot", colour = "red") +
   facet_wrap(~ levensstadium, scales = "free_y")
@@ -65,11 +64,21 @@ analyseset %>%
 
 ```{r}
 analyseset %>%
-  ggplot(aes(x = aantal, fill = meetcyclus)) +
+  ggplot(aes(x = aantal, fill = periode)) +
   geom_density(alpha = 0.5) +
   facet_wrap(~ levensstadium, scales = "free", nrow = 3)
 ```
-
+```{r}
+analyseset %>%
+  mutate(aantalsklasse = ifelse(aantal == 0, "0", 
+                                ifelse(aantal <= 10, "1 - 10", 
+                                       ifelse(aantal <= 50, "11 - 50",
+                                              ifelse(aantal <= 100, "51 - 100", "> 100"))))) %>%
+  mutate(aantalsklasse = factor(aantalsklasse, levels = c("0", "1 - 10", "11 - 50", "51 - 100", "> 100"))) %>%
+  ggplot(aes(x = aantalsklasse, fill = periode)) +
+  geom_bar(alpha = 0.5, position = "dodge") +
+  facet_wrap(~ levensstadium, scales = "free", nrow = 3)
+```
 
 ## Vergelijking meetcycli: enkel meetnetlocaties
 
@@ -77,15 +86,16 @@ analyseset %>%
 ```{r}
 analyseset %>%
   filter(is_sample) %>%
-  ggplot(aes(x = meetcyclus, y = aantal, colour = is_sample)) +
+  ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
   geom_jitter(alpha = 0.3) +
   stat_summary(fun.data = "mean_cl_boot", colour = "red") +
   facet_wrap(~ levensstadium, scales = "free_y")
 ```
+
 ```{r}
 analyseset %>%
   filter(is_sample) %>%
-  ggplot(aes(x = aantal, fill = meetcyclus)) +
+  ggplot(aes(x = aantal, fill = periode)) +
   geom_density(alpha = 0.5) +
   facet_wrap(~ levensstadium, scales = "free", nrow = 3)
 ```
@@ -98,47 +108,120 @@ analyseset %>%
                                        ifelse(aantal <= 50, "11 - 50",
                                               ifelse(aantal <= 100, "51 - 100", "> 100"))))) %>%
   mutate(aantalsklasse = factor(aantalsklasse, levels = c("0", "1 - 10", "11 - 50", "51 - 100", "> 100"))) %>%
-  ggplot(aes(x = aantalsklasse, fill = meetcyclus)) +
+  ggplot(aes(x = aantalsklasse, fill = periode)) +
   geom_bar(alpha = 0.5, position = "dodge") +
   facet_wrap(~ levensstadium, scales = "free", nrow = 3)
 ```
 
 
-## Vergelijking gemiddelde aantal adulten per cluster 
 
+## Vergelijking gemiddelde aantallen per cluster 
+
+### adulten
 
 ```{r}
 analyseset %>%
+  mutate(cluster = str_wrap(cluster)) %>%
   filter(levensstadium == "adult") %>%
   filter(is_sample) %>%
-  ggplot(aes(x = meetcyclus, y = aantal, colour = is_sample)) +
+  ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
  # geom_jitter(alpha = 0.3) +
   stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  scale_y_log10() +
   facet_wrap(~ cluster, scales = "free_y")
 ```
-```{r}
-analyseset %>%
-  filter(is_sample) %>%
-  filter(levensstadium == "adult") %>%
-  ggplot(aes(x = aantal, fill = meetcyclus)) +
-  geom_density(alpha = 0.5) +
-  facet_wrap(~ cluster, scales = "free", nrow = 4)
-```
+`
 
-## Vergelijking gemiddelde aantal larven per cluster 
+### Larven
 
 
 ```{r}
 analyseset %>%
   filter(levensstadium == "larve") %>%
   filter(is_sample) %>%
-  ggplot(aes(x = meetcyclus, y = aantal, colour = is_sample)) +
+  ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
  # geom_jitter(alpha = 0.3) +
   stat_summary(fun.data = "mean_cl_boot", colour = "red") +
   facet_wrap(~ cluster, scales = "free_y")
 ```
 
+## Zoekinspanning larvetelling
 
+```{r}
+analyseset %>%
+  filter(larvetelling) %>%
+  filter(is_sample) %>%
+  ggplot(aes(x = n_catch, fill = periode)) +
+  geom_histogram(alpha = 0.5, position = "dodge")
+
+check_catcheffort <- analyseset %>%
+  filter(larvetelling) %>%
+  filter(levensstadium == "larve") %>%
+  group_by(cluster, poel, meetcyclus) %>%
+  mutate(n_visits = n()) %>%
+  ungroup() %>%
+  select(visit_id, is_sample, cluster, poel, periode, n_visits, datum, n_catch, levensstadium, aantal)
+  
+```
+
++ Lager aantal scheppen in 2de meetcyclus: misschien deels omdat er minder water is?
+
+```{r}
+check_catcheffort_missing_value <- check_catcheffort %>%
+  group_by(periode, is_sample) %>%
+  summarise(n_records = n(),
+            prop_missing = round(sum(is.na(n_catch))/ n(), 2),
+            prop_ingevuld = round(sum(!is.na(n_catch))/ n(), 2)) %>%
+  ungroup()
+
+check_catcheffort_missing_value %>%
+  kable(caption = "Proportie van de observatie waarbij 'aantal keer geschept' niet werd ingevuld per meetcyclus") %>%
+  kable_styling() %>%
+  collapse_rows(1)
+```
+
+```{r}
+catcheffort_missing <- check_catcheffort %>%
+  filter(is.na(n_catch)) %>%
+  select(visit_id, cluster, poel, is_sample, datum, aantal) %>%
+  left_join(select(visits, visit_id, hoofdteller), by = "visit_id") %>%
+  arrange(datum)
+
+catcheffort_missing %>%
+  write_csv2("../output/boomkikkerlarve_aantalscheppen_ontbreekt.csv")
+
+catcheffort_missing %>%
+  select(-hoofdteller) %>%
+  datatable(rownames = FALSE)
+```
+
+```{r, fig.height= 9}
+check_catcheffort %>%
+  filter(is_sample) %>%
+  ggplot(aes(x = n_catch, y = poel, colour = periode, shape = periode)) +
+  geom_point(alpha = 0.5, size = 4) +
+  facet_wrap(~ cluster, scales = "free_y")
+```
+
++ Voor heel wat clusters systematisch lager aantal scheppen per poel
+
+
+In onderstaande figuur houden we rekening met de zoekinspanning: aantal larven per 10 scheppen. Maar als er vooral minder geschept wordt omdat het wateroppervlak kleiener is in de 2de meetcyclus, kan dit ook een vertekend beeld geven.
+
+```{r}
+
+
+analyseset %>%
+  filter(levensstadium == "larve") %>%
+  filter(is_sample) %>%
+  filter(!is.na(n_catch)) %>%
+  mutate(aantal_10catch = aantal / n_catch * 10) %>%
+  ggplot(aes(x = periode, y = aantal_10catch, colour = is_sample)) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") 
+
+```
+
+## Overzicht gemiddeldes per meetcyclus
 
 
 
@@ -146,7 +229,7 @@ analyseset %>%
 mean_sample <- analyseset %>%
   filter(is_sample) %>%
   filter(primaire_soort) %>%
-  group_by(levensstadium, meetcyclus) %>%
+  group_by(levensstadium, periode) %>%
   summarise(mean_count = round(mean(aantal, na.rm = TRUE), 2),
             se = sqrt(var(aantal, na.rm = TRUE)/n()),
             mean_n_catch = round(mean(n_catch, na.rm = TRUE), 2),
@@ -154,28 +237,30 @@ mean_sample <- analyseset %>%
             n_bezoeken = n(),
             n_locaties = n_distinct(locatie)) %>%
   ungroup() %>%
-  mutate(mean_count = str_c(mean_count, " [", round(mean_count - 1.96 * se, 2), " - ", round(mean_count + 1.96 * se, 2), "]"),
-         dataset = "Alle steekproeflocaties") %>%
-  select(dataset, everything())
+  mutate(mean_count = str_c(mean_count, " [", round(mean_count - 1.96 * se, 2), " - ", round(mean_count + 1.96 * se, 2), "]"))
 
-mean_gepaard <- analyseset %>%
+mean_larve_10schep<- analyseset %>%
   filter(primaire_soort) %>%
   filter(is_sample) %>%
-  filter(paired) %>%
-  group_by(levensstadium, meetcyclus) %>%
+  filter(levensstadium == "larve") %>%
+  filter(!is.na(n_catch)) %>%
+  mutate(aantal = aantal/n_catch * 10) %>%
+  group_by(cluster, locatie) %>%
+  ungroup() %>%
+  group_by(levensstadium, periode) %>%
   summarise(mean_count = round(mean(aantal, na.rm = TRUE), 2),
             se = sqrt(var(aantal, na.rm = TRUE)/n()),
-            mean_n_catch = round(mean(n_catch, na.rm = TRUE), 2),
             occurence = round(sum(aantal > 0, na.rm = TRUE)/ n(), 2),
             n_bezoeken = n(),
             n_locaties = n_distinct(locatie)) %>%
   ungroup()  %>%
-  mutate(mean_count = str_c(mean_count, " [", round(mean_count - 1.96 * se, 2), " - ", round(mean_count + 1.96 * se, 2), "]"),
-         dataset = "Gepaarde steekproeflocaties") %>%
-  select(dataset, everything())
+  mutate(mean_count = str_c(mean_count, " [", round(mean_count - 1.96 * se, 2), " - ", round(mean_count + 1.96 * se, 2), "]")) %>%
+  mutate(levensstadium = "larve_per10schep")
 
 mean_sample %>%
-  bind_rows(mean_gepaard) %>%
+  bind_rows(mean_larve_10schep) %>%
+  arrange(levensstadium) %>%
+  mutate(mean_n_catch = ifelse(levensstadium == "larve", mean_n_catch, NA)) %>%
   select(-se) %>%
   kable %>%
   kable_styling() %>%
@@ -184,539 +269,4 @@ mean_sample %>%
 
 
 
-## Modelering
-
-```{r test, eval = FALSE}
-
-prec.prior <- list(prec = list(param = c(0.001, 0.001)))
-
-model_nested_inla <- inla(aantal ~ fjaar + doy_scaled + doy_scaled_2 + f(cluster, model = "iid", hyper = prec.prior) + f(locatie, model = "iid", hyper = prec.prior),
-                                      family = "nbinomial",
-                                      data = analyseset_sample,
-                                      control.compute = list(config = TRUE, waic = TRUE),
-                                      control.predictor = list(compute = TRUE))
-
-analyseset_sample <- analyseset_sample %>%
-    mutate(fjaar = factor(jaar),
-           locatie = as.character(locatie),
-           locatie = as.factor(locatie),
-           min_year = min(jaar),
-           year_scaled = jaar - min_year)
-
-trendmodel_nested_inla <- inla(aantal ~ year_scaled + doy_scaled + doy_scaled_2 + f(cluster, model = "iid", hyper = prec.prior) + f(locatie, model = "iid", hyper = prec.prior),
-                                      family = "nbinomial",
-                                      data = analyseset_sample,
-                                      control.compute = list(config = TRUE, waic = TRUE),
-                                      control.predictor = list(compute = TRUE))
-
-
-  model.matrix(~fjaar, analyseset) %>% # create dummy variable for year
-    as.data.frame() %>%
-    select(-1) %>% # drop intercept
-    bind_cols(analyseset) %>%
-    mutate(loc_id = as.integer(factor(locatie)),
-           clust_id = as.integer(factor(cluster))) -> analyseset_bru
-
-model_nested_inlabru <- bru(aantal ~ fjaar2017 + fjaar2018 + fjaar2019 + fjaar2020 + doy_scaled + doy_scaled_2 +  site(map = loc_id, model = "iid",  n = n_loc_sample, hyper = prec.prior) + cluster(map = clust_id, model = "iid", hyper = prec.prior, n = n_clusters_sample) ,
-                                      family = "nbinomial",
-                                      data = analyseset_bru)
-
-summary_inla <- model_nested_inla$summary.fixed %>%
-  rownames_to_column("parameter") %>%
-  mutate(method = "inla") %>%
-  select(method, parameter, mean, sd)
-
-summary_inlabru <- model_nested_inlabru$summary.fixed %>%
-  rownames_to_column("parameter") %>%
-  mutate(method = "inlabru") %>%
-  select(method, parameter, mean, sd)
-  
-model_nested_lme <- glmer.nb(aantal ~ fjaar + doy_scaled + doy_scaled_2 + (1|locatie) + (1|cluster),
-                         data = analyseset)
-
-summary_lme <- (summary(model_nested_lme))$coefficients %>%
-  as.data.frame() %>%
-  rownames_to_column("parameter") %>%
-  mutate(method = "lme") %>%
-  select(method, parameter, mean = "Estimate", sd = "Std. Error")
-  
-compare_fixed <- bind_rows(summary_inla,
-                     summary_lme, summary_inlabru) %>%
-  mutate(index = exp(mean))
-
-
-var_random_effect_lme <- VarCorr(model_nested_lme) %>%
-  as.data.frame() %>%
-  mutate(method = "lme") %>%
-  select(method, group = grp, var = vcov)
-
-var_random_effect_inla <- model_nested_inla$summary.hyperpar %>%
-  rownames_to_column("group") %>%
-  mutate(group = str_remove(group, "Precision for ")) %>%
-  filter(group %in% c("cluster", "locatie")) %>%
-  mutate(method = "inla",
-         var = 1/mean) %>%
-  select(method, group, var)
-
-compare_var_random_effect <- bind_rows(var_random_effect_lme,
-                     var_random_effect_inla) %>%
-  mutate(var = round(var, 5))
-  
-index_inla <- derive_index_inla(analyseset, model_nested_inla) %>%
-  mutate(method = "inla") %>%
-  select(method, parameter, jaar, mean, sd)
-
-index_inlabru <- derive_index_inlabru(analyseset, model_nested_inlabru) %>%
-  mutate(method = "inlabru") %>%
-  select(method, parameter, jaar, mean, sd)
-
-compare_index <- bind_rows(index_inla, index_inlabru)
-
-trend <- derive_trend(analyseset = analyseset, trendmodel_nested_inla)
-
-```
-
-
-
-```{r}
-models_inlabru <- analyseset_by_species %>% 
-  mutate(indexmodel = map(data, fit_indexmodel_nbinom_inlabru),
-         trendmodel = map(data, fit_trendmodel_nbinom_inlabru))
-
-models_inla <- analyseset_by_species %>%
-  mutate(indexmodel = map(data, fit_indexmodel_nbinom_inla))
-
-results_indexmodel <- models_inla %>%
-  transmute(index = map2(data, indexmodel, derive_index_inla),
-            max_count = map2(data, indexmodel, derive_max_count_inla))
-
-results_trendmodel <- models_inlabru %>%
-  transmute(trend = map2(data, trendmodel, derive_trend_inlabru),
-            waic_index =  map2(data, indexmodel, get_waic_inlabru),
-            waic_trend = map2(data, trendmodel, get_waic_inlabru))
-
-```
-
-```{r}
-results_index <- results_indexmodel %>%
-  select(meetnet, index) %>%
-  unnest(index)
-
-results_max_count <- results_indexmodel %>%
-  select(meetnet, max_count) %>%
-  unnest(max_count)
-
-# results_diff_years <- results_indexmodel %>%
-#   select(meetnet, diff_years) %>%
-#   unnest(diff_years)
-
-results_trend <- results_trendmodel %>%
-  select(meetnet, trend) %>%
-  unnest(trend)
-
-results_waic_index <- results_trendmodel %>%
-  select(meetnet, waic_index) %>%
-  unnest(waic_index) %>%
-  mutate(model = "indexmodel")
-
-results_waic_trend <- results_trendmodel %>%
-  select(meetnet, waic_trend) %>%
-  unnest(waic_trend) %>%
-  mutate(model = "trendmodel")
-
-results_waic <- bind_rows(results_waic_index, 
-                         results_waic_trend) %>%
-  spread(key = "model", value = "waic") %>%
-  mutate(diff_waic = trendmodel - indexmodel,
-         type_trend = ifelse(diff_waic > 0,
-                               "Niet lineair",
-                               ifelse(diff_waic > -2,
-                                      "Quasi lineair", "Lineair")))
-
-```
-
-```{r}
-
-bind_rows(results_index, 
-          results_max_count) %>%
-  write_vc(file = "results_indexmodel", 
-         root = here(str_c("analysis_", species_group, "/output/temp")), 
-         sorting = c("parameter", "soort_nl", "jaar"),
-         strict = FALSE)
-
-results_trend %>%
-  write_vc(file = "results_trendmodel", 
-         root = here(str_c("analysis_", species_group, "/output/temp")), 
-         sorting = c("parameter", "soort_nl"), strict = FALSE)
-
-results_waic %>%
-  write_vc(file = "results_waic", 
-         root = here(str_c("analysis_", species_group, "/output/temp")), 
-         sorting = c("parameter", "soort_nl"),
-         strict = FALSE)
-
-```
-
-
-## Validatie
-
-```{r}
-model_validation <- models_inla %>%
-  transmute(dispersion_check_model = map(indexmodel, dispersion_check),
-            distribution_check_model = map(indexmodel, fast_distribution_check),
-            iid_check = map(indexmodel, check_random_effect)
-            )
-
-
-dispersion <- model_validation %>%
-  transmute(dispersion_data = map(dispersion_check_model, "data"),
-            dispersion_model = map(dispersion_check_model, "model")) %>%
-  select(meetnet, dispersion_data, dispersion_model) %>%
-  unnest(c(dispersion_data, dispersion_model))
-
-distribution <- model_validation %>%
-  select(meetnet, distribution_check_model) %>%
-  unnest(distribution_check_model) %>%
-  filter(lcl < 0.98 & ucl < 1)
-
-iid_checked <- model_validation %>%
-  select(meetnet, iid_check) %>%
-  unnest(iid_check)
-
-```
-
-### Dispersie
-
-```{r}
-
-ggplot(data = dispersion, aes(x = dispersion_model)) +
-      geom_density() +
-      geom_vline(data = dispersion, aes(xintercept = dispersion_data), linetype = 2) +
-      facet_wrap(~meetnet, scales = "free_x")
-     
-```
-
-### Distributie
-
-```{r, fig.height= 8}
-distribution %>%
-  mutate(
-      median = .data$ecdf / .data$median,
-      lcl = .data$ecdf / .data$lcl,
-      ucl = .data$ecdf / .data$ucl
-    ) %>%
-  ggplot(aes_string(x = "x", y = "median")) +
-   # geom_blank(data = data.frame(x = min(x$x), median = c(0.95, 1.05))) +
-    geom_hline(yintercept = 1, linetype = 2) +
-    geom_line(aes_string(y = "lcl"), linetype = 3, alpha = 0.5) +
-    geom_line(aes_string(y = "ucl"), linetype = 3, alpha = 0.5) +
-    geom_ribbon(alpha = 0.1, aes_string(ymin = "lcl", ymax = "ucl")) +
-    geom_line() +
-    scale_y_continuous("observed / expected", labels = scales::percent) +
-    facet_wrap(~meetnet, scales = "free", ncol = 2)
-```
-
-### Random effect
-
-```{r}
-
-iid_checked_plot <- iid_checked %>%
-  group_by(meetnet) %>%
-  mutate(x_c = sim_iid - mean(sim_iid),
-         y = exp(x_c + log(1))) %>%
-  ungroup()
-
-iid_checked_plot %>%
-  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
-  ggplot(aes(x = y)) +
-      geom_density() +
-      scale_x_continuous("relative effect", labels = scales::percent) +
-      facet_wrap(~meetnet + sigma_tekst, scales = "free")
-    
-```
-
-```{r}
-iid_checked_plot %>%
-  filter(meetnet == "Speerwaterjuffer") %>%
-  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
-  ggplot(aes(x = y)) +
-      geom_density() +
-      scale_x_continuous("relative effect", labels = scales::percent) +
-      facet_wrap(~meetnet + sigma_tekst, scales = "free")
-```
-
-
-
-## Visualisatie model
-
-```{r}
-model_simulate <- models_inlabru %>%
-  transmute(data_simulated = map2(data, indexmodel, simulate_data_model_inlabru))
-
-results_data_simulated <- model_simulate %>%
-  unnest(data_simulated)
-```
-
-
-
-
-```{r, warning=FALSE, fig.height= 9}
-
-ggplot(data = results_data_simulated, aes(x = doy)) + 
-  geom_line(aes(y = mean, group = loc_id, colour = factor(loc_id)), linetype = 2 ) +
-  geom_point(aes(y = y_obs), alpha = 0.5, size = 1) +
-  geom_line(aes(y = mean_year), size = 1, colour = "black") +
-  geom_ribbon(aes(ymin = lci_0.95_year, ymax = uci_0.95_year), alpha = 0.3) +
-  facet_grid(soort_nl ~ jaar, scales = "free") +
-  theme(legend.position = "none")
-```
-
-### Maanwaterjuffer
-
-```{r, fig.height= 9}
-
-
-ggplot(data = filter(results_data_simulated, meetnet == "Maanwaterjuffer"), aes(x = doy)) + 
-  geom_line(aes(y = mean, group = loc_id, colour = factor(loc_id)), linetype = 2 ) +
-  geom_point(aes(y = y_obs), alpha = 0.5, size = 1) +
-  geom_line(aes(y = mean_year), size = 1, colour = "black") +
-  geom_ribbon(aes(ymin = lci_0.95_year, ymax = uci_0.95_year), alpha = 0.3) +
-  facet_wrap( ~ jaar) +
-  theme(legend.position = "none")
-```
-
-### Speerwaterjuffer
-
-```{r, fig.height= 9}
-
-ggplot(data = filter(results_data_simulated, meetnet == "Speerwaterjuffer"), aes(x = doy)) + 
-  geom_line(aes(y = mean, group = loc_id, colour = factor(loc_id)), linetype = 2, alpha = 0.2) +
-  geom_point(aes(y = y_obs), alpha = 0.5, size = 1) +
-  geom_line(aes(y = mean_year), size = 1, colour = "black") +
-  geom_ribbon(aes(ymin = lci_0.95_year, ymax = uci_0.95_year), alpha = 0.3) +
-  facet_wrap( ~ jaar) +
-  theme(legend.position = "none")
-```
-```{r, fig.width= 9}
-# analyseset <- counts_analysis %>%
-#   filter(meetnet == "Speerwaterjuffer")
-# 
-# analyseset %>%
-#   ggplot(aes(x = jaar, y = aantal)) +
-#   geom_point() +
-#   facet_wrap(~locatie)
-
-counts_analysis %>%
-  ggplot(aes(x = locatie, y =aantal)) +
-  geom_point(alpha = 0.4, size = 2) +
-  coord_flip() +
-  facet_wrap(~meetnet, scales = "free_y", ncol = 1)
-  
-
-```
-
-
-
-## Documenteer analyse
-
-```{r}
-
-mypath <- here(str_c("analysis_", species_group, "/output/temp"))
-
-hashes <-
-    tibble(filepath = str_c(mypath, "/",
-        list.files(path = mypath,
-            recursive = TRUE)
-      )) %>%
-    mutate(name_analysis = name_analysis,
-           version = Sys.Date(),
-           filename = str_match(filepath, "(.+\\/)*(.+)")[,3],
-           md5 = map(filepath, function(x) {
-                           file(x) %>% md5 %>% str_c(collapse = '')
-                         }) %>% as.character,
-           sha256 = map(filepath, function(x) {
-                          file(x) %>% sha256 %>% str_c(collapse = '')
-                          }) %>% as.character
-           ) %>%
-    select(name_analysis,
-           version,
-           filename,
-           md5,
-           sha256)
-
-file_name <- here(str_c("analysis_", species_group, "/output/analysis_hashes.csv"))
-
-if (!file.exists(file_name)) {
-  
-  new_analysis <- TRUE
-  
-  analysis_hashes <- hashes
-
-} else {
-  
-  analysis_hashes <- read_csv(file_name)
-  
-  hashes_new <- hashes %>%
-    anti_join(analysis_hashes, by = c("name_analysis", "filename", "md5", "sha256"))
-  
-  new_analysis <- nrow(hashes_new) > 0
-  
-  analysis_hashes <- bind_rows(analysis_hashes,
-                               hashes)
-  
-}
-
-if (new_analysis) {
-  
-  new_path <- here(str_c("analysis_", species_group, "/output/", name_analysis, "_", Sys.Date()))
-  
-  if (!dir.exists(new_path)) {
-    
-    dir.create(new_path)
-    file.copy(from = str_c(mypath, "/analyseset.tsv"), to = str_c(new_path, "/analyseset.tsv"), overwrite = TRUE)
-    file.copy(from = str_c(mypath, "/analyseset.yml"), to = str_c(new_path, "/analyseset.yml"), overwrite = TRUE)
-    file.copy(from = str_c(mypath, "/results_indexmodel.tsv"), to = str_c(new_path, "/results_indexmodel.tsv"), overwrite = TRUE)
-    file.copy(from = str_c(mypath, "/results_indexmodel.yml"), to = str_c(new_path, "/results_indexmodel.yml"), overwrite = TRUE)
-    file.copy(from = str_c(mypath, "/results_trendmodel.tsv"), to = str_c(new_path, "/results_trendmodel.tsv"), overwrite = TRUE)
-    file.copy(from = str_c(mypath, "/results_trendmodel.yml"), to = str_c(new_path, "/results_trendmodel.yml"), overwrite = TRUE)
-    file.copy(from = str_c(mypath, "/results_waic.tsv"), to = str_c(new_path, "/results_waic.tsv"), overwrite = TRUE)
-    file.copy(from = str_c(mypath, "/results_waic.yml"), to = str_c(new_path, "/results_waic.yml"), overwrite = TRUE)
-  }
-  
-  analysis_hashes %>%
-    write_csv(file_name)
-  
-}
-
-```
-
-
-
-### Effect van lengte tijdsreeks op index
-
-#### Gevlekte witsnuitlibel
-
-```{r}
-
-soort <- "Gevlekte witsnuitlibel"
-
-analyseset_soort <- counts_analysis %>%
-  filter(meetnet == soort)
-
-model_soort <- analyseset_soort %>%
-  fit_indexmodel_nbinom_inlabru() 
-  
-index_soort_2020 <- derive_index_inlabru(analyseset_soort, model_soort) %>%
-  mutate(tijdsreeks = "2016-2020")
-
-analyseset_soort <- counts_analysis %>%
-  filter(meetnet == soort) %>%
-  filter(jaar <= 2019)
-
-model_soort <- analyseset_soort %>%
-  fit_indexmodel_nbinom_inlabru() 
-  
-index_soort_2019 <- derive_index_inlabru(analyseset_soort, model_soort) %>%
-  mutate(tijdsreeks = "2016-2019")
-
-analyseset_soort <- counts_analysis %>%
-  filter(meetnet == soort) %>%
-  filter(jaar <= 2018)
-
-model_soort <- analyseset_soort %>%
-  fit_indexmodel_nbinom_inlabru() 
-  
-index_soort_2018 <- derive_index_inlabru(analyseset_soort, model_soort) %>%
-  mutate(tijdsreeks = "2016-2018")
-
-index_soort <- bind_rows(
-  index_soort_2018,
-  index_soort_2019,
-  index_soort_2020
-  
-)
-
-```
-
-
-
-```{r}
-
-index_soort %>%
-  mutate(ref_jaar_tekst = str_c("ref. jaar = ", ref_jaar)) %>%
-  filter(parameter == "index") %>%
-  ggplot(aes(y = mean, ymin = lcl_0.95, ymax = ucl_0.95, x = as.character(jaar), group = soort_nl)) +
-  geom_point() +
-  geom_errorbar(width = 0.1) +
-  geom_hline(yintercept = 1, linetype = 3) +
-  geom_line( colour = inbo.steun.blauw, linetype = 2) +
-  #geom_ribbon(alpha = 0.2) + 
-  labs(y = "Jaarlijkse index", x = "Jaar") +
-  #scale_x_continuous(breaks= c(2017, 2018)) +
-  scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
-  facet_wrap(~ tijdsreeks + ref_jaar_tekst)
-```
-
-#### Maanwaterjuffer
-
-```{r}
-
-soort <- "Maanwaterjuffer"
-
-analyseset_soort <- counts_analysis %>%
-  filter(meetnet == soort)
-
-model_soort <- analyseset_soort %>%
-  fit_indexmodel_nbinom_inlabru() 
-  
-index_soort_2020 <- derive_index_inlabru(analyseset_soort, model_soort) %>%
-  mutate(tijdsreeks = "2016-2020")
-
-analyseset_soort <- counts_analysis %>%
-  filter(meetnet == soort) %>%
-  filter(jaar <= 2019)
-
-model_soort <- analyseset_soort %>%
-  fit_indexmodel_nbinom_inlabru() 
-  
-index_soort_2019 <- derive_index_inlabru(analyseset_soort, model_soort) %>%
-  mutate(tijdsreeks = "2016-2019")
-
-analyseset_soort <- counts_analysis %>%
-  filter(meetnet == soort) %>%
-  filter(jaar <= 2018)
-
-model_soort <- analyseset_soort %>%
-  fit_indexmodel_nbinom_inlabru() 
-  
-index_soort_2018 <- derive_index_inlabru(analyseset_soort, model_soort) %>%
-  mutate(tijdsreeks = "2016-2018")
-
-index_soort <- bind_rows(
-  index_soort_2018,
-  index_soort_2019,
-  index_soort_2020
-  
-)
-
-```
-
-
-
-```{r}
-
-index_soort %>%
-  mutate(ref_jaar_tekst = str_c("ref. jaar = ", ref_jaar)) %>%
-  filter(parameter == "index") %>%
-  ggplot(aes(y = mean, ymin = lcl_0.95, ymax = ucl_0.95, x = as.character(jaar), group = soort_nl)) +
-  geom_point() +
-  geom_errorbar(width = 0.1) +
-  geom_hline(yintercept = 1, linetype = 3) +
-  geom_line( colour = inbo.steun.blauw, linetype = 2) +
-  #geom_ribbon(alpha = 0.2) + 
-  labs(y = "Jaarlijkse index", x = "Jaar") +
-  #scale_x_continuous(breaks= c(2017, 2018)) +
-  scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
-  facet_wrap(~ tijdsreeks + ref_jaar_tekst)
-```
 

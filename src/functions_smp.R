@@ -5,7 +5,7 @@ library(sf)
 
 get_characteristics_smp <- function(species_group = NULL,
                                     file = "metadata/meetnetkarakteristieken",
-                                    path = fileman_up("soortenmeetnetten-data")) {
+                                    path = fileman_up("soortenmeetnetten-queries")) {
   
   characteristics_smp <- read_vc(file = file, 
                                 root = path)
@@ -33,7 +33,7 @@ get_characteristics_smp <- function(species_group = NULL,
 }
 
 get_date_export_smp <- function(file = "raw/date_export",
-                                path = fileman_up("soortenmeetnetten-data")) {
+                                path = fileman_up("soortenmeetnetten-queries")) {
   
   version <- read_vc(file = file, 
                      root = path)
@@ -43,7 +43,7 @@ get_date_export_smp <- function(file = "raw/date_export",
 
 
 get_taxonomy_smp <- function(file = "metadata/extern/checklist.csv",
-                                    path = fileman_up("soortenmeetnetten-data")) {
+                                    path = fileman_up("soortenmeetnetten-queries")) {
   
   taxonomy_smp_orig <- read.csv2(file.path(path, file))
   
@@ -57,7 +57,7 @@ get_taxonomy_smp <- function(file = "metadata/extern/checklist.csv",
 
 get_visits_smp <- function(species_group = NULL,
                                     file = "raw/bezoeken",
-                                    path = fileman_up("soortenmeetnetten-data")) {
+                                    path = fileman_up("soortenmeetnetten-queries")) {
   
   visits_smp <- read_vc(file = file, 
                                  root = path)
@@ -86,7 +86,7 @@ get_visits_smp <- function(species_group = NULL,
 get_counts_smp <- function(species_group = NULL,
                            count_aggregation = NULL,
                            file = "raw/aantallen",
-                           path = fileman_up("soortenmeetnetten-data")) {
+                           path = fileman_up("soortenmeetnetten-queries")) {
   
   if(is.null(species_group)) {
     
@@ -148,7 +148,7 @@ get_counts_smp <- function(species_group = NULL,
 
 get_observers_smp <- function(species_group = NULL,
                            file = "raw/tellers",
-                           path = fileman_up("soortenmeetnetten-data")) {
+                           path = fileman_up("soortenmeetnetten-queries")) {
   
   observers_smp <- read_vc(file = file, 
                         root = path)
@@ -176,7 +176,7 @@ get_observers_smp <- function(species_group = NULL,
 
 get_covariates_smp <- function(species_group = NULL,
                               file = "raw/covariabele",
-                              path = fileman_up("soortenmeetnetten-data")) {
+                              path = fileman_up("soortenmeetnetten-queries")) {
   
   covariates_smp <- read_vc(file = file, 
                            root = path)
@@ -204,7 +204,7 @@ get_covariates_smp <- function(species_group = NULL,
 
 
 get_workpackages_smp <- function(file = "raw/werkpakketten",
-                               path = fileman_up("soortenmeetnetten-data")) {
+                               path = fileman_up("soortenmeetnetten-queries")) {
   
   workpackages_smp <- read_vc(file = file, 
                             root = path)
@@ -214,7 +214,7 @@ get_workpackages_smp <- function(file = "raw/werkpakketten",
 }
 
 get_tasks_smp <- function(file = "raw/taken",
-                                 path = fileman_up("soortenmeetnetten-data")) {
+                                 path = fileman_up("soortenmeetnetten-queries")) {
   
   tasks_smp <- read_vc(file = file, 
                               root = path)
@@ -224,7 +224,7 @@ get_tasks_smp <- function(file = "raw/taken",
 }
 
 get_locations_notes_smp <- function(file = "raw/locatie_opm",
-                          path = fileman_up("soortenmeetnetten-data")) {
+                          path = fileman_up("soortenmeetnetten-queries")) {
   
   locations <- get_locations_smp(only_active = FALSE, only_sample = FALSE) %>%
     st_drop_geometry()
@@ -251,7 +251,7 @@ get_locations_notes_smp <- function(file = "raw/locatie_opm",
 }
 
 get_monitoring_targets_smp <- function(file = "metadata/monitoring_targets",
-                                    path = fileman_up("soortenmeetnetten-data")) {
+                                    path = fileman_up("soortenmeetnetten-queries")) {
   
   monitoring_targets_smp <- read_vc(file = file, 
                                  root = path)
@@ -265,7 +265,7 @@ get_locations_smp <- function(species_group = NULL,
                               only_active = TRUE,
                               only_sample = FALSE,
                                     file = "raw/meetnetten_locaties.gpkg",
-                                    path = fileman_up("soortenmeetnetten-data")) {
+                                    path = fileman_up("soortenmeetnetten-queries")) {
   
   locations_smp <- read_sf(dsn = file.path(path, file),
                            layer = "locaties", quiet = TRUE)
@@ -302,7 +302,7 @@ get_transects_smp <- function(species_group = NULL,
                               only_sample = FALSE,
                               only_lines = TRUE,
                               file = "raw/meetnetten_locaties.gpkg",
-                              path = fileman_up("soortenmeetnetten-data")) {
+                              path = fileman_up("soortenmeetnetten-queries")) {
   
   transects_smp <- st_read(dsn = file.path(path, file),
                            layer = "transecten", quiet = TRUE)
@@ -343,7 +343,7 @@ add_tag_utm <- function(locations_smp,
                      size_km = 5,    
                      method = "largest_overlap",
                      file = "gis/utm",
-                     path = fileman_up("soortenmeetnetten-data")) {
+                     path = fileman_up("soortenmeetnetten-queries")) {
   
   utm <- read_utm(size_km = size_km, file = file, path = path) %>%
     st_transform(crs = st_crs(locations_smp))
@@ -378,7 +378,7 @@ add_tag_utm <- function(locations_smp,
 
 read_utm <- function(size_km = 5,
                      file = "gis/utm",
-                     path = fileman_up("soortenmeetnetten-data")) {
+                     path = fileman_up("soortenmeetnetten-queries")) {
   
   utm <- st_read(dsn = file.path(path, file),
                   layer = str_c("utm", size_km), crs = 31370, quiet = TRUE) %>%
@@ -389,7 +389,7 @@ read_utm <- function(size_km = 5,
 }
  
 read_provincies <- function(file = "gis/provincies",
-                            path = fileman_up("soortenmeetnetten-data")) {
+                            path = fileman_up("soortenmeetnetten-queries")) {
   
   provincies <- st_read(dsn = file.path(path, file),
                  layer = "Provincies2015", crs = 31370, quiet = TRUE) %>%
@@ -495,7 +495,7 @@ calculate_monitoring_effort <- function(species_group = NULL, aggregation_level 
 
 get_summary_counts <- function(species_group = NULL, aggregation = "meetnet", 
                                file = "raw/aantallen",
-                               path = fileman_up("soortenmeetnetten-data")) {
+                               path = fileman_up("soortenmeetnetten-queries")) {
   
   counts_visit <- get_counts_smp(species_group = species_group, file = file, path = path) %>%
     mutate(protocol = str_remove(protocol, "\\(v1\\)")) %>%
@@ -669,7 +669,7 @@ get_summary_counts <- function(species_group = NULL, aggregation = "meetnet",
 
 get_summary_distribution <- function(species_group = NULL, aggregation_periode = "year", 
                                      file = "raw/aantallen",
-                                     path = fileman_up("soortenmeetnetten-data")) {
+                                     path = fileman_up("soortenmeetnetten-queries")) {
   
   counts <- get_counts_smp(species_group = species_group, file = file, path = path) %>%    
     mutate(protocol = str_remove(protocol, "\\(v1\\)")) %>%
