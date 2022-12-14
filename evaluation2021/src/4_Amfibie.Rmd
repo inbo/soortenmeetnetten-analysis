@@ -1,9 +1,6 @@
 
 # Amfibieën en reptielen
 
-
-
-
 ```{r}
 soortgroep_sel <- c("amfibieën", "Amfibieën", "amfibieen", "reptielen", "Reptielen")
 ```

@@ -63,7 +63,7 @@ In Tabel \@ref(tab:tabplanten2) geven we een stand van zaken voor de meetcyclus.
 
 ```{r tabplanten2}
 overzicht_meetnetten_planten %>%
-  filter(jaar >= 2019) %>% 
+  filter(jaar >= 2022) %>% 
   group_by(meetnet, n_locaties) %>%
   summarise(voldoende_geteld_totaal_cyclus = max(voldoende_geteld_totaal_cyclus),
             voldoende_geteld_track_cyclus = max(voldoende_geteld_track_cyclus)) %>%
@@ -93,7 +93,7 @@ n_locaties_planten <- nrow(locaties_planten)
 
 overzicht_planten %>%
   filter(is_sample_history) %>%
-  filter(jaar >= 2019) %>%
+  filter(jaar >= 2022) %>%
   mutate(meetnet = "alle plantenmeetnetten",
          n_locaties = n_locaties_planten) %>%
   select(jaar, meetnet,
@@ -127,7 +127,7 @@ overzicht_planten %>%
   add_header_above(c(" " = 2, "aantal getelde locaties" = 2))
 ```
 
-```{r}
+```{r, eval = FALSE}
 extra_tellingen <-  read_csv2(file.path(path, "plantenmeetnetten_extra_2021.csv")) %>%
   filter(locatie != "" & !is.na(locatie)) %>%
   group_by(meetnet) %>%

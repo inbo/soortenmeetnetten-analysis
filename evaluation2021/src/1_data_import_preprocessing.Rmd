@@ -1,8 +1,8 @@
 
 ```{r}
-year_evaluation <- 2021
+year_evaluation <- 2022
 
-data_path <- fileman_up("soortenmeetnetten-data")
+data_path <- fileman_up("soortenmeetnetten-queries")
 
 versie <- get_date_export_smp()
 ```
@@ -30,9 +30,6 @@ bezoeken <- bezoeken_orig %>%
                          ifelse(bezoek_status %in% c("Telmethode niet gevolgd"), "telling_nvcp",NA)))) %>%
   filter(jaar >= 2016)
 
-# bezoeken <- bezoeken %>%
-#   filter(!((jaar == 2019) & !jaardoel & !voor_analyse))
-
 taken <- get_tasks_smp()
 
 aantallen <- get_counts_smp()
@@ -57,6 +54,7 @@ metadata_overzicht <- metadata %>%
   mutate(n_bezoeken_doel = ifelse(meetnet == "Argusvlinder", 5 , n_bezoeken_doel))
 
 locaties <- get_locations_smp(only_active = FALSE) 
+
 locaties_metadata <- locaties %>%
   st_drop_geometry() %>%
   filter(locatie_type == "locatie") %>%
@@ -66,13 +64,17 @@ locaties_metadata <- locaties %>%
             is_sample = any(is_sample)) %>% #soms locatie actief en incatief met zelfde naam
   mutate(is_sample_history = is_sample | (!is_active)) #huidige en historische meetnetlocaties
 
+sublocaties_otter <- get_transects_smp(only_active = FALSE, only_lines = FALSE) %>%
+  filter(meetnet == "Otter") %>%
+  select(meetnet, hoofdlocatie = locatie, locatie = sublocatie) %>%
+  st_drop_geometry()
+
 soortgroepen <- bezoeken %>%
   distinct(soortgroep, meetnet)
 
-
 # data die niet in meetnetten.be zit
 
-path <- fileman_up("soortenmeetnetten-data")
+path <- fileman_up("soortenmeetnetten-queries")
 file <- "processed/data_burchten"
                   
 data_extern <-  read_vc(file = file, root = path)
@@ -90,18 +92,24 @@ taken_nu <- read.csv2(paste("../data/taken_niet_uitvoerbaar_2016_2017.csv", sep 
 
 ```
 
-
 ```{r}
-check <- bezoeken %>%
-  distinct(meetnet, protocol)
+# bij otter worden sommige bezoeken op sublocatie niveau ingevoerd
+
+bezoeken_ <- bezoeken %>%
+  mutate(sublocatie = ifelse(locatie %in% sublocaties_otter$locatie, locatie, NA)) %>%
+  left_join(sublocaties_otter, by = c("meetnet", "locatie")) %>%
+  mutate(locatie = ifelse(is.na(hoofdlocatie), locatie, hoofdlocatie)) %>%
+  select(-hoofdlocatie)
 ```
+
 
 
 ```{r overzichtTellingens, message= FALSE, warning= FALSE}
 
 # overzicht uitgevoerde bezoeken
 overzicht_taken_uitgevoerd <- bezoeken %>%
-  # mutate(jaardoel = ifelse(meetnet == "Gentiaanblauwtje", TRUE, jaardoel)) %>% #NOG aanpasen in Meetnetten.be
+  mutate(winterseizoen = meetnet %in% c("Otter", "Vleermuizen - Wintertellingen"),
+         jaar = ifelse(winterseizoen, year(datum + 182), jaar)) %>%
   group_by(soortgroep,  meetnet, protocol, jaar, locatie, taak, bezoek_status, jaardoel) %>%
   summarise(aantal_tellingen = n()) %>%
   ungroup() %>%
@@ -163,8 +171,6 @@ evaluatie_locaties <- evaluatie_locaties %>%
 
 ```
 
-
-
 ```{r}
 meetnetten_metadata <- metadata %>%
   distinct(meetnet, is_sample, n_locaties) %>%
@@ -191,7 +197,8 @@ overzicht_meetnetten <- evaluatie_locaties %>%
   mutate(jaardoel = ifelse(is_sample_history == 0, NA, jaardoel),
          eenheid = ifelse(is_sample_history == 0, NA, eenheid),
          cyclusdoel = ifelse(is_sample_history == 0, NA, cyclusdoel),
-         jaardoel = ifelse(meetnet == "Knoflookpad" & protocol == "Amfibieën - Larven en metamorfen", 0, jaardoel)) %>%
+         jaardoel = ifelse(meetnet == "Knoflookpad" & protocol == "Amfibieën - Larven en metamorfen", 0, jaardoel),
+         jaardoel = ifelse(meetnet == "Ingekorven Vleermuis" & protocol == "Vleermuizen - Uitvliegtelling", 0, jaardoel)) %>%
   left_join(meetnetten_metadata, by = c("meetnet", "is_sample_history")) %>%
   mutate(aantal_voldoende_geteld_nieuw = ifelse(meetnet == "Kamsalamander" & jaar == 2020, aantal_voldoende_geteld, aantal_voldoende_geteld_nieuw),
          aantal_voldoende_data_nieuw = ifelse(meetnet == "Kamsalamander" & jaar == 2020, aantal_voldoende_data, aantal_voldoende_data_nieuw)
@@ -216,24 +223,24 @@ aantallen_planten_bezoek <- get_counts_smp(species_group = "planten") %>%
   mutate(bron = "meetnetten.be")
 
 
-path <- file.path(fileman_up("soortenmeetnetten-data"), "output/contole_plantendata/")
-
-path <- "C:/Users/toon_westra/Rprojecten/soortenmeetnetten-data/output/controle_plantendata"
-
-aantallen_planten_extern <- read_vc(file = "data_waarnemingen_migratie2021", root = path) %>%
-  filter(!is.na(visit_id)) %>%
-  filter(!is.na(floroncode)) %>%
-  filter(! visit_id %in% aantallen_planten_bezoek$visit_id) %>%
-  group_by(meetnet, locatie, datum, visit_id) %>%
-  summarise(n_puntlocaties = n_distinct(x_coord),
-            code_all = str_c(floroncode, collapse = "-")) %>%
-  ungroup() %>%
-  mutate(bron = "waarnemingen.be",
-         track = FALSE) %>%
-  inner_join(select(bezoeken, visit_id, hoofdteller), by = "visit_id")
-
-aantallen_planten_bezoek <- bind_rows(aantallen_planten_bezoek,
-                               aantallen_planten_extern)
+# path <- file.path(fileman_up("soortenmeetnetten-data"), "output/contole_plantendata/")
+# 
+# path <- "C:/Users/toon_westra/Rprojecten/soortenmeetnetten-data/output/controle_plantendata"
+# 
+# aantallen_planten_extern <- read_vc(file = "data_waarnemingen_migratie2021", root = path) %>%
+#   filter(!is.na(visit_id)) %>%
+#   filter(!is.na(floroncode)) %>%
+#   filter(! visit_id %in% aantallen_planten_bezoek$visit_id) %>%
+#   group_by(meetnet, locatie, datum, visit_id) %>%
+#   summarise(n_puntlocaties = n_distinct(x_coord),
+#             code_all = str_c(floroncode, collapse = "-")) %>%
+#   ungroup() %>%
+#   mutate(bron = "waarnemingen.be",
+#          track = FALSE) %>%
+#   inner_join(select(bezoeken, visit_id, hoofdteller), by = "visit_id")
+# 
+# aantallen_planten_bezoek <- bind_rows(aantallen_planten_bezoek,
+#                                aantallen_planten_extern)
  
 bezoeken_planten <- bezoeken %>% 
   filter(soortgroep == "planten") %>%
@@ -245,12 +252,13 @@ bezoeken_planten <- bezoeken %>%
   mutate(n_puntlocaties = ifelse(is.na(n_puntlocaties), 0, n_puntlocaties))
 
 evaluatie_locaties_planten <- bezoeken_planten %>%
-  filter(type_data != "telling_nt_ingevoerd") %>%
+  #filter(type_data != "telling_nt_ingevoerd") %>%
   arrange(bron, type_data) %>%
   group_by(soortgroep, meetnet, protocol, jaar, locatie, is_sample, is_sample_history, is_active) %>%
   summarise(n_bezoeken_totaal = n_distinct(visit_id),
             n_bezoeken_meetnetten = sum(bron == "meetnetten.be"),
             n_bezoeken_waarnemingen = sum(bron == "waarnemingen.be"),
+            n_bezoeken_aanteleveren = sum(is.na(bron)),
             n_bezoeken_track = sum(type_data == "met_track")) %>%
   ungroup() %>%
   left_join(metadata_overzicht, by = c("meetnet","protocol")) %>%
@@ -306,11 +314,11 @@ overzicht_planten <- evaluatie_locaties_planten %>%
   ungroup()
 
 overzicht_locaties_planten <- evaluatie_locaties_planten %>%
-  filter(jaar >= 2019) %>%
+  filter(jaar >= 2022) %>%
   select(meetnet, jaar, locatie, n_bezoeken_totaal, n_bezoeken_meetnetten, n_bezoeken_waarnemingen, n_bezoeken_track, voldoende_geteld_totaal_nieuw) %>%
   arrange(meetnet, locatie)
 
-#write.csv2(overzicht_locaties_planten, "../output/plantenmeetnetten_locaties_meetcyclus2.csv", row.names = FALSE)
+write.csv2(overzicht_locaties_planten, "../output/plantenmeetnetten_locaties_meetcyclus2.csv", row.names = FALSE)
 
 overzicht_alle_locaties_planten <- locaties %>%
   filter(soortgroep == "planten") %>%
@@ -321,7 +329,7 @@ overzicht_alle_locaties_planten <- locaties %>%
   left_join(overzicht_locaties_planten, by = c("meetnet", "locatie")) %>%
   arrange(meetnet, locatie, jaar)
 
-write.csv2(overzicht_alle_locaties_planten, "../output/plantenmeetnetten_locaties_meetcyclus2.csv", row.names = FALSE)
+#write.csv2(overzicht_alle_locaties_planten, "../output/plantenmeetnetten_locaties_meetcyclus2.csv", row.names = FALSE)
 
 overzicht_todo_planten <- overzicht_alle_locaties_planten %>%
   filter(is.na(jaar)) %>%
@@ -335,7 +343,7 @@ overzicht_todo_planten_met_bezoeken <- bezoeken_planten %>%
 overzicht_todo_planten <- overzicht_todo_planten %>%
   mutate(bezoek_meetnetten = ifelse(locatie %in% overzicht_todo_planten_met_bezoeken$locatie, "ja", "nee"))
 
-write.csv2(overzicht_todo_planten, "../output/planten_todo_meetcyclus2.csv", row.names = FALSE)
+#write.csv2(overzicht_todo_planten, "../output/planten_todo_meetcyclus2.csv", row.names = FALSE)
 
 overzicht_bezoeken_planten <- bezoeken_planten %>%
   filter(jaar == year_evaluation) %>%
@@ -453,7 +461,7 @@ meetnetten_niet_actief <- metadata %>%
 tabel_rapport <- overzicht_meetnetten_all_doel %>% 
   anti_join(meetnetten_niet_actief, by = c("meetnet", "protocol")) %>%
   #filter((jaardoel > 0 & !is.na(jaardoel)) | cyclusdoel > 0 | is_sample_history == 0 ) %>%
-  mutate(jaardoel = ifelse(is_sample_history == 1, 
+  mutate(jaardoel = ifelse(is_sample_history == 1  & !is.na(jaardoel), 
                            tolower(paste(jaardoel, eenheid)),
                            ""),
          cyclusdoel = ifelse(is_sample_history == 1 & !is.na(cyclusdoel),
@@ -665,8 +673,6 @@ counts_locations_controle <- counts_bezoek %>%
             jaren_aantal = str_c(str_c(jaar, " (", aantal_jaar, "/", n_bezoeken_jaar,")"), collapse = ", ")) %>%
   ungroup()
 
-
-  
 counts_locations_controle_tabel <- counts_locations_controle %>%
   filter(aantal_totaal > 0) %>%
   filter(n_jaren_nulwaarnemingen > 0) %>%
@@ -679,7 +685,7 @@ counts_locations_controle_tabel_caption <- "Actieve meetnetlocaties waar de doel
 
 ```
 
-```{r}
+```{r cache = TRUE}
 counts_locatie_analyse <- counts_bezoek %>%
   group_by(soortgroep, meetnet, protocol, locatie) %>%
   mutate(n_visits = n_distinct(visit_id),

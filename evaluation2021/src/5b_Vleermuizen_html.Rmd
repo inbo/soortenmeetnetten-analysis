@@ -67,7 +67,7 @@ tabel_rapport %>%
 
 Figuur \@ref(fig:figuurBezoekenVleermuizen) geeft een overzicht van de tijdstippen van de bezoeken.  
 
-```{r figuurBezoekenVleermuizen,fig.cap = str_c("Overzicht tijdstippen waarop tellingen werden uitgevoerd in ", year_evaluation, ". De stippellijnen geven de telperiodes aan volgens het protocol.") }
+```{r figuurBezoekenVleermuizen, fig.height = 7, fig.cap = str_c("Overzicht tijdstippen waarop tellingen werden uitgevoerd in ", year_evaluation, ". De stippellijnen geven de telperiodes aan volgens het protocol.") }
 
 bezoeken_figuur <- bezoeken %>% 
   left_join(telperiode, by = c("meetnet", "protocol")) %>%
@@ -80,7 +80,7 @@ ggplot(data = bezoeken_figuur, aes(x = datum, fill = bezoek_status_detail)) +
   geom_histogram(binwidth = 7, colour = "white") +
   geom_vline(aes(xintercept = start_telperiode), data = bezoeken_figuur, linetype = 2) +
   geom_vline(aes(xintercept = einde_telperiode), data = bezoeken_figuur, linetype = 2) +
-  facet_wrap( ~ meetnet, ncol = 3) + 
+  facet_wrap( ~ meetnet, ncol = 3, scales = "free_y") + 
   labs(x = "Datum bezoek", y = "Aantal bezoeken", fill = "Bezoek status")  + 
   theme( axis.text.x = element_text(angle = 90, hjust = 1),
          legend.position = "bottom",
@@ -213,6 +213,7 @@ aantallen_soort <- aantallen %>%
    left_join(select(bezoeken, visit_id, taak), by = "visit_id")
 
 aantallen_soort %>%
+  filter(meetnet != "Vleermuizen - Wintertellingen") %>%
   ggplot(aes(x= taak, y = aantal)) +  
   geom_point(alpha = 0.6, colour = inbo_grijs) +
   stat_summary(fun.data = "mean_cl_boot", colour = inbo_rood, size = 1, alpha = 0.8) +
@@ -221,19 +222,5 @@ aantallen_soort %>%
   theme(legend.position = "bottom") 
 
 ```
-```{r, fig.cap= "Getelde aantallen per bezoek waarbij tellingen op een zelfde locatie worden verbonden met een stippellijn"}
-max_soort <- max(aantallen_soort$aantal) * 1.2
 
-aantallen_soort %>%
-  ggplot(aes(x = datum, 
-             y = aantal,
-             group= locatie)) + 
-  geom_point(alpha = 0.6) +  
- geom_line(linetype = 2,  alpha = 0.6, size = 0.4, colour = inbo_grijsblauw)  + 
-  facet_wrap(meetnet ~ jaar, scales = "free_y") +
-  labs(x = "Datum bezoek", y = "Aantal getelde individuen") + 
-  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
-  theme(legend.position = 'none', axis.text.x = element_text(angle = 90)) 
-
-```
 
