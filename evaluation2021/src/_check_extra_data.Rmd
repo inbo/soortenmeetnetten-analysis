@@ -1,0 +1,27 @@
+# Extra data
+
+## Vliegend hert
+
+```{r}
+
+library(readxl)
+
+data_vliegend_hert_orig <- read_excel("G:/Mijn Drive/Soortenmeetnetten/Oplevering data/2022/Data niet in Meetnetten.be/Vliegend hert - Oplevering data Meetnetten 2022/20221213_vliegend_hert.xlsx")
+
+data_vliegend_hert <- data_vliegend_hert_orig %>%
+  mutate(jaar = year(`visit start date`))
+```
+
+```{r}
+n_visits <- data_vliegend_hert %>%
+  group_by(`visit location`, jaar) %>%
+  summarise(n_visits = n_distinct(`visit id`),) %>%
+  ungroup()
+
+j <- n_visits %>%
+  group_by(jaar) %>%
+  summarise(n_voldoende_geteld = sum(n_visits >= 5),
+            n_visits = sum(n_visits)) %>%
+  ungroup()
+```
+

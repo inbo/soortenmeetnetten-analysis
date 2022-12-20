@@ -24,6 +24,7 @@ bezoeken <- bezoeken_orig %>%
          protocol = ifelse(meetnet == "Beekrombout", "Libellen - Larvenhuidjes Beekrombout", protocol),
          protocol = ifelse(meetnet == "Lentevuurspin", "Lentevuurspin - Transect + Gebiedstelling", protocol),
          protocol = ifelse(protocol == "Vlinders - Gebiedstelling (mobiel)", "Vlinders - Gebiedstelling", protocol),
+         protocol = ifelse(str_detect(protocol, "Vleermuizen - Wintertelling"), "Vleermuizen - Wintertelling", protocol),
          bezoek_status_detail = bezoek_status,
          bezoek_status = ifelse(bezoek_status %in% c("Conform protocol", "Weersomstandigheden ongunstig"), "telling_cp",
                          ifelse(bezoek_status %in% c("Geen veldwerk mogelijk - locatie ontoegankelijk", "Geen veldwerk mogelijk - locatie ongeschikt"), "telling_gvm", 
@@ -92,15 +93,7 @@ taken_nu <- read.csv2(paste("../data/taken_niet_uitvoerbaar_2016_2017.csv", sep 
 
 ```
 
-```{r}
-# bij otter worden sommige bezoeken op sublocatie niveau ingevoerd
 
-bezoeken_ <- bezoeken %>%
-  mutate(sublocatie = ifelse(locatie %in% sublocaties_otter$locatie, locatie, NA)) %>%
-  left_join(sublocaties_otter, by = c("meetnet", "locatie")) %>%
-  mutate(locatie = ifelse(is.na(hoofdlocatie), locatie, hoofdlocatie)) %>%
-  select(-hoofdlocatie)
-```
 
 
 
@@ -108,13 +101,16 @@ bezoeken_ <- bezoeken %>%
 
 # overzicht uitgevoerde bezoeken
 overzicht_taken_uitgevoerd <- bezoeken %>%
+  filter(voor_analyse | jaardoel) %>%
   mutate(winterseizoen = meetnet %in% c("Otter", "Vleermuizen - Wintertellingen"),
          jaar = ifelse(winterseizoen, year(datum + 182), jaar)) %>%
   group_by(soortgroep,  meetnet, protocol, jaar, locatie, taak, bezoek_status, jaardoel) %>%
   summarise(aantal_tellingen = n()) %>%
   ungroup() %>%
   mutate(telling_ingevoerd = 1) %>%
-  left_join(locaties_metadata, by = c("meetnet", "locatie"))
+  left_join(locaties_metadata, by = c("meetnet", "locatie")) %>%
+  mutate(is_sample = ifelse(meetnet == "Roestbruine kniptor", TRUE, is_sample),
+         is_sample_history = ifelse(meetnet == "Roestbruine kniptor", TRUE, is_sample_history))
 
 overzicht_taken_uitgevoerd_wide <- overzicht_taken_uitgevoerd %>%
   spread(key = bezoek_status, value = aantal_tellingen, fill = 0) %>%
@@ -497,7 +493,6 @@ tabel_rapport <- overzicht_meetnetten_all_doel %>%
 tabel_stuurgroep <- overzicht_meetnetten_all_doel %>% 
   anti_join(meetnetten_niet_actief, by = c("meetnet", "protocol")) %>%
   filter(jaar == year_evaluation | jaar == str_c(year_evaluation - 1, " - ", year_evaluation)) %>%
-  filter(meetnet != "Vleermuizen - Wintertellingen") %>%
   #filter((jaardoel > 0 & !is.na(jaardoel)) | cyclusdoel > 0 | is_sample_history == 0 ) %>%
   mutate(Jaardoel = ifelse(is_sample_history == 1, 
                            jaardoel,
