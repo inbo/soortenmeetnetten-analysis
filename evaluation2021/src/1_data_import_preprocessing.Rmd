@@ -208,7 +208,6 @@ check <- overzicht_meetnetten %>%
 
 ```{r}
 aantallen_planten_bezoek <- get_counts_smp(species_group = "planten") %>%
-   # mutate(locatie = ifelse(locatie == "Dolaag (d5-56-41)", "Walenbos - Dolaag (d5-56-41)", locatie)) %>% #AAN TE PASSEN in MEETNETTEN
   filter(puntlocatie == 1) %>%
   filter(validatie != -1) %>%
   mutate(hoofdteller = str_c(first_name, " ", last_name)) %>%
@@ -218,28 +217,23 @@ aantallen_planten_bezoek <- get_counts_smp(species_group = "planten") %>%
   ungroup() %>%
   mutate(bron = "meetnetten.be")
 
+aantallen_planten_extern <- read_csv2("C:/Rprojecten/soortenmeetnetten-queries/output/controle_plantendata/plantenmeetnetten_migratie_2022.csv") %>%
+  filter(!is.na(visit_id)) %>%
+  filter(! visit_id %in% aantallen_planten_bezoek$visit_id) %>%
+  group_by(meetnet, locatie, datum, visit_id) %>%
+  summarise(n_puntlocaties = n_distinct(x),
+            code_all = str_c(code, collapse = "-")) %>%
+  ungroup() %>%
+  mutate(bron = "waarnemingen.be",
+         track = FALSE) %>%
+  inner_join(select(bezoeken, visit_id, hoofdteller), by = "visit_id")
 
-# path <- file.path(fileman_up("soortenmeetnetten-data"), "output/contole_plantendata/")
-# 
-# path <- "C:/Users/toon_westra/Rprojecten/soortenmeetnetten-data/output/controle_plantendata"
-# 
-# aantallen_planten_extern <- read_vc(file = "data_waarnemingen_migratie2021", root = path) %>%
-#   filter(!is.na(visit_id)) %>%
-#   filter(!is.na(floroncode)) %>%
-#   filter(! visit_id %in% aantallen_planten_bezoek$visit_id) %>%
-#   group_by(meetnet, locatie, datum, visit_id) %>%
-#   summarise(n_puntlocaties = n_distinct(x_coord),
-#             code_all = str_c(floroncode, collapse = "-")) %>%
-#   ungroup() %>%
-#   mutate(bron = "waarnemingen.be",
-#          track = FALSE) %>%
-#   inner_join(select(bezoeken, visit_id, hoofdteller), by = "visit_id")
-# 
-# aantallen_planten_bezoek <- bind_rows(aantallen_planten_bezoek,
-#                                aantallen_planten_extern)
- 
+aantallen_planten_bezoek <- bind_rows(aantallen_planten_bezoek,
+                               aantallen_planten_extern)
+
 bezoeken_planten <- bezoeken %>% 
   filter(soortgroep == "planten") %>%
+  filter(jaardoel) %>%
    # mutate(locatie = ifelse(locatie == "Dolaag (d5-56-41)", "Walenbos - Dolaag (d5-56-41)", locatie)) %>% #AAN TE PASSEN in MEETNETTEN
   left_join(locaties_metadata, by = c("meetnet", "locatie")) %>%
   left_join(select(aantallen_planten_bezoek, - hoofdteller), by = c("meetnet", "locatie", "datum", "visit_id")) %>%
@@ -252,8 +246,8 @@ evaluatie_locaties_planten <- bezoeken_planten %>%
   arrange(bron, type_data) %>%
   group_by(soortgroep, meetnet, protocol, jaar, locatie, is_sample, is_sample_history, is_active) %>%
   summarise(n_bezoeken_totaal = n_distinct(visit_id),
-            n_bezoeken_meetnetten = sum(bron == "meetnetten.be"),
-            n_bezoeken_waarnemingen = sum(bron == "waarnemingen.be"),
+            n_bezoeken_meetnetten = sum(bron == "meetnetten.be", na.rm = TRUE),
+            n_bezoeken_waarnemingen = sum(bron == "waarnemingen.be", na.rm =TRUE),
             n_bezoeken_aanteleveren = sum(is.na(bron)),
             n_bezoeken_track = sum(type_data == "met_track")) %>%
   ungroup() %>%
@@ -263,7 +257,7 @@ evaluatie_locaties_planten <- bezoeken_planten %>%
          is_sample = ifelse(is.na(is_sample), FALSE, is_sample),
          is_sample_history = ifelse(is.na(is_sample_history), TRUE, is_sample_history), #enkele bezoeken voor gedelete locaties
          is_active = ifelse(is.na(is_active), FALSE, is_active),
-         voldoende_geteld_totaal = n_bezoeken_totaal >= 1,
+         voldoende_geteld_totaal = n_bezoeken_meetnetten + n_bezoeken_waarnemingen >= 1,
          voldoende_geteld_track = n_bezoeken_track >= 1
          ) %>%
   group_by(soortgroep, meetnet, protocol, locatie, meetcyclus) %>%

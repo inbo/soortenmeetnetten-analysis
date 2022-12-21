@@ -41,6 +41,10 @@ In Tabel \@ref(tab:tabplant1) geven we een overzicht van de tellingen van `r yea
 
 ```{r tabplant1}
 
+meetcyclus_planten <- (overzicht_meetnetten_planten %>%
+  filter(jaar == year_evaluation))$jaar_in_meetcyclus %>%
+  unique()
+
 overzicht_meetnetten_planten %>%
   filter(jaar == year_evaluation) %>%
   select(meetnet, 
@@ -57,11 +61,12 @@ overzicht_meetnetten_planten %>%
   
 ```
 
-### Evaluatie per meetnet voor de meetcyclus
 
-In Tabel \@ref(tab:tabplanten2) geven we een stand van zaken voor de meetcyclus.
+`r if (meetcyclus_planten > 1) {"### Evaluatie per meetnet voor de meetcyclus"}`
 
-```{r tabplanten2}
+`r if (meetcyclus_planten > 1) {"In onderstaande tabel geven we een stand van zaken voor de meetcyclus."}`
+
+```{r tabplanten2, eval = meetcyclus_planten > 1}
 overzicht_meetnetten_planten %>%
   filter(jaar >= 2022) %>% 
   group_by(meetnet, n_locaties) %>%
@@ -110,9 +115,9 @@ overzicht_planten %>%
 
 ```
 
-### Evaluatie voor alle plantenmeetnetten samen voor de meetcyclus
+`r if (meetcyclus_planten > 1) {"### Evaluatie voor alle plantenmeetnetten samen voor de meetcyclus"}`
 
-```{r}
+```{r, eval = meetcyclus_planten > 1}
 overzicht_planten %>%
   filter(jaar == year_evaluation) %>%
   mutate(meetnet = "alle plantenmeetnetten",
@@ -127,13 +132,6 @@ overzicht_planten %>%
   add_header_above(c(" " = 2, "aantal getelde locaties" = 2))
 ```
 
-```{r, eval = FALSE}
-extra_tellingen <-  read_csv2(file.path(path, "plantenmeetnetten_extra_2021.csv")) %>%
-  filter(locatie != "" & !is.na(locatie)) %>%
-  group_by(meetnet) %>%
-  summarise(locaties_geteld = n_distinct(locatie)) %>%
-  ungroup() 
-```
 
 
 ### Tijdstippen van de tellingen
@@ -237,7 +235,7 @@ if (nrow(bezoeken_afwijkingen) > 0) {
 
 ```{r}
 bezoeken_opmerkingen <- bezoeken %>% 
-  filter(jaar == 2020) %>%
+  filter(jaar == year_evaluation) %>%
   filter(soortgroep %in% soortgroep_sel) %>% 
   filter(jaar == year_evaluation) %>% 
   filter(bezoek_status_detail == "Conform protocol") %>%
@@ -301,6 +299,7 @@ bezoeken_dubbels_soortgroep %>%
 
 ### Verschillende tellers/jaar/locatie
 
+
 ```{r}
 # aantallen_planten <- st_read(dsn = file.path(fileman_up("soortenmeetnetten-data"), "raw/planten_puntlocaties.gpkg"), crs = 4326)
 # 
@@ -334,7 +333,7 @@ bezoeken_herhaling2 <- aantallen_planten_bezoek %>%
   ungroup() %>%
   filter(n_bezoeken_jaar > 1, n_waarnemers_jaar > 1)
 
-write_csv2(bezoeken_herhaling2, "../output/locaties_verschillende_waarnemers.csv")
+# write_csv2(bezoeken_herhaling2, "../output/locaties_verschillende_waarnemers.csv")
 
 # aantallen_planten_mn_check_herhaling <- get_counts_smp(species_group = "planten") %>%
 #   filter(puntlocatie == 1) %>%
@@ -350,15 +349,18 @@ write_csv2(bezoeken_herhaling2, "../output/locaties_verschillende_waarnemers.csv
 #   st_transform(crs = 4326)
 
 
-aantallen_planten_check_herhaling <- read_csv2("C:/Users/toon_westra/Rprojecten/soortenmeetnetten-data/processed/data_planten_2021.csv") %>%
-  semi_join(bezoeken_herhaling2, by = "visit_id") %>%
-  arrange(meetnet, locatie, hoofdteller, datum) %>%
-  st_as_sf(coords = c("x", "y"), crs = 31370)
-
-st_write(aantallen_planten_check_herhaling, "../output/check_planten.gpkg", "planten_meerdere_waarnemers", delete_layer = TRUE)
+# aantallen_planten_check_herhaling <- read_csv2("C:/Users/toon_westra/Rprojecten/soortenmeetnetten-data/processed/data_planten_2021.csv") %>%
+#   semi_join(bezoeken_herhaling2, by = "visit_id") %>%
+#   arrange(meetnet, locatie, hoofdteller, datum) %>%
+#   st_as_sf(coords = c("x", "y"), crs = 31370)
+# 
+# st_write(aantallen_planten_check_herhaling, "../output/check_planten.gpkg", "planten_meerdere_waarnemers", delete_layer = TRUE)
 ```
 
-```{r}
+`r if (nrow(bezoeken_herhaling2) > 0) {"De volgende tabel geeft een overzicht locaties die in het zelfde jaar door verschillende tellers zijn geteld"} else {"Er zijn geen locaties die in het zelfde jaar door verschillende tellers zijn geteld."}`
+
+
+```{r, eval= nrow(bezoeken_herhaling2) > 0}
 
 bezoeken_herhaling2 %>%
   select(meetnet, locatie, datum, visit_id, hoofdteller, n_waarnemers_jaar, floroncode = code_all) %>%
@@ -380,5 +382,68 @@ bezoeken_herhaling2 %>%
   
 ```
 
+## Visualisatie
+
+```{r}
+locaties_planten <- locaties %>%
+  filter(soortgroep == "planten") %>%
+  filter(is_active)
+
+aantallen_mn <- st_read(dsn = file.path(fileman_up("soortenmeetnetten-queries"), "raw/planten_puntlocaties.gpkg"),
+                        layer = "planten_puntlocaties", 
+                        crs = 4326, quiet = TRUE) %>%
+  filter(year(datum) == year_evaluation) %>%
+  mutate(label = str_c(meetnet, ";", datum, ";",  code),
+         data_type = "meetnettelling ingevoerd in meetnetten.be",
+         show_color = "yellow") %>%
+  rename(geometry = geom)
+
+aantallen_planten_extern <- read_csv2("C:/Rprojecten/soortenmeetnetten-queries/output/controle_plantendata/plantenmeetnetten_migratie_2022.csv") %>%
+  st_as_sf(coords = c("x", "y"), crs = 31370) %>%
+  st_transform(4326) %>%
+  mutate(label = str_c(meetnet, ";", datum, ";",  code),
+          data_type = "meetnettelling ingevoerd in waarnemingen.be",
+         show_color = "blue")
+
+aantallen_planten_extra <- read_csv2("C:/Rprojecten/soortenmeetnetten-queries/output/controle_plantendata/plantenmeetnetten_extra_2022.csv") %>%
+  st_as_sf(coords = c("x", "y"), crs = 31370) %>%
+  st_transform(4326) %>%
+  mutate(label = str_c(meetnet, ";", datum, ";aantal=",  aantal),
+        data_type = "losse telling ingevoerd in waarnemingen.be",
+         show_color = "red")
+
+aantallen_all <- bind_rows(aantallen_planten_extra,
+                           aantallen_planten_extern,
+                           aantallen_mn) %>%
+  select(meetnet, locatie, label, data_type, show_color)
+
+tracks <- st_read(dsn = file.path(fileman_up("soortenmeetnetten-queries"), "raw/planten_puntlocaties.gpkg"),
+                        layer = "tracks",
+                        crs = 4326, quiet = TRUE) %>%
+  filter(year(datum) == year_evaluation)
+```
+
+
+
+
+```{r}
+sd <- SharedData$new(aantallen_all)
+
+filter_checkbox("data_type", "Type data", sd, ~data_type)
+filter_select("meetnet", "Meetnet", sd, ~meetnet)
+
+leaflet() %>%
+  addTiles(group = "OSM") %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "Esri.WorldImagery") %>%
+  addPolygons(data = locaties_planten, label = ~str_c(meetnet, ": ", locatie), group = "meetnetlocaties") %>%
+  addCircleMarkers(data = sd, color  = ~show_color, label = ~label, group = "aantallen") %>%
+  addPolylines(data = tracks, color = "black", weight = 3, dashArray = "4", group = "tracks") %>%
+  addLayersControl(
+    baseGroups = c("OSM", "Esri.WorldImagery"),
+    overlayGroups = c("meetnetlocaties", "aantallen", "tracks"),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+  addFullscreenControl()
+```
 
 
