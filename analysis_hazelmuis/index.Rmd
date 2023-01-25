@@ -1,0 +1,260 @@
+---
+title: "Dataverkenning meetnet hazelmuis"
+author: 
+  -
+    name: "Toon Westra"
+    email: "Toon.Westra@inbo.be"
+link-citations: TRUE
+always_allow_html: yes
+site: bookdown::bookdown_site
+output:
+  bookdown::html_document2:
+    keep_md: TRUE
+    toc: TRUE
+    toc_float:
+      collapsed: FALSE
+      smooth_scroll: FALSE
+---
+
+
+```{r setup, include = FALSE,  message = FALSE, warning=FALSE, cache = FALSE}
+library(knitr)
+options(knitr.kable.NA = '')
+
+opts_chunk$set(
+  echo = FALSE,
+  cache = FALSE ,
+  warning = FALSE,
+  message = FALSE
+)
+
+library(tidyverse)
+library(INBOtheme)
+library(INBOmd)
+library(sf)
+library(here)
+library(leaflet)
+library(crosstalk)
+library(leaflet.extras)
+library(kableExtra)
+library(units)
+library(effectclass)
+library(openssl)
+library(lubridate)
+library(git2rdata)
+library(n2khab)
+```
+
+
+```{r, cache=FALSE}
+source(here("src", "functions_smp.R"))
+
+```
+
+
+# Transecttelling nesten
+
+## Tellingen voor transecten die sinds 2019 opgevolgd worden
+
+Figuur \@ref(fig:nesten) toont het aantal getelde (nieuwe) nesten per transect per jaar (hervondsten in tweede bezoek worden afgetrokken van het totaal). De rode punten het gemiddelde weer over de drie transecten. 
+
+
+```{r }
+
+visits_hazelmuis <- get_visits_smp() %>%
+  filter(protocol == "Hazelmuis - Transect") %>%
+  select(visit_id, bezoek_status, validatie)
+
+aantal_nesten <- get_counts_smp() %>%
+  filter(protocol == "Hazelmuis - Transect") %>%
+  select(meetnet, locatie, visit_id, datum, jaar, activiteit, aantal) %>%
+  mutate(activiteit = ifelse(visit_id == 640 & aantal == 0, "nest (hervondst)", activiteit)) %>%
+  mutate(activiteit = ifelse(activiteit == "nest", "nest_totaal", "nest_hervondst")) %>%
+  pivot_wider(names_from = "activiteit", values_from = "aantal") %>%
+  left_join(visits_hazelmuis, by = "visit_id") %>%
+  mutate(nest_nieuw = nest_totaal - nest_hervondst)
+
+aantal_nesten_onverzicht <- aantal_nesten %>%
+  group_by(locatie, jaar) %>%
+  summarise(aantal_totaal = sum(nest_nieuw)) %>%
+  ungroup() %>%
+  group_by(jaar) %>%
+  mutate(mean = mean(aantal_totaal)) %>%
+  ungroup()
+  
+locaties_2019 <- aantal_nesten %>%
+  filter(jaar == 2019) %>%
+  distinct(locatie)
+
+aantal_nesten_2019 <- aantal_nesten_onverzicht %>%
+  filter(jaar >= 2019) 
+
+  
+```
+
+```{r nesten, fig.cap = "Aantal nesten per bezoek sinds 2019"}
+aantal_nesten_2019  %>%
+  ggplot(aes(x= jaar, y = aantal_totaal, colour = locatie)) +  
+  geom_point(alpha = 0.6) +
+  geom_line(alpha = 0.6, linetype = 2) +
+  geom_point(data = aantal_nesten_2019, aes(x = jaar, y = mean), size = 3) +
+  labs(y = "Aantal nesten per transect", x = "Jaar") +
+  theme(legend.position = "bottom") 
+```
+```{r}
+aantal_nesten_2019 %>%
+  select(locatie, jaar, aantal_totaal) %>%
+  pivot_wider(names_from = "jaar", values_from = "aantal_totaal") %>%
+  kable(caption = "Aantal nesten per transect per jaar") %>%
+  kable_styling()
+```
+
+
+## Tellingen voor alle transecten
+
+Het aantal getelde nesten per locatie wordt weergegeven in Figuur \@ref(fig:nestloc).
+
+
+```{r nestloc, fig.height= 7, fig.cap = "aantal nesten per locatie"}
+aantal_nesten_onverzicht %>%
+  ggplot(aes(x= jaar, y = aantal_totaal)) +  
+    geom_point(alpha = 0.6) +
+  geom_line(alpha = 0.6, linetype = 2) +
+  facet_wrap(~locatie, ncol = 4) +
+  labs(y = "Aantal nesten per transect", x = "Jaar")
+```
+
+# Tellingen in nestbuizen
+
+Figuur \@ref(fig:occurencebuis) toont per jaar de proportie van de nesbuizen met aanwezigheid van individuen (adult, subadult of juveniel) en aanwezigheid van verse sporen (nesten, keutels en vraatsporen). Figuur \@ref(fig:occurencebuisloc) toont hetzelfde per locatie.
+
+
+```{r}
+
+visits_nestbuizen <- get_visits_smp() %>%
+  filter(protocol == "Hazelmuis - Nestbuizen") %>%
+  select(visit_id, bezoek_status, validatie)
+
+aantal_nestenbuizen <- read_vc(root = fileman_up("soortenmeetnetten-queries"), file = "raw/aantal_hazelmuis_nestbuizen") %>%
+  mutate(sublocatie = str_c(locatie, "-", sublocatie)) %>%
+  left_join(visits_nestbuizen, by = "visit_id")
+
+occurence_nestbuizen <- aantal_nestenbuizen %>%
+  mutate(jaar = year(datum)) %>%
+  filter(primaire_soort) %>%
+  group_by(meetnet, locatie, sublocatie, jaar, observation_type, activiteit) %>%
+  summarise(aanwezig = sum(aantal) > 0,
+            aanwezig_vers = "F" %in% code) %>%
+  ungroup() %>%
+  mutate(aanwezig_oud_onzeker = aanwezig & !aanwezig_vers,
+         aanwezig = ifelse(activiteit == "in nestbuis", aanwezig, aanwezig_vers))
+
+occurence_locatie <- occurence_nestbuizen %>%
+  group_by(meetnet, locatie,  jaar, activiteit) %>%
+  summarise(prop_aanwezig = sum(aanwezig)/n_distinct(sublocatie),
+            prop_aanwezig_oud = sum(aanwezig_oud_onzeker)/n_distinct(sublocatie),
+            n_nestbuizen = n_distinct(sublocatie)) %>%
+  ungroup() 
+
+occurence <- occurence_nestbuizen %>%
+  group_by(meetnet,  jaar, activiteit) %>%
+  summarise(prop_aanwezig = sum(aanwezig)/n_distinct(sublocatie),
+            prop_aanwezig_oud = sum(aanwezig_oud_onzeker)/n_distinct(sublocatie),
+            n_nestbuizen = n_distinct(sublocatie)) %>%
+  ungroup()
+
+```
+
+```{r}
+occurence_nestbuizen_detail <- aantal_nestenbuizen  %>%
+  mutate(jaar = year(datum)) %>%
+  filter(primaire_soort) %>%
+  group_by(meetnet, locatie, sublocatie, jaar, observation_type, activiteit, code) %>%
+  summarise(aanwezig = sum(aantal) > 0) %>%
+  ungroup() %>%
+  mutate(sublocatie = str_c(locatie, "-", sublocatie))
+
+occurence_detail <- occurence_nestbuizen_detail %>%
+  group_by(meetnet, jaar) %>%
+  mutate(n_nestbuizen = n_distinct(sublocatie)) %>%
+  group_by(meetnet, jaar, n_nestbuizen, observation_type, activiteit, code) %>%
+  summarise(totaal_aanwezig = sum(aanwezig)) %>% 
+  ungroup() %>%
+  mutate(occurence = totaal_aanwezig/ n_nestbuizen) %>%
+  filter(is.na(code) | code %in% c("O", "U", "F"))
+
+```
+
+
+
+```{r occurencebuis, fig.cap = "Proportie van nestkasten met aanwezigheid van hazelmuis (individuen, keutels, nesten en/of vraatsporen)"}
+occurence %>%
+  mutate(type = ifelse(activiteit == "in nestbuis", "individuen", activiteit),
+         type = ifelse(activiteit == "nest", "nest (vers)", type),
+         jaar = factor(jaar)) %>%
+  ggplot(aes(x = jaar, y = prop_aanwezig, colour = type, group = type, shape = type)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_line(linetype = 2, alpha = 0.8) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(y = "proportie van nestbuizen met aanwezigheid hazelmuis", colour = "type waarneming", shape = "type waarneming")
+```
+
+```{r occurencebuisloc, fig.height= 9, fig.cap = "Proportie van nestkasten met aanwezigheid van hazelmuis (individuen,keutels, nesten en/of vraatsporen) per locatie"}
+occurence_locatie %>%
+  mutate(tyoe = ifelse(activiteit == "in nestbuis", "individuen", activiteit),
+         type = ifelse(activiteit == "nest", "nest (vers)", tyoe),
+         jaar = factor(jaar)) %>%
+  ggplot(aes(x = jaar, y = prop_aanwezig, group = type,  colour = type, shape = type)) +
+  geom_point(size = 2, alpha = 0.6) +
+  geom_line(linetype = 2, alpha = 0.6) +
+  scale_y_continuous(labels = scales::percent) +
+  facet_wrap(~locatie, ncol = 4) +
+  labs(y = "proportie van nestnestbuizen met aanwezigheid hazelmuis",  colour = "type waarneming", shape = "type waarneming") +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+hoofd_loc <- locatie_detail <- get_locations_smp() %>%
+  filter(meetnet == "Hazelmuis - Nestbuizen") %>%
+  filter(locatie_type == "locatie") %>%
+  select(meetnet, locatie, parent_id = id)
+
+sub_loc <- get_locations_smp() %>%
+  filter(meetnet == "Hazelmuis - Nestbuizen") %>%
+  filter(locatie_type == "sublocatie") %>%
+  select(meetnet, sublocatie = locatie, parent_id) %>%
+  left_join(st_drop_geometry(hoofd_loc), by = c("meetnet", "parent_id")) %>%
+  mutate(showlabel = sublocatie,
+         sublocatie = str_c(locatie, "-", sublocatie))
+  
+sub_loc_occurence <- sub_loc %>%
+  left_join(occurence_nestbuizen, by = c("meetnet", "locatie", "sublocatie")) %>%
+  mutate(show_color = ifelse(aanwezig, "yellow", "red")) %>%
+  mutate(activiteit = ifelse(activiteit == "in nestbuis", "individuen", activiteit)) %>%
+ mutate(activiteit = ifelse(activiteit == "nest", "nest (vers)", activiteit))
+
+```
+
+Ondestaande kaart toont de aanwezigheid van hazelmuis of sporen van hazelmuis in de nestbuizen.
+Selecteer een type waarneming en een jaar.
+De gele punten zijn de nestbuizen met aanwezigheid van hazelmuis en de rode punten met afwezigheid.
+
+```{r}
+sd <- SharedData$new(sub_loc_occurence)
+
+filter_checkbox("activiteit", "Type waarneming", sd, ~activiteit)
+filter_checkbox("jaar", "Jaar", sd, ~jaar)
+
+leaflet() %>%
+  addTiles(group = "OSM") %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "Esri.WorldImagery") %>%
+  addPolylines(data = hoofd_loc, label = ~locatie, group = "meetnetlocaties") %>%
+  addCircleMarkers(data = sd, label = ~showlabel, color  = ~show_color,  group = "aanwezigheid hazelmuis", fillOpacity = 0.5, opacity = 0.2, stroke = FALSE, radius = 8) %>%
+  addLayersControl(
+    baseGroups = c("OSM", "Esri.WorldImagery"),
+    overlayGroups = c("meetnetlocaties", "aanwezigheid hazelmuis"),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+  addFullscreenControl()
+```
+
