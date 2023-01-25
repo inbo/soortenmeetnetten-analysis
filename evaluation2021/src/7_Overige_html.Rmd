@@ -258,8 +258,102 @@ Zie [deze website](https://inbo.github.io/soortenmeetnetten-dataexploration/#ove
 Zie [deze website](https://inbo.github.io/soortenmeetnetten-dataexploration/#overige).
 
 
+## Inhaalslag zeggekorfslag
 
+```{r}
 
+locaties_prioritair <- read_vc(root = path, "raw/werkpakketten_locaties") %>%
+  filter(meetnet == "Zeggekorfslak") %>%
+  filter( str_detect(werkpakket,"prioritair")) %>%
+  distinct(meetnet, locatie)
 
+locaties_herbezoek <- read_vc(root = path, "raw/werkpakketten_locaties") %>%
+  filter(meetnet == "Zeggekorfslak") %>%
+  filter( str_detect(werkpakket,"herbezoek")) %>%
+  distinct(meetnet, locatie)
 
+bezoeken_zegge <- bezoeken %>%
+  filter(meetnet == "Zeggekorfslak") %>%
+  group_by(locatie, bezoek_status_detail) %>%
+  summarise(n_bezoeken = n(),
+            jaren = str_c(unique(jaar), collapse = "; ")) %>%
+  ungroup()
 
+aantallen_zegge <- aantallen %>%
+  filter(meetnet == "Zeggekorfslak") %>%
+  group_by(locatie) %>%
+  summarise(n_punten = n_distinct(sample_id),
+            aantal = sum(aantal)) %>%
+  ungroup()
+  
+
+overzicht_prioritair <- locaties_prioritair %>%
+  left_join(bezoeken_zegge, by = "locatie") %>%
+  left_join(aantallen_zegge, by = "locatie")
+
+overzicht_herbezoek <- locaties_herbezoek %>%
+  left_join(bezoeken_zegge, by = "locatie") %>%
+  left_join(aantallen_zegge, by = "locatie")
+```
+
+```{r}
+overzicht_prioritair %>%
+  kable(caption = "Overzicht prioritair te bezoeken locaties (waarvoor aanwezigheid nog niet met zekerheid werd vastgesteld)") %>%
+  kable_styling()
+```
+
+```{r}
+overzicht_herbezoek %>%
+  kable(caption = "Overzicht te herbezoeken locaties (waarvoor de laatste aanwezigheid meer dan 12 jaar geleden werd vastgesteld)") %>%
+  kable_styling()
+```
+
+## Inhaalslag gerande oeverspin
+
+```{r}
+
+locaties_prioritair <- read_vc(root = path, "raw/werkpakketten_locaties") %>%
+  filter(meetnet == "Gerande oeverspin") %>%
+  filter( werkpakket %in% c("veldwerk 2020", "veldwerk 2021")) %>%
+  distinct(meetnet, locatie)
+
+locaties_overige <- read_vc(root = path, "raw/werkpakketten_locaties") %>%
+  filter(meetnet == "Gerande oeverspin") %>%
+  anti_join(locaties_prioritair, by = "locatie") %>%
+  distinct(meetnet, locatie)
+
+bezoeken_oeverspin <- bezoeken %>%
+  filter(meetnet == "Gerande oeverspin") %>%
+  group_by(locatie, bezoek_status_detail) %>%
+  summarise(n_bezoeken = n(),
+            jaren = str_c(unique(jaar), collapse = "; ")) %>%
+  ungroup()
+
+aantallen_oeverspin <- aantallen %>%
+  filter(meetnet == "Gerande oeverspin") %>%
+  group_by(locatie) %>%
+  summarise(n_punten = n_distinct(sample_id),
+            aantal = sum(aantal)) %>%
+  ungroup()
+  
+
+overzicht_prioritair <- locaties_prioritair %>%
+  left_join(bezoeken_oeverspin, by = "locatie") %>%
+  left_join(aantallen_oeverspin, by = "locatie")
+
+overzicht_overige <- locaties_overige %>%
+  inner_join(bezoeken_oeverspin, by = "locatie") %>%
+  left_join(aantallen_oeverspin, by = "locatie")
+```
+
+```{r}
+overzicht_prioritair %>%
+  kable(caption = "Overzicht prioritair te bezoeken locaties (waarvoor aanwezigheid nog niet met zekerheid werd vastgesteld)") %>%
+  kable_styling()
+```
+
+```{r}
+overzicht_herbezoek %>%
+  kable(caption = "Overzicht te herbezoeken locaties (waarvoor de laatste aanwezigheid meer dan 12 jaar geleden werd vastgesteld)") %>%
+  kable_styling()
+```

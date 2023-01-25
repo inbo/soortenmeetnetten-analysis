@@ -61,7 +61,37 @@ tabel_rapport %>%
   collapse_rows(columns = c(1))
   
 ```
+```{r}
+n_extra <- tabel_rapport %>%
+   filter(soortgroep %in% soortgroep_sel,
+          jaar == year_evaluation) %>%
+  filter(type_locatie == "Extra locatie") %>%
+  nrow()
+```
 
+
+`r if (n_extra > 0) {"Ten slotte geven we een overzicht van de tellingen in 'extra locaties' die niet tot de steekproef behoren. Hiervoor worden geen doelen gesteld."}` 
+
+```{r }
+
+if (n_extra > 0) {
+  
+  tabel_rapport %>%
+    arrange(meetnet) %>%
+    filter(soortgroep %in% soortgroep_sel,
+          jaar == year_evaluation) %>%
+    filter(type_locatie == "Extra locatie") %>%
+    select(meetnet,  protocol,  "tellingen conform protocol", "tellingen niet uitvoerbaar",  "locaties voldoende geteld - totaal") %>%
+    kable(booktabs = TRUE, 
+        caption = "Overzicht van tellingen in extra locaties", 
+        align = c("l", "l", "l","c","c", "c", "c", "c", "c", "c", "c")) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+               font_size = 11) %>%
+    collapse_rows(columns = c(1))
+  
+}
+
+```
 
 ### Tijdstippen van de tellingen
 
@@ -72,6 +102,7 @@ Figuur \@ref(fig:figuurBezoekenVleermuizen) geeft een overzicht van de tijdstipp
 bezoeken_figuur <- bezoeken %>% 
   left_join(telperiode, by = c("meetnet", "protocol")) %>%
   filter(soortgroep %in% soortgroep_sel) %>% 
+  filter(meetnet != "Vleermuizen - Wintertellingen") %>%
   filter(jaar == year_evaluation) %>% 
   select(meetnet,locatie, datum,  bezoek_status_detail, start_telperiode, einde_telperiode) %>%
   unique()
@@ -80,7 +111,7 @@ ggplot(data = bezoeken_figuur, aes(x = datum, fill = bezoek_status_detail)) +
   geom_histogram(binwidth = 7, colour = "white") +
   geom_vline(aes(xintercept = start_telperiode), data = bezoeken_figuur, linetype = 2) +
   geom_vline(aes(xintercept = einde_telperiode), data = bezoeken_figuur, linetype = 2) +
-  facet_wrap( ~ meetnet, ncol = 3, scales = "free_y") + 
+  facet_wrap( ~ meetnet, ncol = 2, scales = "free_y") + 
   labs(x = "Datum bezoek", y = "Aantal bezoeken", fill = "Bezoek status")  + 
   theme( axis.text.x = element_text(angle = 90, hjust = 1),
          legend.position = "bottom",
@@ -88,7 +119,25 @@ ggplot(data = bezoeken_figuur, aes(x = datum, fill = bezoek_status_detail)) +
 ```
 
 
+```{r figuurBezoekenVleermuizen2, fig.cap = str_c("Overzicht tijdstippen waarop wintertellingen werden uitgevoerd in ", year_evaluation - 1, "-", year_evaluation ) }
 
+bezoeken_figuur <- bezoeken %>% 
+  left_join(telperiode, by = c("meetnet", "protocol")) %>%
+  filter(soortgroep %in% soortgroep_sel) %>% 
+  filter(meetnet == "Vleermuizen - Wintertellingen") %>%
+  filter(year(datum + 182) == year_evaluation) %>% 
+  select(meetnet,locatie, datum,  bezoek_status_detail, start_telperiode, einde_telperiode) %>%
+  unique()
+
+ggplot(data = bezoeken_figuur, aes(x = datum, fill = bezoek_status_detail)) + 
+  geom_histogram(binwidth = 7, colour = "white") +
+  geom_vline(aes(xintercept = start_telperiode), data = bezoeken_figuur, linetype = 2) +
+  geom_vline(aes(xintercept = einde_telperiode), data = bezoeken_figuur, linetype = 2) +
+  labs(x = "Datum bezoek", y = "Aantal bezoeken", fill = "Bezoek status")  + 
+  theme( axis.text.x = element_text(angle = 90, hjust = 1),
+         legend.position = "bottom",
+         legend.direction = "vertical")
+```
 
 
 ### Afwijkingen van het protocol
@@ -98,7 +147,7 @@ bezoeken_afwijkingen <- bezoeken %>%
   filter(soortgroep %in% soortgroep_sel) %>% 
   filter(jaar == year_evaluation) %>% 
   filter(bezoek_status_detail != "Conform protocol") %>% 
-  select(meetnet, protocol, datum, locatie, "bezoek status" = bezoek_status_detail, opmerkingen = notes) %>%
+  select(meetnet,  datum, locatie, eurobats =  jaardoel, "bezoek status" = bezoek_status_detail, opmerkingen = notes) %>%
   mutate(opmerkingen = gsub("\n", ". ", opmerkingen))
 ```
 
@@ -125,7 +174,7 @@ if (nrow(bezoeken_afwijkingen) > 0) {
               language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
               deferRender = TRUE,
               autoWidth = TRUE,
-              columnDefs = list(list(width = '40%', targets = c(4)))
+              columnDefs = list(list(width = '40%', targets = c(5)))
               )
             )
   
@@ -184,7 +233,8 @@ locaties_opm %>%
   filter(soortgroep %in% soortgroep_sel,
          is_active) %>%
   arrange(meetnet) %>%
-  select(-soortgroep, -id, -is_active) %>%
+  select(-soortgroep, -id, -is_active, -sublocatie) %>%
+  rename(eurobats = is_sample) %>%
   datatable(
         rownames = FALSE,
         filter = 'top',

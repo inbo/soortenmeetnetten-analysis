@@ -401,21 +401,23 @@ covariabelen_vlinders <- covariabelen %>%
 covariabelen_vlinders_wide <- covariabelen_vlinders %>%
   select(-eenheid)%>%
   spread(key = bezoekvariabele, value = waarde) %>%
-  mutate(bewolking = factor(bewolking, levels = c("heldere hemel (0/8)", "lichtbewolkt (1 tot 2/8)", "halfbewolkt (3 tot 5/8)", "zwaarbewolkt (6 tot 7/8)", "betrokken (8/8)", "onbekend", "unclouded" , "partially clouded", "heavily clouded", "" )),
+  mutate(bewolking = factor(bewolking, levels = c("heldere hemel (0/8)", "lichtbewolkt (1 tot 2/8)", "halfbewolkt (3 tot 5/8)", "zwaarbewolkt (6 tot 7/8)", "betrokken (8/8)", "onbekend", "unclouded" , "partially clouded", "half clouded", "heavily clouded", "unknown", "" )),
          windkracht = factor(windkracht, levels = c("windstil (0 Bft)", "zeer zwakke wind (1 Bft)", "zwakke wind (2 Bft)", "vrij matige wind (3 Bft)", "matige wind (4 Bft)", "vrij krachtige wind (5 Bft)", "krachtige wind (6 Bft)", "stormachtig (8 Bft)", "onbekend", "unknown", "")),
          temperatuur = as.numeric(temperatuur),
-         temperatuur_klasse = ifelse(is.na(temperatuur), "ontbrekende waarde",
-                              ifelse(temperatuur <= 10, "0 - 10",
-                              ifelse(temperatuur <= 20, "10 - 20",
-                              ifelse(temperatuur <= 30, "20 - 30", "> 30")))),
-         temperatuur_klasse = factor(temperatuur_klasse, levels = c("ontbrekende waarde", "0 - 10", "10 - 20", "20 - 30", "> 30")))
+         temperatuur_klasse = ifelse(is.na(temperatuur), "?",
+                              ifelse(temperatuur < 17, "<17",
+                              ifelse(temperatuur < 20, ">=17 en <20",
+                              ifelse(temperatuur < 25, ">=20 en <25", 
+                              ifelse(temperatuur < 30, ">=25 en <30",
+                                     ">=30"))))),
+         temperatuur_klasse = factor(temperatuur_klasse, levels = c("?", "<17", ">=17 en <20", ">=20 en <25", ">=25 en <30", ">=30")))
 
 ```
 
 ```{r verkenningT, fig.width= 7, fig.height= 8, fig.cap = "Overzicht ingevoerde gegevens temperatuur"}
 
 covariabelen_vlinders_wide %>%
-  filter(jaar == 2019) %>%
+  filter(jaar == year_evaluation) %>%
   ggplot(aes(x= temperatuur_klasse, fill = bezoek_status_detail)) +
   geom_bar(colour = "white") +
   facet_wrap(~ meetnet, scales = "free_x") + 
@@ -431,7 +433,7 @@ covariabelen_vlinders_wide %>%
 ```{r verkenningCovariabelenVlinders2, fig.width= 7, fig.height= 8, fig.cap = "Overzicht ingevoerde gegevens windkracht"}
 
 covariabelen_vlinders_wide %>%
-  filter(jaar == 2019) %>%
+  filter(jaar == year_evaluation) %>%
   ggplot(aes(x= windkracht, fill = bezoek_status_detail)) +
   geom_bar() +
   facet_wrap(~ meetnet, scales = "free_x") +
@@ -442,17 +444,31 @@ covariabelen_vlinders_wide %>%
 
 ```
 
+Onderstaande figuur geeft de ingevoerde waarden voor bewolking en temperatuur voor de bezoeken waarvoor de teller aangeeft dat ze conform protocol zijn uitgevoerd. 
+Het monitoringsprotocol stelt dat de temperatuur minstens 17°C moet zijn bij heldere hemel en minstens 20°C moet zijn bij bewolking. Aan die voorwaarden wordt niet altijd voldaan. 
+
+```{r fig.height= 9,  fig.cap = "Ingevoerde waarden voor windkracht en temperatuur voor bezoeken die aangeduid werden als conform protocol"}
+covariabelen_vlinders_wide %>%
+  filter(bezoek_status_detail == "Conform protocol") %>%
+  filter(jaar == 2019) %>%
+  ggplot(aes(x= temperatuur_klasse, y = bewolking)) +
+  stat_sum() +
+  facet_wrap(~ meetnet, ncol = 3) + 
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 90)
+        ) 
+```
 
 
 
 ```{r verkenningCovariabelenVlinders3, fig.width= 7, fig.height= 8, fig.cap = "Overzicht ingevoerde gegevens bewolking"}
 
 covariabelen_vlinders_wide %>%
-  filter(jaar == 2019) %>%
+  filter(jaar == year_evaluation) %>%
   ggplot(aes(x= bewolking, fill = bezoek_status_detail)) +
   geom_bar() +
-  facet_wrap(~ meetnet) +
-  labs(y= "Aantal tellingen", x ="Windkracht") +
+  facet_wrap(~ meetnet, scales = "free_x") +
+  labs(y= "Aantal tellingen", x ="Bewolking") +
   coord_flip() +
   theme(legend.position = "bottom",
         legend.direction = "vertical") 

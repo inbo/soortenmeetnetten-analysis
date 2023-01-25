@@ -423,7 +423,13 @@ tracks <- st_read(dsn = file.path(fileman_up("soortenmeetnetten-queries"), "raw/
   filter(year(datum) == year_evaluation)
 ```
 
+Onderstaande kaart geeft de tellingen voor 2022. We onderscheiden:
 
++ de meetnettellingen ingevoerd in meetnetten.be (gele cirkels)
++ de meetnettellingen ingevoerd in waarnemingen.be (blauwe cirkels); deze moeten nog gemigreerd worden naar meetnetten.ne
++ bijkomende tellingen (niet conform het protocol) ingevoerd in waarnemingen.be (rode cirkels); deze kunnen informatie bevatten over nieuwe locaties
+
+De kaart bevat ook de tracks voor de tellingen ingevoerd in meetnetten.be.
 
 
 ```{r}

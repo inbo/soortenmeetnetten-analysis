@@ -69,11 +69,12 @@ tabel_rapport %>%
 
 Figuur \@ref(fig:figuurBezoekenzoogdieren) geeft een overzicht van de tijdstippen van de bezoeken.  
 
-```{r figuurBezoekenzoogdieren, fig.height= 4, fig.width= 6.5,  fig.cap = "Overzicht tijdstippen waarop tellingen werden uitgevoerd in 2020" }
+```{r figuurBezoekenzoogdieren, fig.height= 4, fig.width= 6.5,  fig.cap = str_c("Overzicht tijdstippen waarop tellingen werden uitgevoerd in ", year_evaluation) }
 
 bezoeken_figuur <- bezoeken %>% 
   left_join(telperiode, by = c("meetnet", "protocol")) %>%
   filter(soortgroep %in% soortgroep_sel) %>% 
+  filter(meetnet != "Otter") %>%
   filter(jaar == year_evaluation) %>% 
   select(meetnet,locatie, datum,  bezoek_status_detail, start_telperiode, einde_telperiode) %>%
   unique()
@@ -89,7 +90,26 @@ ggplot(data = bezoeken_figuur, aes(x = datum, fill = bezoek_status_detail)) +
          legend.direction = "vertical")
 ```
 
+```{r figuurBezoekenzoogdieren2, fig.height= 4, fig.width= 3,  fig.cap = str_c("Overzicht tijdstippen waarop tellingen werden uitgevoerd voor inhaalsalg Otter in de winter ", year_evaluation -1, "-", year_evaluation) }
 
+bezoeken_figuur <- bezoeken %>% 
+  left_join(telperiode, by = c("meetnet", "protocol")) %>%
+  filter(soortgroep %in% soortgroep_sel) %>% 
+  filter(meetnet == "Otter") %>%
+  filter(year(datum + 182) == year_evaluation) %>% 
+  select(meetnet,locatie, datum,  bezoek_status_detail, start_telperiode, einde_telperiode) %>%
+  unique()
+
+ggplot(data = bezoeken_figuur, aes(x = datum, fill = bezoek_status_detail)) + 
+  geom_histogram(binwidth = 7, colour = "white") +
+  geom_vline(aes(xintercept = start_telperiode), data = bezoeken_figuur, linetype = 2) +
+  geom_vline(aes(xintercept = einde_telperiode), data = bezoeken_figuur, linetype = 2) +
+  facet_wrap( ~ meetnet, ncol = 3) + 
+  labs(x = "Datum bezoek", y = "Aantal bezoeken", fill = "Bezoek status")  + 
+  theme( axis.text.x = element_text(angle = 90, hjust = 1),
+         legend.position = "bottom",
+         legend.direction = "vertical")
+```
 
 
 
@@ -137,11 +157,81 @@ if (nrow(bezoeken_afwijkingen) > 0) {
 
 
 
+### Inhaalslag Otter
 
 
 
+```{r}
+locaties_otter <- locaties %>%
+  filter(meetnet == "Otter")
+
+zoekgebieden_otter <- locaties_otter %>%
+  filter(!is_active) %>%
+  select(zoekgebied = locatie)
+
+hoofdlocaties_otter <- locaties_otter %>%
+  filter(is_active) %>%
+  filter(locatie != "Ijzervallei") %>%
+  filter(locatie_type == "locatie") %>%
+  st_join(zoekgebieden_otter)
+
+hoofdlocaties_zoekgebied <- hoofdlocaties_otter %>%
+  st_drop_geometry() %>%
+  select(zoekgebied, locatie)
+
+hoofdlocaties_otter_parent_id <- hoofdlocaties_otter %>%
+  st_drop_geometry() %>%
+  select(locatie, parent_id = id)
+
+sublocaties_otter <- locaties_otter %>%
+  filter(locatie_type == "sublocatie") %>%
+  select(parent_id, refpunt = locatie) %>%
+  left_join(hoofdlocaties_otter_parent_id, by = "parent_id")
 
 
+```
 
 
+```{r}
+bezoeken_otter <- bezoeken %>%
+  filter(meetnet == "Otter") %>%
+  mutate(winter = str_c(year(datum + 182) -1, "-", year(datum + 182))) %>%
+  left_join(hoofdlocaties_zoekgebied, by = "locatie") %>%
+  mutate(locatie_detail = ifelse(is.na(sublocatie), locatie, str_c(sublocatie, "@", locatie)))
+
+aantallen_otter <- aantallen %>%
+  filter(meetnet == "Otter") %>%
+  group_by(locatie) %>%
+  summarise(n_nulwaarnemingen = n()) %>%
+  ungroup()
+
+overzicht_otter <- bezoeken_otter %>%
+  group_by(winter, zoekgebied) %>%
+  summarise(n_bezoeken = n_distinct(visit_id, na.rm = TRUE),
+            n_locaties = n_distinct(locatie, na.rm = TRUE),
+            n_refpunten = n_distinct(sublocatie, na.rm = TRUE),
+            locaties_bezocht = str_c(unique(locatie_detail), collapse = "; ")) %>%
+  ungroup()
+              
+overzicht_otter2 <- bezoeken_otter %>%
+  arrange(winter, zoekgebied, locatie) %>%
+  group_by(locatie) %>%
+  summarise(n_bezoeken = n(),
+            veldseizoen = str_c(unique(winter), collapse = "; ")
+            ) %>%
+  ungroup()
+
+overzicht_otter3 <- hoofdlocaties_zoekgebied %>%
+  left_join(overzicht_otter2, by = c("locatie")) %>%
+  arrange(zoekgebied) %>%
+  mutate(n_bezoeken = ifelse(is.na(n_bezoeken), 0, n_bezoeken)) %>%
+  left_join(aantallen_otter)
+```
+
+```{r}
+overzicht_otter3 %>%
+  kable(caption = "Overzicht inhaalslag Otter") %>%
+  kable_styling() %>%
+  collapse_rows(1)
+```
 

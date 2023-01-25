@@ -390,8 +390,9 @@ overzicht_meetnet_das <- burchten_das %>%
 
 
 ```{r samenvoegen, message=FALSE, warning=FALSE}
-data_extra <- read.csv2("../data/overzicht_soorten_buiten_mn.csv", stringsAsFactors = FALSE) %>%
+data_extra <- read_csv2("../data/overzicht_soorten_buiten_mn.csv") %>%
   rename(is_sample_history = steekproeflocatie) %>%
+  mutate(soortgroep = ifelse(str_detect(soortgroep, "amfibie"), "amfibieën", soortgroep)) %>%
   #left_join(meetnetten_metadata, by = c("meetnet", "is_sample_history")) %>%
   rename(aantal_tellingen_gvm = aantal_taken_nu) %>%
   mutate(aantal_tellingen_jaardoel = aantal_tellingen_cp + aantal_tellingen_gvm)
@@ -673,6 +674,23 @@ counts_locations_controle_tabel <- counts_locations_controle %>%
 counts_locations_controle_tabel_caption <- "Actieve meetnetlocaties waar de doelsoort al is waargenomen, maar waar de soort in het laatste teljaar of in de laatste teljaren niet meer is gezien"
 
 ```
+```{r eval=FALSE}
+#check vleermuizen
+
+taak_locaties <- taken %>%
+  filter(werkpakket == "EUROBATS 2022-2023")
+
+evaluatie_locaties_vleermuizen <- evaluatie_locaties %>%
+  semi_join(taak_locaties, by = c("meetnet", "locatie")) %>%
+  filter(jaar == year_evaluation)
+
+
+
+doelbereik <- sum(evaluatie_locaties_vleermuizen$voldoende_geteld)/n_distinct(taak_locaties$locatie)
+
+```
+
+
 
 ```{r cache = TRUE}
 counts_locatie_analyse <- counts_bezoek %>%

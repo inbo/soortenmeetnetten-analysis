@@ -1,4 +1,4 @@
-# Planning 2022
+# Planning 2023
 
 ```{r}
 
@@ -31,8 +31,8 @@ protocollen <- evaluatie_locaties_cyclus2 %>%
 locaties_status <- locaties_metadata %>%
   filter(is_sample_history) %>%
   left_join(protocollen, by = "meetnet") %>% 
-  inner_join(evaluatie_locaties_cyclus2, by = c("meetnet", "locatie", "protocol")) %>%
-  filter(is_sample | !is.na(voldoende_data_cyclus)) %>%
+  left_join(evaluatie_locaties_cyclus2, by = c("meetnet", "locatie", "protocol")) %>%
+ # filter(is_sample | !is.na(voldoende_data_cyclus)) %>%
   left_join(eval_voldoende_geteld, by = c("meetnet","locatie", "protocol", "meetcyclus")) %>%
   left_join(eval_voldoende_data, by = c("meetnet","locatie", "protocol", "meetcyclus"))
 
@@ -45,6 +45,45 @@ evaluatie_locaties_cyclus1 <- evaluatie_locaties %>%
   select(meetnet, locatie, protocol, meetcyclus, jaar, voldoende_data, voldoende_data_cyclus, voldoende_geteld_cyclus) %>%
   spread(key = jaar, value = voldoende_data, fill = 0) 
 ```
+
+## Heikikker
+
+```{r}
+
+locaties_status_heikikker <- locaties_status %>%
+  filter(meetnet == "Heikikker") %>%
+  mutate(status = ifelse(!is_active, "locatie ongeschikt",
+                         ifelse(is.na(voldoende_geteld_cyclus), "te bezoeken",
+                                ifelse(voldoende_geteld_cyclus, "voldoende geteld", "bezocht, maar onvoldoende geteld")))) %>%
+  select(meetnet, locatie, is_active, status, jaar = voldoende_geteld_jaren)
+
+write_csv2(locaties_status_heikikker, "../output/voortgang_heikikker.csv", na = "")
+
+overzicht_heikikker <- locaties_status_heikikker %>%
+  group_by(meetnet, status) %>%
+  summarise(n_locaties = n_distinct(locatie)) %>%
+  ungroup()
+  
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Amfibieën
 
 ### Boomkikker
