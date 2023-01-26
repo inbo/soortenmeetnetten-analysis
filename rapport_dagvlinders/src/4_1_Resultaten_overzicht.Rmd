@@ -2,9 +2,9 @@
 # Overzicht van de resultaten
 
 ```{r}
-name_analysis_gebiedstelling <- "output/results/vlinders_imago_gebied_2022-03-28"
-name_analysis_transecttelling <- "output/results/vlinders_imago_transect_2022-03-28"
-name_analysis_eitelling <- "output/results/vlinders_eitelling_2022-03-28"
+name_analysis_gebiedstelling <- "output/results/vlinders_imago_gebied_2023-01-25"
+name_analysis_transecttelling <- "output/results/vlinders_imago_transect_2023-01-25"
+name_analysis_eitelling <- "output/results/vlinders_eitelling_2023-01-25"
 
 path_results <- fileman_up("analysis_vlinders")
 
@@ -110,7 +110,7 @@ verschillen_jaren %>%
       align = "lccccc",
      format = format_table) %>%
 kable_styling(font_size = font_size_table) %>%
-add_header_above(c(" " = 2, "Verschil t.o.v. referentiejaar" = 5))
+add_header_above(c(" " = 2, "Verschil t.o.v. referentiejaar" = 6))
 
 ```
 
@@ -282,11 +282,12 @@ trend <- trend %>%
           lcl_0.90_log = log(lcl_0.90/100 + 1),
          ucl_0.90_log = log(ucl_0.90/100 + 1))
 
-breaks_log <- log(c(-75, -50, -25, 0, 33, 100)/100 + 1)
-labels_show <- str_c(c(-75, -50, -25, 0, 33, 100), " %")
+breaks_log <- log(c( -50, -25, 0, 33, 50)/100 + 1)
+labels_show <- str_c(c( -50, -25, 0, 33, 50), " %")
 
-trend %>%
+plot <- trend %>%
   filter(parameter == "trend_average") %>%
+  filter(soort_nl != "Moerasparelmoervlinder") %>%
   mutate(soort_nl = factor(soort_nl, levels = order_trend)) %>%
   #ggplot( aes(x = soort_nl, y = mean/100, ymin = lcl_0.90/100, ymax = ucl_0.90/100, label = klasse, colour = klasse)) +
   ggplot( aes(x = soort_nl, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
@@ -310,6 +311,12 @@ trend %>%
   theme(legend.position = "hide")
 # trend -> (exp(x) - 1) * 100
 # x -> log(trend/100 + 1)
+
+ggsave("../output/figuren/dagvlinders_verschil_2021_2022.png", height = 3.5, width = 4.5)
+
+plot
+
+
 ```
 
 

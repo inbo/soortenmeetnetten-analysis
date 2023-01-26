@@ -705,7 +705,7 @@ verschillen_refjaar %>%
       escape = FALSE,
       align = "lcccccc") %>%
 kable_styling() %>%
-add_header_above(c(" " = 3, "Verschil t.o.v. referentiejaar" = 5))
+add_header_above(c(" " = 3, "Verschil t.o.v. referentiejaar" = 6))
 ```
 
 ```{r}
@@ -837,6 +837,8 @@ if (!file.exists(file_name)) {
   new_analysis <- TRUE
   
   analysis_hashes <- hashes
+  
+  hashes_new <- analysis_hashes
 
 } else {
   

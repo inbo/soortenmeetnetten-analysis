@@ -1397,8 +1397,8 @@ ref_jaar <- (meetnet_characteristics %>%
   filter(meetnet == m))$opstartjaar %>%
   unique()
   
-size_bar <- 50 * 2.54 / (2021 - ref_jaar + 1)
-size_bar2 <- 50 * 2.54 / (2021 - ref_jaar)
+size_bar <- 50 * 2.54 / (2022 - ref_jaar + 1)
+size_bar2 <- 50 * 2.54 / (2022 - ref_jaar)
 
 result_indexmodel_table %>%
   mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
