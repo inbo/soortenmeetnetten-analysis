@@ -92,7 +92,7 @@ aantal_nesten_2019 <- aantal_nesten_onverzicht %>%
   
 ```
 
-```{r nesten, fig.cap = "Aantal nesten per bezoek sinds 2019"}
+```{r nesten, fig.cap = "Aantal nesten per transect sinds 2019"}
 aantal_nesten_2019  %>%
   ggplot(aes(x= jaar, y = aantal_totaal, colour = locatie)) +  
   geom_point(alpha = 0.6) +
@@ -223,36 +223,67 @@ sub_loc <- get_locations_smp() %>%
   filter(meetnet == "Hazelmuis - Nestbuizen") %>%
   filter(locatie_type == "sublocatie") %>%
   select(meetnet, sublocatie = locatie, parent_id) %>%
+  mutate(showlabel = sublocatie) %>%
   left_join(st_drop_geometry(hoofd_loc), by = c("meetnet", "parent_id")) %>%
-  mutate(showlabel = sublocatie,
-         sublocatie = str_c(locatie, "-", sublocatie))
+  mutate(sublocatie = str_c(locatie, "-", sublocatie))
   
 sub_loc_occurence <- sub_loc %>%
   left_join(occurence_nestbuizen, by = c("meetnet", "locatie", "sublocatie")) %>%
   mutate(show_color = ifelse(aanwezig, "yellow", "red")) %>%
   mutate(activiteit = ifelse(activiteit == "in nestbuis", "individuen", activiteit)) %>%
- mutate(activiteit = ifelse(activiteit == "nest", "nest (vers)", activiteit))
+ mutate(activiteit = ifelse(activiteit == "nest", "nest (vers)", activiteit)) %>%
+  mutate(showlabel = str_c(showlabel, ": ", activiteit, ifelse(aanwezig, " aanwezig", " afwezig")))
 
 ```
 
-Ondestaande kaart toont de aanwezigheid van hazelmuis of sporen van hazelmuis in de nestbuizen.
+# Overzichtskaart
+
+Ondestaande kaart toont de aanwezigheid van hazelmuis of sporen van hazelmuis in de nestbuizen en het aantal getelde nesten langs de transecten.
 Selecteer een type waarneming en een jaar.
-De gele punten zijn de nestbuizen met aanwezigheid van hazelmuis en de rode punten met afwezigheid.
+
+De gele punten zijn de nestbuizen met aanwezigheid van hazelmuis en de rode punten met afwezigheid. Het aantal getelde nesten langs de transecten wordt ook weergegeven met gele punten (1 punt per transect). De grootte van de punten is in verhouding met het aantal getelde nesten.
+
 
 ```{r}
-sd <- SharedData$new(sub_loc_occurence)
+transecten_nest  <- get_locations_smp() %>%
+  filter(meetnet == "Hazelmuis") %>%
+  filter(locatie_type == "locatie") %>%
+  select(meetnet, locatie)
 
-filter_checkbox("activiteit", "Type waarneming", sd, ~activiteit)
+transecten_nest_punt <- transecten_nest %>%
+  st_point_on_surface() %>%
+  left_join(aantal_nesten_2019, by = c("locatie")) %>%
+  mutate(showradius = 8 + (20) * sqrt(aantal_totaal/pi)/sqrt(max(aantal_totaal)/pi),
+         activiteit = "nest (vers)",
+         show_color = "yellow",
+         showlabel = str_c("aantal = ", aantal_totaal, " nesten"),
+         protocol = "transecten")
+
+alle_punten <- sub_loc_occurence %>%
+  mutate(showradius = 8,
+         protocol= "nestbuizen") %>%
+  bind_rows(transecten_nest_punt)
+```
+
+
+```{r}
+sd <- SharedData$new(alle_punten)
+
+bscols(
+filter_checkbox("activiteit", "Type waarneming", sd, ~activiteit),
+filter_checkbox("protocol", "Protocol", sd, ~protocol),
 filter_checkbox("jaar", "Jaar", sd, ~jaar)
+)
 
 leaflet() %>%
   addTiles(group = "OSM") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "Esri.WorldImagery") %>%
-  addPolylines(data = hoofd_loc, label = ~locatie, group = "meetnetlocaties") %>%
-  addCircleMarkers(data = sd, label = ~showlabel, color  = ~show_color,  group = "aanwezigheid hazelmuis", fillOpacity = 0.5, opacity = 0.2, stroke = FALSE, radius = 8) %>%
+  addPolylines(data = hoofd_loc, label = ~locatie, group = "meetnetlocaties - nestbuizen") %>%
+  addPolylines(data = transecten_nest, label = ~locatie, group = "meetnetlocaties - transecten") %>%
+  addCircleMarkers(data = sd, label = ~showlabel, color  = ~show_color,  group = "tellingen hazelmuis", fillOpacity = 0.5, opacity = 0.2, stroke = FALSE, radius = ~showradius) %>%
   addLayersControl(
     baseGroups = c("OSM", "Esri.WorldImagery"),
-    overlayGroups = c("meetnetlocaties", "aanwezigheid hazelmuis"),
+    overlayGroups = c("meetnetlocaties - nestbuizen", "meetnetlocaties - transecten", "tellingen hazelmuis"),
     options = layersControlOptions(collapsed = FALSE)
   ) %>%
   addFullscreenControl()
