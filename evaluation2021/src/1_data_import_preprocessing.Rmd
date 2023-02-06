@@ -25,6 +25,7 @@ bezoeken <- bezoeken_orig %>%
          protocol = ifelse(meetnet == "Lentevuurspin", "Lentevuurspin - Transect + Gebiedstelling", protocol),
          protocol = ifelse(protocol == "Vlinders - Gebiedstelling (mobiel)", "Vlinders - Gebiedstelling", protocol),
          protocol = ifelse(str_detect(protocol, "Vleermuizen - Wintertelling"), "Vleermuizen - Wintertelling", protocol),
+         protocol = ifelse(protocol %in% c("Vleermuizen - Uitvliegtelling", "Vleermuizen - Zoldertelling"), "Vleermuizen - Zomertelling", protocol),
          bezoek_status_detail = bezoek_status,
          bezoek_status = ifelse(bezoek_status %in% c("Conform protocol", "Weersomstandigheden ongunstig"), "telling_cp",
                          ifelse(bezoek_status %in% c("Geen veldwerk mogelijk - locatie ontoegankelijk", "Geen veldwerk mogelijk - locatie ongeschikt"), "telling_gvm", 
