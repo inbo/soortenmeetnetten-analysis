@@ -1,11 +1,14 @@
 
 
-# Dataverkenning
+# Dataverkenning Boomkikker
 
 ```{r}
 
-analyseset <- analyseset %>%
+datasetset_boomkikker <- analyseset_larven %>%
+  bind_rows(analyseset_roepkoren_boomkikker) %>%
+  filter(meetnet == "Boomkikker") %>%
   filter(primaire_soort) %>%
+  mutate(protocol = ifelse(str_detect(protocol, "Larve"), "larventelling", "roepkoren")) %>%
   group_by(locatie, protocol) %>%
   mutate(paired = n_distinct(meetcyclus) > 1) %>%
   ungroup() %>%
@@ -15,11 +18,43 @@ analyseset <- analyseset %>%
 
 ## Overzicht tellingen
 
+```{r}
+overzicht <- datasetset_boomkikker %>%
+  filter(is_sample) %>%
+  group_by(protocol, paired, cluster, poel, periode) %>%
+  summarise(n_tellingen = n_distinct(visit_id)) %>%
+  ungroup()
+
+overzicht_roepkoren <- overzicht %>%
+  filter(protocol == "roepkoren") %>%
+  pivot_wider(names_from = "periode", values_from = n_tellingen, values_fill = 0)
+
+overzicht_larven <- overzicht %>%
+  filter(protocol == "larventelling") %>%
+  pivot_wider(names_from = "periode", values_from = n_tellingen, values_fill = 0)
+
+overzicht_roepkoren %>%
+  select(cluster, poel, "2016 - 2018", "2019 - 2021", "2022 - 2024") %>%
+  arrange(cluster, poel) %>%
+  kable(caption = "Aantal fuiktellingen per cyclus") %>%
+  kable_styling() %>%
+  collapse_rows(1)
+```
+
+```{r}
+overzicht_larven %>%
+  select(cluster, poel, "2017 - 2019", "2020 - 2022") %>%
+  arrange(cluster, poel) %>%
+  kable(caption = "Aantal fuiktellingen per cyclus") %>%
+  kable_styling() %>%
+  collapse_rows(1)
+```
+
 ### Tijdstip van de tellingen
 
 ```{r, fig.height=9}
 
-analyseset %>%
+datasetset_boomkikker %>%
   ggplot(aes(y = poel, x = datum, size = aantal, colour = is_sample, shape = levensstadium)) +
   geom_point(alpha = 0.3) +
   facet_wrap(~cluster, scales = "free_y")
@@ -33,7 +68,7 @@ analyseset %>%
 + Er zijn ook al tellingen van de 3de meetcyclus, maar 3de meetcyclus is nog niet afgerond dus die tellingen nemen we niet mee
 
 ```{r}
-analyseset <- analyseset %>%
+datasetset_boomkikker <- datasetset_boomkikker %>%
   filter(jaar <= 2021)
 ```
 
@@ -41,7 +76,7 @@ analyseset <- analyseset %>%
 ### Verschil steekproeflocaties niet-steekproeflocaties
 
 ```{r}
-analyseset %>%
+datasetset_boomkikker %>%
   ggplot(aes(x = is_sample, y = aantal, colour = is_sample)) +
   geom_jitter(alpha = 0.3) +
   stat_summary(fun.data = "mean_cl_boot", colour = "red") +
@@ -55,7 +90,7 @@ analyseset %>%
 
 
 ```{r}
-analyseset %>%
+datasetset_boomkikker %>%
   ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
   geom_jitter(alpha = 0.3) +
   stat_summary(fun.data = "mean_cl_boot", colour = "red") +
@@ -63,18 +98,19 @@ analyseset %>%
 ```
 
 ```{r}
-analyseset %>%
+datasetset_boomkikker %>%
   ggplot(aes(x = aantal, fill = periode)) +
   geom_density(alpha = 0.5) +
   facet_wrap(~ levensstadium, scales = "free", nrow = 3)
 ```
 ```{r}
-analyseset %>%
-  mutate(aantalsklasse = ifelse(aantal == 0, "0", 
+datasetset_boomkikker %>%
+  mutate( aantalsklasse = ifelse(aantal == 0, "0", 
                                 ifelse(aantal <= 10, "1 - 10", 
-                                       ifelse(aantal <= 50, "11 - 50",
-                                              ifelse(aantal <= 100, "51 - 100", "> 100"))))) %>%
-  mutate(aantalsklasse = factor(aantalsklasse, levels = c("0", "1 - 10", "11 - 50", "51 - 100", "> 100"))) %>%
+                                       ifelse(aantal <= 25, "11 - 25",
+                                              ifelse(aantal <= 50, "26 - 50",
+                                              ifelse(aantal <= 100, "51 - 100", "> 100")))))) %>%
+  mutate(aantalsklasse = factor(aantalsklasse, levels = c("0", "1 - 10", "11 - 25", "26 - 50", "51 - 100", "> 100"))) %>%
   ggplot(aes(x = aantalsklasse, fill = periode)) +
   geom_bar(alpha = 0.5, position = "dodge") +
   facet_wrap(~ levensstadium, scales = "free", nrow = 3)
@@ -84,7 +120,7 @@ analyseset %>%
 
 
 ```{r}
-analyseset %>%
+datasetset_boomkikker %>%
   filter(is_sample) %>%
   ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
   geom_jitter(alpha = 0.3) +
@@ -93,7 +129,7 @@ analyseset %>%
 ```
 
 ```{r}
-analyseset %>%
+datasetset_boomkikker %>%
   filter(is_sample) %>%
   ggplot(aes(x = aantal, fill = periode)) +
   geom_density(alpha = 0.5) +
@@ -101,13 +137,14 @@ analyseset %>%
 ```
 
 ```{r}
-analyseset %>%
+datasetset_boomkikker %>%
   filter(is_sample) %>%
-  mutate(aantalsklasse = ifelse(aantal == 0, "0", 
+    mutate(aantalsklasse = ifelse(aantal == 0, "0", 
                                 ifelse(aantal <= 10, "1 - 10", 
-                                       ifelse(aantal <= 50, "11 - 50",
-                                              ifelse(aantal <= 100, "51 - 100", "> 100"))))) %>%
-  mutate(aantalsklasse = factor(aantalsklasse, levels = c("0", "1 - 10", "11 - 50", "51 - 100", "> 100"))) %>%
+                                       ifelse(aantal <= 25, "11 - 25",
+                                              ifelse(aantal <= 50, "26 - 50",
+                                              ifelse(aantal <= 100, "51 - 100", "> 100")))))) %>%
+  mutate(aantalsklasse = factor(aantalsklasse, levels = c("0", "1 - 10", "11 - 25", "26 - 50", "51 - 100", "> 100"))) %>%
   ggplot(aes(x = aantalsklasse, fill = periode)) +
   geom_bar(alpha = 0.5, position = "dodge") +
   facet_wrap(~ levensstadium, scales = "free", nrow = 3)
@@ -120,14 +157,14 @@ analyseset %>%
 ### adulten
 
 ```{r}
-analyseset %>%
+datasetset_boomkikker %>%
   mutate(cluster = str_wrap(cluster)) %>%
   filter(levensstadium == "adult") %>%
   filter(is_sample) %>%
   ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
  # geom_jitter(alpha = 0.3) +
   stat_summary(fun.data = "mean_cl_boot", colour = "red") +
-  scale_y_log10() +
+  #scale_y_log10() +
   facet_wrap(~ cluster, scales = "free_y")
 ```
 `
@@ -136,7 +173,7 @@ analyseset %>%
 
 
 ```{r}
-analyseset %>%
+datasetset_boomkikker %>%
   filter(levensstadium == "larve") %>%
   filter(is_sample) %>%
   ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
@@ -148,13 +185,13 @@ analyseset %>%
 ## Zoekinspanning larvetelling
 
 ```{r}
-analyseset %>%
+datasetset_boomkikker %>%
   filter(larvetelling) %>%
   filter(is_sample) %>%
   ggplot(aes(x = n_catch, fill = periode)) +
   geom_histogram(alpha = 0.5, position = "dodge")
 
-check_catcheffort <- analyseset %>%
+check_catcheffort <- datasetset_boomkikker %>%
   filter(larvetelling) %>%
   filter(levensstadium == "larve") %>%
   group_by(cluster, poel, meetcyclus) %>%
@@ -211,7 +248,7 @@ In onderstaande figuur houden we rekening met de zoekinspanning: aantal larven p
 ```{r}
 
 
-analyseset %>%
+datasetset_boomkikker %>%
   filter(levensstadium == "larve") %>%
   filter(is_sample) %>%
   filter(!is.na(n_catch)) %>%
@@ -221,12 +258,24 @@ analyseset %>%
 
 ```
 
+```{r}
+datasetset_boomkikker %>%
+  filter(levensstadium == "larve") %>%
+  filter(is_sample) %>%
+  filter(!is.na(n_catch)) %>%
+  mutate(aantal_10catch = aantal / n_catch * 10) %>%
+  ggplot(aes(x = periode, y = aantal_10catch, colour = is_sample)) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap(~cluster)
+```
+
+
 ## Overzicht gemiddeldes per meetcyclus
 
 
 
 ```{r}
-mean_sample <- analyseset %>%
+mean_sample <- datasetset_boomkikker %>%
   filter(is_sample) %>%
   filter(primaire_soort) %>%
   group_by(levensstadium, periode) %>%
@@ -239,7 +288,7 @@ mean_sample <- analyseset %>%
   ungroup() %>%
   mutate(mean_count = str_c(mean_count, " [", round(mean_count - 1.96 * se, 2), " - ", round(mean_count + 1.96 * se, 2), "]"))
 
-mean_larve_10schep<- analyseset %>%
+mean_larve_10schep<- datasetset_boomkikker %>%
   filter(primaire_soort) %>%
   filter(is_sample) %>%
   filter(levensstadium == "larve") %>%

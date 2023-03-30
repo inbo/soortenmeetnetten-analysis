@@ -1,0 +1,560 @@
+# Modelverkenning Kamsalamander
+
+We kiezen voor een mixed model met volgende kenmerken:
++ aantallen in functie van de meetcyclus (niet in functie van jaar, gezien de correlatie tussen cluster en jaar)
++ locatie als random intercept 
++ cluster als random intercept
+
+Locaties met enkel nulwaarnemingen verwijderen we uit de analyseset.
+
+```{r}
+locatie_enkel_nulw <- analyseset_fuiken_totaal %>%
+  group_by(meetnet, is_sample, locatie) %>%
+  summarise(aantal_totaal = sum(aantal),
+            n_bezoeken = n()) %>%
+  ungroup() %>%
+  filter(aantal_totaal == 0)
+  
+```
+
+
+Daarnaast onderzoeken we ook of we volgende zaken toevoegen aan model:
++ modellering seizonaliteit
++ toevoegen van gewichten voor locaties (bij grote clusters wordt een deel van de poelen geteld, bij kleine clusters alle poelen)
++ random slope voor cluster
++ aantal keer geschept via offset meenemen in model voor larven
+
+```{r}
+to_sigma <- function(tau){sqrt(1/tau)}
+```
+
+
+
+
+## Seizonaliteit opnemen in model?
+
+### Tijdstip van de tellingen
+
+```{r}
+
+analyseset_fuiken_totaal <- analyseset_fuiken_totaal %>%
+  filter(is_sample) %>%
+  filter(paired) %>%
+  filter(primaire_soort) %>%
+  mutate(periode = str_c(meetcyclus_start, " - ", meetcyclus_end)) %>%
+  mutate(periode = factor(periode),
+         fdatum = factor(datum)) %>%
+  group_by(meetnet, protocol) %>%
+  mutate(doy_scaled = doy - min(doy) +1) %>%
+  ungroup() %>%
+  mutate(jaar_scaled = jaar - min(jaar) + 1) %>%
+  group_by(locatie) %>%
+  mutate(aantal_totaal = sum(aantal)) %>%
+  ungroup()
+
+check <- analyseset_fuiken_totaal %>%
+  group_by(protocol, periode, is_sample,  paired) %>%
+  summarise(n = n_distinct(locatie))
+
+data_sim_doy_add <- analyseset_fuiken_totaal %>%
+  as_tibble() %>%
+  tidyr::expand(periode,  doy = full_seq(doy, 1)) %>%
+  mutate(doy_scaled = doy - min(doy) + 1) %>%
+  mutate(data_type = "simulated_doy")
+
+data_combine <- analyseset_fuiken_totaal %>%
+  bind_rows(data_sim_doy_add)
+
+doy_min <- min(data_combine$doy)
+
+indexmodel_iid_doyrw1 <- inla(formula = aantal ~ periode  + 
+                                f(doy_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = data_combine,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_iid_doyrw2 <- inla(formula = aantal ~ periode  + 
+                                f(doy_scaled, 
+                                  model = "rw2",
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = data_combine,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_iid_doyrw2_bis <- inla(formula = aantal ~ periode  + 
+                                f(doy_scaled, 
+                                  model = "rw2",
+                                  replicate = jaar_scaled, #variabele die groepen definieert --> bv. integer v jaar, of combinatie cluster en meetcyclus
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_fuiken_totaal,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_iid_datum <- inla(formula = aantal ~ periode  + 
+                                f(fdatum, 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = data_combine,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_iid <- inla(formula = aantal ~ periode  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = data_combine,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+```
+
++ random effect voor datum, met sterke prior (bv. probabiliteit sigma > log(1.05) kleiner dan 5%)
+
+
+```{r}
+analyseset_fuiken_totaal %>%
+  mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
+  ggplot(aes(x = datum)) +
+  geom_histogram() +
+  labs(y = "aantal tellingen")
+```
+### Verband tussen aantallen en datum
+
+```{r}
+analyseset_fuiken_totaal %>%
+  mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
+  ggplot(aes(x = datum, y = aantal)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth() +
+  labs("aantal")
+```
+
+```{r}
+analyseset_fuiken_totaal %>%
+  mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
+  ggplot(aes(x = datum, y = aantal, group = periode, colour = periode)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth() +
+  labs("aantal")
+```
+### Modelering seizonaliteit via random walk
+
+
+```{r}
+results_seizoenseffect <- tibble(seizoenseffect = c("rw1 doy_scaled", "rw2 doy_scaled", "random intercept datum", "rw2 replicate jaar doy_scaled", "geen seizoenseffect"),
+       sigma_rw = c(indexmodel_iid_doyrw1$marginals.hyperpar$`Precision for doy_scaled` %>%
+                                 inla.emarginal(fun = to_sigma),
+                         indexmodel_iid_doyrw2$marginals.hyperpar$`Precision for doy_scaled` %>%
+                                 inla.emarginal(fun = to_sigma),
+                    indexmodel_iid_datum$marginals.hyperpar$`Precision for fdatum` %>%
+                                 inla.emarginal(fun = to_sigma),
+                    indexmodel_iid_doyrw2_bis$marginals.hyperpar$`Precision for doy_scaled` %>%
+                                 inla.emarginal(fun = to_sigma),
+                         NA),
+       waic = c(indexmodel_iid_doyrw1$waic$waic, 
+                indexmodel_iid_doyrw2$waic$waic,
+                indexmodel_iid_datum$waic$waic,
+                indexmodel_iid_doyrw2_bis$waic$waic,
+                indexmodel_iid$waic$waic))
+
+results_seizoenseffect %>%
+  kable() %>%
+  kable_styling()
+       
+```
+
+```{r}
+sigma_rw1_est <- indexmodel_iid_doyrw1$marginals.hyperpar$`Precision for doy_scaled` %>%
+  inla.emarginal(fun = to_sigma)
+
+indexmodel_iid_doyrw1$summary.random$doy_scaled %>%
+  select(doy_scaled = ID, mean, lcl = `0.025quant`, ucl = `0.975quant`) %>%
+  mutate(doy = doy_scaled -1 + doy_min,
+         datum = as.Date(doy, origin = "2018-01-01")) %>%
+  mutate_at(c("mean", "lcl", "ucl"), exp) %>%
+  ggplot(aes(x = datum, y = mean, ymin = lcl, ymax = ucl)) +
+  geom_ribbon(alpha = 0.2) + 
+  geom_line() +
+  labs(title = bquote(sigma ~ " rw1 =" ~ .(round(sigma_rw1_est, 3))),
+        y = "relative effect")
+```
+```{r}
+sigma_rw2_est <- indexmodel_iid_doyrw2$marginals.hyperpar$`Precision for doy_scaled` %>%
+  inla.emarginal(fun = to_sigma)
+
+indexmodel_iid_doyrw2$summary.random$doy_scaled %>%
+  select(doy_scaled = ID, mean, lcl = `0.025quant`, ucl = `0.975quant`) %>%
+  mutate(doy = doy_scaled -1 + doy_min,
+         datum = as.Date(doy, origin = "2018-01-01")) %>%
+  mutate_at(c("mean", "lcl", "ucl"), exp) %>%
+  ggplot(aes(x = datum, y = mean, ymin = lcl, ymax = ucl)) +
+  geom_ribbon(alpha = 0.2) + 
+  geom_line() +
+  labs(title = bquote(sigma ~ " rw2 =" ~ .(round(sigma_rw2_est, 4))),
+        y = "relative effect")
+```
+
+
+
+
+```{r}
+data_predict <- data_combine %>%
+    mutate(fitted_mean = exp(indexmodel_iid_doyrw2$summary.fitted.values$mean),
+         fitted_0.025quant = exp(indexmodel_iid_doyrw2$summary.fitted.values$`0.025quant`),
+         fitted_0.975quant = exp(indexmodel_iid_doyrw2$summary.fitted.values$`0.975quant`)) %>%
+  filter(data_type == "simulated_doy") %>%
+  select(periode, doy, fitted_mean, fitted_0.025quant, fitted_0.975quant) %>%
+  left_join(select(analyseset_fuiken_totaal, aantal_obs = aantal, doy, periode), by = c("doy", "periode")) 
+
+data_predict %>%
+  ggplot(aes(y = fitted_mean, x = doy,  ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
+  geom_line() +
+  geom_ribbon(alpha = 0.3) +
+  geom_point(aes(y = aantal_obs, x = doy)) +
+  facet_wrap(~periode)
+```
+
+
+
+
+
+## Random slope
+
+
+```{r, fig.height= 6}
+analyseset_fuiken_totaal %>%
+  ggplot(aes(x= periode, y = aantal)) +  
+  geom_boxplot() +
+  facet_wrap(~ cluster, scale = "free_y") +
+  labs(y = "Aantal adulten", x = "Meetcyclus") +
+  theme(legend.position = "bottom") 
+```
+
+
+```{r}
+
+data_sim_cluster_add <- analyseset_fuiken_totaal %>%
+  as_tibble() %>%
+  tidyr::expand(nesting(meetcyclus, periode),  cluster) %>%
+  mutate(data_type = "simulated_cluster")
+
+data_combine <- analyseset_fuiken_totaal %>%
+  mutate(data_type = "observations") %>%
+  bind_rows(data_sim_cluster_add) %>%
+  mutate( cluster2 = cluster,
+         meetcyclus_scaled = meetcyclus - 1)
+
+trendmodel_iid <- inla(formula = aantal ~ meetcyclus_scaled  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = data_combine,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trendmodel_iid2 <- inla(formula = aantal ~ meetcyclus_scaled  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) + 
+                                f(cluster2,
+                                  meetcyclus_scaled,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = data_combine,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_iid2 <- inla(formula = aantal ~ periode  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) + 
+                                f(cluster2,
+                                  meetcyclus_scaled,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = data_combine,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_interaction <- inla(formula = aantal ~ periode*cluster2  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))), 
+                       family = "nbinomial",
+                       data = data_combine,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+test <- indexmodel_interaction$summary.fixed
+
+indexmodel_iid2$summary.random$cluster2
+```
+
+
+```{r}
+
+data_predict_random_slope <- data_combine %>%
+    mutate(fitted_mean = exp(indexmodel_interaction$summary.fitted.values$mean),
+         fitted_0.025quant = exp(indexmodel_interaction$summary.fitted.values$`0.025quant`),
+         fitted_0.975quant = exp(indexmodel_interaction$summary.fitted.values$`0.975quant`)) %>%
+  filter(data_type == "simulated_cluster") %>%
+  select(periode, meetcyclus, cluster, fitted_mean, fitted_0.025quant, fitted_0.975quant) 
+
+data_predict_random_slope %>%
+  left_join(select(analyseset_fuiken_totaal, aantal_obs = aantal, cluster, periode), by = c("cluster", "periode")) %>%
+  ggplot(aes(y = fitted_mean, x = periode,  ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
+  geom_point(size = 4, colour = "red", alpha = 0.3) +
+  geom_errorbar(alpha = 0.3, colour = "red") +
+  facet_wrap(~cluster, scales = "free_y") 
+```
+
+```{r}
+overview_results <- bind_rows(
+  trendmodel_iid2$summary.fixed %>%
+    rownames_to_column("parameter") %>%
+    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
+    mutate(model = "trendmodel_iid2",
+           waic = trendmodel_iid2$waic$waic),
+  trendmodel_iid$summary.fixed %>%
+    rownames_to_column("parameter") %>%
+    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
+    mutate(model = "trendmodel_iid",
+           waic = trendmodel_iid$waic$waic),
+  indexmodel_iid$summary.fixed %>%
+    rownames_to_column("parameter") %>%
+    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
+    mutate(model = "indexmodel_iid",
+           waic = indexmodel_iid$waic$waic),
+  indexmodel_iid2$summary.fixed %>%
+    rownames_to_column("parameter") %>%
+    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
+    mutate(model = "indexmodel_iid2",
+           waic = indexmodel_iid2$waic$waic),
+  indexmodel_interaction$summary.fixed %>%
+    rownames_to_column("parameter") %>%
+    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
+    mutate(model = "indexmodel_interaction",
+           waic = indexmodel_interaction$waic$waic)
+) %>%
+  select(model, waic, parameter, mean, `0.025quant`, `0.975quant` )
+
+overview_results %>%
+  kable() %>%
+  kable_styling %>%
+  collapse_rows(c(1, 2), target = 1)
+```
+
+
+
+```{r}
+
+get_trend_mean <- function(marginals_location) {
+  marginals_location %>%
+    inla.tmarginal(fun = function(x) (exp(x) - 1) * 100) %>%
+    inla.zmarginal(silent = TRUE) %>%
+    data.frame()
+  
+} 
+
+get_trend_quantiles <- function(marginals_location) {
+  marginals_location %>%
+    inla.tmarginal(fun = function(x) (exp(x) - 1) * 100) %>%
+    inla.qmarginal(p = c(0.05, 0.20, 0.35, 0.65, 0.80, 0.95)) %>%
+    data.frame() %>%
+    mutate(type = c("lcl_0.90", "lcl_0.60", "lcl_0.30", "ucl_0.30", "ucl_0.60", "ucl_0.90")) %>%
+    spread(key = "type", value = ".")
+  
+} 
+
+trend_cluster_mean <- map_df(trendmodel_iid2$marginals.random$cluster2, get_trend_mean) 
+
+trend_cluster_quantiles <- map_df(trendmodel_iid2$marginals.random$cluster2, get_trend_quantiles) %>%
+  mutate(cluster = unique(data_sim_cluster_add$cluster)) %>%
+  bind_cols(trend_cluster_mean)
+
+
+```
+
+
+
+
+```{r, fig.cap= "Schatting en classificatie van trend per locatie met 90%-betrouwbaarheidsinterval"}
+klasse_color <- c("++" = inbo_groen, "+" = inbo_groen, "--" = inbo_rood, "-" = inbo_rood, "?+" = inbo_grijsblauw, "?-" = inbo_grijsblauw, "?" = inbo_grijsblauw, "~" = inbo_geelgr, "+~" = inbo_groen, "-~" = inbo_rood, "R" = inbo_grijsblauw)
+
+trend <- trend_cluster_quantiles %>%
+  mutate(mean_log = log(mean/100 + 1),
+          lcl_0.90_log = log(lcl_0.90/100 + 1),
+         ucl_0.90_log = log(ucl_0.90/100 + 1)) %>%
+  mutate(n_jaar = 6,
+         treshold_low = round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
+         treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1)) %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
+
+breaks_log <- log(c(-95,-75, -50, -25, 0, 33, 100, 200, 500, 2000)/100 + 1)
+labels_show <- str_c(c(-95,-75, -50, -25, 0, 33, 100, 200, 500, 2000), " %")
+
+volgorde_clusters <- (trend %>%
+  arrange(mean))$cluster
+
+trend %>%
+  mutate(cluster = factor(cluster, levels = volgorde_clusters)) %>%
+  ggplot( aes(x = cluster, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_hline(aes(yintercept = max(log(treshold_low/100 + 1))), linetype = 3) +
+  geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Gemiddelde jaarlijkse trend (%)", x = "cluster") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show, limits = c(min(breaks_log), max(breaks_log))) +
+  coord_flip() +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+```
+
+
+
+
+## Gewichten
+
++ gewichten voor clusterts?
+
+```{r}
+
+gewichten <- locatie_detail %>%
+  st_drop_geometry() %>%
+  filter(is_active) %>%
+  group_by(cluster) %>%
+  summarise(n = n_distinct(poel),
+            n_sample = sum(is_sample)) %>%
+  ungroup() %>%
+  mutate(weight = n/n_sample)
+  
+analyseset_fuiken_totaal <- analyseset_fuiken_totaal %>%
+  left_join(gewichten, by = "cluster") 
+
+```
+
+```{r}
+gewichten %>%
+  kable(digits = 2) %>%
+  kable_styling()
+```
+
+## Validatie
+
+```{r}
+indexmodel_iid <- inla(formula = aantal ~ periode  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_fuiken_totaal,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+```
+
+## Dispersion
+
+```{r}
+plot(dispersion_check(indexmodel_iid))
+```
+## Distribution
+
+```{r}
+plot(fast_distribution_check(indexmodel_iid))
+```
+## Random effect
+
+
+### Location
+
+```{r}
+
+ precision_location <- indexmodel_iid$summary.hyperpar$mean[2]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_location),
+                  precision = precision_location,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_location))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_location), 3))))
+    
+```
+### Cluster
+
+```{r}
+
+ precision_cluster <- indexmodel_iid$summary.hyperpar$mean[3]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_cluster),
+                  precision = precision_cluster,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_cluster))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_cluster), 3))))
+    
+```

@@ -41,6 +41,9 @@ covar <- get_covariates_smp(species_group = species_group) %>%
 
 counts_all <- get_counts_smp(species_group = species_group) %>%
   filter(meetnet == species) %>%
+  mutate(protocol = ifelse(protocol == "Amfibieën - Fuiken (v1)", 
+                           "Amfibieën - Fuiken", 
+                           protocol)) %>%
   filter(protocol == "Amfibieën - Fuiken") %>%
   group_by(protocol, visit_id) %>%
   mutate( n_fuiken = n_distinct(sample_id)) %>%
@@ -97,27 +100,17 @@ locaties_niet_actief %>%
 
 
 
-+ We selecteren enkel tellingen die geschikt zijn voor analyse
-  + Geen veldwerk mogelijk - locatie ongechikt: wat als poel droog staat? Meenemen als nulwaarneming?
-  
-```{r}
-dataset %>%
-  filter(bezoek_status == "Geen veldwerk mogelijk - locatie ongeschikt") %>%
-  filter(is_active) %>%
-  distinct(meetnet, locatie, datum, bezoek_status, voor_analyse, notes) %>%
-  datatable(rownames = FALSE)
-```
 
-### Overzicht van de type tellingen: primaire soort, zoekinspanning, levensstadium
+
+### Overzicht van de type tellingen: primaire soort, levensstadium, geslacht
 
 Onderstaande tabel geeft een overzicht van het aantal records, bezoeken en locaties en de totale aantallen voor de verschillende combinaties van:
 
 + protocol
 + primaire soort
-+ zoekinspanning
 + levensstadium
++ geslacht
 
-Alles lijkt OK!
 
 
 ```{r}
@@ -127,7 +120,9 @@ dataset <- dataset %>%
 
 dataset_check2 <- dataset %>%
   filter(!is.na(aantal)) %>%
-  group_by(meetnet, protocol,  primaire_soort, zoekinspanning, levensstadium) %>%
+  mutate(fuiken = ifelse(n_fuiken < 2, "1 fuik",
+                         ifelse(n_fuiken == 2, "2 fuiken", "> 2 fuiken"))) %>%
+  group_by(meetnet, protocol,  primaire_soort, levensstadium, geslacht) %>%
   summarise(n_records = n(),
             n_visits = n_distinct(visit_id),
             n_locaties = n_distinct(locatie),
@@ -154,8 +149,16 @@ dataset_check3 %>%
 ```
 
 ```{r}
+locaties_geen_data <- locatie_detail %>%
+  filter(is_sample) %>%
+  anti_join(dataset, by = "locatie")
+```
+
+
+
+```{r}
 duur_cyclus <- 3
-start_cyclus <- 2016
+start_cyclus <- 2017
 
 analyseset <- dataset %>%
   filter(!is.na(aantal)) %>%
@@ -164,7 +167,7 @@ analyseset <- dataset %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus -1) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, doy, bezoek_status, zoekinspanning, larvetelling, metamorftelling, n_catch, primaire_soort, soort_nl, soort_wet, levensstadium, aantal)
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, doy, bezoek_status, n_fuiken, primaire_soort, soort_nl, soort_wet, levensstadium, geslacht, aantal)
 ```
 
 

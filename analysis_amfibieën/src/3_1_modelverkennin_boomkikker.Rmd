@@ -8,7 +8,7 @@ We kiezen voor een mixed model met volgende kenmerken:
 Locaties met enkel nulwaarnemingen verwijderen we uit de analyseset.
 
 ```{r}
-locatie_enkel_nulw <- dataset %>%
+locatie_enkel_nulw <- analyseset_roepkoren_boomkikker %>%
   group_by(meetnet,levensstadium, is_sample, locatie) %>%
   summarise(aantal_totaal = sum(aantal),
             n_bezoeken = n()) %>%
@@ -37,10 +37,11 @@ to_sigma <- function(tau){sqrt(1/tau)}
 
 ```{r}
 
-analyseset_adult <- analyseset %>%
-  filter(levensstadium == "adult") %>%
+analyseset_roepkoren_boomkikker <- analyseset_roepkoren_boomkikker %>%
   filter(jaar <= 2021) %>%
   filter(is_sample) %>%
+  filter(primaire_soort) %>%
+  mutate(periode = str_c(meetcyclus_start, " - ", meetcyclus_end)) %>%
   mutate(periode = factor(periode),
          fdatum = factor(datum)) %>%
   group_by(meetnet, protocol) %>%
@@ -51,16 +52,13 @@ analyseset_adult <- analyseset %>%
   filter(sum(aantal) > 0) %>%
   ungroup()
 
-data_sim_doy_add <- analyseset_adult %>%
+data_sim_doy_add <- analyseset_roepkoren_boomkikker %>%
   as_tibble() %>%
-  tidyr::expand(meetcyclus,  doy = full_seq(doy, 1)) %>%
-  mutate(doy_scaled = doy - min(doy) + 1,
-         meetcyclus_start = start_cyclus + (meetcyclus - 1) * duur_cyclus,
-         meetcyclus_end = meetcyclus_start + duur_cyclus - 1,
-         periode = factor(str_c(meetcyclus_start, " - ", meetcyclus_end))) %>%
+  tidyr::expand(periode,  doy = full_seq(doy, 1)) %>%
+  mutate(doy_scaled = doy - min(doy) + 1) %>%
   mutate(data_type = "simulated_doy")
 
-data_combine <- analyseset_adult %>%
+data_combine <- analyseset_roepkoren_boomkikker %>%
   bind_rows(data_sim_doy_add)
 
 doy_min <- min(data_combine$doy)
@@ -107,7 +105,7 @@ indexmodel_iid_doyrw2_bis <- inla(formula = aantal ~ periode  +
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
-                       data = analyseset_adult,
+                       data = analyseset_roepkoren_boomkikker,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
@@ -137,14 +135,13 @@ indexmodel_iid <- inla(formula = aantal ~ periode  +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
-summary(indexmodel_iid_doyrw2_bis)
 ```
 
 + random effect voor datum, met sterke prior (bv. probabiliteit sigma > log(1.05) kleiner dan 5%)
 
 
 ```{r}
-analyseset_adult %>%
+analyseset_roepkoren_boomkikker %>%
   mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
   ggplot(aes(x = datum)) +
   geom_histogram() +
@@ -153,7 +150,7 @@ analyseset_adult %>%
 ### Verband tussen aantallen en datum
 
 ```{r}
-analyseset_adult %>%
+analyseset_roepkoren_boomkikker %>%
   mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
   ggplot(aes(x = datum, y = aantal)) +
   geom_point(alpha = 0.4) +
@@ -162,7 +159,7 @@ analyseset_adult %>%
 ```
 
 ```{r}
-analyseset_adult %>%
+analyseset_roepkoren_boomkikker %>%
   mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
   ggplot(aes(x = datum, y = aantal, group = periode, colour = periode)) +
   geom_point(alpha = 0.4) +
@@ -255,7 +252,7 @@ data_predict <- data_combine %>%
          fitted_0.975quant = exp(indexmodel_iid_doyrw1$summary.fitted.values$`0.975quant`)) %>%
   filter(data_type == "simulated_doy") %>%
   select(periode, doy, fitted_mean, fitted_0.025quant, fitted_0.975quant) %>%
-  left_join(select(analyseset_adult, aantal_obs = aantal, doy, periode), by = c("doy", "periode")) 
+  left_join(select(analyseset_roepkoren_boomkikker, aantal_obs = aantal, doy, periode), by = c("doy", "periode")) 
 
 data_predict %>%
   ggplot(aes(y = fitted_mean, x = doy,  ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
@@ -276,7 +273,7 @@ Conclusie: seizonaliteit niet meenemen in model.
 
 
 ```{r, fig.height= 6}
-analyseset_adult %>%
+analyseset_roepkoren_boomkikker %>%
   ggplot(aes(x= periode, y = aantal)) +  
   geom_boxplot() +
   facet_wrap(~ cluster, scale = "free_y") +
@@ -287,22 +284,18 @@ analyseset_adult %>%
 
 ```{r}
 
-data_sim_cluster_add <- analyseset_adult %>%
+data_sim_cluster_add <- analyseset_roepkoren_boomkikker %>%
   as_tibble() %>%
-  tidyr::expand(meetcyclus,  cluster) %>%
-  mutate( meetcyclus_start = start_cyclus + (meetcyclus - 1) * duur_cyclus,
-         meetcyclus_end = meetcyclus_start + duur_cyclus - 1,
-         periode = factor(str_c(meetcyclus_start, " - ", meetcyclus_end))) %>%
+  tidyr::expand(nesting(meetcyclus, periode),  cluster) %>%
   mutate(data_type = "simulated_cluster")
 
-data_combine <- analyseset_adult %>%
+data_combine <- analyseset_roepkoren_boomkikker %>%
   mutate(data_type = "observations") %>%
   bind_rows(data_sim_cluster_add) %>%
-  mutate(periode = factor(periode),
-         cluster2 = cluster,
-         meetcyclus_scaled = meetcyclus -1)
+  mutate( cluster2 = cluster,
+         meetcyclus_scaled = meetcyclus - 1)
 
-trendmodel_iid <- inla(formula = aantal ~ meetcyclus  + 
+trendmodel_iid <- inla(formula = aantal ~ meetcyclus_scaled  + 
                                 f(locatie, 
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
@@ -314,7 +307,7 @@ trendmodel_iid <- inla(formula = aantal ~ meetcyclus  +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
-trendmodel_iid2 <- inla(formula = aantal ~ meetcyclus  + 
+trendmodel_iid2 <- inla(formula = aantal ~ meetcyclus_scaled  + 
                                 f(locatie, 
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
@@ -322,7 +315,7 @@ trendmodel_iid2 <- inla(formula = aantal ~ meetcyclus  +
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) + 
                                 f(cluster2,
-                                  meetcyclus,
+                                  meetcyclus_scaled,
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
@@ -338,7 +331,7 @@ indexmodel_iid2 <- inla(formula = aantal ~ periode  +
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) + 
                                 f(cluster2,
-                                  meetcyclus,
+                                  meetcyclus_scaled,
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
@@ -374,12 +367,13 @@ data_predict_random_slope <- data_combine %>%
   select(periode, meetcyclus, cluster, fitted_mean, fitted_0.025quant, fitted_0.975quant) 
 
 data_predict_random_slope %>%
-  left_join(select(analyseset_adult, aantal_obs = aantal, cluster, periode), by = c("cluster", "periode")) %>%
+  left_join(select(analyseset_roepkoren_boomkikker, aantal_obs = aantal, cluster, periode), by = c("cluster", "periode")) %>%
   ggplot(aes(y = fitted_mean, x = periode,  ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
   geom_point(size = 4, colour = "red", alpha = 0.3) +
   geom_errorbar(alpha = 0.3, colour = "red") +
   facet_wrap(~cluster, scales = "free_y") 
 ```
+
 ```{r}
 overview_results <- bind_rows(
   trendmodel_iid2$summary.fixed %>%
@@ -397,6 +391,11 @@ overview_results <- bind_rows(
     select(parameter, mean, `0.025quant`, `0.975quant`) %>%
     mutate(model = "indexmodel_iid",
            waic = indexmodel_iid$waic$waic),
+  indexmodel_iid2$summary.fixed %>%
+    rownames_to_column("parameter") %>%
+    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
+    mutate(model = "indexmodel_iid2",
+           waic = indexmodel_iid2$waic$waic),
   indexmodel_interaction$summary.fixed %>%
     rownames_to_column("parameter") %>%
     select(parameter, mean, `0.025quant`, `0.975quant`) %>%
@@ -453,8 +452,8 @@ trend <- trend_cluster_quantiles %>%
           lcl_0.90_log = log(lcl_0.90/100 + 1),
          ucl_0.90_log = log(ucl_0.90/100 + 1)) %>%
   mutate(n_jaar = 6,
-         treshold_low = round((exp(log(0.75)/(n_jaar - 1)) - 1) *100, 1),
-         treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) *100, 1)) %>%
+         treshold_low = round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
+         treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1)) %>%
   mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
 
 breaks_log <- log(c( -50, -25, 0, 33, 100)/100 + 1)
@@ -466,7 +465,7 @@ volgorde_clusters <- (trend %>%
 trend %>%
   mutate(cluster = factor(cluster, levels = volgorde_clusters)) %>%
   ggplot( aes(x = cluster, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
-  geom_hline(aes(yintercept = max(log(treshold_low/100 +1))), linetype = 3) +
+  geom_hline(aes(yintercept = max(log(treshold_low/100 + 1))), linetype = 3) +
   geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3) +
   geom_hline(yintercept = 0, linetype = 2) +
   geom_errorbar(width = 0, size = 10, alpha = 0.3) +
@@ -493,7 +492,7 @@ gewichten <- locatie_detail %>%
   ungroup() %>%
   mutate(weight = n/n_sample)
   
-analyseset_adult <- analyseset_adult %>%
+analyseset_roepkoren_boomkikker <- analyseset_roepkoren_boomkikker %>%
   left_join(gewichten, by = "cluster") 
 
 ```
@@ -515,7 +514,7 @@ indexmodel_iid <- inla(formula = aantal ~ periode  +
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
-                       data = analyseset_adult,
+                       data = analyseset_roepkoren_boomkikker,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 ```

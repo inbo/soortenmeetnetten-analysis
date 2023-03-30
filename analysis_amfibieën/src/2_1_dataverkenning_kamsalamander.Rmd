@@ -1,0 +1,433 @@
+
+
+# Dataverkenning Kamsalamander
+
+
+```{r}
+datasetset_kamsalamander <- analyseset_larven %>%
+  bind_rows(analyseset_fuiken_totaal) %>%
+  filter(meetnet == "Kamsalamander") %>%
+  filter(primaire_soort) %>%
+  group_by(cluster) %>%
+  mutate(n_poelen = n_distinct(poel)) %>%
+  ungroup() %>%
+  mutate(meetcyclus = ifelse(jaar <= 2020, 1 , 2),
+         meetcyclus_start = ifelse(meetcyclus == 1, 2017, 2021),
+         meetcyclus_end = ifelse(meetcyclus == 1, 2020, 2023),
+         periode = str_c(meetcyclus_start, " - ", meetcyclus_end),
+         aantal_orig = aantal,
+         aantal = ifelse(!is.na(n_fuiken), aantal/n_fuiken, aantal),
+         protocol = ifelse(str_detect(protocol, "Larve"), "larventelling", "fuiken"),
+         levensstadium = ifelse(is.na(levensstadium), "adult en juveniel", levensstadium)) %>%
+  filter(!is.na(aantal)) %>%
+  filter(levensstadium != "metamorf") %>%
+  group_by(locatie, protocol) %>%
+  mutate(paired = n_distinct(meetcyclus) > 1,
+         multiple_year = n_distinct(jaar) > 1) %>%
+  ungroup()
+
+check_2 <- datasetset_kamsalamander %>%
+  distinct(protocol, locatie, is_sample, paired, multiple_year) %>%
+  group_by(protocol, is_sample) %>%
+  summarise(n_paired = sum(paired),
+             n_multiple_years = sum(multiple_year)) %>%
+  ungroup()
+
+check <- datasetset_kamsalamander %>%
+  filter(is_sample) %>%
+  filter(paired) %>%
+  group_by(protocol, periode) %>%
+  summarise(n_locaties = n_distinct(locatie)) %>%
+  ungroup()
+```
+
+
+## Overzicht tellingen
+
+### Meetnetlocaties
+
+```{r}
+overzicht <- datasetset_kamsalamander %>%
+  filter(is_sample) %>%
+  group_by(protocol, paired, cluster, poel, locatie, periode) %>%
+  summarise(n_tellingen = n_distinct(visit_id)) %>%
+  ungroup()
+
+overzicht_fuiken <- overzicht %>%
+  filter(protocol == "fuiken") %>%
+  pivot_wider(names_from = "periode", values_from = n_tellingen, values_fill = 0)
+
+overzicht_larven <- overzicht %>%
+  filter(protocol == "larventelling") %>%
+  pivot_wider(names_from = "periode", values_from = n_tellingen, values_fill = 0)
+
+overzicht_fuiken %>%
+  select(cluster, poel, "2017 - 2020", "2021 - 2023", gepaard = paired) %>%
+  arrange(cluster, poel) %>%
+  kable(caption = "Aantal fuiktellingen per cyclus") %>%
+  kable_styling() %>%
+  collapse_rows(1)
+
+overzicht_paired <- overzicht %>%
+  group_by(protocol, paired) %>%
+  summarise(n = n_distinct(locatie),
+            meetcycli = str_c(unique(periode), collapse = "; ")) %>%
+  ungroup()
+```
+
+```{r}
+overzicht_larven %>%
+  select(cluster, poel, "2017 - 2020", "2021 - 2023", gepaard = paired) %>%
+  arrange(cluster, poel) %>%
+  kable(caption = "Aantal fuiktellingen per cyclus") %>%
+  kable_styling() %>%
+  collapse_rows(1)
+```
+
+
+### Tijdstip van de tellingen
+
+```{r, fig.height=9}
+
+datasetset_kamsalamander %>%
+  filter(n_poelen >= 3) %>%
+  ggplot(aes(y = poel, x = datum, size = aantal, colour = is_sample, shape = protocol)) +
+  geom_point(alpha = 0.6) +
+  geom_vline(xintercept = as.Date("2021-01-01"), linetype = 2, alpha = 0.5) +
+  facet_wrap(~cluster, scales = "free_y")
+```
+
+```{r, fig.height=9}
+
+datasetset_kamsalamander %>%
+  filter(n_poelen < 3) %>%
+  ggplot(aes(y = locatie, x = datum, size = aantal, colour = is_sample, shape = protocol)) +
+  geom_point(alpha = 0.6) +
+  geom_vline(xintercept = as.Date("2021-01-01"), linetype = 2, alpha = 0.5)
+```
+
+
+
+### Verschil steekproeflocaties niet-steekproeflocaties
+
+```{r}
+datasetset_kamsalamander %>%
+  ggplot(aes(x = is_sample, y = aantal, colour = is_sample)) +
+  geom_jitter(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap(~ levensstadium, scales = "free_y")
+```
+
+
+## Vergelijking meetcycli: alle meetpunten
+
+
+
+```{r}
+datasetset_kamsalamander %>%
+  ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
+  geom_jitter(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap(~ levensstadium, scales = "free_y")
+```
+
+```{r}
+datasetset_kamsalamander %>%
+  ggplot(aes(x = aantal, fill = periode)) +
+  geom_density(alpha = 0.5) +
+  facet_wrap(~ levensstadium, scales = "free", nrow = 3)
+```
+```{r}
+datasetset_kamsalamander %>%
+  mutate( aantalsklasse = ifelse(aantal == 0, "0", 
+                                ifelse(aantal <= 10, "1 - 10", 
+                                       ifelse(aantal <= 25, "11 - 25",
+                                              ifelse(aantal <= 50, "26 - 50",
+                                              ifelse(aantal <= 100, "51 - 100", "> 100")))))) %>%
+  mutate(aantalsklasse = factor(aantalsklasse, levels = c("0", "1 - 10", "11 - 25", "26 - 50", "51 - 100", "> 100"))) %>%
+  ggplot(aes(x = aantalsklasse, fill = periode)) +
+  geom_bar(alpha = 0.5, position = "dodge") +
+  facet_wrap(~ levensstadium, scales = "free", nrow = 3)
+```
+
+## Vergelijking meetcycli: enkel meetnetlocaties
+
+
+```{r}
+datasetset_kamsalamander %>%
+  filter(is_sample) %>%
+  ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
+  geom_jitter(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap(~ levensstadium, scales = "free_y")
+```
+
+```{r}
+datasetset_kamsalamander %>%
+  filter(is_sample) %>%
+  ggplot(aes(x = aantal, fill = periode)) +
+  geom_density(alpha = 0.5) +
+  facet_wrap(~ levensstadium, scales = "free", nrow = 3)
+```
+
+```{r}
+datasetset_kamsalamander %>%
+  filter(is_sample) %>%
+    mutate(aantalsklasse = ifelse(aantal == 0, "0", 
+                                ifelse(aantal <= 10, "1 - 10", 
+                                       ifelse(aantal <= 25, "11 - 25",
+                                              ifelse(aantal <= 50, "26 - 50",
+                                              ifelse(aantal <= 100, "51 - 100", "> 100")))))) %>%
+  mutate(aantalsklasse = factor(aantalsklasse, levels = c("0", "1 - 10", "11 - 25", "26 - 50", "51 - 100", "> 100"))) %>%
+  ggplot(aes(x = aantalsklasse, fill = periode)) +
+  geom_bar(alpha = 0.5, position = "dodge") +
+  facet_wrap(~ levensstadium, scales = "free", nrow = 3)
+```
+## Vergelijking meetcycli: enkel meetnetlocaties die in beide cycli werden geteld
+
+```{r}
+
+
+datasetset_kamsalamander %>%
+  filter(is_sample) %>%
+  filter(paired) %>%
+  ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
+  geom_jitter(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap(~ levensstadium, scales = "free_y")
+```
+```{r}
+datasetset_kamsalamander %>%
+  filter(is_sample) %>%
+  filter(paired) %>%
+  ggplot(aes(x = aantal, fill = periode)) +
+  geom_density(alpha = 0.5) +
+  facet_wrap(~ levensstadium, scales = "free", nrow = 3)
+```
+
+```{r}
+datasetset_kamsalamander %>%
+  filter(is_sample) %>%
+  filter(paired) %>%
+    mutate(aantalsklasse = ifelse(aantal == 0, "0", 
+                                ifelse(aantal <= 10, "1 - 10", 
+                                       ifelse(aantal <= 25, "11 - 25",
+                                              ifelse(aantal <= 50, "26 - 50",
+                                              ifelse(aantal <= 100, "51 - 100", "> 100")))))) %>%
+  mutate(aantalsklasse = factor(aantalsklasse, levels = c("0", "1 - 10", "11 - 25", "26 - 50", "51 - 100", "> 100"))) %>%
+  ggplot(aes(x = aantalsklasse, fill = periode)) +
+  geom_bar(alpha = 0.5, position = "dodge") +
+  facet_wrap(~ levensstadium, scales = "free", nrow = 3)
+```
+
+
+
+## Vergelijking gemiddelde aantallen per cluster 
+
+### adulten en juvenielen
+
+```{r}
+datasetset_kamsalamander %>%
+  mutate(cluster = str_wrap(cluster)) %>%
+  filter(levensstadium == "adult en juveniel") %>%
+  filter(is_sample) %>%
+  filter(n_poelen >= 3) %>%
+  ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
+  geom_point(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  #scale_y_log10() +
+  facet_wrap(~ cluster, scales = "free_y")
+```
+`
+
+### Larven
+
+
+```{r}
+datasetset_kamsalamander %>%
+  filter(levensstadium == "larve") %>%
+  filter(is_sample) %>%
+    filter(n_poelen >= 3) %>%
+  ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
+  geom_point(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap(~ cluster, scales = "free_y")
+```
+
+## Zoekinspanning larvetelling
+
+```{r}
+datasetset_kamsalamander %>%
+  filter(larvetelling) %>%
+  filter(is_sample) %>%
+  ggplot(aes(x = n_catch, fill = periode)) +
+  geom_histogram(alpha = 0.5, position = "dodge")
+
+check_catcheffort <- datasetset_kamsalamander %>%
+  filter(larvetelling) %>%
+  filter(levensstadium == "larve") %>%
+  group_by(cluster, poel, meetcyclus) %>%
+  mutate(n_visits = n()) %>%
+  ungroup() %>%
+  select(visit_id, is_sample, cluster, poel, periode, n_visits, datum, n_catch, levensstadium, aantal)
+  
+```
+
+
+
+```{r}
+check_catcheffort_missing_value <- check_catcheffort %>%
+  group_by(periode, is_sample) %>%
+  summarise(n_records = n(),
+            prop_missing = round(sum(is.na(n_catch))/ n(), 2),
+            prop_ingevuld = round(sum(!is.na(n_catch))/ n(), 2)) %>%
+  ungroup()
+
+check_catcheffort_missing_value %>%
+  kable(caption = "Proportie van de observatie waarbij 'aantal keer geschept' niet werd ingevuld per meetcyclus") %>%
+  kable_styling() %>%
+  collapse_rows(1)
+```
+
+```{r}
+catcheffort_missing <- check_catcheffort %>%
+  filter(is.na(n_catch)) %>%
+  select(visit_id, cluster, poel, is_sample, datum, aantal) %>%
+  left_join(select(visits, visit_id, hoofdteller), by = "visit_id") %>%
+  arrange(datum)
+
+catcheffort_missing %>%
+  write_csv2("../output/kamsalamanderlarve_aantalscheppen_ontbreekt.csv")
+
+catcheffort_missing %>%
+  select(-hoofdteller) %>%
+  datatable(rownames = FALSE)
+```
+
+```{r, fig.height= 9}
+check_catcheffort %>%
+  filter(is_sample) %>%
+  ggplot(aes(x = n_catch, y = poel, colour = periode, shape = periode)) +
+  geom_point(alpha = 0.5, size = 4) +
+  facet_wrap(~ cluster, scales = "free_y")
+```
+
+
+In onderstaande figuur houden we rekening met de zoekinspanning: aantal larven per 10 scheppen. Maar als er vooral minder geschept wordt omdat het wateroppervlak kleiener is in de 2de meetcyclus, kan dit ook een vertekend beeld geven.
+
+```{r}
+datasetset_kamsalamander <- datasetset_kamsalamander %>%
+  mutate(n_catch = ifelse(is.na(n_catch) & aantal == 0, 1, n_catch),
+        aantal_10catch = aantal / n_catch * 10)
+
+datasetset_kamsalamander %>%
+  filter(levensstadium == "larve") %>%
+  filter(is_sample) %>%
+  filter(!is.na(n_catch)) %>%
+  ggplot(aes(x = periode, y = aantal_10catch, colour = is_sample)) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") 
+
+```
+
+```{r}
+datasetset_kamsalamander %>%
+  filter(levensstadium == "larve") %>%
+  filter(is_sample) %>%
+  filter(!is.na(n_catch)) %>%
+  filter(n_poelen >= 3) %>%
+  ggplot(aes(x = periode, y = aantal_10catch, colour = is_sample)) +
+  geom_point(alpha = 0.5) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap(~cluster, scales = "free_y")
+```
+
+## Overzicht gemiddeldes per meetcyclus
+
+```{r}
+mean_sample <- datasetset_kamsalamander %>%
+  filter(is_sample) %>%
+  filter(primaire_soort) %>%
+  group_by(levensstadium, periode) %>%
+  summarise(mean_count = round(mean(aantal, na.rm = TRUE), 2),
+            se = sqrt(var(aantal, na.rm = TRUE)/n()),
+            mean_n_catch = round(mean(n_catch, na.rm = TRUE), 2),
+            occurence = round(sum(aantal > 0, na.rm = TRUE)/ n(), 2),
+            n_bezoeken = n(),
+            n_locaties = n_distinct(locatie)) %>%
+  ungroup() %>%
+  mutate(mean_count = str_c(mean_count, " [", round(mean_count - 1.96 * se, 2), " - ", round(mean_count + 1.96 * se, 2), "]"))
+
+mean_larve_10schep<- datasetset_kamsalamander %>%
+  filter(primaire_soort) %>%
+  filter(is_sample) %>%
+  filter(levensstadium == "larve") %>%
+  filter(!is.na(n_catch)) %>%
+  group_by(cluster, locatie) %>%
+  ungroup() %>%
+  group_by(levensstadium, periode) %>%
+  summarise(mean_count = round(mean(aantal, na.rm = TRUE), 2),
+            se = sqrt(var(aantal, na.rm = TRUE)/n()),
+            occurence = round(sum(aantal > 0, na.rm = TRUE)/ n(), 2),
+            n_bezoeken = n(),
+            n_locaties = n_distinct(locatie)) %>%
+  ungroup()  %>%
+  mutate(mean_count = str_c(mean_count, " [", round(mean_count - 1.96 * se, 2), " - ", round(mean_count + 1.96 * se, 2), "]")) %>%
+  mutate(levensstadium = "larve_per10schep")
+
+mean_sample %>%
+  bind_rows(mean_larve_10schep) %>%
+  arrange(levensstadium) %>%
+  mutate(mean_n_catch = ifelse(levensstadium == "larve", mean_n_catch, NA)) %>%
+  select(-se) %>%
+  kable %>%
+  kable_styling() %>%
+  collapse_rows(c(1, 2))
+```
+
+## Overzicht gemiddeldes per meetcyclus, enkel locaties die in beide cycli werden geteld
+
+```{r}
+mean_sample <- datasetset_kamsalamander %>%
+  filter(is_sample) %>%
+  filter(primaire_soort) %>%
+  filter(paired) %>%
+  group_by(levensstadium, periode) %>%
+  summarise(mean_count = round(mean(aantal, na.rm = TRUE), 2),
+            se = sqrt(var(aantal, na.rm = TRUE)/n()),
+            mean_n_catch = round(mean(n_catch, na.rm = TRUE), 2),
+            occurence = round(sum(aantal > 0, na.rm = TRUE)/ n(), 2),
+            n_bezoeken = n(),
+            n_locaties = n_distinct(locatie)) %>%
+  ungroup() %>%
+  mutate(mean_count = str_c(mean_count, " [", round(mean_count - 1.96 * se, 2), " - ", round(mean_count + 1.96 * se, 2), "]"))
+
+mean_larve_10schep<- datasetset_kamsalamander %>%
+  filter(primaire_soort) %>%
+  filter(is_sample) %>%
+    filter(paired) %>%
+  filter(levensstadium == "larve") %>%
+  filter(!is.na(n_catch)) %>%
+  mutate(aantal = aantal/n_catch * 10) %>%
+  group_by(cluster, locatie) %>%
+  ungroup() %>%
+  group_by(levensstadium, periode) %>%
+  summarise(mean_count = round(mean(aantal, na.rm = TRUE), 2),
+            se = sqrt(var(aantal, na.rm = TRUE)/n()),
+            occurence = round(sum(aantal > 0, na.rm = TRUE)/ n(), 2),
+            n_bezoeken = n(),
+            n_locaties = n_distinct(locatie)) %>%
+  ungroup()  %>%
+  mutate(mean_count = str_c(mean_count, " [", round(mean_count - 1.96 * se, 2), " - ", round(mean_count + 1.96 * se, 2), "]")) %>%
+  mutate(levensstadium = "larve_per10schep")
+
+mean_sample %>%
+  bind_rows(mean_larve_10schep) %>%
+  arrange(levensstadium) %>%
+  mutate(mean_n_catch = ifelse(levensstadium == "larve", mean_n_catch, NA)) %>%
+  select(-se) %>%
+  kable %>%
+  kable_styling() %>%
+  collapse_rows(c(1, 2))
+```
+
+

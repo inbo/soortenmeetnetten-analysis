@@ -1,11 +1,12 @@
 # Analyse
 
-## Boomkikker adulten
+## Boomkikker roepkoren
 
 ```{r}
-analyseset_boomkikker_adult <- analyseset_adult %>%
+analyseset_roepkoren_boomkikker <- analyseset_roepkoren_boomkikker %>%
   mutate(meetcyclus_n = meetcyclus,
-         meetcyclus = ifelse(meetcyclus == 1, "2016_2018", "2019_2021"))
+         meetcyclus = ifelse(meetcyclus == 1, "2016_2018", "2019_2021")) %>%
+  mutate(year_scaled = jaar_scaled)
 
 indexmodel_iid <- inla(formula = aantal ~ meetcyclus  + 
                                 f(locatie, 
@@ -15,31 +16,118 @@ indexmodel_iid <- inla(formula = aantal ~ meetcyclus  +
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
-                       data = analyseset_boomkikker_adult,
+                       data = analyseset_roepkoren_boomkikker,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
 par_indexmodel_iid <- indexmodel_iid$summary.fixed
 
-indexmodel_iid$summary.fixed
 
-results_index <- derive_index_meetcyclus_inla(analyseset_boomkikker_adult, indexmodel_iid, set_seed = 1231)
+results_index_boomkikker <- derive_index_meetcyclus_inla(analyseset_roepkoren_boomkikker, indexmodel_iid, set_seed = 1231)
 
-results_index2 <- derive_index_meetcyclus_inla(analyseset_boomkikker_adult, indexmodel_iid, set_seed = 1231)
+trendmodel_iid <- inla(formula = aantal ~ year_scaled  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_boomkikker,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
 
-bind_rows(results_index,
-          results_index2)
+
+results_trend_boomkikker <- derive_trend(analyseset_roepkoren_boomkikker, trendmodel_iid)
+
 ```
 
-# Resultaten
-
-### Vergelijking tussen de jaren
+## Kamsalamander fuiken
 
 ```{r}
 
-verschillen_refcyclus <- results_index %>%
-  filter(parameter == "index") %>%
-  filter(!is.na(mean)) %>%
+analyseset_fuiken_totaal <- analyseset_fuiken_totaal %>%
+  mutate(meetcyclus = ifelse(meetcyclus == 1, "2017_2020", "2021_2023"))
+
+
+indexmodel_iid <- inla(formula = aantal ~ meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_fuiken_totaal,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+
+fun = function(...) {exp(meetcyclus2021_2023)}
+  
+  model_inla.samples <- inla.posterior.sample(1000, indexmodel_iid, seed = 25654, num.threads="1:1")
+  
+  quantile_values <- c(0.025, 0.05, 0.20, 0.35,  0.65, 0.80, 0.95, 0.975)
+  
+  result_index_kamsalamander <- inla.posterior.sample.eval(fun, model_inla.samples) %>%
+    as.data.frame() %>%
+    mutate(meetcyclus = "meetcyclus2021_2023") %>%
+    gather(starts_with("sample"), key = "sample", value = "waarde") %>%
+    group_by(meetcyclus) %>%
+    mutate(mean = mean(waarde),
+           sd = sd(waarde)) %>%
+    ungroup() %>%
+    group_by(meetcyclus, mean, sd) %>%
+    summarise(qs = quantile(waarde, quantile_values), prob = quantile_values) %>%
+    ungroup() %>%
+    mutate(l_u = ifelse(prob < 0.5, "lcl", "ucl"),
+           ci = ifelse(prob %in% c(0.025, 0.975), "0.95",
+                       ifelse(prob %in% c(0.05, 0.95), "0.90",
+                              ifelse(prob %in% c(0.20, 0.80), "0.60",
+                                     ifelse(prob %in% c(0.35, 0.65), "0.30", NA)))),
+           type = str_c(l_u, "_", ci)) %>%
+    select(-prob, -l_u, -ci) %>%
+    spread(key = type, value = qs) %>%
+    mutate(soort_nl = unique(analyseset_fuiken_totaal$soort_nl),
+           soort_wet = unique(analyseset_fuiken_totaal$soort_wet),
+           parameter = "index",
+           meetcyclus_ref = "meetcyclus2017_2020") %>%
+    select(parameter, soort_nl, soort_wet, meetcyclus, everything())
+
+  analyseset_fuiken_totaal <- analyseset_fuiken_totaal %>%
+    mutate(year_scaled = jaar_scaled)
+  
+trendmodel_iid <- inla(formula = aantal ~ year_scaled  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_fuiken_totaal,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+
+results_trend_kamsalamander <- derive_trend(analyseset_fuiken_totaal, trendmodel_iid)
+
+analyseset_fuiken_totaal <- analyseset_fuiken_totaal %>%
+  mutate(cluster2 = cluster,
+         meetcyclus_scaled = ifelse(jaar <= 2020, 0, 1))
+
+
+```
+
+
+# Resultaten
+
+### Vergelijking tussen meetcyclus
+
+```{r}
+
+results_index <- results_index_boomkikker %>%
+  bind_rows(result_index_kamsalamander) %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
          klasse = format(klasse, type = "markdown")) %>%
   select( soort_nl, soort_wet, meetcyclus_ref, meetcyclus, klasse, mean, lcl_0.90, ucl_0.90) 
@@ -47,14 +135,31 @@ verschillen_refcyclus <- results_index %>%
 ```
 
 ```{r}
+results_indexmodel_cyclus_refvalue <- results_index %>%
+  distinct(soort_nl, soort_wet, meetcyclus_ref) %>%
+  mutate(meetcyclus = meetcyclus_ref,
+        mean = 1,
+         klasse = "R") 
+
+result_indexmodel_cyclus_table <- results_index %>%
+  bind_rows(results_indexmodel_cyclus_refvalue) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+```
+
+
+```{r}
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
+
 breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
 labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
 
-verschillen_refcyclus %>%
-  mutate(mean_log = log(mean) + 1,
-          lcl_0.90_log = log(lcl_0.90) + 1,
-         ucl_0.90_log = log(ucl_0.90) + 1) %>%
-  mutate(klasse = as.character(classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1))) %>%
+result_indexmodel_cyclus_table %>%
   ggplot(aes(x= meetcyclus, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
   geom_errorbar(width = 0, size = 10, alpha = 0.3) +
   geom_point(size = 7, alpha = 0.6) +
@@ -62,7 +167,118 @@ verschillen_refcyclus %>%
   geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
   geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
   geom_text(size = 4, colour = "black") +
-  labs(y = "Vreschil t.o.v. referentiemeetcyclus", x = "meetcyclus") +
-  scale_y_continuous(breaks = breaks_log, labels = labels_show) 
+  labs(y = "Verschil t.o.v. referentiemeetcyclus", x = "meetcyclus") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~soort_nl, scales = "free_x")
 ```
+### Trend
+
+
+
+```{r}
+
+trend <- results_trend_kamsalamander %>%
+  bind_rows(results_trend_boomkikker) %>%
+  bind_rows(results_trend_kamsalamander2) %>%
+  group_by(soort_nl) %>%
+  mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
+         n_jaar = jaar_max - jaar_min + 1,
+         treshold_low = ifelse(parameter == "trend_average", 
+                               round((exp(log(0.75)/(n_jaar - 1)) - 1) *100, 1),
+                               -25),
+         treshold_high = ifelse(parameter == "trend_average", 
+                                round((exp(log(1.33)/(n_jaar - 1)) - 1) *100, 1),
+                                33)) %>%
+  ungroup() %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
+
+```
+
+In Tabel \@ref(tab:tabtrendresultaat) geven we een overzicht van de gemiddelde jaarlijkse trend en de totale trend over de meetnetperiode. We duiden ook aan of de trend al dan niet lineair is. Een lineaire trend betekent dat de jaarlijkse daling of stijging relatief constant is. Bij een niet-lineaire trend fluctueren de aantallen sterk van jaar tot jaar, maar hebben we gemiddeld gezien over de hele tijdsperiode wel een stijging of een daling.
+
+```{r }
+
+overzicht_trend_tabel <- trend %>%
+  mutate(trend = round(mean, 0),
+         trend_lcl = round(lcl_0.90, 0),
+         trend_ucl = round(ucl_0.90, 0),
+         trend_tbl = str_c(ifelse(trend > 0, "+", ""),
+                           trend, "% (",
+                           ifelse(trend_lcl > 0, "+", ""),
+                           trend_lcl, "%; ",
+                           ifelse(trend_ucl > 0, "+", ""),
+                           trend_ucl, "%)")
+         ) %>%
+  select(parameter, soort_nl, soort_wet, periode_tekst, klasse, trend_tbl) %>%
+  spread(key = "parameter", value = "trend_tbl") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  select("Nederlandse naam" = soort_nl,  Periode = periode_tekst, Klasse = klasse,  "Jaarlijkse wijziging" = trend_average, "Wijziging over de looptijd" = trend_total)
+
+```
+
+
+```{r tabtrendresultaat, eval = TRUE}
+
+overzicht_trend_tabel %>%
+  kable(align = "lcclcc",
+        caption = "Jaarlijkse wijziging en wijziging over de looptijd",
+      booktabs = TRUE)  %>%
+  kable_styling()
+```
+\needspace{50mm}
+
+De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in Figuur \@ref(fig:figtrend). De x-as van deze figuur heeft een logaritmische schaal. Een halvering (-50 %) is immers een even sterk effect als een verdubbeling (+100 %). Opnieuw maken we gebruik van de [classificatie](#h:classtrend) zoals besproken in paragraaf \@ref(h:classtrend) met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over de meetperiode. Voor een periode van zes jaar (2016 - 2021) komt de ondergrens overeen met een gemiddelde jaarlijkse trend van -5,6 % en de bovengrens met een gemiddelde jaarlijkse trend van +5,9 %. 
+
+```{r figtrend, fig.cap= str_c("Gemiddelde jaarlijkse trend met 90 \\% betrouwbaarheidsinterval ", legend_klasses, ". De stippellijnen tonen de referentiewaarde (0 \\%), de ondergrens (-6.7 \\%) en de bovengrens (+7.4 \\%) waarop de classificatie gebaseerd is.")}
+
+order_trend <- (trend %>%
+  filter(parameter == "trend_average") %>%
+  arrange(mean))$soort_nl
+
+trend <- trend %>%
+  mutate(mean_log = log(mean/100 + 1),
+          lcl_0.90_log = log(lcl_0.90/100 + 1),
+         ucl_0.90_log = log(ucl_0.90/100 + 1))
+
+breaks_log <- log(c( -50, -25, 0, 33, 50)/100 + 1)
+labels_show <- str_c(c( -50, -25, 0, 33, 50), " %")
+
+plot <- trend %>%
+  filter(parameter == "trend_average") %>%
+  mutate(soort_nl = factor(soort_nl, levels = order_trend)) %>%
+  #ggplot( aes(x = soort_nl, y = mean/100, ymin = lcl_0.90/100, ymax = ucl_0.90/100, label = klasse, colour = klasse)) +
+  ggplot( aes(x = soort_nl, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_hline(aes(yintercept = max(log(treshold_low/100 +1))), linetype = 3) +
+  geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3) +
+  # geom_hline(aes(yintercept = max(treshold_low/100)), linetype = 3) +
+  # geom_hline(aes(yintercept = min(treshold_high/100)), linetype = 3) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  # geom_errorbar(aes(ymin = lcl_0.60/100, ymax = ucl_0.60/100), width = 0, size = 10, alpha = 0.3) +
+  # geom_errorbar(aes(ymin = lcl_0.30/100, ymax = ucl_0.30/100), width = 0, size = 10, alpha = 0.3) +
+  # stat_effect(threshold = c(treshold_low/100, treshold_high/100), reference = 0, size = 3) +
+  # scale_effect() +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Gemiddelde jaarlijkse trend (%)", x = "Soort") +
+  #scale_y_continuous(breaks = c(-50, -25, 0, 33, 100)/100, labels = scales::percent, limits = c(-0.6, 1)) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show, limits = c(min(breaks_log), max(breaks_log))) +
+  coord_flip() +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+# trend -> (exp(x) - 1) * 100
+# x -> log(trend/100 + 1)
+
+
+plot
+
+
+```
+
+
+
+
+
 
