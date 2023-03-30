@@ -219,6 +219,7 @@ aantallen_planten_bezoek <- get_counts_smp(species_group = "planten") %>%
   mutate(bron = "meetnetten.be")
 
 aantallen_planten_extern <- read_csv2("C:/Rprojecten/soortenmeetnetten-queries/output/controle_plantendata/plantenmeetnetten_migratie_2022.csv") %>%
+  mutate(datum = as.Date(datum, format = "%d/%m/%Y")) %>%
   filter(!is.na(visit_id)) %>%
   filter(! visit_id %in% aantallen_planten_bezoek$visit_id) %>%
   group_by(meetnet, locatie, datum, visit_id) %>%

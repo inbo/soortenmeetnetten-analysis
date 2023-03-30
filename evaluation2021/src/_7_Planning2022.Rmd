@@ -68,23 +68,54 @@ overzicht_heikikker <- locaties_status_heikikker %>%
 
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## Amfibieën
+
+### Overzicht
+
+```{r}
+
+file = "raw/locatie_users"
+path = fileman_up("soortenmeetnetten-queries") 
+
+locatie_teller <- read_vc(file = file, 
+                        root = path) %>%
+  mutate(geclaimd_door = str_c(first_name, " ", last_name)) %>%
+  filter(soortgroep == "amfibieën") %>%
+  select(meetnet, locatie, geclaimd_door)
+
+observers_smp <- get_observers_smp() %>%
+  filter(soortgroep == "amfibieën") %>%
+  filter(type_teller == "hoofdteller") %>%
+  mutate( protocol = ifelse(protocol == "Amfibieën - Larven", "Amfibieën - Larven en metamorfen", protocol),
+         protocol = ifelse(protocol == "Amfibieën - Fuiken (v1)", "Amfibieën - Fuiken", protocol),
+         protocol = ifelse(protocol == "vuursalamander transecten (v1)", "Vuursalamander - Transect", protocol),
+         protocol = ifelse(protocol == "Vuursalamander - Transect (v1)", "Vuursalamander - Transect", protocol),
+         protocol = ifelse(meetnet == "Knoflookpad" & protocol == "Padden en kikkers - Roepkoren", "Knoflookpad - Roepkoren", protocol)) %>%
+  distinct(meetnet, protocol, locatie, naam_teller) %>%
+  group_by(meetnet, protocol, locatie) %>%
+    summarise(naam_teller = str_c(naam_teller, collapse = "; ")) %>%
+  ungroup()
+
+meetnet_protocol <- observers_smp %>%
+  distinct(meetnet, protocol) %>%
+  filter(!protocol %in% c("Rugstreeppad - Roepkoren", "Rugstreeppad - Zichtwaarneming")) %>%
+  filter(!(meetnet == "Knoflookpad" & protocol == "Amfibieën - Larven en metamorfen"))
+
+overzicht <- 
+  locaties_metadata %>%
+  inner_join(meetnet_protocol, by = "meetnet") %>%
+  left_join(select(evaluatie_locaties, soortgroep, meetnet, locatie, protocol, jaar, voldoende_geteld), by = c("meetnet", "locatie", "protocol")) %>%
+  left_join(observers_smp, by = c("meetnet", "locatie", "protocol")) %>%
+  left_join(locatie_teller, by = c("meetnet", "locatie")) %>%
+  select(meetnet, locatie,  geclaimd_door, protocol, teller = naam_teller, is_sample, is_active, jaar, voldoende_geteld) %>%
+  arrange(jaar) %>%
+  pivot_wider(names_from = jaar, values_from = voldoende_geteld) %>%
+  arrange(meetnet, locatie, protocol) %>%
+  select(-"NA")
+
+write_excel_csv2(overzicht, "../output/overzicht_amfibieën.csv", na = "")
+```
+
 
 ### Boomkikker
 
@@ -144,11 +175,55 @@ evaluatie_locaties_kamsalamander_geteld <- evaluatie_locaties %>%
 locaties_kamsalamander_niet_geteld <- locaties_metadata %>%
   filter(is_sample) %>%
   filter(meetnet == "Kamsalamander") %>%
-  anti_join(evaluatie_locaties_kamsalamander_geteld, by = "locatie")
+  mutate(meetcyclus = 2) %>%
+  anti_join(evaluatie_locaties_kamsalamander_geteld, by = c("locatie", "meetcyclus"))
 
-
+locaties_to_do <- evaluatie_locaties_kamsalamander_geteld %>%
+  filter(meetcyclus == 2) %>%
+  bind_rows(locaties_kamsalamander_niet_geteld) %>%
+  select(meetnet, locatie, larventelling, fuiken) %>%
+  mutate(larventelling = ifelse(is.na(larventelling), "to do", larventelling),
+         fuiken = ifelse(is.na(fuiken), "to do", fuiken))
 ```
 
+```{r}
+locaties_to_do %>%
+  datatable(rownames = FALSE,
+            filter = "top",
+            caption = "overzicht cyclus 2")
+```
+
+### Poelkikker
+
+```{r}
+evaluatie_locaties_geteld <- evaluatie_locaties %>%
+  filter(meetnet == "Poelkikker") %>%
+  filter(is_sample) %>%
+  filter(voldoende_geteld == 1) %>%
+  mutate(protocol = "roepkoren") %>%
+  group_by(meetnet, locatie, protocol, meetcyclus) %>%
+  summarise(jaar_voldoende_geteld = str_c(jaar, collapse = "; ")) %>%
+  ungroup() %>%
+  spread(key = protocol, value =  jaar_voldoende_geteld)
+
+locaties_niet_geteld <- locaties_metadata %>%
+  filter(is_sample) %>%
+  filter(meetnet == "Poelkikker") %>%
+  mutate(meetcyclus = 1) %>%
+  anti_join(evaluatie_locaties_kamsalamander_geteld, by = c("locatie", "meetcyclus"))
+
+locaties_to_do <- evaluatie_locaties_geteld %>%
+  bind_rows(locaties_niet_geteld) %>%
+  select(meetnet, locatie, roepkoren) %>%
+  mutate(roepkoren = ifelse(is.na(roepkoren), "to do", roepkoren))
+```
+
+```{r}
+locaties_to_do %>%
+  datatable(rownames = FALSE,
+            filter = "top",
+            caption = "overzicht cyclus 2")
+```
 
 
 ## Vlinders

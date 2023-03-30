@@ -29,13 +29,17 @@ opts_chunk$set(
   echo = FALSE, 
   eval = TRUE,
   cache = FALSE,
-  warning = FALSE,
+  warning = TRUE,
   error = TRUE,
-  message = FALSE
+  message = TRUE
 )
 
 #devtools::install_github("dmurdoch/leaflet@crosstalk4")
 
+
+```
+
+```{r}
 library(sf)
 library(kableExtra)
 library(DT)
@@ -50,11 +54,10 @@ library(git2rdata)
 library(n2khab)
 library(lubridate)
 library(effectclass)
+library(conflicted)
+conflicts_prefer(dplyr::filter())
 
 source("../../src/functions_smp.R")
-
-
 ```
-
 
 
