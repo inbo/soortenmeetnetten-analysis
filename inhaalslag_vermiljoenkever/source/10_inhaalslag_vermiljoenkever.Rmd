@@ -1,0 +1,126 @@
+
+# Data
+
+## Data meetnetten.be
+
+Gegevens uit 2022.
+
+```{r}
+
+locaties_vermiljoenkever <- get_locations_smp(only_active = FALSE) %>%
+  filter(meetnet == "Vermiljoenkever") %>%
+  select(locatie, is_active)
+  
+bezoeken <- get_visits_smp() %>%
+  filter(meetnet == "Vermiljoenkever") %>%
+  select(locatie, visit_id, start_date = datum, start_time, end_time, end_date, validatie) 
+
+data_vermiljoenkever_meetnetten <- get_counts_smp() %>%
+  filter(meetnet == "Vermiljoenkever") %>%
+  filter(primaire_soort) %>%
+  left_join(bezoeken, by = c("visit_id", "locatie")) %>%
+  filter(validatie != -1) %>%
+  left_join(st_drop_geometry(locaties_vermiljoenkever), by = "locatie") %>%
+  select(meetnet, locatie, is_active, visit_id,  datum = start_date, levensstadium, aantal, x, y)
+
+data_meetnetten_sf <- data_vermiljoenkever_meetnetten %>% 
+  group_by(meetnet, locatie, visit_id, datum, x, y) %>%
+  summarise(aantal = sum(aantal)) %>%
+  ungroup() %>%
+  filter(!is.na(x)) %>%
+  st_as_sf(coords = c("x", "y"), crs = 31370) %>%
+  select(locatie,  datum, aantal) %>%
+  mutate(bron = "meetnetten") %>%
+  st_transform(4326)
+
+```
+
+## Data waarnemingen.be
+
+Gegevens uit 2021 en 2022. 
+Gegevens uit 2022 overlappen met gegevens in meetnetten.be. 
+We deselecteren waarnemingen met dezelfde combinatie voor datum en (meetnetten)locatienaam.
+
+```{r}
+data_vermiljoenkever_wnm_2022 <- read_csv2("../data/Vermiljoenkever_Wbe_2022.csv")
+data_vermiljoenkever_wnm_2021 <- read_csv2("../data/Vermiljoenkever_Wbe_2021.csv")
+
+data_vermiljoenkever_wnm <- data_vermiljoenkever_wnm_2022 %>%
+  bind_rows(data_vermiljoenkever_wnm_2021) %>%
+  select(meetnet = naam_nl, datum, levenstadium = kleed, aantal, x, y, opm = bijzonderheden) %>%
+  mutate(datum = as.Date(datum, format = "%d/%m/%Y"))
+
+data_waarnemingen_sf <- data_vermiljoenkever_wnm %>%
+  st_as_sf(coords = c("x", "y"), crs = 31370) %>%
+  st_transform(crs = 4326) %>%
+  st_join(locaties_vermiljoenkever, join = st_nearest_feature) %>%
+  group_by(geometry) %>%
+  mutate(distance = min(st_distance(geometry, locaties_vermiljoenkever))) %>%
+  ungroup() 
+
+data_waarnemingen_select <- data_waarnemingen_sf %>%
+  mutate(locatie = ifelse(drop_units(distance) <= 1000, locatie, NA)) %>%
+  anti_join(data_vermiljoenkever_meetnetten, by = c("locatie", "datum")) %>%
+  mutate(bron = "waarnemingen")
+```
+
+
+```{r}
+data_all <- data_meetnetten_sf %>%
+  bind_rows(data_waarnemingen_select) %>%
+  mutate(show_color = ifelse(aantal > 0, "yellow", "red"),
+         show_label = str_c(datum, ": aantal = ", aantal, " (", bron, ")"))
+
+locatie_aanwezigheid <- data_all %>%
+  filter(!is.na(locatie)) %>%
+  st_drop_geometry() %>%
+  group_by(locatie, bron) %>%
+  summarise(aanwezig = sum(aantal) > 0) %>%
+  ungroup()
+
+locaties_vermiljoenkever_aanwezigheid <- locaties_vermiljoenkever %>%
+  left_join(locatie_aanwezigheid, by = "locatie") %>%
+  mutate(status = ifelse(is.na(aanwezig), "Niet onderzocht", 
+                         ifelse(aanwezig, "Soort aanwezig", "Onderzocht - soort niet aanwezig")),
+         show_color = ifelse(status == "Niet onderzocht", "blue",
+                             ifelse(status == "Soort aanwezig", "yellow", "red")))
+```
+
+
+# Overzicht Status hokken
+
+Onderstaande kaart en tabel geeft de status van de inhaalslag hokken weer:
+
++ Niet onderzocht (blauw)
++ Onderzocht - soort niet aanwezig (rood)
++ Soort aanwezig (geel). Ook als de soort is waargenomen binnen een afstand van 1 km tot het hok, wordt de soort als aanwezig besschouwd binnen het hok. 
+
+De kaart geeft ook de puntwaarnemingen uit meetnetten en waarnemignen.be weer.
+
++ Nulwaarneming (rood)
++ Aantal > 0 (geel)
+
+Het label van de punten geeft de datum, aantallen en bron weer.
+
+```{r}
+locaties_vermiljoenkever_aanwezigheid %>%
+  leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(data = data_all, color = ~show_color, label =~show_label, group = "Puntlocaties") %>%
+  addPolygons(color = ~show_color, label = ~locatie, group = "Hokken") %>%
+  addLayersControl(
+    overlayGroups = c("Hokken", "Puntlocaties"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+```
+
+```{r}
+locaties_vermiljoenkever_aanwezigheid %>%
+  st_drop_geometry() %>%
+  select(locatie, status, bron) %>%
+  arrange(locatie) %>%
+  kable() %>%
+  kable_styling() 
+```
+
+
