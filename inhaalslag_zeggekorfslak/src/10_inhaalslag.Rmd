@@ -9,12 +9,17 @@ We beschikken over volgende gegevens:
 
 ```{r}
 
-aantallen_mollusken <- get_counts_smp(species_group = "mollusken")
+aantallen_mollusken <- get_counts_smp(species_group = "mollusken") %>%
+  select(-meetnet, -datum, -jaar, -locatie)
 
-data_mollusken_meetnetten <- aantallen_mollusken %>%
-  filter(primaire_soort) %>%
-  mutate(id = str_c("mn_", observation_id)) %>%
-  group_by(id, meetnet, locatie, jaar, datum, visit_id, x, y) %>%
+visits_mollusken <- get_visits_smp(species_group = "mollusken") %>%
+  select( meetnet, locatie, datum, jaar, visit_id, bezoek_status, notes)
+
+data_mollusken_meetnetten <- visits_mollusken %>%
+  left_join(aantallen_mollusken, by = c("visit_id")) %>%
+  filter(primaire_soort | is.na(primaire_soort)) %>%
+  mutate(id = str_c("mn_", sample_id)) %>%
+  group_by(id, meetnet, locatie, jaar, datum, visit_id, bezoek_status,  x, y) %>%
   summarise(aantal = sum(aantal)) %>%
   ungroup() %>%
   mutate(nieuwe_locatie = FALSE,
@@ -23,6 +28,7 @@ data_mollusken_meetnetten <- aantallen_mollusken %>%
   filter(meetnet == "Zeggekorfslak")
 
 data_mollusken_meetnetten_union <- data_mollusken_meetnetten %>%
+  filter(!is.na(x)) %>%
   st_as_sf(coords = c("x", "y"), crs = 31370) %>%
   group_by(meetnet) %>%
   summarise(n = n()) %>%
@@ -36,9 +42,9 @@ data_mollusken_meetnetten_union <- data_mollusken_meetnetten %>%
 
 ```{r}
 data_mollusken_extern <- read_vc(file = "processed/data_mollusken",
-                             root = fileman_up("soortenmeetnetten-data")) %>%
+                             root = fileman_up("soortenmeetnetten-queries")) %>%
   mutate(id = str_c("wnm_", id)) %>%
-  select(id, meetnet, jaar, datum, locatie, aantal, x, y, gebied, validatie) %>%
+  select(id, meetnet, jaar, datum, locatie, aantal, kleed, x, y, gebied, validatie) %>%
   mutate(nieuwe_locatie = is.na(locatie),
          locatie = ifelse(is.na(locatie),
                           ifelse(gebied != "" & !is.na(gebied), gebied, str_c("nieuw_", id)),
@@ -54,7 +60,15 @@ data_mollusken_extern_remove <- data_mollusken_extern %>%
   filter(distance_mn < 100)
 
 data_mollusken_extern <- data_mollusken_extern %>%
-  anti_join(data_mollusken_extern_remove, by = "id")
+  anti_join(data_mollusken_extern_remove, by = "id") %>%
+  filter(kleed != "lege schelp of losse klep") %>%
+  group_by(bron, meetnet, id,  jaar, datum, locatie, nieuwe_locatie,   x, y, validatie) %>%
+  summarise(aantal = sum(aantal)) %>%
+  ungroup()
+
+check <- data_mollusken_extern %>%
+  group_by(id) %>%
+  filter(n() > 1)
 
 ```
 
@@ -62,20 +76,26 @@ data_mollusken_extern <- data_mollusken_extern %>%
 
 ```{r}
 
-locaties_prioritair <- get_locations_smp(species_group = "mollusken")
+locaties_prioritair <- get_locations_smp(species_group = "mollusken", only_active = FALSE)
 
 locaties_zeggekorfslak <- locaties_prioritair %>%
   filter(meetnet == "Zeggekorfslak") %>%
-  select(locatie)
+  select(locatie, is_active)
 
 data_mollusken_all <- bind_rows(
   data_mollusken_extern,
   data_mollusken_meetnetten
 ) %>%
   mutate(locatie_prioritair = locatie %in% locaties_prioritair$locatie) %>%
-  arrange(meetnet, locatie, jaar) 
+  arrange(meetnet, locatie, jaar) %>%
+  left_join(st_drop_geometry(locaties_zeggekorfslak), by = "locatie")
+
+check <- data_mollusken_all %>%
+  group_by(id) %>%
+  filter(n() > 1)
 
 data_zeggekorfslak_sf <- data_mollusken_all %>%
+  filter(!is.na(x)) %>%
   st_as_sf(coords = c("x", "y"), crs = 31370) 
 
 data_zeggekorfslak_union <- data_zeggekorfslak_sf %>%
@@ -131,28 +151,33 @@ Onderstaande tabel geeft een overzicht van het aantal onderzochte locaties op ba
 
 
 data_mollusken_locatie <- data_mollusken_all %>%
-  group_by(meetnet, locatie, nieuwe_locatie, locatie_prioritair) %>%
+  group_by(meetnet, locatie, nieuwe_locatie, locatie_prioritair, is_active) %>%
   arrange(jaar, bron, validatie) %>%
   summarise(aantal_individuen_goedgekeurd = sum(aantal * (validatie == "goedgekeurd")),
             aantal_individuen_niet_beoordeeld = sum(aantal * (validatie == "niet beoordeeld")),
             aantal_bezoeken = n_distinct(datum, locatie),
             n_punten = n(),
+            locatie_status = ifelse("Geen veldwerk mogelijk - locatie ongeschikt" %in% bezoek_status, "locatie ongeschikt",
+                            ifelse("Geen veldwerk mogelijk - locatie ontoegankelijk" %in% bezoek_status, "locatie ontoegankelijk", "locatie bezocht")),
             bron = str_c(unique(bron), collapse = "; "),
             jaar = str_c(unique(jaar), collapse = "; "),
             validatie = sum(validatie == "goedgekeurd") > 0 ) %>%
   ungroup() %>%
-  mutate(validatie = ifelse(validatie, "goedgekeurd", "niet beoordeeld"))
+  mutate(validatie = ifelse(validatie, "goedgekeurd", "niet beoordeeld")) %>%
+  mutate(locatie_status = ifelse(locatie_status != "locatie bezocht", locatie_status,
+                                 ifelse(aantal_individuen_goedgekeurd > 0, "aanwezig_goedgekeurd",
+                                        ifelse(aantal_individuen_niet_beoordeeld > 0, "aanwezig_niet_beoordeeld",
+                                               "afwezig"))))
+
+write_csv2(data_mollusken_locatie, "../output/zeggekorfslak_status_locatie.csv")
 ```
 
 
 ```{r}
 overzicht_mollusken <- data_mollusken_locatie %>%
   filter(meetnet == "Zeggekorfslak") %>%
-  group_by(meetnet, locatie_prioritair) %>%
-  summarise(n_locaties_bezocht = n(),
-            n_locaties_aanwezig_goedgekeurd = sum(aantal_individuen_goedgekeurd > 0),
-            n_locaties_aanwezig_niet_beoordeeld = sum((aantal_individuen_niet_beoordeeld > 0) & (aantal_individuen_goedgekeurd == 0)), 
-            n_locaties_afwezig = sum((aantal_individuen_goedgekeurd + aantal_individuen_niet_beoordeeld) == 0)) %>%
+  group_by(meetnet, locatie_prioritair, locatie_status) %>%
+  summarise(n = n()) %>%
   ungroup()
 ```
 
@@ -161,13 +186,17 @@ overzicht_mollusken <- data_mollusken_locatie %>%
 overzicht_mollusken %>%
     mutate(locatie_prioritair = ifelse(locatie_prioritair, "Ja", "Nee")) %>%
   arrange(meetnet, locatie_prioritair) %>%
-  select(meetnet, "Gebied meetnetten.be" = locatie_prioritair, "bezocht" = n_locaties_bezocht, "aanwezigheid goedgekeurd" = n_locaties_aanwezig_goedgekeurd, "aanwezigheid niet beoordeeld" = n_locaties_aanwezig_niet_beoordeeld, "afwezig" = n_locaties_afwezig) %>%
+  select(meetnet, "Locatie in meetnetten.be" = locatie_prioritair, "Status locatie" = locatie_status, "Aantal locaties" = n) %>%
   kable() %>%
-  kable_styling() %>%
-    collapse_rows(c(1,2)) %>%
-    add_header_above(c(" " = 2, "Aantal gebieden" = 4))  
+  kable_styling()  %>%
+  collapse_rows(c(1,2))
 ```
-
+```{r}
+data_zeggekorfslak_all <- data_zeggekorfslak_sf %>%
+  bind_rows(data_zeggekorfslak_inbo) %>%
+  mutate(aanwezig = is.na(aantal) | aantal > 0,
+         show_color = ifelse(aanwezig, "yellow", "red"))
+```
 
 Hieronder vind je een kaart met alle gebieden die in meetnetten.be zitten voor de inhaalslagen van de mollusken, met de status per locatie.
 De kaart toont ook:
@@ -179,11 +208,8 @@ De kaart toont ook:
 
 shapes_to_filter <- locaties_prioritair %>%
   filter(meetnet == "Zeggekorfslak") %>%
-  left_join(data_mollusken_locatie, by = c("meetnet", "locatie")) %>%
-  mutate(locatie_status = ifelse(is.na(aantal_bezoeken), "niet onderzocht",
-                                 ifelse(aantal_individuen_goedgekeurd > 0, "aanwezig - goedgekeurd",
-                                        ifelse(aantal_individuen_niet_beoordeeld > 0, "aanwezig - niet beoordeeld", "afwezig")))
-         ) %>% 
+  left_join(data_mollusken_locatie, by = c("meetnet", "locatie")) %>% 
+  mutate(locatie_status = ifelse(is.na(locatie_status), "niet onderzocht", locatie_status)) %>%
   select(meetnet, locatie, locatie_status, bron, jaar, aantal_bezoeken, n_punten, aantal_individuen_goedgekeurd, aantal_individuen_niet_beoordeeld, jaar) %>%
   as_Spatial()
 
@@ -194,7 +220,7 @@ shapes_to_filter <- locaties_prioritair %>%
 sd_map <- SharedData$new(shapes_to_filter)
 sd_df <- SharedData$new(as.data.frame(shapes_to_filter@data), group = sd_map$groupName())
 
-colorpal <- c(inbo_groen, "yellow", inbo_rood, "blue")
+colorpal <- c("yellow", inbo_rood, "blue")
 factpal <- colorFactor(colorpal, sd_map$locatie_status)
 
 #Create crosstalk filters using sd_df:
@@ -207,21 +233,13 @@ bscols(filter_checkbox("locatie_status",  "Locatiestatus", sd_df, ~locatie_statu
 leaflet(sd_map) %>%
   addProviderTiles("OpenStreetMap") %>%
   addPolygons( color = ~factpal(locatie_status), label = ~locatie, group = "locaties inhaalslag") %>%
-  addCircleMarkers(data = st_transform(data_zeggekorfslak_sf, 4326), label = ~(str_c("jaar = ", jaar, "; aantal = ", aantal)), color = "grey",  group = "observaties mn en wnm") %>%
-  addCircleMarkers(data = st_transform(data_zeggekorfslak_inbo, 4326), label = ~(str_c("jaar = ", jaar)), color = "purple",  group = "extra observaties inbo") %>%
+  addCircleMarkers(data = st_transform(data_zeggekorfslak_all, 4326), label = ~(str_c("jaar = ", jaar, "; bron = ", bron)), color  = ~show_color,  group = "observaties") %>%
   addLegend(pal = factpal, values = ~locatie_status) %>%
-  addLayersControl(overlayGroups = c("locaties inhaalslag", "observaties mn en wnm", "extra observaties inbo"),
+  addLayersControl(overlayGroups = c("locaties inhaalslag", "observaties"),
     options = layersControlOptions(collapsed = FALSE))
 
 datatable(sd_df,
           rownames = FALSE,
             filter = 'top')
 ```
-
-
-```{r}
-data_zeggekorfslak_all <- data_zeggekorfslak_sf %>%
-  bind_rows(data_zeggekorfslak_inbo)
-```
-
 

@@ -5,20 +5,27 @@
 Onderstaande tabel geeft weer hoeveel jaar geleden de meest recente waarneming van Zeggekorfslak is gebeurd per gebied (zoals gedefinieerd in meetnetten.be of waarnemingen.be).
 
 ```{r}
+
+locaties_gvm <- data_mollusken_locatie %>%
+  filter(locatie_status %in% c("locatie ontoegankelijk", "locatie ongeschikt"))
+
 historiek_locaties <- data_zeggekorfslak_all %>%
   filter(is.na(aantal) | aantal > 0) %>%
   filter(!is.na(locatie)) %>%
-  filter(!locatie_prioritair) %>%
+  filter(is_active |is.na(is_active)) %>%
+  anti_join(locaties_gvm, by = "locatie") %>%
+ #filter(!locatie_prioritair) %>%
   filter(str_sub(locatie, 1, 5) != "nieuw") %>%
   st_drop_geometry() %>%
-  group_by(locatie) %>%
+  group_by(locatie, locatie_prioritair) %>%
   summarise(min_jaar = min(jaar),
             max_jaar = max(jaar)) %>%
   ungroup() %>%
-  mutate(laatste_wmn = ifelse((2021 - max_jaar) >= 12,  ">= 12 jaar geleden",
-                              ifelse((2021 - max_jaar) >= 6,  "tussen 6 en 12 jaar geleden", "< 6 jaar geleden")),
+  mutate(laatste_wmn = ifelse((2023 - max_jaar) >= 12,  ">= 12 jaar geleden",
+                              ifelse((2023 - max_jaar) >= 6,  "tussen 6 en 12 jaar geleden", "< 6 jaar geleden")),
          laatste_wmn = factor(laatste_wmn, levels = c(">= 12 jaar geleden", "tussen 6 en 12 jaar geleden", "< 6 jaar geleden"))) %>%
-  arrange(laatste_wmn, max_jaar, locatie) 
+  arrange(laatste_wmn, max_jaar, locatie) %>%
+  select(laatste_wmn, locatie, min_jaar, max_jaar, locatie_prioritair)
 
 locaties_12jaar <- historiek_locaties %>%
   filter(laatste_wmn == ">= 12 jaar geleden")
@@ -77,8 +84,8 @@ obs_most_recent <- data_zeggekorfslak_all %>%
   group_by(id, jaar) %>%
   summarise(maxjaar_buffer = max(jaar_buffer500)) %>%
   ungroup() %>%
-   mutate(laatste_wmn = ifelse((2021 - maxjaar_buffer) >= 12,  ">= 12 jaar geleden",
-                              ifelse((2021 - maxjaar_buffer) >= 6,  "tussen 6 en 12 jaar geleden", "< 6 jaar geleden")),
+   mutate(laatste_wmn = ifelse((2023 - maxjaar_buffer) >= 12,  ">= 12 jaar geleden",
+                              ifelse((2023 - maxjaar_buffer) >= 6,  "tussen 6 en 12 jaar geleden", "< 6 jaar geleden")),
          laatste_wmn = factor(laatste_wmn, levels = c(">= 12 jaar geleden", "tussen 6 en 12 jaar geleden", "< 6 jaar geleden")))
 
 st_write(obs_most_recent, "../output/inhaalslag_zeggekorfslak.gpkg", "recentste_waarnemingen", driver = "gpkg")
@@ -130,32 +137,37 @@ locaties_herbezoek_buffer <- leefgebied_herbezoek %>%
   st_combine() %>%
   st_union(by_feature = TRUE) %>%
   st_as_sf() %>%
-  st_cast(to = "POLYGON") 
+  st_cast(to = "POLYGON") %>%
+  st_join(locaties_prioritair) %>%
+  filter(is.na(locatie))
 
-locaties_herbezoek_buffer <- locaties_herbezoek_buffer %>%
-  mutate(id  = 1:nrow(locaties_herbezoek_buffer))
+locaties_herbezoek_buffer %>%
+  st_transform(crs = 4326) %>%
+  st_write(dsn = "../output/zeggekorfslak_prioritering", layer = "locaties_herbezoek_temp2", append = TRUE, driver = "ESRI Shapefile")
 
-namen <- read_csv2("../data/namen_locaties_herbezoek.csv")
 
-leefgebied_herbezoek_locaties <- leefgebied_herbezoek %>%
-  st_join(locaties_herbezoek_buffer) %>%
-  group_by(id) %>%
-  summarise(n_pol = n()) %>%
-  ungroup() %>%
-  left_join(namen, by = "id") %>%
-  select(naam) %>%
-  st_cast("MULTIPOLYGON") %>%
-  st_join(select(locaties_prioritair, locatie), largest = TRUE) %>%
-  filter(is.na(locatie)) %>%
-  select(-locatie)
+leefgebied_herbezoek_locaties_2023 <- read_sf(dsn = "../output/zeggekorfslak_prioritering", layer = "locaties_herbezoek_temp2") %>%
+  rename(geom = geometry)
+
+# leefgebied_herbezoek_locaties_2023 %>%
+#   leaflet() %>%
+#   addTiles() %>%
+#   addPolygons()
+
+leefgebied_herbezoek_locaties_2022 <- locaties_prioritair %>%
+  filter(locatie %in% c("Dauteweijers", "Het Osbroek", "Kesterbeek", "Okegem - Fonteinstraat", "Okegem - Okegemsebaan", "Tombeek - Oost", "Vloerzegem"))
+
+leefgebied_herbezoek_locaties <- leefgebied_herbezoek_locaties_2022 %>%
+  st_transform(crs = 4326) %>%
+  bind_rows(leefgebied_herbezoek_locaties_2023) %>%
+  rename(naam = locatie)
 
 st_write(leefgebied_herbezoek_locaties, dsn = "../output/zeggekorfslak_prioritering.gpkg", layer = "locaties_herbezoek", delete_layer = TRUE)
 
 st_write(wnm_herbezoek, dsn = "../output/zeggekorfslak_prioritering.gpkg", layer = "wnm_herbezoek", append = TRUE)
 
 leefgebied_herbezoek_locaties %>%
-  st_transform(crs = 4326) %>%
-  st_write(dsn = "../output/zeggekorfslak_prioritering", layer = "locaties_herbezoek", append = TRUE, driver = "ESRI Shapefile")
+  st_write(dsn = "../output/zeggekorfslak_prioritering", layer = "locaties_herbezoek_zeggekorfslak", delete_layer = TRUE, driver = "ESRI Shapefile")
 
 ```
 In onderstaande tabel vind je de lijst de te herbezoeken locaties.
@@ -175,6 +187,8 @@ Onderstaande kaart toon de te herbezoeken locaties. De kaart geeft ook de liggin
 ```{r}
 
 overlay_rbbmc <- habitatmap_rbbmc_polygons %>%
+  st_buffer(1) %>%
+  st_transform(crs = 4326) %>%
   st_join(leefgebied_herbezoek_locaties, largest = TRUE) %>%
   filter(!is.na(naam))
 
@@ -184,12 +198,11 @@ st_write(overlay_rbbmc, dsn = "../output/zeggekorfslak_prioritering.gpkg", layer
 #   filter(locatie %in% leefgebied_herbezoek_locaties$locatie)
 
 leefgebied_herbezoek_locaties %>%
-  st_transform(crs = 4326) %>%
   leaflet() %>%
   addTiles() %>%
   # addPolygons(data = st_transform(locaties_dubbel, crs = 4326), label = ~locatie,  color = "orange") %>%
   addPolygons(label = ~naam, group = "locaties", color = "blue") %>%
-  addPolygons(data = st_transform(overlay_rbbmc, crs = 4326), group = "rbbmc", color = "green", opacity = 0, fillOpacity = 1) %>%
+  addPolygons(data = overlay_rbbmc, group = "rbbmc", color = "green", opacity = 0, fillOpacity = 1) %>%
   addCircleMarkers(data = st_transform(wnm_herbezoek, crs = 4326), color = "grey", label = ~jaar, group = "waarnemingen") %>%
   addLayersControl(overlayGroups = c("locaties", "rbbmc", "waarnemingen"),
                    options = layersControlOptions(collapsed = FALSE)) %>%
