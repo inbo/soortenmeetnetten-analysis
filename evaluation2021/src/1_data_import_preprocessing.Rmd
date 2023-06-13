@@ -694,7 +694,7 @@ doelbereik <- sum(evaluatie_locaties_vleermuizen$voldoende_geteld)/n_distinct(ta
 
 
 
-```{r cache = TRUE}
+```{r, eval = FALSE}
 counts_locatie_analyse <- counts_bezoek %>%
   group_by(soortgroep, meetnet, protocol, locatie) %>%
   mutate(n_visits = n_distinct(visit_id),

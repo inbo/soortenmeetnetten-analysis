@@ -1,0 +1,60 @@
+---
+title: "Stand van zaken inhaalslag Otter"
+author: 
+  -
+    name: "Toon Westra"
+    email: "Toon.Westra@inbo.be"
+  -
+link-citations: TRUE
+site: bookdown::bookdown_site
+output:
+  bookdown::html_document2:
+    keep_md: TRUE
+    toc: TRUE
+    toc_float:
+      collapsed: FALSE
+      smooth_scroll: FALSE
+    number_sections: TRUE
+    split_by: "chapter+number"
+
+---
+
+
+```{r setup, include = FALSE}
+library(knitr)
+
+options(knitr.kable.NA = '')
+opts_chunk$set(
+  echo = FALSE, 
+  eval = TRUE,
+  cache = FALSE,
+  warning = FALSE,
+  error = TRUE,
+  message = FALSE
+)
+
+#devtools::install_github("dmurdoch/leaflet@crosstalk4")
+library(sf)
+library(kableExtra)
+library(DT)
+library(gridExtra)
+library(crosstalk)
+library(leaflet)
+library(tidyverse)
+library(lubridate)
+library(INBOtheme)
+library(git2rdata)
+library(n2khab)
+library(units)
+library(conflicted)
+
+conflicts_prefer(dplyr::filter())
+
+
+source("../../src/functions_smp.R")
+
+
+```
+
+
+
