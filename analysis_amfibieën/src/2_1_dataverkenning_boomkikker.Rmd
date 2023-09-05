@@ -36,16 +36,16 @@ overzicht_larven <- overzicht %>%
 overzicht_roepkoren %>%
   select(cluster, poel, "2016 - 2018", "2019 - 2021", "2022 - 2024") %>%
   arrange(cluster, poel) %>%
-  kable(caption = "Aantal fuiktellingen per cyclus") %>%
+  kable(caption = "Aantal roepkoortellingen per cyclus") %>%
   kable_styling() %>%
   collapse_rows(1)
 ```
 
 ```{r}
 overzicht_larven %>%
-  select(cluster, poel, "2017 - 2019", "2020 - 2022") %>%
+  select(cluster, poel, "2016 - 2018", "2019 - 2021", "2022 - 2024") %>%
   arrange(cluster, poel) %>%
-  kable(caption = "Aantal fuiktellingen per cyclus") %>%
+  kable(caption = "Aantal larventellingen per cyclus") %>%
   kable_styling() %>%
   collapse_rows(1)
 ```
@@ -68,7 +68,7 @@ datasetset_boomkikker %>%
 + Er zijn ook al tellingen van de 3de meetcyclus, maar 3de meetcyclus is nog niet afgerond dus die tellingen nemen we niet mee
 
 ```{r}
-datasetset_boomkikker <- datasetset_boomkikker %>%
+analyseset_boomkikker <- datasetset_boomkikker %>%
   filter(jaar <= 2021)
 ```
 
@@ -76,7 +76,7 @@ datasetset_boomkikker <- datasetset_boomkikker %>%
 ### Verschil steekproeflocaties niet-steekproeflocaties
 
 ```{r}
-datasetset_boomkikker %>%
+analyseset_boomkikker %>%
   ggplot(aes(x = is_sample, y = aantal, colour = is_sample)) +
   geom_jitter(alpha = 0.3) +
   stat_summary(fun.data = "mean_cl_boot", colour = "red") +
@@ -87,10 +87,8 @@ datasetset_boomkikker %>%
 
 ## Vergelijking meetcycli: alle meetpunten
 
-
-
 ```{r}
-datasetset_boomkikker %>%
+analyseset_boomkikker %>%
   ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
   geom_jitter(alpha = 0.3) +
   stat_summary(fun.data = "mean_cl_boot", colour = "red") +
@@ -98,13 +96,13 @@ datasetset_boomkikker %>%
 ```
 
 ```{r}
-datasetset_boomkikker %>%
+analyseset_boomkikker %>%
   ggplot(aes(x = aantal, fill = periode)) +
   geom_density(alpha = 0.5) +
   facet_wrap(~ levensstadium, scales = "free", nrow = 3)
 ```
 ```{r}
-datasetset_boomkikker %>%
+analyseset_boomkikker %>%
   mutate( aantalsklasse = ifelse(aantal == 0, "0", 
                                 ifelse(aantal <= 10, "1 - 10", 
                                        ifelse(aantal <= 25, "11 - 25",
@@ -120,7 +118,7 @@ datasetset_boomkikker %>%
 
 
 ```{r}
-datasetset_boomkikker %>%
+analyseset_boomkikker %>%
   filter(is_sample) %>%
   ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
   geom_jitter(alpha = 0.3) +
@@ -129,7 +127,7 @@ datasetset_boomkikker %>%
 ```
 
 ```{r}
-datasetset_boomkikker %>%
+analyseset_boomkikker %>%
   filter(is_sample) %>%
   ggplot(aes(x = aantal, fill = periode)) +
   geom_density(alpha = 0.5) +
@@ -137,7 +135,7 @@ datasetset_boomkikker %>%
 ```
 
 ```{r}
-datasetset_boomkikker %>%
+analyseset_boomkikker %>%
   filter(is_sample) %>%
     mutate(aantalsklasse = ifelse(aantal == 0, "0", 
                                 ifelse(aantal <= 10, "1 - 10", 
@@ -157,7 +155,7 @@ datasetset_boomkikker %>%
 ### adulten
 
 ```{r}
-datasetset_boomkikker %>%
+analyseset_boomkikker %>%
   mutate(cluster = str_wrap(cluster)) %>%
   filter(levensstadium == "adult") %>%
   filter(is_sample) %>%
@@ -173,7 +171,7 @@ datasetset_boomkikker %>%
 
 
 ```{r}
-datasetset_boomkikker %>%
+analyseset_boomkikker %>%
   filter(levensstadium == "larve") %>%
   filter(is_sample) %>%
   ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
@@ -185,7 +183,7 @@ datasetset_boomkikker %>%
 ## Zoekinspanning larvetelling
 
 ```{r}
-datasetset_boomkikker %>%
+analyseset_boomkikker %>%
   filter(larvetelling) %>%
   filter(is_sample) %>%
   ggplot(aes(x = n_catch, fill = periode)) +
@@ -207,8 +205,8 @@ check_catcheffort <- datasetset_boomkikker %>%
 check_catcheffort_missing_value <- check_catcheffort %>%
   group_by(periode, is_sample) %>%
   summarise(n_records = n(),
-            prop_missing = round(sum(is.na(n_catch))/ n(), 2),
-            prop_ingevuld = round(sum(!is.na(n_catch))/ n(), 2)) %>%
+            prop_missing = round(sum(is.na(n_catch)) / n(), 2),
+            prop_ingevuld = round(sum(!is.na(n_catch)) / n(), 2)) %>%
   ungroup()
 
 check_catcheffort_missing_value %>%
@@ -242,13 +240,11 @@ check_catcheffort %>%
 
 + Voor heel wat clusters systematisch lager aantal scheppen per poel
 
-
-In onderstaande figuur houden we rekening met de zoekinspanning: aantal larven per 10 scheppen. Maar als er vooral minder geschept wordt omdat het wateroppervlak kleiener is in de 2de meetcyclus, kan dit ook een vertekend beeld geven.
+In onderstaande figuur houden we rekening met de zoekinspanning: aantal larven per 10 scheppen. Maar als er vooral minder geschept wordt omdat het wateroppervlak kleiner is in de 2de meetcyclus, kan dit ook een vertekend beeld geven.
 
 ```{r}
 
-
-datasetset_boomkikker %>%
+analyseset_boomkikker %>%
   filter(levensstadium == "larve") %>%
   filter(is_sample) %>%
   filter(!is.na(n_catch)) %>%
@@ -259,7 +255,7 @@ datasetset_boomkikker %>%
 ```
 
 ```{r}
-datasetset_boomkikker %>%
+analyseset_boomkikker %>%
   filter(levensstadium == "larve") %>%
   filter(is_sample) %>%
   filter(!is.na(n_catch)) %>%
@@ -269,26 +265,23 @@ datasetset_boomkikker %>%
   facet_wrap(~cluster)
 ```
 
-
 ## Overzicht gemiddeldes per meetcyclus
 
-
-
 ```{r}
-mean_sample <- datasetset_boomkikker %>%
+mean_sample <- analyseset_boomkikker %>%
   filter(is_sample) %>%
   filter(primaire_soort) %>%
   group_by(levensstadium, periode) %>%
   summarise(mean_count = round(mean(aantal, na.rm = TRUE), 2),
             se = sqrt(var(aantal, na.rm = TRUE)/n()),
             mean_n_catch = round(mean(n_catch, na.rm = TRUE), 2),
-            occurence = round(sum(aantal > 0, na.rm = TRUE)/ n(), 2),
+            occurence = round(sum(aantal > 0, na.rm = TRUE) / n(), 2),
             n_bezoeken = n(),
             n_locaties = n_distinct(locatie)) %>%
   ungroup() %>%
   mutate(mean_count = str_c(mean_count, " [", round(mean_count - 1.96 * se, 2), " - ", round(mean_count + 1.96 * se, 2), "]"))
 
-mean_larve_10schep<- datasetset_boomkikker %>%
+mean_larve_10schep <- analyseset_boomkikker %>%
   filter(primaire_soort) %>%
   filter(is_sample) %>%
   filter(levensstadium == "larve") %>%

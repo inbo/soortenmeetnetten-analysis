@@ -1,5 +1,7 @@
 # Modelverkenning Boomkikker
 
+## Roepkoren
+
 We kiezen voor een mixed model met volgende kenmerken:
 + aantallen in functie van de meetcyclus (niet in functie van jaar, gezien de correlatie tussen cluster en jaar)
 + locatie als random intercept 
@@ -8,7 +10,8 @@ We kiezen voor een mixed model met volgende kenmerken:
 Locaties met enkel nulwaarnemingen verwijderen we uit de analyseset.
 
 ```{r}
-locatie_enkel_nulw <- analyseset_roepkoren_boomkikker %>%
+locatie_enkel_nulw <- analyseset_boomkikker %>%
+  filter(protocol == "roepkoren") %>%
   group_by(meetnet,levensstadium, is_sample, locatie) %>%
   summarise(aantal_totaal = sum(aantal),
             n_bezoeken = n()) %>%
@@ -16,11 +19,16 @@ locatie_enkel_nulw <- analyseset_roepkoren_boomkikker %>%
   filter(aantal_totaal == 0)
   
 ```
+```{r}
+locatie_enkel_nulw %>%
+  kable(caption = "Locaties met enkel nultellingen voor roepkoren") %>%
+  kable_styling()
+```
 
+Daarnaast onderzoeken we ook de toevoeging aan het model van volgende zaken:
 
-Daarnaast onderzoeken we ook of we volgende zaken toevoegen aan model:
-+ modellering seizonaliteit
-+ toevoegen van gewichten voor locaties (bij grote clusters wordt een deel van de poelen geteld, bij kleine clusters alle poelen)
++ seizonaliteit
++ gewichten voor locaties (bij grote clusters wordt een deel van de poelen geteld, bij kleine clusters alle poelen)
 + random slope voor cluster
 + aantal keer geschept via offset meenemen in model voor larven
 
@@ -28,24 +36,31 @@ Daarnaast onderzoeken we ook of we volgende zaken toevoegen aan model:
 to_sigma <- function(tau){sqrt(1/tau)}
 ```
 
-
-
-
 ## Seizonaliteit opnemen in model?
 
 ### Tijdstip van de tellingen
 
+Onderstaande figuur toont de spreidingen van de tellingen binnen het seizoen.
+
+```{r}
+analyseset_roepkoren_boomkikker %>%
+  mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
+  ggplot(aes(x = datum)) +
+  geom_histogram() +
+  labs(y = "aantal tellingen")
+
+```
+
 ```{r}
 
-analyseset_roepkoren_boomkikker <- analyseset_roepkoren_boomkikker %>%
-  filter(jaar <= 2021) %>%
+analyseset_roepkoren_boomkikker <- analyseset_boomkikker %>%
+  filter(protocol == "roepkoren") %>%
   filter(is_sample) %>%
   filter(primaire_soort) %>%
-  mutate(periode = str_c(meetcyclus_start, " - ", meetcyclus_end)) %>%
   mutate(periode = factor(periode),
          fdatum = factor(datum)) %>%
   group_by(meetnet, protocol) %>%
-  mutate(doy_scaled = doy - min(doy) +1) %>%
+  mutate(doy_scaled = doy - min(doy) + 1) %>%
   ungroup() %>%
   mutate(jaar_scaled = jaar - min(jaar) + 1) %>%
   group_by(meetnet, locatie) %>%
@@ -63,6 +78,7 @@ data_combine <- analyseset_roepkoren_boomkikker %>%
 
 doy_min <- min(data_combine$doy)
 
+# 1st order random walk
 indexmodel_iid_doyrw1 <- inla(formula = aantal ~ periode  + 
                                 f(doy_scaled, 
                                   model = "rw1", 
@@ -78,6 +94,7 @@ indexmodel_iid_doyrw1 <- inla(formula = aantal ~ periode  +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
+# 2nd order random walk
 indexmodel_iid_doyrw2 <- inla(formula = aantal ~ periode  + 
                                 f(doy_scaled, 
                                   model = "rw2",
@@ -93,6 +110,7 @@ indexmodel_iid_doyrw2 <- inla(formula = aantal ~ periode  +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
+# 2nd order random walk variant
 indexmodel_iid_doyrw2_bis <- inla(formula = aantal ~ periode  + 
                                 f(doy_scaled, 
                                   model = "rw2",
@@ -109,6 +127,7 @@ indexmodel_iid_doyrw2_bis <- inla(formula = aantal ~ periode  +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
+# random effect datum
 indexmodel_iid_datum <- inla(formula = aantal ~ periode  + 
                                 f(fdatum, 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
@@ -123,6 +142,7 @@ indexmodel_iid_datum <- inla(formula = aantal ~ periode  +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
+# basismodel
 indexmodel_iid <- inla(formula = aantal ~ periode  + 
                                 f(locatie, 
                                   model = "iid", 
@@ -140,13 +160,7 @@ indexmodel_iid <- inla(formula = aantal ~ periode  +
 + random effect voor datum, met sterke prior (bv. probabiliteit sigma > log(1.05) kleiner dan 5%)
 
 
-```{r}
-analyseset_roepkoren_boomkikker %>%
-  mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
-  ggplot(aes(x = datum)) +
-  geom_histogram() +
-  labs(y = "aantal tellingen")
-```
+
 ### Verband tussen aantallen en datum
 
 ```{r}
@@ -166,8 +180,8 @@ analyseset_roepkoren_boomkikker %>%
   geom_smooth() +
   labs("aantal roepende adulten")
 ```
-### Modelering seizonaliteit via random walk
 
+### Modelering seizonaliteit via random walk
 
 ```{r}
 results_seizoenseffect <- tibble(seizoenseffect = c("rw1 doy_scaled", "rw2 doy_scaled", "random intercept datum", "rw2 replicate jaar doy_scaled", "geen seizoenseffect"),
@@ -198,7 +212,7 @@ sigma_rw1_est <- indexmodel_iid_doyrw1$marginals.hyperpar$`Precision for doy_sca
 
 indexmodel_iid_doyrw1$summary.random$doy_scaled %>%
   select(doy_scaled = ID, mean, lcl = `0.025quant`, ucl = `0.975quant`) %>%
-  mutate(doy = doy_scaled -1 + doy_min,
+  mutate(doy = doy_scaled - 1 + doy_min,
          datum = as.Date(doy, origin = "2018-01-01")) %>%
   mutate_at(c("mean", "lcl", "ucl"), exp) %>%
   ggplot(aes(x = datum, y = mean, ymin = lcl, ymax = ucl)) +
@@ -207,13 +221,16 @@ indexmodel_iid_doyrw1$summary.random$doy_scaled %>%
   labs(title = bquote(sigma ~ " rw1 =" ~ .(round(sigma_rw1_est, 3))),
         y = "relative effect")
 ```
+
+
+
 ```{r}
 sigma_rw2_est <- indexmodel_iid_doyrw2$marginals.hyperpar$`Precision for doy_scaled` %>%
   inla.emarginal(fun = to_sigma)
 
 indexmodel_iid_doyrw2$summary.random$doy_scaled %>%
   select(doy_scaled = ID, mean, lcl = `0.025quant`, ucl = `0.975quant`) %>%
-  mutate(doy = doy_scaled -1 + doy_min,
+  mutate(doy = doy_scaled - 1 + doy_min,
          datum = as.Date(doy, origin = "2018-01-01")) %>%
   mutate_at(c("mean", "lcl", "ucl"), exp) %>%
   ggplot(aes(x = datum, y = mean, ymin = lcl, ymax = ucl)) +
@@ -229,7 +246,7 @@ sigma_rw2bis_est <- indexmodel_iid_doyrw2_bis$marginals.hyperpar$`Precision for 
 
 indexmodel_iid_doyrw2_bis$summary.random$doy_scaled %>%
   select(doy_scaled = ID, mean, lcl = `0.025quant`, ucl = `0.975quant`) %>%
-   mutate(doy = doy_scaled -1 + doy_min,
+   mutate(doy = doy_scaled - 1 + doy_min,
          datum = as.Date(doy, origin = "2018-01-01")) %>%
   mutate(jaar = c(rep(2016, 46), rep(2017, 46), rep(2018, 46), rep(2019, 46), rep(2020, 46), rep(2021, 46))) %>%
   mutate_at(c("mean", "lcl", "ucl"), exp) %>%
@@ -262,19 +279,17 @@ data_predict %>%
   facet_wrap(~periode)
 ```
 
-
-
 + geen duidelijke seizonaliteit in data
-+ bij gemodeleerde seizonaliteit bevat betrouwbaarheidsinterval van relatief effect steeds 1 (geen relatief verchil in aantallen tussen dagen)
++ bij gemodelleerde seizonaliteit bevat betrouwbaarheidsinterval van relatief effect steeds 1 (geen relatief verchil in aantallen tussen dagen)
 
 Conclusie: seizonaliteit niet meenemen in model.
 
 ## Random slope
 
-
 ```{r, fig.height= 6}
+
 analyseset_roepkoren_boomkikker %>%
-  ggplot(aes(x= periode, y = aantal)) +  
+  ggplot(aes(x = periode, y = aantal)) +  
   geom_boxplot() +
   facet_wrap(~ cluster, scale = "free_y") +
   labs(y = "Aantal roepende mannetjes", x = "Meetcyclus") +
@@ -410,8 +425,6 @@ overview_results %>%
   collapse_rows(c(1,2))
 ```
 
-
-
 ```{r}
 
 get_trend_mean <- function(marginals_location) {
@@ -438,11 +451,7 @@ trend_cluster_quantiles <- map_df(trendmodel_iid2$marginals.random$cluster2, get
   mutate(cluster = unique(data_sim_cluster_add$cluster)) %>%
   bind_cols(trend_cluster_mean)
 
-
 ```
-
-
-
 
 ```{r, fig.cap= "Schatting en classificatie van trend per locatie met 90%-betrouwbaarheidsinterval"}
 klasse_color <- c("++" = inbo_groen, "+" = inbo_groen, "--" = inbo_rood, "-" = inbo_rood, "?+" = inbo_grijsblauw, "?-" = inbo_grijsblauw, "?" = inbo_grijsblauw, "~" = inbo_geelgr, "+~" = inbo_groen, "-~" = inbo_rood, "R" = inbo_grijsblauw)
@@ -483,7 +492,7 @@ trend %>%
 
 ```{r}
 
-gewichten <- locatie_detail %>%
+gewichten <- locatie_clusters %>%
   st_drop_geometry() %>%
   filter(is_active) %>%
   group_by(cluster) %>%
@@ -552,6 +561,7 @@ iid_checked_plot %>%
       labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_location), 3))))
     
 ```
+
 ### Cluster
 
 ```{r}

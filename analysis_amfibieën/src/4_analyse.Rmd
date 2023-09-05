@@ -3,10 +3,22 @@
 ## Boomkikker roepkoren
 
 ```{r}
-analyseset_roepkoren_boomkikker <- analyseset_roepkoren_boomkikker %>%
-  mutate(meetcyclus_n = meetcyclus,
-         meetcyclus = ifelse(meetcyclus == 1, "2016_2018", "2019_2021")) %>%
-  mutate(year_scaled = jaar_scaled)
+analyseset_roepkoren_boomkikker <-  analyseset_boomkikker %>%
+  filter(protocol == "roepkoren") %>%
+  filter(is_sample) %>%
+  filter(primaire_soort) %>%
+  select(-zoekinspanning, -larvetelling, -metamorftelling, -n_catch) %>%
+  mutate(periode = factor(periode)) %>%
+  group_by(meetnet, locatie) %>%
+  filter(sum(aantal) > 0) %>%
+  ungroup() %>%
+  mutate(meetcyclus = ifelse(meetcyclus == 1, "2016_2018", "2019_2021"),
+         year_scaled = jaar - min(jaar) + 1)
+
+write_vc(analyseset_roepkoren_boomkikker, 
+         "analyseset_roepkoren_boomkikker",
+         root = "../output/analyseset",
+         sorting = c("cluster", "locatie", "datum"))
 
 indexmodel_iid <- inla(formula = aantal ~ meetcyclus  + 
                                 f(locatie, 
@@ -21,7 +33,6 @@ indexmodel_iid <- inla(formula = aantal ~ meetcyclus  +
                        control.predictor = list(compute = TRUE))
 
 par_indexmodel_iid <- indexmodel_iid$summary.fixed
-
 
 results_index_boomkikker <- derive_index_meetcyclus_inla(analyseset_roepkoren_boomkikker, indexmodel_iid, set_seed = 1231)
 
@@ -49,7 +60,6 @@ results_trend_boomkikker <- derive_trend(analyseset_roepkoren_boomkikker, trendm
 analyseset_fuiken_totaal <- analyseset_fuiken_totaal %>%
   mutate(meetcyclus = ifelse(meetcyclus == 1, "2017_2020", "2021_2023"))
 
-
 indexmodel_iid <- inla(formula = aantal ~ meetcyclus  + 
                                 f(locatie, 
                                   model = "iid", 
@@ -59,13 +69,15 @@ indexmodel_iid <- inla(formula = aantal ~ meetcyclus  +
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
                        data = analyseset_fuiken_totaal,
+                       offset = n_fuiken,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
+check <- indexmodel_iid$summary.fixed
 
 fun = function(...) {exp(meetcyclus2021_2023)}
   
-  model_inla.samples <- inla.posterior.sample(1000, indexmodel_iid, seed = 25654, num.threads="1:1")
+  model_inla.samples <- inla.posterior.sample(1000, indexmodel_iid, seed = 2234, num.threads = "1:1")
   
   quantile_values <- c(0.025, 0.05, 0.20, 0.35,  0.65, 0.80, 0.95, 0.975)
   
@@ -94,9 +106,6 @@ fun = function(...) {exp(meetcyclus2021_2023)}
            meetcyclus_ref = "meetcyclus2017_2020") %>%
     select(parameter, soort_nl, soort_wet, meetcyclus, everything())
 
-  analyseset_fuiken_totaal <- analyseset_fuiken_totaal %>%
-    mutate(year_scaled = jaar_scaled)
-  
 trendmodel_iid <- inla(formula = aantal ~ year_scaled  + 
                                 f(locatie, 
                                   model = "iid", 
@@ -106,19 +115,13 @@ trendmodel_iid <- inla(formula = aantal ~ year_scaled  +
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
                        data = analyseset_fuiken_totaal,
+                       offset = n_fuiken,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
-
 results_trend_kamsalamander <- derive_trend(analyseset_fuiken_totaal, trendmodel_iid)
 
-analyseset_fuiken_totaal <- analyseset_fuiken_totaal %>%
-  mutate(cluster2 = cluster,
-         meetcyclus_scaled = ifelse(jaar <= 2020, 0, 1))
-
-
 ```
-
 
 # Resultaten
 
@@ -175,13 +178,10 @@ result_indexmodel_cyclus_table %>%
 ```
 ### Trend
 
-
-
 ```{r}
 
 trend <- results_trend_kamsalamander %>%
   bind_rows(results_trend_boomkikker) %>%
-  bind_rows(results_trend_kamsalamander2) %>%
   group_by(soort_nl) %>%
   mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
          n_jaar = jaar_max - jaar_min + 1,

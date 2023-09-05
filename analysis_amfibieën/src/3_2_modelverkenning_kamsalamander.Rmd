@@ -9,6 +9,7 @@ Locaties met enkel nulwaarnemingen verwijderen we uit de analyseset.
 
 ```{r}
 locatie_enkel_nulw <- analyseset_fuiken_totaal %>%
+  filter(primaire_soort) %>%
   group_by(meetnet, is_sample, locatie) %>%
   summarise(aantal_totaal = sum(aantal),
             n_bezoeken = n()) %>%
@@ -16,7 +17,11 @@ locatie_enkel_nulw <- analyseset_fuiken_totaal %>%
   filter(aantal_totaal == 0)
   
 ```
-
+```{r}
+locatie_enkel_nulw %>%
+  kable(caption = "Locaties met enkel nultellingen voor roepkoren") %>%
+  kable_styling()
+```
 
 Daarnaast onderzoeken we ook of we volgende zaken toevoegen aan model:
 + modellering seizonaliteit
@@ -39,18 +44,19 @@ to_sigma <- function(tau){sqrt(1/tau)}
 
 analyseset_fuiken_totaal <- analyseset_fuiken_totaal %>%
   filter(is_sample) %>%
-  filter(paired) %>%
+  #filter(paired) %>%
   filter(primaire_soort) %>%
   mutate(periode = str_c(meetcyclus_start, " - ", meetcyclus_end)) %>%
   mutate(periode = factor(periode),
          fdatum = factor(datum)) %>%
   group_by(meetnet, protocol) %>%
-  mutate(doy_scaled = doy - min(doy) +1) %>%
+  mutate(doy_scaled = doy - min(doy) + 1) %>%
   ungroup() %>%
-  mutate(jaar_scaled = jaar - min(jaar) + 1) %>%
+  mutate(year_scaled = jaar - min(jaar) + 1) %>%
   group_by(locatie) %>%
   mutate(aantal_totaal = sum(aantal)) %>%
-  ungroup()
+  ungroup() %>%
+  filter(aantal_totaal > 0)
 
 check <- analyseset_fuiken_totaal %>%
   group_by(protocol, periode, is_sample,  paired) %>%
@@ -79,6 +85,7 @@ indexmodel_iid_doyrw1 <- inla(formula = aantal ~ periode  +
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
                        data = data_combine,
+                       offset = n_fuiken,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
@@ -94,13 +101,14 @@ indexmodel_iid_doyrw2 <- inla(formula = aantal ~ periode  +
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
                        data = data_combine,
+                       offset = n_fuiken,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
 indexmodel_iid_doyrw2_bis <- inla(formula = aantal ~ periode  + 
                                 f(doy_scaled, 
                                   model = "rw2",
-                                  replicate = jaar_scaled, #variabele die groepen definieert --> bv. integer v jaar, of combinatie cluster en meetcyclus
+                                  replicate = year_scaled, #variabele die groepen definieert --> bv. integer v jaar, of combinatie cluster en meetcyclus
                                   hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
                                 f(locatie, 
                                   model = "iid", 
@@ -110,6 +118,7 @@ indexmodel_iid_doyrw2_bis <- inla(formula = aantal ~ periode  +
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
                        data = analyseset_fuiken_totaal,
+                       offset = n_fuiken,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
@@ -124,6 +133,7 @@ indexmodel_iid_datum <- inla(formula = aantal ~ periode  +
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
                        data = data_combine,
+                       offset = n_fuiken,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
@@ -136,13 +146,13 @@ indexmodel_iid <- inla(formula = aantal ~ periode  +
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
                        data = data_combine,
+                       offset = n_fuiken,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
 ```
 
 + random effect voor datum, met sterke prior (bv. probabiliteit sigma > log(1.05) kleiner dan 5%)
-
 
 ```{r}
 analyseset_fuiken_totaal %>%
@@ -237,29 +247,24 @@ data_predict <- data_combine %>%
          fitted_0.975quant = exp(indexmodel_iid_doyrw2$summary.fitted.values$`0.975quant`)) %>%
   filter(data_type == "simulated_doy") %>%
   select(periode, doy, fitted_mean, fitted_0.025quant, fitted_0.975quant) %>%
-  left_join(select(analyseset_fuiken_totaal, aantal_obs = aantal, doy, periode), by = c("doy", "periode")) 
+  left_join(select(analyseset_fuiken_totaal, aantal_obs = aantal, n_fuiken, doy, periode), by = c("doy", "periode")) 
 
 data_predict %>%
   ggplot(aes(y = fitted_mean, x = doy,  ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
   geom_line() +
   geom_ribbon(alpha = 0.3) +
-  geom_point(aes(y = aantal_obs, x = doy)) +
+  geom_point(aes(y = aantal_obs/n_fuiken, x = doy)) +
   facet_wrap(~periode)
 ```
 
-
-
-
-
 ## Random slope
-
 
 ```{r, fig.height= 6}
 analyseset_fuiken_totaal %>%
-  ggplot(aes(x= periode, y = aantal)) +  
+  ggplot(aes(x= periode, y = aantal/ n_fuiken)) +  
   geom_boxplot() +
   facet_wrap(~ cluster, scale = "free_y") +
-  labs(y = "Aantal adulten", x = "Meetcyclus") +
+  labs(y = "Aantal adulten per fuik", x = "Meetcyclus") +
   theme(legend.position = "bottom") 
 ```
 
@@ -286,6 +291,7 @@ trendmodel_iid <- inla(formula = aantal ~ meetcyclus_scaled  +
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
                        data = data_combine,
+                       offset = n_fuiken,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
@@ -302,6 +308,7 @@ trendmodel_iid2 <- inla(formula = aantal ~ meetcyclus_scaled  +
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
                        data = data_combine,
+                       offset = n_fuiken,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
@@ -318,6 +325,7 @@ indexmodel_iid2 <- inla(formula = aantal ~ periode  +
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
                        data = data_combine,
+                       offset = n_fuiken,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
@@ -330,6 +338,7 @@ indexmodel_interaction <- inla(formula = aantal ~ periode*cluster2  +
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))), 
                        family = "nbinomial",
                        data = data_combine,
+                       offset = n_fuiken,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
@@ -460,14 +469,64 @@ trend %>%
   theme(legend.position = "hide")
 ```
 
+## Enkel gepaarde poelen?
 
+```{r}
+
+analyseset_fuiken_totaal_gepaard <- analyseset_fuiken_totaal %>%
+  filter(paired)
+
+check <- analyseset_fuiken_totaal_gepaard %>%
+  group_by(meetcyclus) %>%
+  summarise(aantal_gemiddeld = mean(aantal),
+            aantal_per_fuik_gemiddeld = mean(aantal/n_fuiken)) %>%
+  ungroup()
+
+check2 <- analyseset_fuiken_totaal %>%
+  group_by(meetcyclus) %>%
+  summarise(aantal_gemiddeld = mean(aantal),
+            aantal_per_fuik_gemiddeld = mean(aantal/n_fuiken)) %>%
+  ungroup()
+
+indexmodel_iid_paired <- inla(formula = aantal ~ periode  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_fuiken_totaal_gepaard,
+                       offset = n_fuiken,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+```
+
+```{r}
+overview_results <- bind_rows(
+  indexmodel_iid$summary.fixed %>%
+    rownames_to_column("parameter") %>%
+    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
+    mutate(model = "indexmodel_iid",
+           waic = indexmodel_iid$waic$waic),
+  indexmodel_iid_paired$summary.fixed %>%
+    rownames_to_column("parameter") %>%
+    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
+    mutate(model = "indexmodel_iid_paired",
+           waic = indexmodel_iid_paired$waic$waic)
+)
+
+overview_results %>%
+  kable() %>%
+  kable_styling()
+```
 
 
 ## Gewichten
 
 + gewichten voor clusterts?
 
-```{r}
+```{r, eval = FALSE}
 
 gewichten <- locatie_detail %>%
   st_drop_geometry() %>%
@@ -489,7 +548,7 @@ gewichten %>%
   kable_styling()
 ```
 
-## Validatie
+## Validatie model
 
 ```{r}
 indexmodel_iid <- inla(formula = aantal ~ periode  + 
@@ -501,24 +560,57 @@ indexmodel_iid <- inla(formula = aantal ~ periode  +
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
                        data = analyseset_fuiken_totaal,
+                       offset = n_fuiken,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+analyseset_fuiken_totaal <- analyseset_fuiken_totaal %>%
+  mutate(cluster2 = cluster,
+         meetcyclus_scaled = meetcyclus - 1)
+
+indexmodel_iid2 <- inla(formula = aantal ~ periode  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) + 
+                                f(cluster2,
+                                  meetcyclus_scaled,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_fuiken_totaal,
+                       offset = n_fuiken,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 ```
 
-## Dispersion
+### Dispersion
+
++ random intercept
 
 ```{r}
 plot(dispersion_check(indexmodel_iid))
 ```
-## Distribution
++ random intercept en random slope
+
+```{r}
+plot(dispersion_check(indexmodel_iid2))
+```
+
+### Distribution
 
 ```{r}
 plot(fast_distribution_check(indexmodel_iid))
 ```
-## Random effect
+```{r}
+plot(fast_distribution_check(indexmodel_iid2))
+```
 
+### Random effect
 
-### Location
+#### Location
 
 ```{r}
 
@@ -538,7 +630,7 @@ iid_checked_plot %>%
       labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_location), 3))))
     
 ```
-### Cluster
+#### Cluster
 
 ```{r}
 

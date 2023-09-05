@@ -1,7 +1,4 @@
-
-
 # Dataverkenning Kamsalamander
-
 
 ```{r}
 datasetset_kamsalamander <- analyseset_larven %>%
@@ -121,8 +118,6 @@ datasetset_kamsalamander %>%
 
 ## Vergelijking meetcycli: alle meetpunten
 
-
-
 ```{r}
 datasetset_kamsalamander %>%
   ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
@@ -187,7 +182,6 @@ datasetset_kamsalamander %>%
 
 ```{r}
 
-
 datasetset_kamsalamander %>%
   filter(is_sample) %>%
   filter(paired) %>%
@@ -220,8 +214,6 @@ datasetset_kamsalamander %>%
   facet_wrap(~ levensstadium, scales = "free", nrow = 3)
 ```
 
-
-
 ## Vergelijking gemiddelde aantallen per cluster 
 
 ### adulten en juvenielen
@@ -234,7 +226,7 @@ datasetset_kamsalamander %>%
   filter(n_poelen >= 3) %>%
   ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
   geom_point(alpha = 0.3) +
-  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red", size = 1) +
   #scale_y_log10() +
   facet_wrap(~ cluster, scales = "free_y")
 ```
@@ -250,7 +242,7 @@ datasetset_kamsalamander %>%
     filter(n_poelen >= 3) %>%
   ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
   geom_point(alpha = 0.3) +
-  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red", size = 1) +
   facet_wrap(~ cluster, scales = "free_y")
 ```
 
@@ -312,7 +304,6 @@ check_catcheffort %>%
   facet_wrap(~ cluster, scales = "free_y")
 ```
 
-
 In onderstaande figuur houden we rekening met de zoekinspanning: aantal larven per 10 scheppen. Maar als er vooral minder geschept wordt omdat het wateroppervlak kleiener is in de 2de meetcyclus, kan dit ook een vertekend beeld geven.
 
 ```{r}
@@ -357,7 +348,7 @@ mean_sample <- datasetset_kamsalamander %>%
   ungroup() %>%
   mutate(mean_count = str_c(mean_count, " [", round(mean_count - 1.96 * se, 2), " - ", round(mean_count + 1.96 * se, 2), "]"))
 
-mean_larve_10schep<- datasetset_kamsalamander %>%
+mean_larve_10schep <- datasetset_kamsalamander %>%
   filter(primaire_soort) %>%
   filter(is_sample) %>%
   filter(levensstadium == "larve") %>%
@@ -429,5 +420,6 @@ mean_sample %>%
   kable_styling() %>%
   collapse_rows(c(1, 2))
 ```
+
 
 
