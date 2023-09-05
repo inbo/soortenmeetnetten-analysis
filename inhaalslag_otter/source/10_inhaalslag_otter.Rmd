@@ -134,5 +134,18 @@ overzicht_otter3 %>%
   kable_styling() %>%
   collapse_rows(1)
 ```
+
+```{r}
+sublocaties_otter %>%
+  select(zoekgebied, locatie, refpunt) %>%
+  st_write(dsn = "../output/inhaalslag_otter.gpkg", layer = "referentiepunten")
+
+hoofdlocaties_otter %>%
+  select(meetnet, locatie) %>%
+  st_write(dsn = "../output/inhaalslag_otter.gpkg", layer = "gebieden")
+
+zoekgebieden_otter %>%
+  st_write(dsn = "../output/inhaalslag_otter.gpkg", layer = "zoekgebieden")
+
 ```
 
