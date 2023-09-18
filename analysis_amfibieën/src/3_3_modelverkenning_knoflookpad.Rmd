@@ -1,0 +1,397 @@
+# Modelverkenning Knoflookpad
+
+We kiezen voor een mixed model met volgende kenmerken:
++ locatie als random intercept 
++ aantal in functie van jaar of jaar als 1ste orde random walk
+
+Daarnaast onderzoeken we ook of we volgende zaken toevoegen aan model:
++ type telling (met of zonder hydrofoon)
+
+```{r}
+to_sigma <- function(tau){sqrt(1/tau)}
+```
+
+## Alle tellingen of enkel die met hydrofoon?
+
+### Alle tellingen
+
+```{r}
+
+analyseset_knoflookpad <- analyseset_roepkoren_knoflookpad %>%
+  filter(primaire_soort) %>%
+  mutate(year_min = min(jaar),
+         fjaar = factor(jaar),
+        jaar_scaled = jaar - year_min + 1) %>%
+  group_by(locatie) %>%
+  mutate(aantal_totaal = sum(aantal)) %>%
+  ungroup() %>%
+  filter(aantal_totaal > 0)
+
+data_sim_add <- analyseset_knoflookpad %>%
+  as_tibble() %>%
+  tidyr::expand(jaar, type_aantal) %>%
+  mutate(jaar_scaled = jaar - min(jaar) + 1,
+         fjaar = factor(jaar)) %>%
+  mutate(data_type = "simulated")
+
+data_combine <- analyseset_knoflookpad %>%
+  mutate(data_type = "observed") %>%
+  bind_rows(data_sim_add)
+
+indexmodel_iid_rw1year <- inla(formula = aantal ~ type_aantal + f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       data = data_combine,
+                       family = "nbinomial",
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_iid <- inla(formula = aantal ~  fjaar + type_aantal + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       data = data_combine,
+                       family = "nbinomial",
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+```
+
+
+#### Random walk voor jaar
+
+```{r}
+sigma_rw1_est <- indexmodel_iid_rw1year$marginals.hyperpar$`Precision for jaar_scaled` %>%
+  inla.emarginal(fun = to_sigma)
+
+indexmodel_iid_rw1year$summary.random$jaar_scaled %>%
+  select(jaar_scaled = ID, mean, lcl = `0.025quant`, ucl = `0.975quant`) %>%
+  mutate(jaar = jaar_scaled - 1 + min(analyseset_roepkoren_knoflookpad$jaar)) %>%
+  mutate_at(c("mean", "lcl", "ucl"), exp) %>%
+  ggplot(aes(x = jaar, y = mean, ymin = lcl, ymax = ucl)) +
+  geom_ribbon(alpha = 0.2) + 
+  geom_line() +
+  labs(title = bquote(sigma ~ " rw1 =" ~ .(round(sigma_rw1_est, 3))),
+        y = "relative effect")
+```
+
+#### Vergelijking modeloutput met geobserveerde data
+
++ jaar als 1ste orde random walk
+
+```{r}
+data_predict <- data_combine %>%
+    mutate(fitted_mean = exp(indexmodel_iid_rw1year$summary.fitted.values$mean),
+         fitted_0.025quant = exp(indexmodel_iid_rw1year$summary.fitted.values$`0.025quant`),
+         fitted_0.975quant = exp(indexmodel_iid_rw1year$summary.fitted.values$`0.975quant`)) %>%
+  filter(data_type == "simulated") %>%
+  select(jaar, type_aantal, fitted_mean, fitted_0.025quant, fitted_0.975quant) %>%
+  left_join(select(analyseset_roepkoren_knoflookpad, jaar, aantal_obs = aantal, type_aantal), by = c("jaar", "type_aantal")) 
+
+data_predict %>%
+  ggplot(aes(y = fitted_mean, x = jaar,  ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
+  geom_line() +
+  geom_ribbon(alpha = 0.3) +
+  geom_point(aes(y = aantal_obs, x = jaar, colour = type_aantal), alpha = 0.4) +
+  facet_wrap(~type_aantal)
+```
+
++ jaar als factor
+
+```{r}
+data_predict <- data_combine %>%
+    mutate(fitted_mean = exp(indexmodel_iid$summary.fitted.values$mean),
+         fitted_0.025quant = exp(indexmodel_iid$summary.fitted.values$`0.025quant`),
+         fitted_0.975quant = exp(indexmodel_iid$summary.fitted.values$`0.975quant`)) %>%
+  filter(data_type == "simulated") %>%
+  select(jaar, type_aantal, fitted_mean, fitted_0.025quant, fitted_0.975quant) %>%
+  left_join(select(analyseset_roepkoren_knoflookpad, jaar, aantal_obs = aantal, type_aantal), by = c("jaar", "type_aantal")) 
+
+data_predict %>%
+  ggplot(aes(y = fitted_mean, x = jaar,  ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
+  geom_line() +
+  geom_ribbon(alpha = 0.3) +
+  geom_point(aes(y = aantal_obs, x = jaar, colour = type_aantal), alpha = 0.4) +
+  facet_wrap(~type_aantal)
+```
+
+
+
+### Enkel met hydrofoon
+
+```{r}
+
+analyseset_knoflookpad_hydrofoon <- analyseset_roepkoren_knoflookpad %>%
+  filter(primaire_soort) %>%
+  filter(type_aantal == "aantal met hydrofoon") %>%
+  mutate(year_min = min(jaar),
+         fjaar = factor(jaar),
+        jaar_scaled = jaar - year_min + 1) %>%
+  group_by(locatie) %>%
+  mutate(aantal_totaal = sum(aantal)) %>%
+  ungroup() %>%
+  filter(aantal_totaal > 0)
+
+data_sim_add <- analyseset_knoflookpad_hydrofoon %>%
+  as_tibble() %>%
+  tidyr::expand(jaar) %>%
+  mutate(jaar_scaled = jaar - min(jaar) + 1,
+         fjaar = factor(jaar)) %>%
+  mutate(data_type = "simulated")
+
+data_combine <- analyseset_knoflookpad_hydrofoon %>%
+  mutate(data_type = "observed") %>%
+  bind_rows(data_sim_add)
+
+indexmodel_iid_rw1year_hydrofoon <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       data = data_combine,
+                       family = "nbinomial",
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_iid_hydrofoon <- inla(formula = aantal ~  fjaar +
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       data = data_combine,
+                       family = "nbinomial",
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+
+
+```
+
+#### Random walk voor jaar
+
+```{r}
+sigma_rw1_est <- indexmodel_iid_rw1year_hydrofoon$marginals.hyperpar$`Precision for jaar_scaled` %>%
+  inla.emarginal(fun = to_sigma)
+
+indexmodel_iid_rw1year_hydrofoon$summary.random$jaar_scaled %>%
+  select(jaar_scaled = ID, mean, lcl = `0.025quant`, ucl = `0.975quant`) %>%
+  mutate(jaar = jaar_scaled - 1 + min(analyseset_knoflookpad_hydrofoon$jaar)) %>%
+  mutate_at(c("mean", "lcl", "ucl"), exp) %>%
+  ggplot(aes(x = jaar, y = mean, ymin = lcl, ymax = ucl)) +
+  geom_ribbon(alpha = 0.2) + 
+  geom_line() +
+  labs(title = bquote(sigma ~ " rw1 =" ~ .(round(sigma_rw1_est, 3))),
+        y = "relative effect")
+```
+
+#### Vergelijking modeloutput met geobserveerde data
+
+```{r}
+data_predict <- data_combine %>%
+    mutate(fitted_mean = exp(indexmodel_iid_rw1year_hydrofoon$summary.fitted.values$mean),
+         fitted_0.025quant = exp(indexmodel_iid_rw1year_hydrofoon$summary.fitted.values$`0.025quant`),
+         fitted_0.975quant = exp(indexmodel_iid_rw1year_hydrofoon$summary.fitted.values$`0.975quant`)) %>%
+  filter(data_type == "simulated") %>%
+  select(jaar, fitted_mean, fitted_0.025quant, fitted_0.975quant) %>%
+  left_join(select(analyseset_knoflookpad_hydrofoon, jaar, aantal_obs = aantal), by = c("jaar")) 
+
+data_predict %>%
+  ggplot(aes(y = fitted_mean, x = jaar,  ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
+  geom_line() +
+  geom_ribbon(alpha = 0.3) +
+  geom_point(aes(y = aantal_obs, x = jaar), alpha = 0.4)
+```
+
+```{r}
+data_predict <- data_combine %>%
+    mutate(fitted_mean = exp(indexmodel_iid_hydrofoon$summary.fitted.values$mean),
+         fitted_0.025quant = exp(indexmodel_iid_hydrofoon$summary.fitted.values$`0.025quant`),
+         fitted_0.975quant = exp(indexmodel_iid_hydrofoon$summary.fitted.values$`0.975quant`)) %>%
+  filter(data_type == "simulated") %>%
+  select(jaar, fitted_mean, fitted_0.025quant, fitted_0.975quant) %>%
+  left_join(select(analyseset_knoflookpad_hydrofoon, jaar, aantal_obs = aantal), by = c("jaar")) 
+
+data_predict %>%
+  ggplot(aes(y = fitted_mean, x = jaar,  ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
+  geom_line() +
+  geom_ribbon(alpha = 0.3) +
+  geom_point(aes(y = aantal_obs, x = jaar), alpha = 0.4)
+```
+
+## vergelijking modellen
+
+```{r}
+overzicht_modellen <- tibble(tellingen = c("alle", "alle", "enkel hydrofoon", "enkel hydrofoon"),
+                            jaareffect = c("rw1", "jaar als factor", "rw1", "jaar als factor"),
+       sigma_rw = c(indexmodel_iid_rw1year$marginals.hyperpar$`Precision for jaar_scaled` %>%
+                                 inla.emarginal(fun = to_sigma),
+                    NA,
+                    indexmodel_iid_rw1year_hydrofoon$marginals.hyperpar$`Precision for jaar_scaled` %>%
+                                 inla.emarginal(fun = to_sigma),
+                    NA),
+       waic = c(indexmodel_iid_rw1year$waic$waic, 
+                indexmodel_iid$waic$waic,
+                indexmodel_iid_rw1year_hydrofoon$waic$waic,
+                indexmodel_iid_hydrofoon$waic$waic))
+
+overzicht_modellen %>%
+  kable() %>%
+  kable_styling()
+```
+
+```{r}
+compare_index <- bind_rows(
+  derive_index_rw_inla(analyseset_species = analyseset_knoflookpad, 
+                       inlamodel_rw = indexmodel_iid_rw1year) %>%
+    filter(parameter == "index") %>%
+    mutate(tellingen = "alle",
+           jaareffect = "rw1 jaar"),
+  derive_index_inla(analyseset_species = analyseset_knoflookpad, 
+                  indexmodel_nbinom_inla = indexmodel_iid) %>%
+    mutate(tellingen = "alle",
+           jaareffect = "factor jaar"),
+  derive_index_rw_inla(analyseset_species = analyseset_knoflookpad_hydrofoon, 
+                       inlamodel_rw = indexmodel_iid_rw1year_hydrofoon) %>%
+    filter(parameter == "index") %>%
+    mutate(tellingen = "enkel hydrofoon",
+           jaareffect = "rw1 jaar"),
+  derive_index_inla(analyseset_species = analyseset_knoflookpad_hydrofoon, 
+                  indexmodel_nbinom_inla = indexmodel_iid_hydrofoon) %>%
+    mutate(tellingen = "enkel hydrofoon",
+           jaareffect = "factor jaar")
+) %>%
+  select(tellingen, jaareffect, jaar, ref_jaar, mean, lcl_0.90, ucl_0.90) 
+```
+```{r}
+compare_index %>%
+  kable() %>%
+  kable_styling() %>%
+  collapse_rows(c(1,2))
+```
+
+## Trends
+
+```{r}
+trendmodel_iid <- inla(formula = aantal ~ year_scaled + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_knoflookpad,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trendmodel_iid_hydrofoon <- inla(formula = aantal ~ year_scaled +  
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_knoflookpad_hydrofoon,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trend <- bind_rows(
+  derive_trend(analyseset_species = analyseset_knoflookpad, trendmodel_nbinom = trendmodel_iid) %>%
+    mutate(tellingen = "alle tellingen"),
+  derive_trend(analyseset_species = analyseset_knoflookpad_hydrofoon, trendmodel_nbinom = trendmodel_iid_hydrofoon) %>%
+    mutate(tellingen = "enkel hydrofoon")) %>%
+  select(tellingen, jaar_min, jaar_max, mean, lcl_0.90, ucl_0.90)
+  
+  
+```
+
+
+## Validatie model
+
+```{r}
+indexmodel_iid_rw1year_hydrofoon <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_knoflookpad_hydrofoon,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_iid_rw1year <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_knoflookpad,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+```
+
+### Dispersion
+
++ alle tellingen
+
+```{r}
+plot(dispersion_check(indexmodel_iid_rw1year))
+```
++ enkel hydrofoon
+
+```{r}
+plot(dispersion_check(indexmodel_iid_rw1year_hydrofoon))
+```
+
+### Distribution
+
+```{r}
+plot(fast_distribution_check(indexmodel_iid_rw1year))
+```
+
+
+```{r}
+plot(fast_distribution_check(indexmodel_iid_rw1year_hydrofoon))
+```
+
+### Random effect
+
+
+
+```{r}
+
+ precision_location <- indexmodel_iid_rw1year$summary.hyperpar$mean[2]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_location),
+                  precision = precision_location,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_location))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_location), 3))))
+    
+```
+
+```{r}
+
+ precision_location <- indexmodel_iid_rw1year_hydrofoon$summary.hyperpar$mean[2]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_location),
+                  precision = precision_location,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_location))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_location), 3))))
+    
+```

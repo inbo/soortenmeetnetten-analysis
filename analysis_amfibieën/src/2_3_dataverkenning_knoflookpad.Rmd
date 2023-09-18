@@ -1,0 +1,73 @@
+
+
+# Dataverkenning Knoflookpad
+
+```{r}
+
+datasetset_boomkikker <- analyseset_larven %>%
+  bind_rows(analyseset_roepkoren_boomkikker) %>%
+  filter(meetnet == "Boomkikker") %>%
+  filter(primaire_soort) %>%
+  mutate(protocol = ifelse(str_detect(protocol, "Larve"), "larventelling", "roepkoren")) %>%
+  group_by(locatie, protocol) %>%
+  mutate(paired = n_distinct(meetcyclus) > 1) %>%
+  ungroup() %>%
+  mutate(periode = str_c(meetcyclus_start, " - ", meetcyclus_end))
+
+```
+
+## Overzicht aantallen
+
+### Meetnet
+
+```{r}
+
+overzicht_meetnet <- analyseset_roepkoren_knoflookpad %>%
+  filter(primaire_soort) %>%
+  group_by(hydrofoon, type_aantal, jaar) %>%
+  summarise(aantal_gemiddeld = round(mean(aantal), 1)) %>%
+  ungroup()
+
+overzicht_meetnet %>%
+  mutate(protocol = ifelse(hydrofoon, "hydrofoon gebruikt", "hydrofoon niet gebruikt")) %>%
+  ggplot(aes(x = jaar, y = aantal_gemiddeld, colour = type_aantal, group = type_aantal)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~ protocol)
+  
+```
+
+### Per locatie
+
+```{r}
+overzicht_locatie <- analyseset_roepkoren_knoflookpad %>%
+  filter(primaire_soort) %>%
+  group_by(hydrofoon, type_aantal, locatie, jaar) %>%
+  summarise(aantal_gemiddeld = round(mean(aantal), 1)) %>%
+  ungroup()
+
+overzicht_wide <- overzicht_locatie %>%
+  arrange(jaar) %>%
+  pivot_wider(names_from = "jaar", values_from = aantal_gemiddeld, values_fill = 0)
+
+```
+
+```{r}
+overzicht_wide %>%
+  arrange(locatie, hydrofoon) %>%
+  kable(caption = "gemiddeld aantal geteld per jaar en per locatie") %>%
+  kable_styling()
+```
+
+```{r fig.height= 5}
+overzicht_locatie %>%
+  mutate(protocol = ifelse(hydrofoon, "hydrofoon gebruikt", "hydrofoon niet gebruikt")) %>%
+  ggplot(aes(x = jaar, y = aantal_gemiddeld, colour = type_aantal, group = type_aantal)) +
+  geom_point() +
+  geom_line() +
+  facet_grid(locatie ~ protocol)
+```
+
+Wanneer bij een bezoek wordt aangegeven dat er met hydrofoon werd geteld, kunnen zowel aantallen ingevuld worden zowel met hydrofoon als zonder hydrofoon. 
+De aantallen zonder hydrofoon zijn op één telling na allemaal nulwaarnemingen.Gaat hier effectief om nulwaarnemingen of zijn het ontbrekende waarden?  
+
