@@ -82,7 +82,7 @@ analyseset_boomkikker %>%
   stat_summary(fun.data = "mean_cl_boot", colour = "red") +
   facet_wrap(~ levensstadium, scales = "free_y")
 ```
-+ Weinig verchil in aantallen
++ Weinig verschil in aantallen
 
 
 ## Vergelijking meetcycli: alle meetpunten

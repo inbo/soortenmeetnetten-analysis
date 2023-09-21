@@ -962,30 +962,34 @@ derive_index_inlabru <- function(analyseset_species, indexmodel_nbinom_inlabru, 
   
 }
 
-derive_index_inla <- function(analyseset_species, indexmodel_nbinom_inla, ref_method = "min") {
+derive_index_inla <- function(analyseset_species, indexmodel_nbinom_inla, ref_method = "min", fun = NULL) {
   
-  if (min(analyseset_species$jaar) == 2016){
+  if (is.null(fun)) {
+  
+  if (min(analyseset_species$jaar) == 2016) {
     
     fun = function(...) {
-      c(exp(fjaar2017),  exp(fjaar2018), exp(fjaar2019), exp(fjaar2020), exp(fjaar2021))
+      c(exp(fjaar2017),  exp(fjaar2018), exp(fjaar2019), exp(fjaar2020), exp(fjaar2021), exp(fjaar2022), exp(fjaar2023))
     }
     
   } else if (min(analyseset_species$jaar) == 2017) {
     
     fun = function(...) {
-      c(exp(fjaar2018), exp(fjaar2019), exp(fjaar2020), exp(fjaar2021))
+      c(exp(fjaar2018), exp(fjaar2019), exp(fjaar2020), exp(fjaar2021), exp(fjaar2022), exp(fjaar2023))
     }
       
     } else if (min(analyseset_species$jaar) == 2018) {
       
       fun = function(...) {
-        c(exp(fjaar2019), exp(fjaar2020), exp(fjaar2021))
+        c(exp(fjaar2019), exp(fjaar2020), exp(fjaar2021), exp(fjaar2022), exp(fjaar2023))
       } 
         } else if (min(analyseset_species$jaar) == 2019) {
       
           fun = function(...) {
-            c(exp(fjaar2020), exp(fjaar2021))
+            c(exp(fjaar2020), exp(fjaar2021), exp(fjaar2022), exp(fjaar2023))
           }
+    
+        }
     
   }
   
@@ -1024,10 +1028,9 @@ derive_index_inla <- function(analyseset_species, indexmodel_nbinom_inla, ref_me
 
 derive_index_meetcyclus_inla <- function(analyseset_species, indexmodel_nbinom_inla, set_seed = 0) {
   
-
     fun = function(...) {exp(meetcyclus2019_2021)}
   
-  model_inla.samples <- inla.posterior.sample(1000, indexmodel_nbinom_inla, seed = set_seed, num.threads="1:1")
+  model_inla.samples <- inla.posterior.sample(1000, indexmodel_nbinom_inla, seed = set_seed, num.threads = "1:1")
   
   quantile_values <- c(0.025, 0.05, 0.20, 0.35,  0.65, 0.80, 0.95, 0.975)
   
@@ -1090,7 +1093,7 @@ derive_index_rw_inla <- function(analyseset_species, inlamodel_rw, set_seed = 0)
   
   set.seed(set_seed)
   
-  samples <- inla.posterior.sample(1000, inlamodel_rw , seed = set_seed,num.threads="1:1")
+  samples <- inla.posterior.sample(1000, inlamodel_rw , seed = set_seed,num.threads = "1:1")
   
   quantile_values <- c(0.025, 0.05, 0.20, 0.35,  0.65, 0.80, 0.95, 0.975)
   

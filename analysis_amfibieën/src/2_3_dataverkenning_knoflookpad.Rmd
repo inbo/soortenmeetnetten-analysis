@@ -2,19 +2,6 @@
 
 # Dataverkenning Knoflookpad
 
-```{r}
-
-datasetset_boomkikker <- analyseset_larven %>%
-  bind_rows(analyseset_roepkoren_boomkikker) %>%
-  filter(meetnet == "Boomkikker") %>%
-  filter(primaire_soort) %>%
-  mutate(protocol = ifelse(str_detect(protocol, "Larve"), "larventelling", "roepkoren")) %>%
-  group_by(locatie, protocol) %>%
-  mutate(paired = n_distinct(meetcyclus) > 1) %>%
-  ungroup() %>%
-  mutate(periode = str_c(meetcyclus_start, " - ", meetcyclus_end))
-
-```
 
 ## Overzicht aantallen
 

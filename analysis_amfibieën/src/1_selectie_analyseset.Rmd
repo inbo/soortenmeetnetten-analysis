@@ -255,8 +255,6 @@ locaties_niet_actief %>%
   kable_styling()
 ```
 
-
-
 + We selecteren enkel tellingen die geschikt zijn voor analyse
   + Geen veldwerk mogelijk - locatie ongechikt: wanneer de poel droog staat rekenen we dit mee als een nulwaarning (dit moet aangepast worden in de databank: voor_analyse = TRUE)
   
@@ -711,11 +709,7 @@ locaties_niet_actief %>%
   kable_styling()
 ```
 
-
-
 + We selecteren enkel tellingen die geschikt zijn voor analyse
-
-  
 
 ```{r}
 
@@ -723,6 +717,18 @@ dataset_vuursalamander <- dataset_vuursalamander %>%
   filter(voor_analyse) %>%
   filter(!is.na(aantal))
 ```
+
++ Na te kijken: voor_analyse = TRUE en 'weersomstandigheden ongunstig'
+
+```{r}
+dataset_vuursalamander %>%
+  filter(bezoek_status == "Weersomstandigheden ongunstig") %>%
+  select(locatie, datum, bezoek_status, voor_analyse,  aantal,  visit_id) %>%
+  mutate(visit_id = str_c('<a href = "https://www.meetnetten.be/fieldwork/visits/', visit_id,'">', visit_id, '</a>')) %>%
+  datatable(rownames = FALSE,
+            escape = FALSE)
+```
+
 
 
 ### Overzicht van de type tellingen: primaire soort, zoekinspanning, levensstadium
@@ -749,6 +755,33 @@ dataset_check2 %>%
             filter = "top")
 ```
 
+### Overzicht tellingen in steekproeflocaties en niet-steekproeflocaties
+
+Hieronder overzicht van van de tellingen voor steekproeflocaties en niet-steekproeflocaties.
+
+```{r}
+dataset_check3 <- dataset_vuursalamander %>%
+  filter(!is.na(aantal)) %>%
+  group_by(meetnet, protocol, is_sample) %>%
+  summarise(n_visits = n_distinct(visit_id),
+            n_locaties = n_distinct(locatie)) %>%
+  ungroup()
+
+dataset_check3 %>%
+  datatable(rownames = FALSE)
+```
+
+```{r}
+dataset_vuursalamander %>%
+  distinct(locatie, is_sample) %>%
+  datatable(rownames = FALSE,
+            filter = 'top')
+```
+
+Niet-meetnetlocaties meenemen in analyses?
+
+Tellingen Buggenhoutbos aggregeren (rekening houdend met transectlengte) ?
+
 ### Lengte transecten
 
 ```{r}
@@ -761,7 +794,7 @@ transects <- get_locations_smp(only_active = TRUE) %>%
   left_join(select(locations, meetnet, locatie, id), by = c("meetnet", "id"))
 ```
 
-Voor een aantal locaties geen transect gedefinieerd. Transectlengte gelijk stellen aan gemiddelde transectlengte.
+Voor een aantal locaties is er geen transect gedefinieerd. We stellen de transectlengte gelijk aan gemiddelde transectlengte.
 
 ```{r}
 transects %>%
@@ -781,89 +814,129 @@ analyseset_vuursalamander <-  dataset_vuursalamander %>%
   left_join(transects, by = c("meetnet", "locatie"))
 ```
 
-## Bewaar analyseset
+
+
+## Analyseset Heikikker
 
 ```{r}
 
-mypath <- here(str_c("analysis_amfibieën/output/temp"))
+counts_heikikker <- counts %>%
+  filter(meetnet == "Heikikker") %>%
+  group_by(visit_id,  soort_nl, soort_wet, primaire_soort, levensstadium, type_aantal) %>%
+  summarise(aantal = sum(aantal)) %>%
+  ungroup()
 
-hashes <-
-    tibble(filepath = str_c(mypath, "/",
-        list.files(path = mypath,
-            recursive = TRUE)
-      )) %>%
-    mutate(version = Sys.Date(),
-           filename = str_match(filepath, "(.+\\/)*(.+)")[,3],
-           name_analysis = str_extract(filename, str_c(names_analysis, collapse =  "|")),
-           md5 = map(filepath, function(x) {
-                           file(x) %>% md5 %>% str_c(collapse = '')
-                         }) %>% as.character,
-           sha256 = map(filepath, function(x) {
-                          file(x) %>% sha256 %>% str_c(collapse = '')
-                          }) %>% as.character
-           ) %>%
-    select(name_analysis,
-           version,
-           filename,
-           md5,
-           sha256) %>%
-  filter(str_detect(filename, "analyseset"))
+dataset_heikikker <-  visits %>%
+  filter(meetnet == "Heikikker") %>%
+  left_join(select(covar, visit_id, bezoekvariabele, waarde), by = c("visit_id")) %>%
+  left_join(locations, by = c("meetnet", "locatie")) %>%
+  left_join(select(counts_heikikker, visit_id,  soort_nl, soort_wet, primaire_soort, levensstadium, aantal), by = "visit_id")
 
-file_name <- here(str_c("analysis_vlinders/output/analysis_hashes.tsv"))
-
-if (!file.exists(file_name)) {
-  
-  new_analysis <- TRUE
-  
-  analysis_hashes <- hashes
-
-} else {
-  
-  analysis_hashes <- read_vc(file = "analysis_hashes", root = here("analysis_vlinders/output/"))
-  
-  hashes_new <- hashes %>%
-    anti_join(analysis_hashes, by = c("name_analysis", "filename", "md5", "sha256"))
-  
-  new_analysis <- nrow(hashes_new) > 0
-  
-  analysis_hashes <- bind_rows(analysis_hashes,
-                               hashes)
-  
-  names_analysis <- unique(hashes_new$name_analysis) 
-  
-}
-
-if (new_analysis) {
-  
-  for (name_analysis in names_analysis) {
-    
-     new_path <- here(str_c("analysis_vlinders/output/analyseset/", name_analysis, "_", Sys.Date()))
-     
-     if (!dir.exists(new_path)) {
-       
-       dir.create(new_path)
-       
-       file.copy(from = str_c(mypath, "/analyseset_", name_analysis,".tsv"), 
-                 to = str_c(new_path,  "/analyseset_", name_analysis,".tsv"), 
-                 overwrite = TRUE)
-       
-       file.copy(from = str_c(mypath, "/analyseset_", name_analysis,".yml"), 
-                 to = str_c(new_path, "/analyseset_", name_analysis,".yml"), 
-                 overwrite = TRUE)
-       }
-     
-     
-  }
-  
-  analysis_hashes %>%
-       write_vc(file = "analysis_hashes", root = here("analysis_vlinders/output/"), sorting = c("name_analysis", "version", "filename"), strict = FALSE)
-  
-  } 
- 
-  
- 
-
+check <- dataset_roepkoren_knoflookpad %>%
+  filter(primaire_soort) %>%
+  group_by(visit_id, type_aantal) %>%
+  filter(n() > 1)
 ```
+
+### Overzicht tellingen per type locatie (actief of niet-actief) en al dan niet geschikt voor analyse
+
+Onderstaande tabel geeft een overzicht van het aantal records, bezoeken en locaties voor de verschillende combinaties van:
+
++ protocol
++ bezoek_status
++ is_active
++ voor_analyse
+
+```{r}
+dataset_check <- dataset_heikikker %>%
+  filter(primaire_soort) %>%
+  group_by(meetnet, protocol, bezoek_status, is_active,  voor_analyse) %>%
+  summarise(n_records = n(),
+            n_visits = n_distinct(visit_id),
+            n_locaties = n_distinct(locatie)) %>%
+  ungroup()
+
+dataset_check %>%
+  datatable(rownames = FALSE,
+            filter = "top")
+```
+
++ **We selecteren enkel tellingen op actieve locaties**
+
+```{r}
+dataset_heikikker_actief <- dataset_heikikker %>%
+  filter(is_active)
+
+locaties_niet_actief <- dataset_heikikker %>%
+  distinct(meetnet, locatie) %>%
+  anti_join(dataset_heikikker_actief, by = c("meetnet", "locatie"))
+
+locaties_niet_actief %>%
+  kable(caption = "Niet actieve locaties waarvoor bezoeken niet geselecteerd werden") %>%
+  kable_styling()
+```
+
++ We selecteren enkel tellingen die geschikt zijn voor analyse
+
+```{r}
+
+dataset_heikikker <- dataset_heikikker %>%
+  filter(voor_analyse) %>%
+  filter(!is.na(aantal))
+```
+
+
+
+
+
+### Overzicht van de type tellingen: primaire soort, zoekinspanning, levensstadium
+
+Onderstaande tabel geeft een overzicht van het aantal records, bezoeken en locaties en de totale aantallen voor de verschillende combinaties van:
+
++ protocol
++ primaire soort
++ levensstadium
+
+
+```{r}
+
+dataset_check2 <- dataset_heikikker %>%
+  group_by(meetnet, protocol,  primaire_soort, levensstadium) %>%
+  summarise(n_records = n(),
+            n_visits = n_distinct(visit_id),
+            n_locaties = n_distinct(locatie),
+            aantal_tot = sum(aantal)) %>%
+  ungroup()
+
+dataset_check2 %>%
+  datatable(rownames = FALSE,
+            filter = "top")
+```
+
+### Overzicht tellingen in steekproeflocaties en niet-steekproeflocaties
+
+Hieronder overzicht van van de tellingen voor steekproeflocaties en niet-steekproeflocaties.
+
+```{r}
+dataset_check3 <- dataset_heikikker %>%
+  filter(!is.na(aantal)) %>%
+  group_by(meetnet, protocol, is_sample) %>%
+  summarise(n_visits = n_distinct(visit_id),
+            n_locaties = n_distinct(locatie)) %>%
+  ungroup()
+
+dataset_check3 %>%
+  datatable(rownames = FALSE)
+```
+
+
+```{r}
+
+analyseset_heikikker <-  dataset_heikikker
+```
+
+
+
 
 
 
