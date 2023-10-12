@@ -1,0 +1,128 @@
+# Dataverkenning Vuurslamander
+
+```{r}
+analyseset_vuursalamander <- read_vc(file = "analyseset_vuursalamander", root = "../output/analyseset")
+
+analyseset_vuursalamander <- analyseset_vuursalamander %>%
+  mutate(aantal_100m = aantal / lengte_transect * 100)
+```
+
+
+## Verschilt meetnetlocatie en niet_meetnetlocatie
+
+```{r}
+
+analyseset_vuursalamander %>%
+  ggplot(aes(x = is_sample, y = aantal, colour = is_sample)) +
+  geom_jitter(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red", size = 1, alpha = 0.4) 
+  
+```
+
+```{r}
+
+analyseset_vuursalamander %>%
+  ggplot(aes(x = is_sample, y = aantal_100m, colour = is_sample)) +
+  geom_jitter(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red", size = 1, alpha = 0.4) +
+  labs(y = "Aantal per 100 meter")
+  
+```
+## Evolutie aantallen over  de jaren
+
+```{r}
+analyseset_vuursalamander %>%
+  ggplot(aes(x = jaar, y = aantal, colour = is_sample)) +
+  geom_jitter(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red", size = 1, alpha = 0.4)
+```
+```{r}
+
+analyseset_vuursalamander %>%
+  ggplot(aes(x = jaar, y = aantal_100m, colour = is_sample)) +
+  geom_jitter(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red", size = 1, alpha = 0.4) +
+  labs(y = "Aantal per 100 meter")
+  
+```
+## Aantallen in functie van tijdstip in veldseizoen
+
+```{r}
+analyseset_vuursalamander %>%
+  mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
+  ggplot(aes(x = datum, y = aantal)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth()
+
+```
+
+```{r}
+analyseset_vuursalamander %>%
+  mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
+  ggplot(aes(x = datum, y = aantal_100m)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth()
+
+```
+
+```{r}
+analyseset_vuursalamander %>%
+  mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
+  ggplot(aes(x = datum, y = aantal)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth() +
+  facet_wrap(~jaar)
+
+```
+
+Geen duidelijke patronen.
+
+### Per locatie
+
+```{r, fig.height= 12}
+
+analyseset_vuursalamander %>%
+  ggplot(aes(x = jaar, y = aantal, colour = is_sample)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "gam", method.args = list(family = poisson),formula = y ~ s(x, bs = "cs", k = 5) , size = 0.4, colour = "blue") + 
+  labs(y = "Aantal") +
+  facet_wrap(~locatie)
+  
+```
+
+
+
+```{r, fig.height= 12}
+
+analyseset_vuursalamander %>%
+  ggplot(aes(x = jaar, y = aantal_100m, colour = is_sample)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth() +
+  labs(y = "Aantal per 100 meter") +
+  facet_wrap(~locatie)
+  
+```
+
+```{r}
+overzicht_locatie <- analyseset_vuursalamander %>%
+  group_by(meetnet, locatie, is_sample) %>%
+  summarise(aantal_gemiddeld = round(mean(aantal)),
+            aantal_100m_gemiddeld = round(mean(aantal_100m), 1),
+         n_jaren = n_distinct(jaar)) %>%
+  ungroup()
+```
+
+```{r}
+overzicht_locatie %>%
+  datatable(rownames = FALSE,
+            filter = "top")
+```
+
+
+
+
+
+
+
+
+

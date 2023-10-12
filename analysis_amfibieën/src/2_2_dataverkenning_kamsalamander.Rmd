@@ -1,6 +1,11 @@
 # Dataverkenning Kamsalamander
 
 ```{r}
+
+analyseset_larven <- read_vc(file = "analyseset_larven", root = "../output/analyseset")
+
+analyseset_fuiken_totaal <- read_vc(file = "analyseset_fuiken_totaal", root = "../output/analyseset")
+
 datasetset_kamsalamander <- analyseset_larven %>%
   bind_rows(analyseset_fuiken_totaal) %>%
   filter(meetnet == "Kamsalamander") %>%
@@ -160,6 +165,15 @@ datasetset_kamsalamander %>%
 ```{r}
 datasetset_kamsalamander %>%
   filter(is_sample) %>%
+  ggplot(aes(x = jaar, y = aantal, colour = is_sample)) +
+  geom_point(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red", size = 1, alpha = 0.5) +
+  facet_wrap(~ levensstadium, scales = "free_y")
+```
+
+```{r}
+datasetset_kamsalamander %>%
+  filter(is_sample) %>%
   ggplot(aes(x = aantal, fill = periode)) +
   geom_density(alpha = 0.5) +
   facet_wrap(~ levensstadium, scales = "free", nrow = 3)
@@ -190,6 +204,18 @@ datasetset_kamsalamander %>%
   stat_summary(fun.data = "mean_cl_boot", colour = "red") +
   facet_wrap(~ levensstadium, scales = "free_y")
 ```
+
+```{r}
+
+datasetset_kamsalamander %>%
+  filter(is_sample) %>%
+  filter(paired) %>%
+  ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
+  geom_jitter(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap(~ levensstadium, scales = "free_y")
+```
+
 ```{r}
 datasetset_kamsalamander %>%
   filter(is_sample) %>%

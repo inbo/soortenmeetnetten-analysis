@@ -3,6 +3,9 @@
 # Dataverkenning Boomkikker
 
 ```{r}
+analyseset_larven <- read_vc(file = "analyseset_larven", root = "../output/analyseset")
+
+analyseset_roepkoren_boomkikker <- read_vc(file = "analyseset_roepkoren_boomkikker", root = "../output/analyseset")
 
 datasetset_boomkikker <- analyseset_larven %>%
   bind_rows(analyseset_roepkoren_boomkikker) %>%
@@ -123,6 +126,15 @@ analyseset_boomkikker %>%
   ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
   geom_jitter(alpha = 0.3) +
   stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap(~ levensstadium, scales = "free_y")
+```
+
+```{r}
+analyseset_boomkikker %>%
+  filter(is_sample) %>%
+  ggplot(aes(x = jaar, y = aantal, colour = is_sample)) +
+  geom_point(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red", size = 1, alpha = 0.5) +
   facet_wrap(~ levensstadium, scales = "free_y")
 ```
 
@@ -250,6 +262,7 @@ analyseset_boomkikker %>%
   filter(!is.na(n_catch)) %>%
   mutate(aantal_10catch = aantal / n_catch * 10) %>%
   ggplot(aes(x = periode, y = aantal_10catch, colour = is_sample)) +
+  geom_boxplot(alpha = 0.3) +
   stat_summary(fun.data = "mean_cl_boot", colour = "red") 
 
 ```

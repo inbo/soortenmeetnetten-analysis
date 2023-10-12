@@ -274,7 +274,7 @@ compare_index %>%
 
 ## Trends
 
-```{r}
+```{r, eval=FALSE}
 trendmodel_iid <- inla(formula = aantal ~ year_scaled + 
                                 f(locatie, 
                                   model = "iid", 

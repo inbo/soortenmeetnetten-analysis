@@ -366,9 +366,7 @@ indexmodel_interaction <- inla(formula = aantal ~ periode*cluster2  +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
-test <- indexmodel_interaction$summary.fixed
 
-indexmodel_iid2$summary.random$cluster2
 ```
 
 

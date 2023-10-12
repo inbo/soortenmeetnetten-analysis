@@ -1,0 +1,192 @@
+# Modelverkenning larven Boomkikker en Kamsalamander
+
+```{r}
+analyseset_larven <- read_vc(file = "analyseset_larven", root = "../output/analyseset")
+
+analyseset_larven <- analyseset_larven %>%
+  filter(primaire_soort) %>%
+  filter(larvetelling) %>%
+  filter(is_sample) %>%
+  filter(levensstadium == "larve") %>%
+  mutate(meetcyclus = str_c(meetcyclus_start, meetcyclus_end, sep = "_"),
+         jaar_scaled = jaar - min(jaar) + 1) %>%
+  mutate(n_catch = ifelse(is.na(n_catch) | n_catch == 0, 1, n_catch),
+         n_10catch = round(n_catch/10, 1)) 
+
+analyseset_larven_boomkikker <- analyseset_larven %>%
+  filter(meetnet == "Boomkikker") %>%
+  mutate(occurence = ifelse(aantal > 0, 1, 0)) %>%
+  filter(jaar <= 2021)
+
+analyseset_larven_boomkikker_all <- analyseset_larven %>%
+  filter(meetnet == "Boomkikker") %>%
+  mutate(occurence = ifelse(aantal > 0, 1, 0)) 
+
+overzicht <- analyseset_larven_boomkikker %>%
+  mutate(weight = 1/n_10catch) %>%
+  group_by(meetcyclus) %>%
+  summarise(mean_occurence = mean(occurence),
+            mean_aantal = mean(aantal),
+            mean_aantal_10catch = mean(aantal/n_10catch),
+            mean_n_10catch = mean(n_10catch)) %>%
+  ungroup()
+```
+
+
+## Boomkikker
+
+```{r}
+to_sigma <- function(tau){sqrt(1/tau)}
+```
+
+```{r}
+indexmodel_larven_iid_offset <- inla(formula = aantal ~ meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       offset = n_10catch,
+                       data = analyseset_larven_boomkikker,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_larven_iid <- inla(formula = aantal ~ meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",data = analyseset_larven_boomkikker,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_larven_iid_offset_jaar <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) +  
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       offset = n_10catch,
+                       data = analyseset_larven_boomkikker_all,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+summary(indexmodel_larven_iid_offset_jaar)
+
+result_boomkikker_meetcyclus_offset <- derive_index_meetcyclus_inla(analyseset_larven_boomkikker, indexmodel_larven_iid_offset)
+result_boomkikker_meetcyclus <- derive_index_meetcyclus_inla(analyseset_larven_boomkikker, indexmodel_larven_iid)
+result_boomkikker_jaar_offset <- derive_index_rw_inla(analyseset_larven_boomkikker_all, indexmodel_larven_iid_offset_jaar)
+```
+
+```{r}
+indexmodel_occurence_iid_offset <- inla(formula = occurence ~ 0 + meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "binomial",
+                       data = analyseset_larven_boomkikker,
+                       offset = n_10catch,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+indexmodel_occurence_iid <- inla(formula = occurence ~ 0 + meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "binomial",
+                       data = analyseset_larven_boomkikker,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+# summary(indexmodel_occurence_iid_offset)
+#periode1
+# # plogis(-0.197)
+# # [1] 0.4509087
+#periode2
+# # plogis(-0.838)
+# # 0.3019562
+
+# summary(indexmodel_occurence_iid)
+#periode1
+# > plogis(1.337)
+# [1] 0.7919962
+#periode2
+# > plogis(0.33)
+# [1] 0.5817594
+```
+
+
+## Validatie
+
+
+
+## Dispersion
+
+```{r}
+plot(dispersion_check(indexmodel_larven_iid_offset))
+```
+## Distribution
+
+```{r}
+plot(fast_distribution_check(indexmodel_larven_iid_offset))
+```
+## Random effect
+
+
+### Location
+
+```{r}
+
+ precision_location <- indexmodel_larven_iid_offset$summary.hyperpar$mean[2]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_location),
+                  precision = precision_location,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_location))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_location), 3))))
+    
+```
+
+### Cluster
+
+```{r}
+
+ precision_cluster <- indexmodel_larven_iid_offset$summary.hyperpar$mean[3]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_cluster),
+                  precision = precision_cluster,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_cluster))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_cluster), 3))))
+    
+```

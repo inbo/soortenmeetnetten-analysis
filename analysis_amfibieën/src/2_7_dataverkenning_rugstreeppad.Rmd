@@ -1,0 +1,80 @@
+# Dataverkenning Rugstreeppad
+
+```{r}
+
+analyseset_rugstreeppad <- read_vc(file = "analyseset_rugstreeppad", root = "../output/analyseset")
+
+analyseset_rugstreeppad <- analyseset_rugstreeppad %>%
+  filter(primaire_soort) %>%
+  group_by(locatie, protocol) %>%
+  mutate(paired = n_distinct(meetcyclus) > 1,
+         multiple_year = n_distinct(jaar) > 1) %>%
+  ungroup() %>%
+  mutate(periode = str_c(meetcyclus_start, " - ", meetcyclus_end))
+```
+
+## Overzicht tellingen
+
+### Meetnetlocaties
+
+```{r}
+overzicht <- analyseset_rugstreeppad %>%
+  filter(is_sample) %>%
+  group_by(protocol, paired,locatie, periode) %>%
+  summarise(n_tellingen = n_distinct(visit_id)) %>%
+  ungroup() %>%
+  pivot_wider(names_from = "periode", values_from = n_tellingen, values_fill = 0)
+
+```
+
+```{r}
+overzicht %>%
+  select(locatie, "2019 - 2021", "2022 - 2024", gepaard = paired) %>%
+  arrange(locatie) %>%
+  kable(caption = "Aantal tellingen per cyclus") %>%
+  kable_styling() 
+```
+
+
+### Tijdstip van de tellingen
+
+
+
+```{r, fig.height=9}
+
+analyseset_rugstreeppad %>%
+  distinct(is_sample, locatie, datum, n_samples) %>%
+  ggplot(aes(y = locatie, x = datum, size = n_samples, colour = is_sample)) +
+  geom_point(alpha = 0.6) +
+  geom_vline(xintercept = as.Date("2022-01-01"), linetype = 2, alpha = 0.5)
+```
+
+
+
+### Overzicht aantallen
+
+```{r, fig.height= 8}
+analyseset_rugstreeppad %>%
+  ggplot(aes(x = jaar, y = aantal, colour = is_sample)) +
+  geom_point(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap(~ levensstadium + activiteit, scales = "free_y")
+```
+
+```{r}
+overzicht_tellingen <- analyseset_rugstreeppad %>%
+  mutate(aanwezig = aantal > 0) %>%
+  group_by(periode, levensstadium, activiteit) %>%
+  summarise(n_locaties = n_distinct(locatie),
+            n_bezoeken = n_distinct(visit_id),
+            prop_bezoeken_aanwezig = round(mean(aanwezig),2),
+            aantal_gemiddeld = mean(aantal),
+            aantal_max = max(aantal)) %>%
+  ungroup()
+
+overzicht_tellingen %>%
+  kable() %>%
+  kable_styling()
+```
+
+

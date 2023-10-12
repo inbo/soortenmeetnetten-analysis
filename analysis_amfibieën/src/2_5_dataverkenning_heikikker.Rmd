@@ -1,0 +1,106 @@
+
+# Dataverkenning Heikikker
+
+```{r}
+
+analyseset_heikikker <- read_vc(file = "analyseset_heikikker", root = "../output/analyseset")
+
+analyseset_heikikker <- analyseset_heikikker %>%
+  select(meetnet, protocol, locatie, cluster, meetcyclus, datum, visit_id, hoofdteller, bezoekvariabele, waarde, aantal) %>%
+  pivot_wider(names_from = bezoekvariabele,
+              values_from = waarde) %>%
+  rename(aantal_totaal = "Aantal eiklompen totaal", aantal_bemonsterd = "Aantal eiklompen bemonsterd", aandeel_doelsoort = "Procentueel aandeel doelsoort", staalcode = Staalcode, aantal_doelsoort = aantal) %>%
+  mutate(jaar = year(datum),
+         aantal_bemonsterd = as.numeric(aantal_bemonsterd),
+         aantal_totaal = as.numeric(aantal_totaal),
+         aantal_doelsoort = as.numeric(aantal_doelsoort),
+         aandeel_doelsoort = as.numeric(aandeel_doelsoort),
+         staalcode = ifelse(staalcode == "", NA, staalcode),
+         aantal_doelsoort = ifelse(!is.na(staalcode) & is.na(aandeel_doelsoort), NA, aantal_doelsoort),
+         staalname = !is.na(staalcode),
+         resultaat_ingevoerd = ifelse(staalname, !is.na(aandeel_doelsoort), NA)) %>%
+  arrange(datum)
+
+analyseset_heikikker_check <- analyseset_heikikker %>%
+  mutate(opmerking = ifelse(staalcode %in% c("2021HK016", "2021HK020", "2021HK057"), "Aandeel doelsoort = 0 invullen in meetnetten.be", NA),
+         opmerking = ifelse(staalname & is.na(aantal_bemonsterd), "Aantal bemonsterd niet ingevoerd in meetnetten.be", opmerking),
+         opmerking = ifelse(!staalname & is.na(aantal_totaal), "Aantal totaal = 0 invullen in meetnetten.be", opmerking),
+         opmerking = ifelse(staalname & aantal_totaal == 0, "Staal van 0 eiklompen??", opmerking),
+         opmerking = ifelse(staalcode == "2021HK015" & !is.na(staalcode), "Staal dubbel ingevoerd", opmerking)) %>%
+  mutate(link = str_c("https://www.meetnetten.be/fieldwork/visits/", visit_id))
+
+#write_csv2(analyseset_heikikker_check, "../output/datacontole_meetnet_heikikker.csv", na = "")
+```
+
+Er ontbreken nog veel resultaten van de DNA-analyses ('aandeel doelsoort'). 
+We stellen voorlopig de ontbrekende waarden voor aandeel doelsoort gelijk aan het gemiddeld aandeel doelsoorten op basis van de resultaten die wel al beschikbaar zijn.
+
+```{r}
+overzicht_heikikker <- analyseset_heikikker %>%
+  mutate(aandeel_doelsoort_gemiddeld = mean(aandeel_doelsoort, na.rm = TRUE),
+         aandeel_doelsoort = ifelse(is.na(aandeel_doelsoort), aandeel_doelsoort_gemiddeld, aandeel_doelsoort),
+         aantal_doelsoort_calc = ifelse(staalname, aantal_totaal * aandeel_doelsoort/100, aantal_doelsoort)) 
+
+overzicht_heikikker_locatie <- overzicht_heikikker %>%
+  mutate(jaar = year(datum)) %>%
+  group_by(meetnet, protocol, locatie, cluster, meetcyclus, jaar) %>%
+  summarise(staalname = any(staalname),
+            aantal_doelsoort = sum(aantal_doelsoort_calc)) %>%
+  ungroup() %>%
+  mutate(aanwezig = aantal_doelsoort > 0)
+
+overzicht_heikikker_cluster <- overzicht_heikikker_locatie %>%
+  group_by(meetnet, protocol, cluster, meetcyclus, jaar) %>%
+  summarise(staalname = any(staalname),
+            aantal_doelsoort = sum(aantal_doelsoort)) %>%
+  ungroup() %>%
+  mutate(aanwezig = aantal_doelsoort > 0)
+```
+We sommeren de aantallen per locatie.
+
+```{r}
+overzicht_heikikker_locatie %>%
+  group_by(meetnet, meetcyclus) %>%
+  summarise(n_locaties = n_distinct(locatie), 
+            n_clusters = n_distinct(cluster),
+            prop_locatie_aanwezig = round(mean(aanwezig), 2),
+            aantal_doelsoort_gem = round(mean(aantal_doelsoort))) %>%
+  ungroup() %>%
+  pivot_longer(cols = c("n_locaties", "n_clusters", "prop_locatie_aanwezig", "aantal_doelsoort_gem"), names_to = "parameter", values_to = "waarde") %>%
+  kable(caption = "Overzicht meetcyclus") %>%
+  kable_styling() %>%
+  collapse_rows(c(1,2))
+
+```
+
+```{r}
+overzicht_heikikker_locatie %>%
+  group_by(meetnet, jaar) %>%
+  summarise(n_locaties = n_distinct(locatie), 
+            n_clusters = n_distinct(cluster),
+            prop_locatie_aanwezig = round(mean(aanwezig), 2),
+            aantal_doelsoort_gem = round(mean(aantal_doelsoort))) %>%
+  ungroup() %>%
+  pivot_longer(cols = c("n_locaties", "n_clusters", "prop_locatie_aanwezig", "aantal_doelsoort_gem"), names_to = "parameter", values_to = "waarde") %>%
+  kable(caption = "Overzicht jaren") %>%
+  kable_styling() %>%
+  collapse_rows(c(1,2))
+
+```
+
+```{r}
+overzicht_heikikker_locatie %>%
+  ggplot(aes(y = aantal_doelsoort, x = jaar, colour = aanwezig)) +
+  geom_point(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red", size = 1, alpha = 0.4)
+```
+
+
+
+
+
+
+
+
+
+

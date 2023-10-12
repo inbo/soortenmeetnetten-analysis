@@ -175,8 +175,18 @@ get_observers_smp <- function(species_group = NULL,
 }
 
 get_covariates_smp <- function(species_group = NULL,
-                              file = "raw/covariabele",
+                               linked_to = "visit",
                               path = fileman_up("soortenmeetnetten-queries")) {
+  
+  if (linked_to == "visit") {
+    
+    file <- "raw/covariabele"
+    
+  } else if (linked_to == "sample") {
+    
+    file <- "raw/covariabele_sample"
+    
+  }
   
   covariates_smp <- read_vc(file = file, 
                            root = path)
@@ -1026,17 +1036,30 @@ derive_index_inla <- function(analyseset_species, indexmodel_nbinom_inla, ref_me
     
 }
 
-derive_index_meetcyclus_inla <- function(analyseset_species, indexmodel_nbinom_inla, set_seed = 0) {
+derive_index_meetcyclus_inla <- function(analyseset_species = NULL, indexmodel_nbinom_inla, function_eval = NULL, set_seed = 0) {
   
-    fun = function(...) {exp(meetcyclus2019_2021)}
+  
+  var_fixed <- indexmodel_nbinom_inla$names.fixed[-1]
+  
+  analyseset_species <- indexmodel_nbinom_inla$.args$data
+  
+  meetcyclus_ref <- analyseset_species %>%
+    distinct(meetcyclus, jaar) %>%
+    slice_min(jaar)
+  
+  if (is.null(function_eval)) {
+    
+    function_eval <- function(...) {exp(meetcyclus2019_2021)}
+    
+  }
   
   model_inla.samples <- inla.posterior.sample(1000, indexmodel_nbinom_inla, seed = set_seed, num.threads = "1:1")
   
   quantile_values <- c(0.025, 0.05, 0.20, 0.35,  0.65, 0.80, 0.95, 0.975)
   
-  predict_year_inla <- inla.posterior.sample.eval(fun, model_inla.samples) %>%
+  predict_year_inla <- inla.posterior.sample.eval(function_eval, model_inla.samples) %>%
     as.data.frame() %>%
-    mutate(meetcyclus = "meetcyclus2019_2021") %>%
+    mutate(meetcyclus = var_fixed) %>%
     gather(starts_with("sample"), key = "sample", value = "waarde") %>%
     group_by(meetcyclus) %>%
     mutate(mean = mean(waarde),
@@ -1056,7 +1079,7 @@ derive_index_meetcyclus_inla <- function(analyseset_species, indexmodel_nbinom_i
     mutate(soort_nl = unique(analyseset_species$soort_nl),
            soort_wet = unique(analyseset_species$soort_wet),
            parameter = "index",
-           meetcyclus_ref = "meetcyclus2016_2018") %>%
+           meetcyclus_ref = meetcyclus_ref$meetcyclus) %>%
     select(parameter, soort_nl, soort_wet, meetcyclus, everything())
   
   return(predict_year_inla)

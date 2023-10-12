@@ -1,0 +1,426 @@
+# Modelverkenning Vuursalamander
+
+We kiezen voor een mixed model met volgende kenmerken:
++ locatie als random intercept 
++ aantal als 1ste orde random walk
++ transectlengte als offset
+
+```{r}
+to_sigma <- function(tau){sqrt(1/tau)}
+```
+
+
+```{r}
+
+analyseset_vuursalamander <- analyseset_vuursalamander %>%
+  filter(is_sample | locatie %in% c("Heilig-Geestgoed", "Trimpont", "Buggenhoutbos zuid")) %>%
+  filter(primaire_soort) %>%
+  mutate(year_min = min(jaar),
+         fjaar = factor(jaar),
+        jaar_scaled = jaar - year_min + 1,
+        year_scaled = jaar_scaled,
+        n_100m = round(lengte_transect / 100)) %>%
+  group_by(locatie) %>%
+  mutate(aantal_totaal = sum(aantal)) %>%
+  ungroup() %>%
+  filter(aantal_totaal > 0) %>%
+  filter(jaar <= 2022)
+
+data_sim_add <- analyseset_vuursalamander %>%
+  as_tibble() %>%
+  tidyr::expand(jaar) %>%
+  mutate(jaar_scaled = jaar - min(jaar) + 1,
+         fjaar = factor(jaar)) %>%
+  mutate(data_type = "simulated")
+
+data_combine <- analyseset_vuursalamander %>%
+  mutate(data_type = "observed") %>%
+  bind_rows(data_sim_add)
+
+indexmodel_iid_rw1year <- inla(formula = aantal ~  f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       data = data_combine,
+                       family = "nbinomial",
+                       offset = n_100m,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_iid <- inla(formula = aantal ~  fjaar + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       data = data_combine,
+                       family = "nbinomial",
+                       #offset = n_100m,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+```
+
+
+## Random walk voor jaar
+
+```{r}
+sigma_rw1_est <- indexmodel_iid_rw1year$marginals.hyperpar$`Precision for jaar_scaled` %>%
+  inla.emarginal(fun = to_sigma)
+
+indexmodel_iid_rw1year$summary.random$jaar_scaled %>%
+  select(jaar_scaled = ID, mean, lcl = `0.025quant`, ucl = `0.975quant`) %>%
+  mutate(jaar = jaar_scaled - 1 + min(analyseset_vuursalamander$jaar)) %>%
+  mutate_at(c("mean", "lcl", "ucl"), exp) %>%
+  ggplot(aes(x = jaar, y = mean, ymin = lcl, ymax = ucl)) +
+  geom_ribbon(alpha = 0.2) + 
+  geom_line() +
+  labs(title = bquote(sigma ~ " rw1 =" ~ .(round(sigma_rw1_est, 3))),
+        y = "relative effect")
+```
+
+## Vergelijking modeloutput met geobserveerde data
+
++ jaar als 1ste orde random walk
+
+```{r}
+data_predict <- data_combine %>%
+    mutate(fitted_mean = exp(indexmodel_iid_rw1year$summary.fitted.values$mean),
+         fitted_0.025quant = exp(indexmodel_iid_rw1year$summary.fitted.values$`0.025quant`),
+         fitted_0.975quant = exp(indexmodel_iid_rw1year$summary.fitted.values$`0.975quant`)) %>%
+  filter(data_type == "simulated") %>%
+  select(jaar, fitted_mean, fitted_0.025quant, fitted_0.975quant) %>%
+  left_join(select(analyseset_vuursalamander, jaar, aantal_obs = aantal_100m), by = c("jaar")) 
+
+data_predict %>%
+  ggplot(aes(y = fitted_mean, x = jaar,  ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
+  geom_line() +
+  geom_ribbon(alpha = 0.3) +
+  geom_point(aes(y = aantal_obs, x = jaar), alpha = 0.4)
+```
+
++ jaar als factor
+
+```{r}
+data_predict <- data_combine %>%
+    mutate(fitted_mean = exp(indexmodel_iid$summary.fitted.values$mean),
+         fitted_0.025quant = exp(indexmodel_iid$summary.fitted.values$`0.025quant`),
+         fitted_0.975quant = exp(indexmodel_iid$summary.fitted.values$`0.975quant`)) %>%
+  filter(data_type == "simulated") %>%
+  select(jaar, fitted_mean, fitted_0.025quant, fitted_0.975quant) %>%
+  left_join(select(analyseset_vuursalamander, jaar, aantal_obs = aantal_100m), by = c("jaar")) 
+
+data_predict %>%
+  ggplot(aes(y = fitted_mean, x = jaar,  ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
+  geom_line() +
+  geom_ribbon(alpha = 0.3) +
+  geom_point(aes(y = aantal_obs, x = jaar), alpha = 0.4) 
+```
+
+```{r}
+indexmodel_iid_rw1year_hoofdteller <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(hoofdteller, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) +
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       data = analyseset_vuursalamander,
+                       family = "nbinomial",
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+
+```
+
+
+
+## vergelijking modellen
+
+```{r}
+overzicht_modellen <- tibble(jaareffect = c("rw1", "rw1", "jaar als factor"),
+                             randomeffect_teller = c("nee", "ja", "nee"),
+       sigma_rw = c(indexmodel_iid_rw1year$marginals.hyperpar$`Precision for jaar_scaled` %>%
+                                 inla.emarginal(fun = to_sigma),
+                    indexmodel_iid_rw1year_hoofdteller$marginals.hyperpar$`Precision for jaar_scaled` %>%
+                                 inla.emarginal(fun = to_sigma), NA),
+       sigma_loc = c(indexmodel_iid_rw1year$marginals.hyperpar$`Precision for locatie` %>%
+                                 inla.emarginal(fun = to_sigma),
+                    indexmodel_iid_rw1year_hoofdteller$marginals.hyperpar$`Precision for locatie` %>%
+                                 inla.emarginal(fun = to_sigma),
+                    indexmodel_iid$marginals.hyperpar$`Precision for locatie` %>%
+                                 inla.emarginal(fun = to_sigma)),
+       sigma_teller = c(NA,
+                    indexmodel_iid_rw1year_hoofdteller$marginals.hyperpar$`Precision for hoofdteller` %>%
+                                 inla.emarginal(fun = to_sigma),
+                    NA),
+       waic = c(indexmodel_iid_rw1year$waic$waic,
+                indexmodel_iid_rw1year_hoofdteller$waic$waic,
+                indexmodel_iid$waic$waic))
+
+overzicht_modellen %>%
+  kable() %>%
+  kable_styling()
+```
+
+```{r}
+
+fun_2016_2022 <-  function(...) {
+        c(exp(fjaar2017), exp(fjaar2018), exp(fjaar2019), exp(fjaar2020), exp(fjaar2021), exp(fjaar2022))
+      }
+
+compare_index <- bind_rows(
+  derive_index_rw_inla(analyseset_species = analyseset_vuursalamander, 
+                       inlamodel_rw = indexmodel_iid_rw1year) %>%
+    filter(parameter == "index") %>%
+    mutate(jaareffect = "rw1 jaar",
+           randomeffect_teller = "nee"),
+  derive_index_rw_inla(analyseset_species = analyseset_vuursalamander, 
+                       inlamodel_rw = indexmodel_iid_rw1year_hoofdteller) %>%
+    filter(parameter == "index") %>%
+    mutate(jaareffect = "rw1 jaar",
+           randomeffect_teller = "ja"),
+  derive_index_inla(analyseset_species = analyseset_vuursalamander, 
+                  indexmodel_nbinom_inla = indexmodel_iid,
+                  fun = fun_2016_2022) %>%
+    mutate(jaareffect = "factor jaar",
+           randomeffect_teller = "nee")
+) %>%
+  select(jaareffect,randomeffect_teller, jaar, ref_jaar, mean, lcl_0.90, ucl_0.90) 
+```
+```{r}
+compare_index %>%
+  kable() %>%
+  kable_styling() %>%
+  collapse_rows(c(1,2))
+```
+
+
+
+## Trends
+
+Enkel model met random slope runt.
+
+```{r}
+
+#model zonder random slope geeft een error
+
+# trendmodel_iid <- inla(formula = aantal ~ year_scaled + 
+#                                 f(locatie, 
+#                                   model = "iid", 
+#                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+#                        family = "nbinomial",
+#                        data = analyseset_vuursalamander,
+#                        offset = n_100m,
+#                        control.compute = list(config = TRUE, waic = TRUE),
+#                        control.predictor = list(compute = TRUE))
+# 
+# trend <-  derive_trend(analyseset_species = analyseset_vuursalamander, trendmodel_nbinom = trendmodel_iid) 
+  
+
+analyseset_vuursalamander <- analyseset_vuursalamander %>%
+  mutate(locatie2 = locatie)
+
+trendmodel_iid2 <- inla(formula = aantal ~ year_scaled + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) +
+                                f(locatie2,
+                                  year_scaled,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       offset = n_100m,
+                       data = analyseset_vuursalamander,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trendmodel_iid2_hoofdteller <- inla(formula = aantal ~ year_scaled + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) +
+                                f(hoofdteller, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) +
+                                f(locatie2,
+                                  year_scaled,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       offset = n_100m,
+                       data = analyseset_vuursalamander,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trend <-  derive_trend(analyseset_species = analyseset_vuursalamander, trendmodel_nbinom = trendmodel_iid2) 
+
+trend_hoofdeller <- derive_trend(analyseset_species = analyseset_vuursalamander, trendmodel_nbinom = trendmodel_iid2_hoofdteller) 
+
+trend %>%
+  bind_rows(trend_hoofdeller) %>%
+  mutate(randomeffect_teller = c("nee", "nee", "ja", "ja")) %>%
+  select(randomeffect_teller, parameter, jaar_min, jaar_max, mean, lcl_0.90, ucl_0.90) %>%
+  kable() %>%
+  kable_styling()
+```
+
+
+```{r}
+
+get_trend_mean <- function(marginals_location) {
+  marginals_location %>%
+    inla.tmarginal(fun = function(x) (exp(x) - 1) * 100) %>%
+    inla.zmarginal(silent = TRUE) %>%
+    data.frame()
+  
+} 
+
+get_trend_quantiles <- function(marginals_location) {
+  marginals_location %>%
+    inla.tmarginal(fun = function(x) (exp(x) - 1) * 100) %>%
+    inla.qmarginal(p = c(0.05, 0.20, 0.35, 0.65, 0.80, 0.95)) %>%
+    data.frame() %>%
+    mutate(type = c("lcl_0.90", "lcl_0.60", "lcl_0.30", "ucl_0.30", "ucl_0.60", "ucl_0.90")) %>%
+    spread(key = "type", value = ".")
+  
+} 
+
+trend_locatie_mean <- map_df(trendmodel_iid2$marginals.random$locatie2, get_trend_mean) 
+
+trend_locatie_quantiles <- map_df(trendmodel_iid2$marginals.random$locatie2, get_trend_quantiles) %>%
+  bind_cols(trend_locatie_mean) %>%
+  mutate(locatie = unique(analyseset_vuursalamander$locatie))
+
+trend_locatie_teller_mean <- map_df(trendmodel_iid2_hoofdteller$marginals.random$locatie2, get_trend_mean) 
+
+trend_locatie_teller_quantiles <- map_df(trendmodel_iid2_hoofdteller$marginals.random$locatie2, get_trend_quantiles) %>%
+  bind_cols(trend_locatie_teller_mean) %>%
+  mutate(locatie = unique(analyseset_vuursalamander$locatie))
+
+```
+
+```{r, fig.cap= "Schatting en classificatie van trend per locatie met 90%-betrouwbaarheidsinterval voor model zonder random effect voor teller", fig.height=8}
+klasse_color <- c("++" = inbo_groen, "+" = inbo_groen, "--" = inbo_rood, "-" = inbo_rood, "?+" = inbo_grijsblauw, "?-" = inbo_grijsblauw, "?" = inbo_grijsblauw, "~" = inbo_geelgr, "+~" = inbo_groen, "-~" = inbo_rood, "R" = inbo_grijsblauw)
+
+trend <- trend_locatie_quantiles %>%
+  mutate(mean_log = log(mean/100 + 1),
+          lcl_0.90_log = log(lcl_0.90/100 + 1),
+         ucl_0.90_log = log(ucl_0.90/100 + 1)) %>%
+  mutate(n_jaar = 6,
+         treshold_low = round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
+         treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1)) %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
+
+breaks_log <- log(c( -25, 0, 33)/100 + 1)
+labels_show <- str_c(c( -25, 0, 33), " %")
+
+volgorde_locaties <- (trend %>%
+  arrange(mean))$locatie
+
+trend %>%
+  mutate(locatie = factor(locatie, levels = volgorde_locaties)) %>%
+  ggplot( aes(x = locatie, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_hline(aes(yintercept = max(log(treshold_low/100 + 1))), linetype = 3) +
+  geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(width = 0, size = 7, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Gemiddelde jaarlijkse trend (%)", x = "cluster") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show, limits = c(min(breaks_log), max(breaks_log))) +
+  coord_flip() +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+```
+
+```{r, fig.cap= "Schatting en classificatie van trend per locatie met 90%-betrouwbaarheidsinterval met random effect voor teller", fig.height=8}
+klasse_color <- c("++" = inbo_groen, "+" = inbo_groen, "--" = inbo_rood, "-" = inbo_rood, "?+" = inbo_grijsblauw, "?-" = inbo_grijsblauw, "?" = inbo_grijsblauw, "~" = inbo_geelgr, "+~" = inbo_groen, "-~" = inbo_rood, "R" = inbo_grijsblauw)
+
+trend <- trend_locatie_teller_quantiles %>%
+  mutate(mean_log = log(mean/100 + 1),
+          lcl_0.90_log = log(lcl_0.90/100 + 1),
+         ucl_0.90_log = log(ucl_0.90/100 + 1)) %>%
+  mutate(n_jaar = 6,
+         treshold_low = round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
+         treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1)) %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
+
+breaks_log <- log(c( -25, 0, 33)/100 + 1)
+labels_show <- str_c(c( -25, 0, 33), " %")
+
+volgorde_locaties <- (trend %>%
+  arrange(mean))$locatie
+
+trend %>%
+  mutate(locatie = factor(locatie, levels = volgorde_locaties)) %>%
+  ggplot( aes(x = locatie, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_hline(aes(yintercept = max(log(treshold_low/100 + 1))), linetype = 3) +
+  geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(width = 0, size = 7, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Gemiddelde jaarlijkse trend (%)", x = "cluster") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show, limits = c(min(breaks_log), max(breaks_log))) +
+  coord_flip() +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+```
+
+
+## Validatie model
+
+```{r}
+
+indexmodel_iid_rw1year <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       offset = n_100m,
+                       data = analyseset_vuursalamander,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+```
+
+### Dispersion
+
+```{r}
+plot(dispersion_check(indexmodel_iid_rw1year))
+```
+
+
+### Distribution
+
+```{r}
+plot(fast_distribution_check(indexmodel_iid_rw1year))
+```
+
+
+### Random effect
+
+
+```{r}
+
+ precision_location <- indexmodel_iid_rw1year$summary.hyperpar$mean[2]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_location),
+                  precision = precision_location,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_location))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_location), 3))))
+    
+```
+
+

@@ -33,9 +33,6 @@ Daarnaast onderzoeken we ook of we volgende zaken toevoegen aan model:
 to_sigma <- function(tau){sqrt(1/tau)}
 ```
 
-
-
-
 ## Seizonaliteit opnemen in model?
 
 ### Tijdstip van de tellingen
@@ -342,9 +339,7 @@ indexmodel_interaction <- inla(formula = aantal ~ periode*cluster2  +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
-test <- indexmodel_interaction$summary.fixed
 
-indexmodel_iid2$summary.random$cluster2
 ```
 
 
@@ -386,13 +381,7 @@ overview_results <- bind_rows(
     rownames_to_column("parameter") %>%
     select(parameter, mean, `0.025quant`, `0.975quant`) %>%
     mutate(model = "indexmodel_iid2",
-           waic = indexmodel_iid2$waic$waic),
-  indexmodel_interaction$summary.fixed %>%
-    rownames_to_column("parameter") %>%
-    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
-    mutate(model = "indexmodel_interaction",
-           waic = indexmodel_interaction$waic$waic)
-) %>%
+           waic = indexmodel_iid2$waic$waic)) %>%
   select(model, waic, parameter, mean, `0.025quant`, `0.975quant` )
 
 overview_results %>%
@@ -524,7 +513,7 @@ overview_results %>%
 
 ## Gewichten
 
-+ gewichten voor clusterts?
++ gewichten voor clusters? nee
 
 ```{r, eval = FALSE}
 
@@ -540,12 +529,6 @@ gewichten <- locatie_detail %>%
 analyseset_fuiken_totaal <- analyseset_fuiken_totaal %>%
   left_join(gewichten, by = "cluster") 
 
-```
-
-```{r}
-gewichten %>%
-  kable(digits = 2) %>%
-  kable_styling()
 ```
 
 ## Validatie model

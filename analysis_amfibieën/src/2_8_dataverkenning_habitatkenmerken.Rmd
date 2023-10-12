@@ -1,0 +1,407 @@
+
+
+# Dataverkenning habitatkenmerken
+
+```{r}
+habitatkenmerken_boomkikker_kamsalamander_wide <- read_vc(file = "habitatkenmerken_boomkikker_kamsalamander_wide", root = "../output/analyseset")
+
+habitatkenmerken_rugstreeppad_wide <- read_vc(file = "habitatkenmerken_rugstreeppad_wide", root = "../output/analyseset")
+```
+
+
+## Overzicht tellingen Boomkikker
+
+```{r}
+overzicht_boomkikker <- habitatkenmerken_boomkikker_kamsalamander_wide %>%
+  filter(meetnet == "Boomkikker") %>%
+  mutate(periode = str_c(meetcyclus_start, "-", meetcyclus_end)) %>%
+  group_by(is_sample, cluster, poel, periode) %>%
+  summarise(n = n_distinct(visit_id),
+            telling = str_c(unique(habitatkenmerken_bepaald), collapse = "; ")) %>%
+  ungroup()  %>%
+  pivot_wider(names_from = "periode", values_from = telling, values_fill = "")
+
+```
+
+```{r, fig.cap = "Overzicht tellingen boomkikker", fig.height=9}
+
+habitatkenmerken_boomkikker_kamsalamander_wide %>%
+  filter(meetnet == "Boomkikker") %>%
+  ggplot(aes(y = poel, x = datum,  colour = is_sample, shape = habitatkenmerken_bepaald)) +
+  geom_point(alpha = 0.6, size = 2) +
+  facet_wrap(~cluster, scales = "free_y") +
+  geom_vline(xintercept = as.Date("2019-01-01"), linetype = 2) +
+  geom_vline(xintercept = as.Date("2022-01-01"), linetype = 2)
+```
+
+## Overzicht tellingen Kamsalamander
+
+```{r, fig.cap = "Overzicht tellingen kamsalamander: clusters met minstens 2 poelen", fig.height=9}
+habitatkenmerken_boomkikker_kamsalamander_wide %>%
+  filter(meetnet == "Kamsalamander") %>%
+  group_by(cluster) %>%
+  filter(n_distinct(locatie) > 1 & any(is_sample)) %>%
+  ungroup() %>%
+  ggplot(aes(y = poel, x = datum,  colour = is_sample, shape = habitatkenmerken_bepaald)) +
+  geom_point(alpha = 0.6, size = 2) +
+  facet_wrap(~cluster, scales = "free_y") +
+  geom_vline(xintercept = as.Date("2020-01-01"), linetype = 2) +
+  geom_vline(xintercept = as.Date("2023-01-01"), linetype = 2)
+```
+```{r, fig.cap = "Overzicht tellingen kamsalamander: overige poelen", fig.height=5}
+habitatkenmerken_boomkikker_kamsalamander_wide %>%
+  filter(meetnet == "Kamsalamander") %>%
+  group_by(cluster) %>%
+  filter(n_distinct(locatie) == 1 & any(is_sample)) %>%
+  ungroup() %>%
+  ggplot(aes(y = locatie, x = datum,  colour = is_sample, shape = habitatkenmerken_bepaald)) +
+  geom_point(alpha = 0.6, size = 2) +
+  geom_vline(xintercept = as.Date("2020-01-01"), linetype = 2) +
+  geom_vline(xintercept = as.Date("2023-01-01"), linetype = 2)
+```
+
+## Ontbrekende waarden
+
+```{r}
+
+var_habitatkenmerken <- c("ph", "maximale_diepte", "oppervlakte_waterpartij", "permanente_waterkolom", "beschaduwing", "aanwezigheid_vis", "waterkwaliteit")
+
+meting <- function(x)(!(is.na(x) | x %in% c("onbekend", "niet bekeken/niet van toepassing")))
+
+missing_values <- habitatkenmerken_boomkikker_kamsalamander_wide %>% 
+  mutate_at(var_habitatkenmerken, meting) %>%
+  pivot_longer(cols = var_habitatkenmerken, names_to = "habitatkenmerk", values_to = "meting") 
+
+missing_values_bezoek <- missing_values %>%
+  group_by(meetnet, is_sample, habitatkenmerk) %>%
+  summarise(prop_opgemeten = round(sum(meting)/n(), 2),
+            n_bezoeken = n()) %>%
+  ungroup() %>%
+  select(meetnet, is_sample, n_bezoeken, everything())
+
+missing_values_locatie <- missing_values %>%
+  group_by(meetnet, is_sample, locatie, habitatkenmerk) %>%
+  summarise(meting = any(meting)) %>%
+  ungroup() %>%
+  group_by(meetnet, is_sample, habitatkenmerk) %>%
+  summarise(prop_opgemeten = round(sum(meting)/n(), 2),
+            n_locaties = n()) %>%
+  ungroup() %>%
+  select(meetnet, is_sample, n_locaties, everything())
+  
+```
+
+```{r}
+missing_values_bezoek %>%
+  kable(caption = "Proportie van de bezoeken met meting voor habitatkenmerk") %>%
+  kable_styling() %>%
+  collapse_rows(c(1, 2, 3))
+```
+
+```{r}
+missing_values_locatie %>%
+  kable(caption = "Proportie van de locatie met minstens één meting voor habitatkenmerk") %>%
+  kable_styling() %>%
+  collapse_rows(c(1, 2, 3))
+```
+
+## Verkenning variabelen
+
+### Numerieke variabelen
+
+```{r}
+habitatkenmerken_boomkikker_kamsalamander_wide <- habitatkenmerken_boomkikker_kamsalamander_wide %>%
+  mutate(periode = str_c(meetcyclus_start, "-", meetcyclus_end)) %>%
+  mutate(jaar = year(datum))
+
+habitatkenmerken_numeric <- habitatkenmerken_boomkikker_kamsalamander_wide %>%
+  select(meetnet, meetcyclus, periode, datum, locatie, is_sample, ph, aanwezigheid_vis, permanente_waterkolom) %>%
+  pivot_longer(cols = c("ph", "aanwezigheid_vis", "permanente_waterkolom"),
+               names_to = "habitatkenmerk",
+               values_to = "waarde")
+
+habitatkenmerken_numeric_periode <- habitatkenmerken_numeric %>%
+  filter(!is.na(waarde))
+  
+habitatkenmerken_numeric_status <- habitatkenmerken_numeric %>%
+  filter(!is.na(waarde)) %>%
+  group_by(meetnet, locatie) %>%
+  filter(datum == max(datum)) %>%
+  ungroup()
+  
+```
+
+```{r, fig.height=6}
+habitatkenmerken_numeric_periode %>%
+  ggplot(aes(x = periode, y = waarde)) +
+  stat_sum(alpha = 0.6) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_grid(habitatkenmerk ~ meetnet, scale = "free") +
+  labs(size = "Aantal bezoeken")
+  
+  
+```
+
+```{r, fig.height=6, fig.cap = "Meest recente status per locatie voor aanwezigheid vis (aanwezig = 1, afwezig = 0), permanente waterkolom (ja = 1, nee = 0) en pH"}
+habitatkenmerken_numeric_status %>%
+  ggplot(aes(x = meetnet, y = waarde)) +
+  stat_sum(alpha = 0.6) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap( ~ habitatkenmerk, scale = "free")
+```
+
+
+
+### Waterkwaliteit
+
+```{r}
+
+
+waterkwaliteit_periode <- habitatkenmerken_boomkikker_kamsalamander_wide  %>%
+  filter(is_sample) %>%
+  group_by(meetnet, periode) %>%
+  mutate(n_bezoeken = n(),
+         n_meting = sum(!waterkwaliteit %in% c("onbekend", "niet bekeken/niet van toepassing"))) %>%
+  ungroup() %>%
+  group_by(meetnet, periode, meetcyclus, n_bezoeken, n_meting, waterkwaliteit) %>%
+  summarise(prop = round(n() / n_bezoeken, 2),
+            prop_meting = round(n() / n_meting, 2),
+            n = n()) %>%
+  ungroup() %>%
+  unique()
+
+waterkwaliteit_status <- habitatkenmerken_boomkikker_kamsalamander_wide  %>%
+  filter(is_sample) %>%
+  filter(!waterkwaliteit %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
+  group_by(meetnet, locatie) %>%
+  filter(datum == max(datum)) %>%
+  ungroup() %>%
+  group_by(meetnet) %>%
+  mutate(n_locaties_meting = n_distinct(locatie)) %>%
+  ungroup() %>%
+  group_by(meetnet, n_locaties_meting, waterkwaliteit) %>%
+  summarise(prop_locatie = round(n() / n_locaties_meting, 2),
+            n = n()) %>%
+  ungroup() %>%
+  unique()
+
+
+```
+
+```{r, fig.width=9, fig.cap= "Proportie en aantal voor elke categorie van waterhabitatkwaliteit, inclusief ontbrekende waarden"}
+waterkwaliteit_periode %>%
+  ggplot(aes(x = periode, y = prop, fill = waterkwaliteit)) + 
+  geom_col() +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
+  facet_wrap(~meetnet, scales = "free_x")
+```
+
+
+
+```{r,fig.width=9, fig.cap= "Proportie en aantal voor elke categorie van waterhabitatkwaliteit, exclusief ontbrekende waarden"}
+waterkwaliteit_periode %>%
+  filter(!waterkwaliteit %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
+  ggplot(aes(x = periode, y = prop_meting, fill = waterkwaliteit)) + 
+  geom_col() +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
+  facet_wrap(~meetnet, scales = "free_x")
+```
+
+```{r}
+habitatkenmerken_boomkikker_kamsalamander_wide %>%
+  filter(waterkwaliteit == "plas verdwenen of volledig verland") %>%
+  select(meetnet, locatie, datum, waterkwaliteit) %>%
+  kable() %>%
+  kable_styling()
+```
+
+```{r, fig.cap= "Meest recente status per locatie"}
+waterkwaliteit_status %>%
+  ggplot(aes(x = meetnet, y = prop_locatie, fill = waterkwaliteit)) + 
+  geom_col() +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") 
+```
+
+
+### Maximale diepte
+
+```{r}
+
+maximale_diepte_periode <- habitatkenmerken_boomkikker_kamsalamander_wide  %>%
+  filter(is_sample) %>%
+  group_by(meetnet, periode) %>%
+  mutate(n_bezoeken = n(),
+         n_meting = sum(!maximale_diepte %in% c("onbekend", "niet bekeken/niet van toepassing"))) %>%
+  ungroup() %>%
+  group_by(meetnet, periode, meetcyclus, n_bezoeken, n_meting, maximale_diepte) %>%
+  summarise(prop = round(n() / n_bezoeken, 2),
+            prop_meting = round(n() / n_meting, 2),
+            n = n()) %>%
+  ungroup() %>%
+  unique()
+
+maximale_diepte_status <- habitatkenmerken_boomkikker_kamsalamander_wide  %>%
+  filter(is_sample) %>%
+  filter(!maximale_diepte %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
+  group_by(meetnet, locatie) %>%
+  filter(datum == max(datum)) %>%
+  ungroup() %>%
+  group_by(meetnet) %>%
+  mutate(n_locaties_meting = n_distinct(locatie)) %>%
+  ungroup() %>%
+  group_by(meetnet, n_locaties_meting, maximale_diepte) %>%
+  summarise(prop_locatie = round(n() / n_locaties_meting, 2),
+            n = n()) %>%
+  ungroup() %>%
+  unique()
+
+
+```
+
+```{r, fig.width=9, fig.cap= "Proportie en aantal voor elke categorie van maximale_diepte, inclusief ontbrekende waarden"}
+maximale_diepte_periode %>%
+  ggplot(aes(x = periode, y = prop, fill = maximale_diepte)) + 
+  geom_col() +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
+  facet_wrap(~meetnet, scales = "free_x")
+```
+
+
+
+```{r,fig.width=9, fig.cap= "Proportie en aantal voor elke categorie van maximale_diepte, exclusief ontbrekende waarden"}
+maximale_diepte_periode %>%
+  filter(!maximale_diepte %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
+  ggplot(aes(x = periode, y = prop_meting, fill = maximale_diepte)) + 
+  geom_col() +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
+  facet_wrap(~meetnet, scales = "free_x")
+```
+
+```{r, fig.cap= "Meest recente status per locatie"}
+maximale_diepte_status %>%
+  ggplot(aes(x = meetnet, y = prop_locatie, fill = maximale_diepte)) + 
+  geom_col() +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") 
+```
+
+### Beschaduwing
+
+```{r}
+
+beschaduwing_periode <- habitatkenmerken_boomkikker_kamsalamander_wide  %>%
+  filter(is_sample) %>%
+  group_by(meetnet, periode) %>%
+  mutate(n_bezoeken = n(),
+         n_meting = sum(!beschaduwing %in% c("onbekend", "niet bekeken/niet van toepassing"))) %>%
+  ungroup() %>%
+  group_by(meetnet, periode, meetcyclus, n_bezoeken, n_meting, beschaduwing) %>%
+  summarise(prop = round(n() / n_bezoeken, 2),
+            prop_meting = round(n() / n_meting, 2),
+            n = n()) %>%
+  ungroup() %>%
+  unique()
+
+beschaduwing_status <- habitatkenmerken_boomkikker_kamsalamander_wide  %>%
+  filter(is_sample) %>%
+  filter(!beschaduwing %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
+  group_by(meetnet, locatie) %>%
+  filter(datum == max(datum)) %>%
+  ungroup() %>%
+  group_by(meetnet) %>%
+  mutate(n_locaties_meting = n_distinct(locatie)) %>%
+  ungroup() %>%
+  group_by(meetnet, n_locaties_meting, beschaduwing) %>%
+  summarise(prop_locatie = round(n() / n_locaties_meting, 2),
+            n = n()) %>%
+  ungroup() %>%
+  unique()
+
+
+```
+
+```{r, fig.width=9, fig.cap= "Proportie en aantal voor elke categorie van beschaduwing, inclusief ontbrekende waarden"}
+beschaduwing_periode %>%
+  ggplot(aes(x = periode, y = prop, fill = beschaduwing)) + 
+  geom_col() +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
+  facet_wrap(~meetnet, scales = "free_x")
+```
+
+
+
+```{r,fig.width=9, fig.cap= "Proportie en aantal voor elke categorie van beschaduwing, exclusief ontbrekende waarden"}
+beschaduwing_periode %>%
+  filter(!beschaduwing %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
+  ggplot(aes(x = periode, y = prop_meting, fill = beschaduwing)) + 
+  geom_col() +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
+  facet_wrap(~meetnet, scales = "free_x")
+```
+
+```{r, fig.cap= "Meest recente status per locatie"}
+beschaduwing_status %>%
+  ggplot(aes(x = meetnet, y = prop_locatie, fill = beschaduwing)) + 
+  geom_col() +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") 
+```
+
+### Oppervlakte waterpartij
+
+```{r}
+
+oppervlakte_waterpartij_periode <- habitatkenmerken_boomkikker_kamsalamander_wide  %>%
+  filter(is_sample) %>%
+  group_by(meetnet, periode) %>%
+  mutate(n_bezoeken = n(),
+         n_meting = sum(!oppervlakte_waterpartij %in% c("onbekend", "niet bekeken/niet van toepassing"))) %>%
+  ungroup() %>%
+  group_by(meetnet, periode, meetcyclus, n_bezoeken, n_meting, oppervlakte_waterpartij) %>%
+  summarise(prop = round(n() / n_bezoeken, 2),
+            prop_meting = round(n() / n_meting, 2),
+            n = n()) %>%
+  ungroup() %>%
+  unique()
+
+oppervlakte_waterpartij_status <- habitatkenmerken_boomkikker_kamsalamander_wide  %>%
+  filter(is_sample) %>%
+  filter(!oppervlakte_waterpartij %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
+  group_by(meetnet, locatie) %>%
+  filter(datum == max(datum)) %>%
+  ungroup() %>%
+  group_by(meetnet) %>%
+  mutate(n_locaties_meting = n_distinct(locatie)) %>%
+  ungroup() %>%
+  group_by(meetnet, n_locaties_meting, oppervlakte_waterpartij) %>%
+  summarise(prop_locatie = round(n() / n_locaties_meting, 2),
+            n = n()) %>%
+  ungroup() %>%
+  unique()
+
+
+```
+
+```{r, fig.width=9, fig.cap= "Proportie en aantal voor elke categorie van oppervlakte_waterpartij, inclusief ontbrekende waarden"}
+oppervlakte_waterpartij_periode %>%
+  ggplot(aes(x = periode, y = prop, fill = oppervlakte_waterpartij)) + 
+  geom_col() +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
+  facet_wrap(~meetnet, scales = "free_x")
+```
+
+
+
+```{r,fig.width=9, fig.cap= "Proportie en aantal voor elke categorie van oppervlakte_waterpartij, exclusief ontbrekende waarden"}
+oppervlakte_waterpartij_periode %>%
+  filter(!oppervlakte_waterpartij %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
+  ggplot(aes(x = periode, y = prop_meting, fill = oppervlakte_waterpartij)) + 
+  geom_col() +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
+  facet_wrap(~meetnet, scales = "free_x")
+```
+
+```{r, fig.cap= "Meest recente status per locatie"}
+oppervlakte_waterpartij_status %>%
+  ggplot(aes(x = meetnet, y = prop_locatie, fill = oppervlakte_waterpartij)) + 
+  geom_col() +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") 
+```
