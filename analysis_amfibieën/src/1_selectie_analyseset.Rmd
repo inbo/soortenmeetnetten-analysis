@@ -207,7 +207,7 @@ analyseset_larven <- dataset_larven %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus - 1) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, doy, visit_id, bezoek_status, zoekinspanning, larvetelling, metamorftelling, n_catch, primaire_soort, soort_nl, soort_wet, levensstadium, aantal, notes)
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, doy, visit_id, bezoek_status, zoekinspanning, larvetelling, metamorftelling, n_catch, primaire_soort, soort_nl, soort_wet, levensstadium, aantal, notes, hoofdteller)
 ```
 
 ## Analyseset roepkoren Boomkikker
@@ -347,7 +347,7 @@ analyseset_roepkoren_boomkikker <- dataset_roepkoren %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus - 1) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium,  aantal)
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium,  aantal, notes, hoofdteller)
 ```
 
 ## Analyseset Fuiken Kamsalamander
@@ -508,10 +508,10 @@ analyseset_fuiken_detail <- dataset_fuiken %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = ifelse(meetcyclus == 1, 2020, 2023)) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, n_fuiken, primaire_soort, soort_nl, soort_wet, levensstadium, geslacht, aantal)
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, n_fuiken, primaire_soort, soort_nl, soort_wet, levensstadium, geslacht, aantal, notes, hoofdteller)
 
 analyseset_fuiken_totaal <- analyseset_fuiken_detail %>%
-  group_by(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, n_fuiken, primaire_soort, soort_nl, soort_wet) %>%
+  group_by(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, n_fuiken, primaire_soort, soort_nl, soort_wet, notes, hoofdteller) %>%
   summarise(aantal = sum(aantal)) %>%
   ungroup() %>%
   group_by(protocol, locatie) %>%
@@ -1274,7 +1274,7 @@ analyseset_rugstreeppad <- dataset_rugstreeppad %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus - 1) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, levensstadium, activiteit, aantal, n_samples)
+  select(soortgroep, meetnet, protocol, locatie, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, levensstadium, activiteit, aantal, n_samples, notes, hoofdteller)
 ```
 
 ## Analyseset habitatkenmerken
