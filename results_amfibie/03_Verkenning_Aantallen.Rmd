@@ -1,0 +1,207 @@
+# Verkenning van de aantallen
+
+In dit onderdeel geven we een overzicht van de aantallen waargenomen tijdens de tellingen.
+
+```{r, message=FALSE}
+
+analyseset_aggr <- analyseset_all %>%
+  mutate(soort_nl = ifelse(str_detect(soort_wet, "Pelophylax lessonae"), "Poelkikker/ Bastaardkikker", soort_nl),
+         soort_wet = ifelse(soort_wet == "Pelophylax lessonae", "Pelophylax lessonae/ kl. esculentus", soort_wet)) %>%
+  mutate(type = ifelse(meetnet %in% c("Boomkikker", "Vroedmeestpad", "Knoflookpad", "Poelkikker"), "roepende mannetjes", levensstadium),
+         type = ifelse(meetnet == "Rugstreeppad" & activiteit == "roepend", "roepende mannetjes", type),
+         type = ifelse(meetnet %in% c("Boomkikker", "Kamsalamander", "Rugstreeppad") & levensstadium %in% c("larve", "metamorf"), "larven (en metamorfen)", type),
+         type = ifelse(meetnet == "Kamsalamander" & levensstadium %in% c("adult", "juveniel"), "adulten en juvenielen", type),
+         type = ifelse(meetnet == "Rugstreeppad" & type %in% c("adult", "juveniel (>2cm)", "juveniel (<2cm)"), "adulten en juvenielen", type),
+         type = ifelse(type == "adult", "adulten",
+                       ifelse(type == "ei", "eiklompen",
+                              ifelse(type == "larve", "larven",
+                                     ifelse(type == "post-metamorf", "post-metamorfen", type)))))
+
+summary_counts_year <- analyseset_aggr %>%
+  group_by(is_sample, primaire_soort, meetnet, soort_nl, soort_wet, type, locatie, jaar, visit_id) %>%
+  summarise(aantal_bezoek = sum(aantal)) %>%
+  ungroup() %>%
+  group_by(is_sample, primaire_soort, soort_nl, soort_wet, type, jaar) %>%
+  summarise(aantal_tot = sum(aantal_bezoek),
+            aantal_mean = round(mean(aantal_bezoek), 1)) %>%
+  ungroup()
+
+summary_verspreiding_year <- analyseset_aggr %>%
+  group_by(is_sample, primaire_soort, meetnet, soort_nl, soort_wet, type, locatie, jaar) %>%
+  summarise(aanwezig = sum(aantal) > 0) %>%
+  ungroup() %>%
+  group_by(is_sample, primaire_soort, soort_nl, soort_wet, type, jaar) %>%
+  summarise(n_aanwezig = sum(aanwezig),
+            n_locaties = n_distinct(locatie)) %>%
+  ungroup() %>%
+  mutate(prop_aanwezig = round(n_aanwezig/n_locaties * 100, 1))
+
+summary_table <- summary_counts_year %>%
+  left_join(summary_verspreiding_year, by = c("is_sample", "primaire_soort", "jaar", "soort_nl", "soort_wet", "type")) %>%
+  arrange(soort_nl, type, jaar)
+  
+```
+
+## Aantallen voor de prioritaire soorten
+
+### Totale en gemiddelde aantallen per bezoek
+
+Tabel \@ref(tab:tabaantaltot) toont per soort, levensstadium en per jaar:
+
+-   het totaal aantallen per soort en per levensstadium
+-   het gemiddeld aantal per bezoek;
+-   het aantal getelde meetnetlocaties;
+-   de proportie van de bezochte meetnetlocaties waar de soort werd waargenomen.
+
+```{r tabaantaltot, eval=TRUE}
+
+summary_table %>% 
+  filter(primaire_soort, soort_nl != "Meerkikker") %>%
+  filter(is_sample) %>%
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Levensstadium" = type,  Jaar = jaar, "Totaal" = aantal_tot, "Gemiddeld" = aantal_mean, "Locaties" = n_locaties, "Proportie (%)" = prop_aanwezig) %>%
+  kable(caption = "Overzicht getelde aantallen voor de prioritaire soorten (Totaal = totaal aantal, Gemiddeld = gemiddeld aantal per bezoek, Locaties = aantal getelde meetnetlocaties, Proportie = proportie van de bezochte meetnetlocaties waar de soort en het levensstadium werd waargenomen)",
+      booktabs = TRUE,
+      longtable = TRUE,
+      align = "llccccc") %>%
+  kable_styling(bootstrap_options = c( "condensed"), 
+                latex_options = c("scale_down", "repeat_header"),
+                repeat_header_text = "(vervolg)") %>%
+  column_spec(2, italic = TRUE) %>%
+  collapse_rows(c(1,2, 3), target = 1, valign = "top", latex_hline = "major") %>%
+  scroll_box(width = "100%", height = "600px", fixed_thead = TRUE) 
+  
+
+```
+
+`r ifelse(html_output, "### Aantallen per meetnetlocatie", "")`
+
+```{r,  message=FALSE}
+
+summary_counts_locatie <- analyseset_aggr %>%
+  filter(primaire_soort) %>%
+  filter(soort_nl != "Meerkikker") %>%
+  group_by(is_sample, primaire_soort, meetnet, soort_nl, soort_wet, type, locatie, jaar, visit_id) %>%
+  summarise(aantal_bezoek = sum(aantal)) %>%
+  ungroup() %>%
+  group_by(is_sample, primaire_soort, meetnet, locatie, soort_nl, soort_wet, type, jaar) %>%
+  summarise(aantal_tot = sum(aantal_bezoek),
+            aantal_mean = round(mean(aantal_bezoek), 1),
+            n_bezoeken = n_distinct(visit_id)) %>%
+  ungroup() %>%
+  group_by(is_sample, primaire_soort, meetnet, locatie, soort_nl, soort_wet, type) %>%
+  mutate(aantal_tot_overall = sum(aantal_tot),
+         aantal_mean_overall = round(sum(aantal_tot) / sum(n_bezoeken), 1)) %>%
+  ungroup()
+
+details_locatie_m <- locaties_utm %>%
+  select(meetnet, locatie, tag_utm) %>%
+  mutate(tag_utm = as.character(tag_utm)) %>%
+  group_by(meetnet, tag_utm) %>%
+  mutate(tag_locatie = str_c(tag_utm, "-", rank(locatie))) %>%
+  ungroup() %>%
+  inner_join(filter(summary_counts_locatie, primaire_soort), by = c("meetnet", "locatie")) %>%
+  mutate(label_locatie = str_c("<p>", meetnet, " ", type, "-", tag_locatie, ": <b>", aantal_mean_overall, "</b></br></p>")) %>%
+  group_by(tag_utm, meetnet) %>%
+  mutate(meetnetlocaties_utm = n_distinct(locatie),
+          label = str_c(unique(label_locatie),  collapse = " ")) %>%
+  ungroup() 
+  
+details_locatie_m_tabel <- details_locatie_m %>%
+  arrange(jaar, meetnet, locatie) %>%
+  select("Soort" = meetnet, Levensstadium = type, "Locatie code" = tag_locatie, jaar, aantal_mean, aantal_mean_overall, label) %>%
+  pivot_wider(names_from = "jaar", values_from = "aantal_mean") %>%
+  mutate(radiusCircle = 500 + (5000 - 500) * sqrt(aantal_mean_overall/pi)/max(sqrt(aantal_mean_overall/pi), na.rm = TRUE) ,
+         radiusCircleMarker = 2 + (20 - 2) * sqrt(aantal_mean_overall/pi)/max(sqrt(aantal_mean_overall/pi), na.rm = TRUE)) %>%
+  filter(!is.na(aantal_mean_overall)) %>%
+  rename("Volledige periode" = aantal_mean_overall)
+  
+utm_meetnet <- utm_vl %>%
+  filter(tag_utm %in% details_locatie_m$tag_utm)
+```
+
+`r ifelse(html_output, "In onderstaande kaart en bijhorende tabel geven we een overzicht van de gemiddeld getelde aantallen per soort, levensstadium en per meetnetlocatie. De meetnetlocaties worden weergegeven in de centroïde van het 5 km x 5 km hok waarin de locatie gelegen is. De oppervlakte van de punten is evenredig met het gemiddeld getelde aantal per bezoek over de volledige periode (2016 - 2023). In de bijhorende tabel geven we ook het gemiddeld getelde aantallen per bezoek voor elk jaar. Gezien we de exacte locaties niet weergeven in dit rapport, kennen we hier aan elke locatie een code toe die refereert naar het overeenkomstige hok. Als je in de tabel een rij selecteert, krijg je in de kaart de (vervaagde) locatie te zien.", "")`
+
+```{r, eval = html_output}
+
+sd_locaties <- SharedData$new(details_locatie_m_tabel)
+
+bscols(list(
+          bscols(
+            widths = c(2, 5, 4, 1),
+            NULL,
+            filter_select("meetnet", "Selecteer soort", sd_locaties, ~Soort),
+            filter_select("levensstadium", "Selecteer levensstadium", sd_locaties, ~Levensstadium),
+            NULL),
+            leaflet(sd_locaties, options = leafletOptions(maxZoom = 11)) %>%
+              addTiles() %>%
+              addCircleMarkers(stroke = FALSE,  radius = ~radiusCircleMarker,  popup = ~label,  fillOpacity = 0.4) %>%
+              addPolygons(data = utm_meetnet, weight = 1, color = "blue", fill = FALSE, opacity = 0.5),
+          bscols(widths = c(1, 10, 1),
+               NULL,
+               datatable(sd_locaties,
+                      rownames = FALSE,
+                      class = "compact",
+                      extensions = "FixedColumns",
+                      options = list(columnDefs = list(list(visible = FALSE, targets = c( 4, 5, 14, 15))),
+                                     dom = 't',
+                                     scrollX = TRUE,
+                                     fixedColumns = TRUE,
+                                     fixedColumns = list(leftColumns = 1))),
+              NULL)
+                      
+        )
+)
+
+  options = list(
+    dom = 't',
+    scrollX = TRUE,
+    fixedColumns = TRUE
+  )
+```
+
+```{r figlocatiesaantallen, fig.cap = "Gemiddelde getelde aantallen per bezoek, per meetnetlocatie", eval= html_output}
+include_graphics("image/dummy_figuur.png")
+```
+
+## Aantallen voor de secundaire soorten
+
+Elk amfibieënmeetnet is specifiek ontworpen voor één bepaalde prioritaire soort.
+Naast de prioritaire soort is het ook mogelijk om andere amfibieën te noteren die tijdens de telling worden waargenomen.
+We noemen deze de secundaire soorten.
+Deze gegevens kunnen zeker een meerwaarde zijn, maar we moeten wel voorzichtig zijn bij het interpreteren of analyseren ervan.
+Zowel de tellocaties als de telperiode zijn immers specifiek gekozen voor de prioritaire soorten.
+Dat maakt dat de aantallen voor de secundaire soorten niet altijd representatief zijn voor een uitspraak op schaal Vlaanderen.
+
+In Tabel \@ref(tab:tabaantaltotoverige) geven we het totaal aantal getelde individuen per levensstadium van de secundaire soorten voor alle amfibieënmeetnetten samen.
+De soorten worden gerangschikt volgens getelde aantallen van hoog naar laag.
+De tabel bevat ook prioritaire soorten, maar dit zijn dan de aantallen die geteld werden in locaties van andere meetnetten.
+
+\needspace{50mm}
+
+```{r , message=FALSE}
+
+summary_table_all_years <- summary_table %>%
+  filter(!primaire_soort) %>%
+  group_by(primaire_soort, soort_nl, soort_wet, type) %>%
+  summarise(aantal_totaal_ls = sum(aantal_tot)) %>%
+  ungroup() %>%
+  group_by(primaire_soort, soort_nl, soort_wet) %>%
+  mutate(aantal_totaal = sum(aantal_totaal_ls)) %>%
+  ungroup() %>%
+  filter(aantal_totaal_ls > 0) %>%
+  arrange(desc(aantal_totaal))
+
+```
+
+```{r tabaantaltotoverige, eval=TRUE}
+summary_table_all_years %>% 
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Levensstadium" = type, "Totaal" = aantal_totaal_ls) %>%
+  kable(caption = "Totaal aantal getelde overige soorten voor alle amfibieënmeetnetten samen",
+     longtable = TRUE,
+      booktabs = TRUE) %>%
+  kable_styling(bootstrap_options = c( "condensed"), 
+                latex_options = c("scale_down", "repeat_header"),
+                repeat_header_text = "(vervolg)") %>%
+  column_spec(2, italic = TRUE) %>%
+  scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
+```

@@ -1,0 +1,137 @@
+---
+title: "Resultaten van de amfibieënmeetnetten in Vlaanderen"
+subtitle: Periode 2016 - 2023
+author:
+  - name:
+      given: "Toon"
+      family: "Westra"
+    email: "toon.westra@inbo.be"
+    orcid: "0000-0003-2478-9459"
+    affiliation: "Instituut voor Natuur- en Bosonderzoek (INBO)"
+    corresponding: true
+  - name:
+      given: "Jeroen"
+      family: "Speybroeck"
+    email: "jeroen.speybroeck@inbo.be"
+    orcid: "0000-0002-7241-7804"
+    affiliation: "Instituut voor Natuur- en Bosonderzoek (INBO)"
+  - name:
+      given: "Sam"
+      family: "Van de Poel"
+    email: "sam.vandepoel@natuurpunt.be"
+    affiliation: "Natuurpunt Studie"
+  - name:
+      given: "Loïc"
+      family: "van Doorn"
+    email: "loïc.vandoorn@inbo.be"
+    orcid: "0000-0003-3497-9168"
+    affiliation: "Instituut voor Natuur- en Bosonderzoek (INBO)"
+  - name:
+      given: "Thierry"
+      family: "Onkelinx"
+    email: "thierry.onkelinx@inbo.be"
+    orcid: "0000-0001-8804-4216"
+    affiliation: "Instituut voor Natuur- en Bosonderzoek (INBO)"
+reviewer:
+  - name:
+      given: "Marc"
+      family: "Pollet"
+    email: "marc.pollet@inbo.be"
+    orcid: "0000-0001-5198-5928"
+    affiliation: "Instituut voor Natuur- en Bosonderzoek (INBO)"
+lang: nl
+style: INBO
+floatbarrier: subsubsection
+keywords: "meetnetten; soorten"
+community: "inbo"
+publication_type: report
+funder: Instituut voor Natuur- en Bosonderzoek (INBO)
+rightsholder: Instituut voor Natuur- en Bosonderzoek (INBO)
+bibliography: references.bib
+link-citations: TRUE
+site: bookdown::bookdown_site
+output:
+  INBOmd::gitbook: default
+  INBOmd::pdf_report: default
+  INBOmd::epub_book: default
+# Don't run the format below.
+# Only required for RStudio to recognise the project as a bookdown project.
+# Hence don't use 'Build all formats'.
+  bookdown::dontrun: default
+---
+
+# Dankwoord {.unnumbered}
+
+De tekst voor het optionele dankwoord.
+
+# Voorwoord {.unnumbered}
+
+De tekst voor het optionele voorwoord.
+
+# Samenvatting {.unnumbered}
+
+<!-- description: start -->
+
+De tekst voor de verplichte samenvatting.
+Hou het [Heerlijk Helder](https://overheid.vlaanderen.be/communicatie/heerlijk-helder).
+<!-- description: end -->
+
+# Aanbevelingen voor beheer en/of beleid {.unnumbered}
+
+Verplicht wanneer relevant.
+
+```{r setup, include = FALSE}
+library(knitr)
+opts_chunk$set(
+  echo = FALSE,
+  eval = TRUE,
+  cache = FALSE,
+  warning = FALSE,
+  error = FALSE,
+  message = FALSE
+)
+library(tidyverse)
+library(INBOtheme)
+library(git2rdata)
+library(n2khab)
+library(kableExtra)
+library(plotly)
+library(crosstalk)
+library(leaflet)
+library(conflicted)
+library(git2rdata)
+library(DT)
+library(effectclass)
+conflicted::conflicts_prefer(dplyr::filter)
+
+if (interactive()) {
+  theme_set(theme_inbo(base_size = 10))
+} else {
+  switch(
+    opts_knit$get("rmarkdown.pandoc.to"),
+    html = {
+      opts_chunk$set(dev = "png", dpi = 72)
+      theme_set(theme_inbo(base_size = 12))
+    },
+    latex = {
+      opts_chunk$set(dev = "cairo_pdf", dpi = 300)
+      theme_set(theme_inbo(base_size = 9))
+      update_geom_defaults("point", list(size = 1.5))
+    },
+    epub3 = {
+      opts_chunk$set(dev = "png", dpi = 300)
+      theme_set(theme_inbo(base_size = 12))
+    }
+  )
+}
+```
+
+```{r}
+html_output <- opts_knit$get("rmarkdown.pandoc.to") == "html"
+
+functions_path <- fileman_up("soortenmeetnetten-analysis")
+
+source(file.path(functions_path, "src/functions_smp.R"))
+
+data_path <- "../data"
+```

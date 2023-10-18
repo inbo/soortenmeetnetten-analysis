@@ -1,0 +1,22 @@
+<!-- hier komt de inhoudstafel bij pdf -->
+
+\mainmatter
+
+# Inleiding
+
+Betrouwbare informatie over de toestand en trends van dier- en plantensoorten in Vlaanderen is van groot belang voor de onderbouwing van het Vlaamse soortenbeleid en voor de rapportage over de Natura 2000-soorten aan Europa [@adriaens_monitoring_2011].
+Daarom ging in 2016 het project 'Langetermijn monitoring van beleidsrelevante soorten via meetnetten in Vlaanderen' (of kortweg de 'soortenmeetnetten') van start voor de opvolging van 80 Vlaamse en Europees prioritaire soorten [@westra_voortgangsrapport_2019].
+Elk meetnet bestaat uit een aantal vooraf vastgelegde locaties, waar één soort of meerdere soorten via een gestandaardiseerd methode geteld worden [@maes_2023].
+
+De soortenmeetnetten zijn een citizen science project, wat betekent dat vrijwilligers de tellingen uitvoeren.
+Natuurpunt Studie staat in voor de coördinatie en aansturing van de vrijwilligers en het Instituut voor Natuur- en Bosonderzoek (INBO) verwerkt de telgegevens.
+Het Agentschap voor Natuur en Bos (ANB) en het INBO staan samen in voor de financiering.
+Voor de planning van de tellingen en het invoeren van gegevens werd het webportaal [meetnetten.be](https://www.meetnetten.be) ontwikkeld.
+
+In dit rapport stellen we de eerste resultaten voor van de verschillende amfibieënmeetnetten [@speybroeck_2020].
+We geven eerst wat achtergrond over het [ontwerp van de soortenmeetnetten] en de [analyse van de telgegevens].
+Daarna doen we een [verkenning van de aantallen] en geven we een [overzicht van de resultaten] van de statistische analyses.
+Ten slotte bespreken we de resultaten voor elk meetnet ([Boomkikker](#boomkikker), ...).
+Voor de tussentijdse resultaten van de monitoring van de gladde slang verwijzen we naar het rapport van @jacobs_2022.
+
+`r ifelse(!html_output, "Dit rapport bevat enkele interactieve figuren die alleen kunnen bekeken worden op de [website versie](https://inbo.github.io/soortenmeetnetten-amfibieënrapport-2023/) van dit rapport.", "")`

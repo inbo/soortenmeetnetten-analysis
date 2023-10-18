@@ -1,0 +1,385 @@
+# Methodiek
+
+```{r}
+
+names_sc <- get_counts_smp(species_group = "amfibieën") %>%
+  filter(primaire_soort) %>%
+  distinct(soort_nl, soort_wet)
+
+names_sc <- names_sc %>%
+  filter(!is.na(soort_nl),
+         soort_nl != "Meerkikker") %>%
+  bind_rows(tibble(soort_nl = c("Gladde slang", "Heikikker"),
+                   soort_wet = c("Coronella austriaca", "Rana arvalis")))
+
+meetnetcharacteristics <- get_characteristics_smp() %>%
+  filter(soortgroep %in% c("amfibieën", "reptielen"))
+```
+
+## Ontwerp van de soortenmeetnetten
+
+In een meetnet tellen vrijwilligers specifieke soorten op vastgelegde locaties via een gestandaardiseerde telmethode.
+Een dergelijke gestructureerde monitoring biedt de beste garantie op betrouwbare informatie over de toestand en trends van soorten op schaal Vlaanderen.
+Het ontwerp van de meetnetten voor amfibieën en reptielen wordt in detail beschreven in het monitoringsprotocol amfibieën en reptielen [@speybroeck_2020].
+Dit is een tweede versie van het monitoringsprotocol waarin enkele aanpassingen zijn gebeurd ten opzichte van de eerste versie [@de_bruyn_amphibia_2015, @de_bruyn_vuursalamander_2015, @de_bruyn_kamsalamander_2015].
+
+We vatten de belangrijkste onderdelen van de meetnetten voor amfibieën en reptielen nog eens kort samen.
+
+### Selectie van de soorten
+
+Voor twee groepen van soorten streven we naar een monitoring op basis van meetnetten: Europees prioritaire soorten en Vlaams prioritaire soorten [@westra_inleiding_2014].
+
+-   De **Europees prioritaire soorten** (EPS) zijn de zogenaamde **Natura 2000 - soorten** die op Bijlage II en/of Bijlage IV van de Europese Habitatrichtlijn (HRL) staan.
+
+-   De **Vlaams prioritaire soorten** (VPS) staan niet op een bijlage van de HRL (het zijn dus geen Natura 2000 - soorten), maar ze worden wel als prioritair beschouwd voor het Vlaamse natuurbeleid, vaak omwille van het feit dat ze in Vlaanderen en/of Europa op de Rode Lijst staan.
+
+Voor een aantal soorten doorlopen we eerst een pilootproject om de haalbaarheid van een meetnet te evalueren.
+Het gaat om de moeilijkere telbare soorten gladde slang, heikikker en poelkikker.
+
+In Tabel \@ref(tab:tabsoorten) tonen we de geselecteerde amfibieën en reptielen, de beleidsrelevantie van de soorten, het type monitoring en het jaar waarin de monitoring voor die soort van start ging.
+
+```{r tabsoorten}
+
+meetnetcharacteristics %>%
+  rename(soort_nl = meetnet) %>%
+  left_join(names_sc, by = "soort_nl") %>%
+  mutate(type = ifelse(type != "Pilootproject", "Meetnet", type)) %>%
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, Beleidsrelevantie = type_soort, "Type monitoring" = type, "Start monitoring" = opstartjaar) %>%
+    unique() %>%
+  kable(caption = "Overzicht van de amfibieën en reptielen waarvoor een meetnet bestaat met onderscheid tussen Europees prioritaire (EPS) en Vlaams prioritaire soorten (VPS), en met het jaar waarin de monitoring werd opgestart",
+        booktabs = TRUE,
+        align = c("l", "l", "c", "l", "c"),
+      row.names = FALSE) %>%
+  kable_styling() %>%
+  column_spec(2, italic = TRUE)
+
+```
+
+\needspace{50mm}
+
+### Telmethode
+
+De amfibieën en reptielen worden geteld op basis van één of meerdere van volgende veldprotocollen:
+
+-   **Transecttelling vuursalamander**.
+    Het aantal post-metamorfe vuursalamanders wordt geteld langs een transect van ongeveer 1 km.
+    De telling gebeurt na periodes met hevige regenval en start bij voorkeur 2 uur na zonsondergang.
+
+-   **Fuikentelling kamsalamander**.
+    Per waterpartij worden 2 amfibieënfuiken geplaatst die na 24 uren leeg gemaakt worden.
+    Alle adulte kamsalamanders worden geteld per fuik.
+
+-   **Roepkorentelling**.
+    Het aantal roepende mannetjes wordt geteld.
+    Daarbij zijn er een aantal varianten:
+
+    -   Voor boomkikker, poelkikker en knoflookpad tellen we het aantal roepende mannetjes per poel. Voor vroedmeesterpad tellen we het aantal roepende mannetjes per gebied omdat deze soort vanop het land roept.
+    -   Knoflookpad mannetjes roepen vanop de bodem van een poel en worden daarom met behulp van een hydrofoon geteld.
+    -   Voor poelkikker tellen we het totaal van de roepende poelkikkers en bastaardkikkers samen, omdat de roep van beide soorten moeilijk te onderscheiden is. Via DNA analyse van een 50-tal larven per poel maken we vervolgens een inschatting van de verhouding tussen beide soorten.
+
+-   **Telling larven en metamorfen** Larven van kamsalamander, boomkikker, poelkikker en vroedmeesterpad worden geteld met een schepnet.
+    Per 2 meter oevertraject voert men een schepbeweging uit met een maximum van 30 schepbewegingen per poel.
+    We noteren het aantal larven en metamorfen per soort en ook het aantal uitgevoerde schepbeweging.
+    Om poelkikker en bastaardkikker te onderscheiden voeren we ook een genetische bemonstering uit door een staartpuntje te knippen van ongeveer 50 larven per poel.
+
+-   **Eitelling en DNA-analyse** Eiklompen van heikikker worden geteld per poel.
+    Omdat de eiklompen van heikikker visueel moeilijk te onderscheiden zijn van deze van de bruine kikker, verzamelen we 1 eitje per eiklomp met een maximum van 50 eitjes.
+    Via een DNA-analyse van de eitjes bepalen we het aandeel van de eitjes dat van heikikker afkomstig is.
+
+-   **Transecttelling rugstreeppad** Rugstreeppad plant zich vooral voor in tijdelijke plassen die per jaar sterk kunnen variëren in grootte en ligging.
+    Daarom tellen we de soort langsheen een vast transect die verschillende waterpartijen verbindt.
+    Tijdens een avondbezoek worden langsheen het transect roepende mannetjes, eisnoeren en larven geteld.
+    Ook zichtwaarnemingen van adulten en juvenielen worden genoteerd.
+
+-   **Telling van gladde slang onder platen** In elk gebied worden er een aantal artificiële platen geplaatst.
+    Per plaat tellen we aantal adulte en juveniele dieren tijdens geschikte weersomstandigheden, bij temperaturen tussen 17 en 22°C
+
+Een overzicht van de gebruikte veldprotocollen vind je in Tabel \@ref(tab:tabkarakteristiekentelperiode).
+Voor elke soort vermelden we de telperiode(s) waarin de tellingen gebeuren en het aantal bezoeken per telperiode.
+
+```{r tabkarakteristiekentelperiode}
+
+meetnetcharacteristics %>%
+  mutate(start_telperiode = format(start_telperiode, "%d/%m"),
+         einde_telperiode = format(einde_telperiode, "%d/%m"),
+         telperiode = str_c(start_telperiode, " - ", einde_telperiode)) %>%
+  distinct(meetnet, protocol, protocol_naam, bezoeken, telperiode) %>%
+  select(Meetnet = meetnet, Veldprotocol =  protocol_naam,  Telperiode = telperiode, "Aantal bezoeken per telperiode" = bezoeken) %>%
+  kable(caption = "Overzicht van de meetnetkarakterisitieken: veldprotocol, telperiode en aantal bezoeken",
+        align = "llcc",
+        booktabs = TRUE) %>%
+  kable_styling() %>%
+  collapse_rows(1)
+  
+```
+
+### Selectie van de meetnetlocaties
+
+Wanneer er van een bepaalde soort minder dan 30 populaties voorkomen in Vlaanderen, worden alle populaties opgenomen in het meetnet.
+We spreken dan van een integrale monitoring.
+Wanneer er meer dan 30 populaties zijn, is het niet meer haalbaar om alle populaties te tellen.
+We selecteren dan 30 populaties via een willekeurige steekproef.
+Tabel \@ref(tab:tabkarakteristiekenselectie) toont voor elk meetnet het aantal meetnetlocaties/populaties en of de soort integraal dan wel via een steekproef wordt geteld.
+De tabel geeft ook de duur van de meetcyclus weer.
+Dit is de periode waarin alle meetnetlocaties geteld worden.
+Een meetcyclus van drie jaar betekent dus dat elke meetnetlocatie om de drie jaar geteld wordt.
+Voor de soorten met een integrale selectie worden alle meetnetlocaties jaarlijks geteld.
+
+We moeten er uiteraard ook mee rekening houden dat het aantal populaties verandert in de tijd.
+Bij de integrale monitoring voegen we nieuwe locaties met populaties toe aan het meetnet, zolang de grens van 30 locaties niet wordt overschreden.
+In het geval van een steekproef, zullen we een nieuwe steekproef trekken wanneer de verspreiding van de populaties sterk wijzigt.
+Daarbij gebruiken we een methode die garandeert dat een zo groot mogelijk aandeel van de oorspronkelijk geselecteerde locaties behouden blijft.
+
+```{r tabkarakteristiekenselectie}
+
+meetnetcharacteristics %>%
+  filter(is_sample) %>%
+  mutate(n_locaties = ifelse(meetnet %in% c("Heikikker", "Poelkikker", "Kamsalamander"), 60, n_locaties),
+         type = ifelse(meetnet %in% c("Heikikker", "Poelkikker"), "Steekproef", type),
+         type = ifelse(meetnet == "Gladde slang", "Integraal", type)) %>%
+  select(Meetnet = meetnet, "Selectie" = type, "Aantal meetnetlocaties" = n_locaties, "Duur meetcyclus (jaar)" = duur_meetcyclus) %>%
+  unique()  %>%
+  kable(caption = "Overzicht van de meetnetkarakteristieken: selectie van locaties, aantal locaties en duur van de meetcyclus",
+        align = "llcc",
+        booktabs = TRUE,
+        row.names = FALSE) %>%
+  kable_styling()
+
+```
+
+`r ifelse(html_output, "De exacte ligging van de meetnetlocaties maken we niet publiek. Figuur \\@ref(fig:figlocaties) geeft wel de *vervaagde* ligging van de meetnetlocaties weer. De meetnetlocaties worden hierin weergegeven in het centrum van het 5 x 5 km grid waarin de locatie is gelegen. Sommige 5 x 5 km hokken bevatten meerdere meetnetlocaties. Hoe donkerder de blauwe kleur van de punten, hoe meer meetnetlocaties. Elk punt heeft een label dat aangeeft hoeveel meetnetlocaties per meetnet het 5 x 5 km hok bevat. De label wordt getoond als je met de muis over de punten gaat. Je kan ook een of meerdere meetnetten selecteren via het selectievenster.", "")`
+
+```{r loc, warning=FALSE}
+
+locaties <- get_locations_smp(species_group = "amfibieën") %>%
+  filter(locatie_type == "locatie") %>%
+  filter(is_sample) %>%
+  st_transform(crs = 31370) %>%
+  add_tag_utm(size_km = 5) %>%
+  st_drop_geometry()
+
+locaties_utm <- read_utm(size_km = 5) %>%
+  inner_join(locaties, by = "tag_utm") %>%
+  group_by(tag_utm, meetnet) %>%
+  mutate(label = str_c(unique(meetnet), " (", dplyr::n(), ")")) %>%
+  ungroup() %>%
+  group_by(tag_utm) %>%
+  mutate(label = str_c(unique(label), collapse = ", "),
+         n = dplyr::n(),
+         n_meetnet = n_distinct(meetnet)) %>%
+  ungroup() %>%
+  st_transform(crs = 31370) %>%
+  st_centroid() %>%
+  st_transform(crs = 4326) 
+
+provincies <- read_admin_areas(dsn = "provinces")
+
+utm <- read_utm(size_km = 5)
+
+utm_vl <- utm[provincies,] %>%
+  st_transform(crs = 4326) %>%
+  filter(tag_utm %in% locaties_utm$tag_utm)
+```
+
+```{r,  eval = html_output}
+
+locaties_shared <- SharedData$new(locaties_utm)
+
+bscols(
+  list(
+    bscols(
+      widths = c(7, 4),
+      NULL,
+      filter_select("meetnet", "Selecteer meetnet", locaties_shared, ~meetnet)
+  ),
+       leaflet(locaties_shared, options = leafletOptions(maxZoom = 11)) %>%
+                addProviderTiles("OpenStreetMap") %>%
+                addCircles(stroke = FALSE, label = ~label, opacity = 0.8, radius = 1500) %>%
+                addPolygons(data = utm_vl, weight = 1, color = "blue", fill = FALSE, opacity = 0.5)
+       )
+  )
+
+
+```
+
+```{r figlocaties, fig.cap = "Locaties van de amfibieënmeetnetten vervaagd tot op het niveau van een 5 x 5 km grid", eval= html_output}
+include_graphics("image/dummy_figuur.png")
+```
+
+### Habitatkenmerken
+
+*Waarom geen habitatkenmerken voor poelkikker en heikikker*
+
+Voor de boomkikker, kamsalamander, rugstreeppad en vroedmeesterpad vragen we ook om enkele habitatkenmerken te bepalen van de getelde poelen, zodat we een ruwe inschatting kunnen maken van de kwaliteit van het aquatische deel van het leefgebied.
+Het bepalen van de habitatkenmerken gebeurt op het moment dat de larven geteld worden.
+
+Volgende variabelen worden bepaald:
+
+-   aanwezigheid van vis
+-   beschaduwing van de poel (%)
+-   maximale diepte (m)
+-   Oppervlakte van de waterpartij (m²)
+-   Permanente waterkolom (ja/nee)
+-   Waterkwaliteit op basis van volgende categorieën
+    -   plas verdwenen of volledig verland
+    -   slecht: verwaarloosde poel met eutroof water (algen, kroos), anders vervuild of verregaand verland
+    -   middelmatig: tussen slecht en goed
+    -   goed: helder water, typische oever en/of waterplanten, weinig verlanding, niet zichtbaar vervuild
+
+Voor rugstreeppad en vroedmeesterpad vragen we bijkomend een inschatting van de bedekking (%) van:
+
+-   drijvende vegetatie
+-   onderwatervegetatie
+-   verticale vegetatie
+
+*Waarom deze variabelen niet bij niet bij boomkikker en kamsalamander*
+
+## Ingezamelde telgegevens
+
+```{r, message=FALSE, warning=FALSE}
+
+data_path <- fileman_up("analysis_amfibieën")
+
+analyseset_fuiken_detail <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_fuiken_detail")
+analyseset_roepkoren_boomkikker <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_roepkoren_boomkikker")
+analyseset_roepkoren_knoflookpad <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_roepkoren_knoflookpad")
+analyseset_rugstreeppad <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_rugstreeppad")
+analyseset_vuursalamander <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_vuursalamander")
+analyseset_larven <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_larven")
+analyseset_heikikker <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_heikikker")
+analyseset_poelkikker <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_poelkikker")
+
+observers <- get_observers_smp("amfibieën") %>%
+  distinct(visit_id, naam_teller)
+
+analyseset_all <- bind_rows(
+  analyseset_fuiken_detail,
+  analyseset_roepkoren_boomkikker,
+  analyseset_roepkoren_knoflookpad,
+  analyseset_rugstreeppad,
+  analyseset_vuursalamander,
+  analyseset_larven,
+  analyseset_heikikker,
+  analyseset_poelkikker
+) 
+
+visits_all <- analyseset_all %>%
+  distinct(meetnet, protocol, locatie, is_sample, jaar, datum, visit_id) %>%
+  left_join(observers, by = c("visit_id"))
+
+visits_summary <- visits_all %>%
+  group_by(jaar, is_sample) %>%
+  summarise(n_tellingen = n_distinct(visit_id)) %>%
+  ungroup()
+
+locations_summary <- visits_all %>%
+  group_by(jaar, is_sample) %>%
+  summarise(n_telgebieden = n_distinct(locatie)) %>%
+  ungroup()
+
+observers_summary <- visits_all %>%
+  group_by(jaar, is_sample) %>%
+  summarise(n_tellers = n_distinct(naam_teller)) %>%
+  ungroup()
+
+monitoring_effort_soortgroep_jaar <- bind_rows(
+  visits_summary %>%
+    rename(aantal = n_tellingen) %>%
+    mutate(monitoringsinspanning = "aantal tellingen"),
+  locations_summary %>%
+    rename(aantal = n_telgebieden) %>%
+    mutate(monitoringsinspanning = "aantal tellocaties"),
+  observers_summary %>%
+    rename(aantal = n_tellers) %>%
+    mutate(monitoringsinspanning = "aantal tellers")
+  )
+
+n_tellingen <- n_distinct(visits_all$visit_id) 
+
+n_tellocaties <- n_distinct(visits_all$locatie) 
+
+n_tellers <- n_distinct(visits_all$naam_teller)
+
+```
+
+Tellers voeren de telgegevens in via het web portaal [meetnetten.be](https://www.meetnetten.be/) of via de mobiele [meetnetten-app](https://play.google.com/store/apps/details?id=nl.zostera.meetnetten&hl=nl).
+Sinds de start van de meetnetten in 2016 tot en met 2023 hebben `r n_tellers` tellers `r n_tellingen` amfibieëntellingen op `r n_tellocaties` meetnetlocaties ingevoerd.
+
+In Figuur \@ref(fig:figinspanning) zien we de monitoringinspanning in de tijd voor alle amfibieënmeetnetten samen.
+We drukken de monitoringinspanning uit als het aantal uitgevoerde tellingen, het aantal tellocaties en het aantal tellers.
+Naast de meetnetlocaties, kunnen ook andere locaties (die niet tot de steekproef behoren) optioneel geteld worden.
+Dit geven we weer in Figuur \@ref(fig:figinspanning).
+Het gaat vooral om tellingen van de weider verspreide kamsalamander.
+
+```{r figinspanning,  fig.cap = "Monitoringinspanning voor de meetnetlocaties van alle amfibieënmeetnetten samen", warning=TRUE}
+
+plot1 <- monitoring_effort_soortgroep_jaar %>%
+  filter(is_sample) %>%
+  ggplot(aes(x = jaar, y = aantal, colour = monitoringsinspanning)) +
+  geom_point() +
+  geom_line() +
+  ylim(0, NA) +
+  labs(x = "Jaar", y = "Aantal") 
+
+if (html_output) {
+  
+  ggplotly(plot1)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+  
+} else {
+  
+  plot1
+}
+
+```
+
+```{r figinspanningopt,  fig.cap = "Monitoringinspanning voor de optionele locaties van alle amfibieënmeetnetten samen", warning=TRUE}
+
+plot1 <- monitoring_effort_soortgroep_jaar %>%
+  filter(!is_sample) %>%
+  ggplot(aes(x = jaar, y = aantal, colour = monitoringsinspanning)) +
+  geom_point() +
+  geom_line() +
+  ylim(0, NA) +
+  labs(x = "Jaar", y = "Aantal") 
+
+if (html_output) {
+  
+  ggplotly(plot1)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+  
+} else {
+  
+  plot1
+}
+
+```
+
+## Dataontsluiting
+
+De databank die onderdeel uitmaakt van [meetnetten.be](www.meetnetten.be) is enkel toegankelijk binnen het INBO.
+Op regelmatige basis maakt het INBO datasets publiek toegankelijk via [GBIF](https://www.gbif.org/) (Global Biodiversity Information Facility).
+Omdat het meestal om kwetsbare soorten gaat, passen we op de datasets een vervaging toe van 1, 5 of 10 km toe afhankelijk van de soort.
+Deze vervaging komt overeen met de vervagingsregels die toegepast worden op waarnemingen.be.
+De publiek ontsloten datasets bevatten dus niet de exacte tellocaties.
+
+Voor de amfibieënmeetnetten gaat het om volgende datasets:
+
+-   fuiktellingen kamsalamander [@piesschaert_fuiken_2022];
+-   roepkoren boomkikker, knoflookpad en rugstreeppad [@piesschaert_roepkoren_2022];
+-   zichtwaarnemingen rugstreeppad (eisnoeren, larven, juvenielen en adulten) [@piesschaert_rugstreeppad_2022];
+-   transecttellingen vuursalamander [@piesschaert_vuursalamander_2022]
+
+Deze datasets worden op regelmatige basis (normaal gezien elk jaar) geupdate.

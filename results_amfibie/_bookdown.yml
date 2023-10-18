@@ -1,0 +1,17 @@
+book_filename: "westra_et_al_rslttnvndamfbnmtntiv.Rmd"
+output_dir: "../output/results_amfibie"
+delete_merged_file: TRUE
+language:
+  label:
+    fig:    'Figuur '
+    tab:    'Tabel '
+    eq:     'Vergelijking '
+    thm:    'Theorema '
+    lem:    'Lemma '
+    def:    'Definitie '
+    cor:    'Gevolgtrekking '
+    prp:    'Bewering '
+    ex:     'Voorbeeld '
+    proof:  'Bewijs. '
+    remark: 'Opmerking. '
+edit: https://github.com/inbo/soortenmeetnetten-analysis/edit/master/results_amfibie/%s
