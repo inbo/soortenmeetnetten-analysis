@@ -21,7 +21,8 @@ analyseset_roepkoren_boomkikker_meetcyclus <-  analyseset_roepkoren_boomkikker %
          meetcyclus = ifelse(meetcyclus == 1, "2016_2018", "2019_2021"),
          year_scaled = jaar - min(jaar) + 1,
          jaar_scaled = year_scaled,
-         cluster2 = cluster)
+         cluster2 = cluster,
+         fjaar = factor(jaar))
 
 analyseset_roepkoren_boomkikker_jaar <-  analyseset_roepkoren_boomkikker %>%
   filter(is_sample) %>%
@@ -31,7 +32,8 @@ analyseset_roepkoren_boomkikker_jaar <-  analyseset_roepkoren_boomkikker %>%
   ungroup() %>%
   mutate(year_scaled = jaar - min(jaar) + 1,
          jaar_scaled = year_scaled,
-         cluster2 = cluster)
+         cluster2 = cluster,
+         fjaar = factor(jaar))
 ```
 
 ### Model
@@ -68,7 +70,7 @@ indexmodel_meetcyclus_iid <- inla(formula = aantal ~ meetcyclus  +
 
 indexmodel_jaar_rw1_iid <- inla(formula = aantal ~ f(jaar_scaled, 
                                   model = "rw1", 
-                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) +
                                 f(locatie, 
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
@@ -77,6 +79,20 @@ indexmodel_jaar_rw1_iid <- inla(formula = aantal ~ f(jaar_scaled,
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
                        data = analyseset_roepkoren_boomkikker_jaar,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_jaar_rw1_iid_pertrend <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) +
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_boomkikker_meetcyclus,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
@@ -112,7 +128,15 @@ results_index_meetcyclus_boomkikker <- derive_index_meetcyclus_inla(indexmodel_n
 
 set.seed(6778)
 results_trend_boomkikker <- derive_trend(analyseset_roepkoren_boomkikker_meetcyclus, trendmodel_iid2)
+
+results_waic_boomkikker <- bind_rows(
+  get_waic(analyseset_roepkoren_boomkikker_meetcyclus, trendmodel_iid2) %>%
+    mutate(model = "trendmodel"),
+  get_waic(analyseset_roepkoren_boomkikker_meetcyclus, indexmodel_jaar_rw1_iid_pertrend) %>%
+    mutate(model = "indexmodel"))
+  
 ```
+
 ```{r checkreproducible, eval = FALSE}
 
 indexmodel_meetcyclus_iid <- inla(formula = aantal ~ meetcyclus  + 
@@ -516,6 +540,12 @@ results_index_jaar_kamsalamander <- derive_index_rw_inla(analyseset_fuiken_totaa
 
 set.seed(556644)
 results_trend_kamsalamander <- derive_trend(analyseset_fuiken_totaal, trendmodel_iid2)
+
+results_waic_kamsalamander <- bind_rows(
+  get_waic(analyseset_fuiken_totaal, trendmodel_iid2) %>%
+    mutate(model = "trendmodel"),
+  get_waic(analyseset_fuiken_totaal, indexmodel_jaar_iid) %>%
+    mutate(model = "indexmodel"))
 ```
 ### Validatie
 
@@ -796,6 +826,7 @@ trendmodel_iid_hydrofoon <- inla(formula = aantal ~ year_scaled +
                        control.predictor = list(compute = TRUE))
 
 ```
+
 ### Modeloutput
 
 ```{r}
@@ -808,6 +839,12 @@ results_index_knoflookpad <- derive_index_rw_inla(analyseset_species = analysese
 set.seed(2645)
 
 results_trend_knoflookpad <- derive_trend(analyseset_species = analyseset_knoflookpad_hydrofoon, trendmodel_nbinom = trendmodel_iid_hydrofoon)
+
+results_waic_knoflookpad <- bind_rows(
+  get_waic(analyseset_knoflookpad_hydrofoon, trendmodel_iid_hydrofoon) %>%
+    mutate(model = "trendmodel"),
+  get_waic(analyseset_knoflookpad_hydrofoon, indexmodel_iid_rw1year_hydrofoon) %>%
+    mutate(model = "indexmodel"))
 ```
 
 ### Validatie
@@ -934,7 +971,18 @@ trendmodel_iid2_2018_2022 <- inla(formula = aantal ~ year_scaled +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
-results_trend_vuursalamander_2018_2022 <- derive_trend(analyseset_species = analyseset_vuursalamander_2018_2022, trendmodel_nbinom = trendmodel_iid2_2018_2022)
+indexmodel_iid_rw1year_2018_2022 <- inla(formula = aantal ~  f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       data = analyseset_vuursalamander_2018_2022,
+                       family = "nbinomial",
+                       offset = n_100m,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
 ```
 ### Modeloutput
 
@@ -952,6 +1000,18 @@ set.seed(23784845)
 
 results_trend_vuursalamander_2018_2022 <- derive_trend(analyseset_species = analyseset_vuursalamander_2018_2022, trendmodel_nbinom = trendmodel_iid2_2018_2022)
 
+results_waic_vuursalamander_2016_2022 <- bind_rows(
+  get_waic(analyseset_vuursalamander, trendmodel_iid2) %>%
+    mutate(model = "trendmodel"),
+  get_waic(analyseset_vuursalamander, indexmodel_iid_rw1year) %>%
+    mutate(model = "indexmodel"))
+
+results_waic_vuursalamander_2018_2022 <- bind_rows(
+  get_waic(analyseset_vuursalamander_2018_2022, trendmodel_iid2_2018_2022) %>%
+    mutate(model = "trendmodel"),
+  get_waic(analyseset_vuursalamander_2018_2022, indexmodel_iid_rw1year_2018_2022) %>%
+    mutate(model = "indexmodel")
+  )
 ```
 
 
@@ -1006,7 +1066,9 @@ results_index_meetcyclus <- results_index_meetcyclus_boomkikker %>%
             results_index_meetcyclus_boomkikker_larve %>%
                mutate(levensstadium = "larve"),
             results_index_meetcyclus_kamsalamander_larve %>%
-               mutate(levensstadium = "larve")) %>%
+               mutate(levensstadium = "larve")) 
+
+verschil_meetcycli <- results_index_meetcyclus %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
          klasse = format(klasse, type = "markdown")) %>%
   select( soort_nl, soort_wet, levensstadium, meetcyclus_ref, meetcyclus, klasse, mean, lcl_0.90, ucl_0.90) 
@@ -1014,14 +1076,14 @@ results_index_meetcyclus <- results_index_meetcyclus_boomkikker %>%
 ```
 
 ```{r}
-results_indexmodel_cyclus_refvalue <- results_index_meetcyclus %>%
+verschil_meetcycli_refvalue <- verschil_meetcycli %>%
   distinct(soort_nl, soort_wet, levensstadium, meetcyclus_ref) %>%
   mutate(meetcyclus = meetcyclus_ref,
         mean = 1,
          klasse = "R") 
 
-results_indexmodel_cyclus_table <- results_index_meetcyclus %>%
-  bind_rows(results_indexmodel_cyclus_refvalue) %>%
+verschil_meetcycli_table <- verschil_meetcycli %>%
+  bind_rows(verschil_meetcycli_refvalue) %>%
   mutate(mean_log = log(mean) + 1,
           lcl_0.90_log = log(lcl_0.90) + 1,
          ucl_0.90_log = log(ucl_0.90) + 1)
@@ -1081,21 +1143,23 @@ results_index_jaar <- results_index_knoflookpad %>%
   bind_rows(results_index_jaar_kamsalamander_larve %>%
               mutate(levensstadium = "larve"),
             results_index_jaar_boomkikker_larve %>%
-              mutate(levensstadium = "larve")) %>%
+              mutate(levensstadium = "larve")) 
+
+verschil_jaren <- results_index_jaar %>%
   filter(parameter == "index") %>%
   filter(!is.na(mean)) %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
          klasse = format(klasse, type = "markdown")) %>%
   select( soort_nl, soort_wet, levensstadium, ref_jaar, jaar, klasse, mean, lcl_0.90, ucl_0.90) 
 
-results_indexmodel_jaar_refvalue <- results_index_jaar %>%
+verschil_jaren_refvalue <- verschil_jaren %>%
   distinct(soort_nl, soort_wet, levensstadium, ref_jaar) %>%
   mutate(jaar = ref_jaar,
         mean = 1,
          klasse = "R") 
 
-result_indexmodel_jaar_table <- results_index_jaar %>%
-  bind_rows(results_indexmodel_jaar_refvalue) %>%
+verschil_jaren_table <- verschil_jaren %>%
+  bind_rows(verschil_jaren_refvalue) %>%
   mutate(mean_log = log(mean) + 1,
           lcl_0.90_log = log(lcl_0.90) + 1,
          ucl_0.90_log = log(ucl_0.90) + 1)
@@ -1106,7 +1170,7 @@ result_indexmodel_jaar_table <- results_index_jaar %>%
 breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
 labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
 
-result_indexmodel_jaar_table %>%
+verschil_jaren_table %>%
   ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
   geom_errorbar(width = 0, size = 10, alpha = 0.3) +
   geom_point(size = 7, alpha = 0.6) +
@@ -1127,19 +1191,21 @@ result_indexmodel_jaar_table %>%
 
 ```{r}
 
-trend <- results_trend_kamsalamander %>%
+results_trend <- results_trend_kamsalamander %>%
   bind_rows(results_trend_boomkikker) %>%
   bind_rows(results_trend_knoflookpad) %>%
   bind_rows(results_trend_vuursalamander) %>%
-  bind_rows(results_trend_vuursalamander_2018_2022) %>%
+  bind_rows(results_trend_vuursalamander_2018_2022) 
+
+trend <- results_trend %>%
   group_by(soort_nl) %>%
   mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
          n_jaar = jaar_max - jaar_min + 1,
          treshold_low = ifelse(parameter == "trend_average", 
-                               round((exp(log(0.75)/(n_jaar - 1)) - 1) *100, 1),
+                               round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
                                -25),
          treshold_high = ifelse(parameter == "trend_average", 
-                                round((exp(log(1.33)/(n_jaar - 1)) - 1) *100, 1),
+                                round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1),
                                 33)) %>%
   ungroup() %>%
   mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
@@ -1236,11 +1302,11 @@ trend %>%
 ```
 ```{r}
  results_index_jaar %>%
-  write_vc(root = "../output/results", file = "results_indexmodel_amfibieën", sorting = c("soort_nl", "levensstadium", "jaar"))
+  write_vc(root = "../output/results", file = "results_indexmodel_amfibieën", sorting = c("soort_nl", "levensstadium", "jaar", "parameter"), strict = FALSE)
 ```
 ```{r}
  results_index_meetcyclus %>%
-  write_vc(root = "../output/results", file = "results_indexmodel_meetcyclus_amfibieën", sorting = c("soort_nl", "levensstadium", "meetcyclus"))
+  write_vc(root = "../output/results", file = "results_indexmodel_meetcyclus_amfibieën", sorting = c("soort_nl", "levensstadium", "meetcyclus"), strict = FALSE)
 ```
 
 
@@ -1248,3 +1314,24 @@ trend %>%
  results_occurence %>%
   write_vc(root = "../output/results", file = "results_occurence_meetcyclus_amfibieën", sorting = c("soort_nl", "levensstadium", "meetcyclus"))
 ```
+
+```{r}
+results_waic <- bind_rows(
+  results_waic_boomkikker,
+  results_waic_kamsalamander,
+  results_waic_knoflookpad,
+  results_waic_vuursalamander_2016_2022 %>%
+    mutate(trend_start = 2016),
+  results_waic_vuursalamander_2018_2022 %>%
+    mutate(trend_start = 2018)
+) %>% pivot_wider(names_from = "model", values_from = "waic") %>%
+  mutate(diff_waic = trendmodel - indexmodel,
+         type_trend = ifelse(diff_waic > 0,
+                               "Niet lineair",
+                               ifelse(diff_waic > -2,
+                                      "Quasi lineair", "Lineair")))
+
+results_waic %>%
+  write_vc(root = "../output/results", file = "results_waic_amfibieën", sorting = c("soort_nl", "trend_start"), strict = FALSE)
+```
+

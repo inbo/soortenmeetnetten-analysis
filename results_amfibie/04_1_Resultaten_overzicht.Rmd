@@ -1,0 +1,519 @@
+# Overzicht van de resultaten
+
+```{r}
+name_results_indexmodel <- "results_indexmodel_amfibieën"
+name_results_indexmodel_meetcyclus <- "results_indexmodel_meetcyclus_amfibieën"
+name_results_trendmodel <- "results_trendmodel_amfibieën"
+name_results_occurence <- "results_occurence_meetcyclus_amfibieën"
+name_results_waic <- "results_waic_amfibieën"
+
+path_results <- file.path(fileman_up("analysis_amfibieën"), "output/results")
+
+result_indexmodel <- read_vc(file = name_results_indexmodel,
+                              root = path_results)
+
+result_indexmodel_meetcyclus <- read_vc(name_results_indexmodel_meetcyclus,
+                              root = path_results)
+
+result_trendmodel <- read_vc(file = name_results_trendmodel,
+                              root = path_results)
+
+result_occurence <- read_vc(name_results_occurence,
+                              root = path_results)
+
+result_waic <- read_vc(name_results_waic,
+                              root = path_results)
+
+trend_klasses <- trend_klasses %>%
+  arrange(klasse) %>%
+  mutate(tekst = str_c(klasse_output, " = ", klasse_naam))
+  
+legend_klasses <- str_c(" (", str_c(trend_klasses$tekst, collapse = "; "), ")")
+  
+legend_klasses_index <- str_c(" (R = referentie; ", str_c(trend_klasses$tekst, collapse = "; "), ")")
+
+species_in_analysis <- unique(result_indexmodel$soort_nl) %>%
+  str_c(collapse = ", ")
+
+```
+
+In dit onderdeel geven we een overzicht van de resultaten van de analyses voor boomkikker, knoflookpad, kamsalamander en vuursalamander.
+
+## Verschillen tussen de jaren
+
+Tabel \@ref(tab:tabelverschil) geeft de verschillen in aantallen t.o.v. het referentiejaar.
+Als referentiejaar kiezen we hier het jaar waarin het meetnet van start ging.
+We geven de verschillen weer aan de hand van de [classificatie](#h:classtrend) zoals besproken in paragraaf \@ref(h:classtrend), waarbij we -25 % als ondergrens en +33 % als bovengrens nemen.
+
+```{r}
+verschillen_jaren <- result_indexmodel %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(lcl_0.90)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  select(soort_nl, soort_wet, levensstadium, ref_jaar, jaar, klasse) %>%
+  left_join(select(trend_klasses, klasse, klasse_output), by = "klasse") %>%
+  select(-klasse) %>%
+  spread(key = "jaar", value = "klasse_output", fill = "")
+  
+```
+
+```{r tabelverschil,eval=TRUE}
+
+verschillen_jaren %>%
+  select(-soort_wet) %>%
+  rename("Nederlandse naam" = soort_nl, Levensstadium = levensstadium,  Referentiejaar = ref_jaar) %>%
+  kable(caption = str_c("Verschil in aantallen t.o.v. referentiejaar", legend_klasses),
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "lccccc") %>%
+kable_styling() %>%
+add_header_above(c(" " = 3, "Verschil t.o.v. referentiejaar" = 7))
+
+```
+
+Een andere manier om de jaarlijkse verschillen voor te stellen is door steeds de verschillen tussen twee opeenvolgende jaren te bepalen zoals in \@ref(tab:tabelverschil2).
+Op die manier krijgen we bijkomende informatie over hoe de aantallen variëren over de jaren.
+
+```{r }
+verschillen_vorigjaar <- result_indexmodel %>%
+  filter(parameter == "diff_previous_year") %>%
+  mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  select(soort_nl, soort_wet, levensstadium, periode, klasse) %>%
+  left_join(select(trend_klasses, klasse, klasse_output), by = "klasse") %>%
+  select(-klasse) %>%
+  spread(key = "periode", value = "klasse_output", fill = "") %>%
+  ungroup()
+
+# if (html_output) {
+#   verschillen_vorigjaar <- verschillen_vorigjaar %>%
+#     # mutate(klasse = format(klasse, type = "markdown")) %>%
+#     # spread(key = "jaar", value = "klasse") %>%
+#     mutate(soort_nl = str_c("[", soort_nl, "]"))
+# }
+  
+```
+
+```{r tabelverschil2}
+verschillen_vorigjaar %>%
+  select(-soort_wet) %>%
+  rename("Nederlandse naam" = soort_nl) %>%
+  kable(caption = "Verschil in aantallen voor opeenvolgende jaren",
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "lcccccc") %>%
+kable_styling()
+```
+
+## Verschillen tussen de meetcycli
+
+Bij soorten die geteld worden met een meetcyclus van drie jaar, zullen de verschillen tussen de jaren voor een deel afhankelijk zijn van welke locaties er elk jaar geteld worden.
+Daarom is het ook nuttig om periodes van drie jaar (die overeenkomen met een meetcyclus) met elkaar te vergelijken.
+Voor boomkikker en kamsalamnder werden er al twee meetcycli afgerond en kunnen we dus deze beide periodes vergelijken (Tabel \@ref(tab:tabelverschil3)).
+
+```{r}
+verschillen_cyclus <- result_indexmodel_meetcyclus %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  select(soort_nl, soort_wet, levensstadium, meetcyclus_ref, meetcyclus, klasse) %>%
+  left_join(select(trend_klasses, klasse, klasse_output), by = "klasse") %>%
+  select(-klasse)
+  
+```
+
+```{r tabelverschil3, eval=TRUE}
+
+verschillen_cyclus %>%
+  select(-soort_wet) %>%
+  mutate(meetcyclus = str_remove(meetcyclus, "meetcyclus")) %>%
+  rename("Nederlandse naam" = soort_nl, "Levensstadium" = levensstadium, "Meetcyclus 1" = meetcyclus_ref, "Meetcyclus 2" = meetcyclus, "Verschil" = klasse_output) %>%
+  kable(caption = str_c("Verschil in aantallen t.o.v. referentie meetcyclus", legend_klasses),
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "lccccc") %>%
+kable_styling() 
+```
+
+## Trends
+
+```{r}
+
+trend <- result_trendmodel %>%
+  mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
+         n_jaar = jaar_max - jaar_min + 1,
+         treshold_low = ifelse(parameter == "trend_average", 
+                               round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
+                               -25),
+         treshold_high = ifelse(parameter == "trend_average", 
+                                round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1),
+                                33)) %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0))
+
+```
+
+In Tabel \@ref(tab:tabtrendresultaat) geven we een overzicht van de gemiddelde jaarlijkse trend en de totale trend over de meetnetperiode.
+We duiden ook aan of de trend al dan niet lineair is.
+Een lineaire trend betekent dat de jaarlijkse daling of stijging relatief constant is.
+Bij een niet-lineaire trend fluctueren de aantallen sterk van jaar tot jaar, maar hebben we gemiddeld gezien over de hele tijdsperiode wel een stijging of een daling.
+
+```{r }
+waic <- result_waic %>%
+  distinct(soort_nl, type_trend)
+
+trend_klasses_ch <- trend_klasses %>%
+  mutate(klasse = as.character(klasse)) %>%
+  select(klasse, klasse_output)
+
+overzicht_trend_tabel <- trend %>%
+  left_join(waic, by = "soort_nl") %>%
+  arrange(desc(trend)) %>%
+  mutate(trend = round(mean, 0),
+         trend_lcl = round(lcl_0.90, 0),
+         trend_ucl = round(ucl_0.90, 0),
+         trend_tbl = str_c(ifelse(trend > 0, "+", ""),
+                           trend, "% (",
+                           ifelse(trend_lcl > 0, "+", ""),
+                           trend_lcl, "%; ",
+                           ifelse(trend_ucl > 0, "+", ""),
+                           trend_ucl, "%)")
+         ) %>%
+  select(parameter, soort_nl, soort_wet, periode_tekst, type_trend, klasse, trend_tbl) %>%
+  spread(key = "parameter", value = "trend_tbl") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(trend_klasses_ch, by = "klasse") %>%
+  select("Nederlandse naam" = soort_nl, Periode = periode_tekst, Klasse = klasse_output,"Type trend" = type_trend, "Jaarlijkse wijziging" = trend_average, "Wijziging over de looptijd" = trend_total)
+
+if (html_output) {
+  overzicht_trend_tabel <- overzicht_trend_tabel %>%
+    mutate(`Nederlandse naam` = str_c("[", `Nederlandse naam`, "]"))
+} else {
+  overzicht_trend_tabel <- overzicht_trend_tabel %>%
+    mutate(`Jaarlijkse wijziging` = str_replace_all(`Jaarlijkse wijziging`, "%", "\\\\%"),
+           `Wijziging over de looptijd` = str_replace_all(`Wijziging over de looptijd`, "%", "\\\\%"))
+}
+
+```
+
+```{r tabtrendresultaat, eval = TRUE}
+
+overzicht_trend_tabel %>%
+  kable(align = "lcclcc",
+        caption = str_c("Jaarlijkse wijziging en wijziging over de looptijd", legend_klasses),
+      booktabs = TRUE,
+      escape = FALSE)  %>%
+  kable_styling(latex_options = "scale_down")
+```
+
+\needspace{50mm}
+
+De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in Figuur \@ref(fig:figtrend).
+De x-as van deze figuur heeft een logaritmische schaal.
+Een halvering (-50 %) is immers een even sterk effect als een verdubbeling (+100 %).
+Opnieuw maken we gebruik van de [classificatie](#h:classtrend) zoals besproken in paragraaf \@ref(h:classtrend) met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over de meetperiode.
+Voor een periode van zes jaar (2016 - 2021) komt de ondergrens overeen met een gemiddelde jaarlijkse trend van -5,6 % en de bovengrens met een gemiddelde jaarlijkse trend van +5,9 %.
+
+```{r figtrend, fig.cap= str_c("Gemiddelde jaarlijkse trend met 90 \\% betrouwbaarheidsinterval ", legend_klasses, ". De stippellijnen tonen de referentiewaarde (0 \\%), de ondergrens (-6.7 \\%) en de bovengrens (+7.4 \\%) waarop de classificatie gebaseerd is.")}
+
+
+trend_plot <- trend %>%
+  filter(parameter == "trend_average") %>%
+  #        !(soort_nl == "Vuursalamander" & jaar_min == 2018)) %>%
+  mutate(label_y_axis = str_c(soort_nl, " (", jaar_min, " - ", jaar_max, ")"))
+           
+
+order_trend <- (trend_plot %>%
+  arrange(mean))$label_y_axis
+
+trend <- trend %>%
+  mutate(mean_log = log(mean/100 + 1),
+          lcl_0.90_log = log(lcl_0.90/100 + 1),
+         ucl_0.90_log = log(ucl_0.90/100 + 1))
+
+breaks_log <- log(c( -50, -25, 0, 33, 50)/100 + 1)
+labels_show <- str_c(c( -50, -25, 0, 33, 50), " %")
+
+plot <- trend_plot %>%
+  mutate(label_y_axis = factor(label_y_axis, levels = order_trend)) %>%
+  ggplot( aes(x = label_y_axis, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Gemiddelde jaarlijkse trend (%)", x = "Soort (periode trend)") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show, limits = c(min(breaks_log), max(breaks_log))) +
+  coord_flip() +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+# trend -> (exp(x) - 1) * 100
+# x -> log(trend/100 + 1)
+
+plot
+
+```
+
+## Habitatkenmerken
+
+```{r}
+name_results_habitat_bk <- "habitatkenmerken_boomkikker_kamsalamander_wide"
+name_results_habitat_r <- "habitatkenmerken_rugstreeppad_wide"
+
+path_analyseset <- file.path(fileman_up("analysis_amfibieën"), "output/analyseset")
+
+habitat_bk <- read_vc(name_results_habitat_bk,
+                              root = path_analyseset)
+
+habitat_r <- read_vc(name_results_habitat_r,
+                              root = path_analyseset) %>%
+  mutate(locatie = str_c(locatie, "_", sample_id))
+
+habitatkenmerken <- habitat_bk %>%
+  bind_rows(habitat_r)
+```
+
+Voor boomkikker, kamsalamander, rugstreeppad werden ook enkele habitatkenmerken bepaald die indicatief zijn voor de kwaliteit van het aquatische deel van het leefgebied.
+
+Momenteel analyseren we enkel de huidige toestand van de verschillende habitatkenmerken.
+We kijken dus nog niet naar veranderingen in de tijd, omdat we veronderstellen dat dergelijke veranderingen relatief traag gaan en we momenteel nog onvoldoende data hebben om hier zinvolle uitspraken over te doen.
+
+Voor boomkikker en kamsalamander schatten we huidige toestand in door per waterpartij de meest recent bepaalde waarde te selecteren per habitatkenmerk.
+Voor rugstreeppad is het moeilijker om individuele waterpartijen te onderscheiden op basis van de ingevoerde data.
+De teller geeft zelf de locatie in waar de habitatkenmerken zijn bepaald en vermits het vaak om kleine en tijdelijke waterpartijen gaat is het moeilijk om te achterhalen welke waarnemingen bij eenzelfde waterpartij horen.
+Het is daarom onmogelijk om de meest recente toestand per waterpartij te bepalen, zoals bij de boomkikker en kamsalamander.
+In plaats daarvan bepalen we voor rugstreeppad de gemiddelde toestand van de habitatkenmerken op basis van alle observaties binnen de periode 2019-2023.
+
+```{r}
+
+var_habitatkenmerken <- c("ph", "maximale_diepte", "oppervlakte_waterpartij", "permanente_waterkolom", "beschaduwing", "aanwezigheid_vis", "waterkwaliteit", "drijvende_vegetatie", "onderwatervegetatie", "verticale_vegetatie")
+
+meting <- function(x)(!(is.na(x) | x %in% c("onbekend", "niet bekeken/niet van toepassing")))
+
+missing_values <- habitatkenmerken %>% 
+  mutate_at(var_habitatkenmerken, meting) %>%
+  pivot_longer(cols = c("ph", "maximale_diepte", "oppervlakte_waterpartij", "permanente_waterkolom", "beschaduwing", "aanwezigheid_vis", "waterkwaliteit", "drijvende_vegetatie", "onderwatervegetatie", "verticale_vegetatie"), names_to = "habitatkenmerk", values_to = "meting") 
+
+missing_values_bezoek <- missing_values %>%
+  group_by(meetnet, is_sample, habitatkenmerk) %>%
+  summarise(prop_opgemeten = round(sum(meting)/n(), 2),
+            n_bezoeken = n()) %>%
+  ungroup() %>%
+  select(meetnet, is_sample, n_bezoeken, everything())
+
+missing_values_locatie <- missing_values %>%
+  group_by(meetnet, is_sample, locatie, habitatkenmerk) %>%
+  summarise(meting = any(meting)) %>%
+  ungroup() %>%
+  group_by(meetnet, is_sample, habitatkenmerk) %>%
+  summarise(prop_opgemeten = round(sum(meting)/n(), 2),
+            n_locaties = n()) %>%
+  ungroup() %>%
+  select(meetnet, is_sample, n_locaties, everything())
+  
+```
+
+```{r}
+habitatkenmerken <- habitatkenmerken %>%
+  mutate(periode = str_c(meetcyclus_start, "-", meetcyclus_end)) %>%
+  mutate(jaar = year(datum)) %>%
+  mutate(oppervlakte_waterpartij = if_else(waterkwaliteit == "plas verdwenen of volledig verland", "<10", oppervlakte_waterpartij))
+
+habitatkenmerken_numeric <- habitatkenmerken %>%
+  select(meetnet, meetcyclus, periode, datum, locatie, is_sample, ph, aanwezigheid_vis, permanente_waterkolom) %>%
+  pivot_longer(cols = c("ph", "aanwezigheid_vis", "permanente_waterkolom"),
+               names_to = "habitatkenmerk",
+               values_to = "waarde")
+
+habitatkenmerken_numeric_periode <- habitatkenmerken_numeric %>%
+  filter(!is.na(waarde))
+  
+habitatkenmerken_numeric_status <- habitatkenmerken_numeric %>%
+  filter(!is.na(waarde)) %>%
+  filter(is_sample) %>%
+  group_by(meetnet, locatie, habitatkenmerk) %>%
+  filter(datum == max(datum)) %>%
+  ungroup()
+
+```
+
+De habitatkenmerken 'aanwezigheid van vis' en 'permanente waterkolom' zijn binaire variabelen met waarde 1 (ja) of 0 (nee).
+In Figuur \@ref(fig:fighk1) geven voor elk meetnet de proportie van de plassen met aanwezigheid van vis en met een permanente waterkolom.
+De figuur toont ook het 90%-betrouwbaarheidsinterval op de geschatte proportie.
+
+```{r fighk1, fig.cap = "Proportie van de waterpartijen met aanwezigheid van vis en met een permanente waterkolom en 90% betrouwbaarheidsinterval"}
+habitatkenmerken_numeric_status %>%
+  filter(habitatkenmerk %in% c("aanwezigheid_vis", "permanente_waterkolom")) %>%
+  mutate(habitatkenmerk = str_replace(habitatkenmerk, "_", " "),
+         habitatkenmerk = str_to_sentence(habitatkenmerk)) %>%
+  ggplot(aes(x = meetnet, y = waarde)) +
+ # stat_sum(alpha = 0.6) +
+  stat_summary(fun.data = "mean_cl_boot", fun.args = list(conf.int = .9), colour = "red", size = 1) +
+  facet_wrap( ~ habitatkenmerk, scales = "free") +
+  labs(y = "Proportie van de plassen", x = "Soort") +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1))
+```
+
+Figuur \@ref(fig:fighk2) toont de gemiddelde zuurtegraad (rode cirkel) van de plassen met boomkikker en kamsalamander en het 90%-betrouwbaarheidsinterval.
+De figuur toont ook de pH-metingen per plas (blauwe cirkels), waarbij de grootte van de cirkel evenredig is met het aantal plassen met een bepaalde pH-waarde.
+
+```{r fighk2, fig.cap = "Gemiddelde zuurtgegraad (pH) in de poelen met boomkikker en kamsalamander"}
+habitatkenmerken_numeric_status %>%
+  filter(habitatkenmerk == "ph") %>%
+  ggplot(aes(x = meetnet, y = waarde)) +
+  stat_sum(alpha = 0.6) +
+  stat_summary(fun.data = "mean_cl_boot", fun.args = list(conf.int = .9), colour = "red", size = 1) +
+  labs(y = "Zuurtgegraad (pH)", x = "Soort", size = "Aantal plassen")
+```
+
+```{r}
+waterkwaliteit_status <- habitatkenmerken  %>%
+  filter(is_sample) %>%
+  filter(!waterkwaliteit %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
+  group_by(meetnet, locatie) %>%
+  filter(datum == max(datum)) %>%
+  ungroup() %>%
+  group_by(meetnet) %>%
+  mutate(n_locaties_meting = n_distinct(locatie)) %>%
+  ungroup() %>%
+  mutate(waterkwaliteit = ifelse(str_detect(waterkwaliteit, "middelmatig"), "middelmatig",
+                                 ifelse(str_detect(waterkwaliteit, "slecht"), "slecht",
+                                        ifelse(str_detect(waterkwaliteit, "goed"), "goed", waterkwaliteit))),
+         waterkwaliteit = factor(waterkwaliteit, levels = c("plas verdwenen of volledig verland", "slecht", "middelmatig", "goed"))) %>% 
+  group_by(meetnet, n_locaties_meting, waterkwaliteit) %>%
+  summarise(prop_locatie = round(n() / n_locaties_meting, 2),
+            n = n()) %>%
+  ungroup() %>%
+  unique()
+```
+
+```{r}
+p1 <- waterkwaliteit_status %>%
+  mutate(waterkwaliteit = fct_recode(waterkwaliteit, "plas verdwenen/verland" = "plas verdwenen of volledig verland")) %>%
+  ggplot(aes(x = meetnet, y = prop_locatie, fill = waterkwaliteit)) + 
+  geom_col() +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
+  labs(x = "Soort", y = "Proportie van de plassen", fill = "Waterkwaliteit") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Waterkwaliteit")
+```
+
+```{r}
+maximale_diepte_status <- habitatkenmerken  %>%
+  filter(is_sample) %>%
+  filter(!maximale_diepte %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
+  group_by(meetnet, locatie) %>%
+  filter(datum == max(datum)) %>%
+  ungroup() %>%
+  group_by(meetnet) %>%
+  mutate(n_locaties_meting = n_distinct(locatie)) %>%
+  ungroup() %>%
+  group_by(meetnet, n_locaties_meting, maximale_diepte) %>%
+  summarise(n = n()) %>%
+  ungroup() %>%
+  mutate(prop_locatie = round(n / n_locaties_meting, 2)) 
+```
+
+```{r}
+p2 <- maximale_diepte_status %>%
+  ggplot(aes(x = meetnet, y = prop_locatie, fill = maximale_diepte)) + 
+  geom_col() +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
+  labs(x = "Soort", y = "Proportie van de plassen", fill = "Maximale diepte (m)") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Maximale diepte plas")
+```
+
+```{r}
+beschaduwing_status <- habitatkenmerken  %>%
+  filter(is_sample) %>%
+  filter(!beschaduwing %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
+  group_by(meetnet, locatie) %>%
+  filter(datum == max(datum)) %>%
+  ungroup() %>%
+  group_by(meetnet) %>%
+  mutate(n_locaties_meting = n_distinct(locatie)) %>%
+  ungroup() %>%
+  group_by(meetnet, n_locaties_meting, beschaduwing) %>%
+  summarise(n = n()) %>%
+  ungroup() %>%
+  mutate(prop_locatie = round(n / n_locaties_meting, 2)) %>%
+  mutate(beschaduwing = factor(beschaduwing, levels = c(">60%", "30-60%", "<30%", "geen schaduw")))
+```
+
+```{r}
+p3 <- beschaduwing_status %>%
+  ggplot(aes(x = meetnet, y = prop_locatie, fill = beschaduwing)) + 
+  geom_col() +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
+  labs(x = "Soort", y = "Proportie van de plassen", fill = "Beschaduwing") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Beschaduwing")
+```
+
+```{r}
+oppervlakte_waterpartij <- habitatkenmerken  %>%
+  filter(is_sample) %>%
+  filter(!oppervlakte_waterpartij %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
+  filter(!is.na(oppervlakte_waterpartij)) %>%
+  group_by(meetnet, locatie) %>%
+  filter(datum == max(datum)) %>%
+  ungroup() %>%
+  group_by(meetnet) %>%
+  mutate(n_locaties_meting = n_distinct(locatie)) %>%
+  ungroup() %>%
+  group_by(meetnet, n_locaties_meting, oppervlakte_waterpartij) %>%
+  summarise(n = n()) %>%
+  ungroup() %>%
+  mutate(prop_locatie = round(n / n_locaties_meting, 2))
+```
+
+```{r}
+p4 <- oppervlakte_waterpartij %>%
+  mutate(oppervlakte_waterpartij = factor(oppervlakte_waterpartij, levels = c("<10", "10-100", "101-250", "251-400", ">400"))) %>%
+  ggplot(aes(x = meetnet, y = prop_locatie, fill = oppervlakte_waterpartij)) + 
+  geom_col() +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
+  labs(x = "Soort", y = "Proportie van de plassen", fill = "Oppervlakte (m²)") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Oppervlakte plas (m²)")
+```
+
+De andere habitatkernmerken worden bepaald aan de hand van vaste categorieën.
+In Figuur \@ref(fig:fighk3) en \@ref(fig:fighk4) geven we per habitatkenmerk de verdeling van de plassen over de verschillende categorieën.
+De figuur toont ook het totaal aantal plassen per categorie.
+
+```{r fighk3, fig.width = 11, fig.height= 7, fig.cap= "Proportie van de plassen en totaal aantal plassen voor de verschillende categorieën van de habitatkenmerken waterkwaliteit, maximale diepte, beschaduwing en oppervlakte plas"}
+grid.arrange(p1, p2, p3, p4)
+```
+
+```{r}
+vegetatie <- habitatkenmerken  %>%
+  filter(is_sample) %>%
+  filter(meetnet == "Rugstreeppad") %>%
+  select(meetnet, visit_id, sample_id, datum, locatie, drijvende_vegetatie, verticale_vegetatie, onderwatervegetatie) %>%
+  pivot_longer(cols = c("drijvende_vegetatie", "verticale_vegetatie", "onderwatervegetatie"), names_to = "variabele", values_to = "waarde") %>%
+  filter(!waarde %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
+  filter(!is.na(waarde)) %>%
+  group_by(meetnet, locatie, variabele) %>%
+  filter(datum == max(datum)) %>%
+  ungroup() %>%
+  group_by(meetnet, variabele) %>%
+  mutate(n_locaties_meting = n_distinct(locatie)) %>%
+  ungroup() %>%
+  group_by(meetnet, n_locaties_meting, variabele, waarde) %>%
+  summarise(n = n()) %>%
+  ungroup() %>%
+  mutate(prop_locatie = round(n / n_locaties_meting, 2))
+```
+
+```{r fighk4, fig.cap= "Proportie van de plassen en totaal aantal plassen voor de verschillende categorieën van de habitatkenmerken m.b.t. de vegetatie"}
+
+vegetatie %>%
+  mutate(variabele = str_to_sentence(variabele),
+         variabele = str_replace(variabele, "_", " ")) %>%
+  ggplot(aes(x = meetnet, y = prop_locatie, fill = waarde)) + 
+  geom_col() +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
+  labs(x = "Soort", y = "Proportie van de plassen", fill = "Bedekking") +
+  scale_y_continuous(labels = scales::percent) +
+  facet_wrap(~variabele)
+```

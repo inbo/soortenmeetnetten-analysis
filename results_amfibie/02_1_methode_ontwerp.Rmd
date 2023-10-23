@@ -99,12 +99,14 @@ Voor elke soort vermelden we de telperiode(s) waarin de tellingen gebeuren en he
 
 ```{r tabkarakteristiekentelperiode}
 
-meetnetcharacteristics %>%
+meetnetcharacteristics1 <- meetnetcharacteristics %>%
   mutate(start_telperiode = format(start_telperiode, "%d/%m"),
          einde_telperiode = format(einde_telperiode, "%d/%m"),
          telperiode = str_c(start_telperiode, " - ", einde_telperiode)) %>%
   distinct(meetnet, protocol, protocol_naam, bezoeken, telperiode) %>%
-  select(Meetnet = meetnet, Veldprotocol =  protocol_naam,  Telperiode = telperiode, "Aantal bezoeken per telperiode" = bezoeken) %>%
+  select(Meetnet = meetnet, Veldprotocol =  protocol_naam,  Telperiode = telperiode, "Aantal bezoeken per telperiode" = bezoeken)
+
+meetnetcharacteristics1 %>%
   kable(caption = "Overzicht van de meetnetkarakterisitieken: veldprotocol, telperiode en aantal bezoeken",
         align = "llcc",
         booktabs = TRUE) %>%
@@ -132,13 +134,15 @@ Daarbij gebruiken we een methode die garandeert dat een zo groot mogelijk aandee
 
 ```{r tabkarakteristiekenselectie}
 
-meetnetcharacteristics %>%
+meetnetcharacteristics2 <- meetnetcharacteristics %>%
   filter(is_sample) %>%
   mutate(n_locaties = ifelse(meetnet %in% c("Heikikker", "Poelkikker", "Kamsalamander"), 60, n_locaties),
          type = ifelse(meetnet %in% c("Heikikker", "Poelkikker"), "Steekproef", type),
          type = ifelse(meetnet == "Gladde slang", "Integraal", type)) %>%
   select(Meetnet = meetnet, "Selectie" = type, "Aantal meetnetlocaties" = n_locaties, "Duur meetcyclus (jaar)" = duur_meetcyclus) %>%
-  unique()  %>%
+  unique()
+
+meetnetcharacteristics2 %>%
   kable(caption = "Overzicht van de meetnetkarakteristieken: selectie van locaties, aantal locaties en duur van de meetcyclus",
         align = "llcc",
         booktabs = TRUE,
@@ -299,6 +303,8 @@ n_tellingen <- n_distinct(visits_all$visit_id)
 n_tellocaties <- n_distinct(visits_all$locatie) 
 
 n_tellers <- n_distinct(visits_all$naam_teller)
+
+
 
 ```
 

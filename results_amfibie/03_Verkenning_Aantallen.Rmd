@@ -48,7 +48,7 @@ summary_table <- summary_counts_year %>%
 
 Tabel \@ref(tab:tabaantaltot) toont per soort, levensstadium en per jaar:
 
--   het totaal aantallen per soort en per levensstadium
+-   het totaal aantallen per soort en per levensstadium;
 -   het gemiddeld aantal per bezoek;
 -   het aantal getelde meetnetlocaties;
 -   de proportie van de bezochte meetnetlocaties waar de soort werd waargenomen.
@@ -140,11 +140,12 @@ bscols(list(
                NULL,
                datatable(sd_locaties,
                       rownames = FALSE,
-                      class = "compact",
+                      #class = "compact",
                       extensions = "FixedColumns",
                       options = list(columnDefs = list(list(visible = FALSE, targets = c( 4, 5, 14, 15))),
-                                     dom = 't',
+                                     #dom = 't',
                                      scrollX = TRUE,
+                                     scrollY = TRUE,
                                      fixedColumns = TRUE,
                                      fixedColumns = list(leftColumns = 1))),
               NULL)
@@ -152,11 +153,6 @@ bscols(list(
         )
 )
 
-  options = list(
-    dom = 't',
-    scrollX = TRUE,
-    fixedColumns = TRUE
-  )
 ```
 
 ```{r figlocatiesaantallen, fig.cap = "Gemiddelde getelde aantallen per bezoek, per meetnetlocatie", eval= html_output}
@@ -203,5 +199,6 @@ summary_table_all_years %>%
                 latex_options = c("scale_down", "repeat_header"),
                 repeat_header_text = "(vervolg)") %>%
   column_spec(2, italic = TRUE) %>%
+  collapse_rows(c(1,2)) %>%
   scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
 ```

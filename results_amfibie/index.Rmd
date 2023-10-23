@@ -102,7 +102,9 @@ library(conflicted)
 library(git2rdata)
 library(DT)
 library(effectclass)
+library(gridExtra)
 conflicted::conflicts_prefer(dplyr::filter)
+conflicts_prefer(dplyr::lag)
 
 if (interactive()) {
   theme_set(theme_inbo(base_size = 10))

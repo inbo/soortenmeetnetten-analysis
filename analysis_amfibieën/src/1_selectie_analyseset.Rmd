@@ -1095,13 +1095,13 @@ analyseset_poelkikker <- dataset_poelkikker %>%
 
 counts_rugstreeppad_sample <- counts %>%
   filter(meetnet == "Rugstreeppad") %>%
-  group_by(visit_id, sample_id,  soort_nl,  primaire_soort, levensstadium,  activiteit) %>%
+  group_by(visit_id, sample_id,  soort_nl, soort_wet, primaire_soort, levensstadium,  activiteit) %>%
   summarise(aantal = sum(aantal)) %>%
   ungroup()
 
 counts_rugstreeppad_visit <- counts %>%
   filter(meetnet == "Rugstreeppad") %>%
-  group_by(visit_id, soort_nl,  primaire_soort, levensstadium, activiteit) %>%
+  group_by(visit_id, soort_nl, soort_wet, primaire_soort, levensstadium, activiteit) %>%
   summarise(aantal = sum(aantal),
             n_samples = n_distinct(sample_id)) %>%
   ungroup()
@@ -1153,14 +1153,18 @@ check_na <- dataset_rugstreeppad %>%
 
 dataset_rugstreeppad_nul <- dataset_rugstreeppad %>%
   filter(is.na(aantal) & bezoek_status == "Conform protocol") %>%
-  select(-levensstadium, -activiteit, -aantal, -n_samples)
+  select(-levensstadium, -activiteit, -aantal, -n_samples, -soort_nl, -soort_wet, -primaire_soort)
 
 nulwaarneming <- dataset_rugstreeppad %>%
   tidyr::expand(visit_id, nesting(levensstadium, activiteit)) %>%
+  filter(levensstadium != "juveniel") %>%
   filter(!is.na(levensstadium)) %>% 
   semi_join(dataset_rugstreeppad_nul, by = "visit_id") %>%
   mutate(aantal = 0,
-         n_samples = 1)
+         n_samples = 1,
+         soort_nl = "Rugstreeppad",
+         soort_wet = "Epidalea calamita",
+         primaire_soort = TRUE)
 
 dataset_rugstreeppad_nul <- dataset_rugstreeppad_nul %>%
   left_join(nulwaarneming, by = "visit_id")
@@ -1274,7 +1278,7 @@ analyseset_rugstreeppad <- dataset_rugstreeppad %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus - 1) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, levensstadium, activiteit, aantal, n_samples, notes, hoofdteller)
+  select(soortgroep, meetnet, protocol, locatie, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium, activiteit, aantal, n_samples, notes, hoofdteller)
 ```
 
 ## Analyseset habitatkenmerken
