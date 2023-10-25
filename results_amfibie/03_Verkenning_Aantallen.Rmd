@@ -62,11 +62,13 @@ summary_table %>%
   kable(caption = "Overzicht getelde aantallen voor de prioritaire soorten (Totaal = totaal aantal, Gemiddeld = gemiddeld aantal per bezoek, Locaties = aantal getelde meetnetlocaties, Proportie = proportie van de bezochte meetnetlocaties waar de soort en het levensstadium werd waargenomen)",
       booktabs = TRUE,
       longtable = TRUE,
-      align = "llccccc") %>%
+      align = "lllccccc") %>%
   kable_styling(bootstrap_options = c( "condensed"), 
                 latex_options = c("scale_down", "repeat_header"),
-                repeat_header_text = "(vervolg)") %>%
-  column_spec(2, italic = TRUE) %>%
+                repeat_header_text = "(vervolg)",
+                font_size = 8) %>%
+  column_spec(c(1,3), width = "6em") %>%
+  column_spec(2, italic = TRUE, width = "7em") %>%
   collapse_rows(c(1,2, 3), target = 1, valign = "top", latex_hline = "major") %>%
   scroll_box(width = "100%", height = "600px", fixed_thead = TRUE) 
   
@@ -144,6 +146,7 @@ bscols(list(
                       extensions = "FixedColumns",
                       options = list(columnDefs = list(list(visible = FALSE, targets = c( 4, 5, 14, 15))),
                                      #dom = 't',
+                                     pageLength = 5,
                                      scrollX = TRUE,
                                      scrollY = TRUE,
                                      fixedColumns = TRUE,
@@ -197,7 +200,8 @@ summary_table_all_years %>%
       booktabs = TRUE) %>%
   kable_styling(bootstrap_options = c( "condensed"), 
                 latex_options = c("scale_down", "repeat_header"),
-                repeat_header_text = "(vervolg)") %>%
+                repeat_header_text = "(vervolg)",
+                font_size = 8) %>%
   column_spec(2, italic = TRUE) %>%
   collapse_rows(c(1,2)) %>%
   scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)

@@ -20,8 +20,8 @@ meetnetcharacteristics <- get_characteristics_smp() %>%
 
 In een meetnet tellen vrijwilligers specifieke soorten op vastgelegde locaties via een gestandaardiseerde telmethode.
 Een dergelijke gestructureerde monitoring biedt de beste garantie op betrouwbare informatie over de toestand en trends van soorten op schaal Vlaanderen.
-Het ontwerp van de meetnetten voor amfibieën en reptielen wordt in detail beschreven in het monitoringsprotocol amfibieën en reptielen [@speybroeck_2020].
-Dit is een tweede versie van het monitoringsprotocol waarin enkele aanpassingen zijn gebeurd ten opzichte van de eerste versie [@de_bruyn_amphibia_2015, @de_bruyn_vuursalamander_2015, @de_bruyn_kamsalamander_2015].
+Het ontwerp van de meetnetten voor amfibieën en reptielen wordt in detail beschreven in het monitoringsprotocol [@speybroeck_2020].
+Dit is een tweede versie van het monitoringsprotocol waarin enkele aanpassingen zijn gebeurd ten opzichte van de eerste versie [@de_bruyn_amphibia_2015; @de_bruyn_vuursalamander_2015; @de_bruyn_kamsalamander_2015].
 
 We vatten de belangrijkste onderdelen van de meetnetten voor amfibieën en reptielen nog eens kort samen.
 
@@ -212,7 +212,7 @@ include_graphics("image/dummy_figuur.png")
 
 ### Habitatkenmerken
 
-*Waarom geen habitatkenmerken voor poelkikker en heikikker*
+*Waarom geen habitatkenmerken voor poelkikker en heikikker??*
 
 Voor de boomkikker, kamsalamander, rugstreeppad en vroedmeesterpad vragen we ook om enkele habitatkenmerken te bepalen van de getelde poelen, zodat we een ruwe inschatting kunnen maken van de kwaliteit van het aquatische deel van het leefgebied.
 Het bepalen van de habitatkenmerken gebeurt op het moment dat de larven geteld worden.
@@ -236,7 +236,7 @@ Voor rugstreeppad en vroedmeesterpad vragen we bijkomend een inschatting van de 
 -   onderwatervegetatie
 -   verticale vegetatie
 
-*Waarom deze variabelen niet bij niet bij boomkikker en kamsalamander*
+*Waarom deze variabelen niet bij niet bij boomkikker en kamsalamander??*
 
 ## Ingezamelde telgegevens
 

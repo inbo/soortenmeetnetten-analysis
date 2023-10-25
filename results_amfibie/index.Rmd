@@ -64,10 +64,6 @@ output:
 
 De tekst voor het optionele dankwoord.
 
-# Voorwoord {.unnumbered}
-
-De tekst voor het optionele voorwoord.
-
 # Samenvatting {.unnumbered}
 
 <!-- description: start -->
@@ -75,10 +71,6 @@ De tekst voor het optionele voorwoord.
 De tekst voor de verplichte samenvatting.
 Hou het [Heerlijk Helder](https://overheid.vlaanderen.be/communicatie/heerlijk-helder).
 <!-- description: end -->
-
-# Aanbevelingen voor beheer en/of beleid {.unnumbered}
-
-Verplicht wanneer relevant.
 
 ```{r setup, include = FALSE}
 library(knitr)

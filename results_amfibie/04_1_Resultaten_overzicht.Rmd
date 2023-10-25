@@ -61,14 +61,16 @@ verschillen_jaren <- result_indexmodel %>%
 
 verschillen_jaren %>%
   select(-soort_wet) %>%
-  rename("Nederlandse naam" = soort_nl, Levensstadium = levensstadium,  Referentiejaar = ref_jaar) %>%
+  rename("Soort" = soort_nl, Levensstadium = levensstadium,  Referentiejaar = ref_jaar) %>%
   kable(caption = str_c("Verschil in aantallen t.o.v. referentiejaar", legend_klasses),
       booktabs = TRUE,
       escape = FALSE,
       align = "lccccc") %>%
-kable_styling() %>%
-add_header_above(c(" " = 3, "Verschil t.o.v. referentiejaar" = 7))
-
+  kable_styling() %>%
+  add_header_above(c(" " = 3, "Verschil t.o.v. referentiejaar" = 7)) %>%
+  collapse_rows(1) %>%
+  scroll_box(width = "700px", height = "100%")
+  
 ```
 
 Een andere manier om de jaarlijkse verschillen voor te stellen is door steeds de verschillen tussen twee opeenvolgende jaren te bepalen zoals in \@ref(tab:tabelverschil2).
@@ -86,24 +88,20 @@ verschillen_vorigjaar <- result_indexmodel %>%
   spread(key = "periode", value = "klasse_output", fill = "") %>%
   ungroup()
 
-# if (html_output) {
-#   verschillen_vorigjaar <- verschillen_vorigjaar %>%
-#     # mutate(klasse = format(klasse, type = "markdown")) %>%
-#     # spread(key = "jaar", value = "klasse") %>%
-#     mutate(soort_nl = str_c("[", soort_nl, "]"))
-# }
-  
 ```
 
 ```{r tabelverschil2}
 verschillen_vorigjaar %>%
   select(-soort_wet) %>%
-  rename("Nederlandse naam" = soort_nl) %>%
+  rename("Soort" = soort_nl, Levensstadium = levensstadium) %>%
   kable(caption = "Verschil in aantallen voor opeenvolgende jaren",
       booktabs = TRUE,
       escape = FALSE,
-      align = "lcccccc") %>%
-kable_styling()
+      align = "lcccccccc") %>%
+  kable_styling() %>%
+  column_spec(c(3:9), width = "1cm") %>%
+  collapse_rows(1) %>%
+  scroll_box(width = "700px", height = "100%")
 ```
 
 ## Verschillen tussen de meetcycli
@@ -114,6 +112,8 @@ Voor boomkikker en kamsalamnder werden er al twee meetcycli afgerond en kunnen w
 
 ```{r}
 verschillen_cyclus <- result_indexmodel_meetcyclus %>%
+  mutate(meetcyclus = str_replace(meetcyclus, "_", "-"),
+         meetcyclus_ref = str_replace(meetcyclus_ref, "_", "-")) %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
   select(soort_nl, soort_wet, levensstadium, meetcyclus_ref, meetcyclus, klasse) %>%
   left_join(select(trend_klasses, klasse, klasse_output), by = "klasse") %>%
@@ -212,7 +212,7 @@ Een halvering (-50 %) is immers een even sterk effect als een verdubbeling (+100
 Opnieuw maken we gebruik van de [classificatie](#h:classtrend) zoals besproken in paragraaf \@ref(h:classtrend) met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over de meetperiode.
 Voor een periode van zes jaar (2016 - 2021) komt de ondergrens overeen met een gemiddelde jaarlijkse trend van -5,6 % en de bovengrens met een gemiddelde jaarlijkse trend van +5,9 %.
 
-```{r figtrend, fig.cap= str_c("Gemiddelde jaarlijkse trend met 90 \\% betrouwbaarheidsinterval ", legend_klasses, ". De stippellijnen tonen de referentiewaarde (0 \\%), de ondergrens (-6.7 \\%) en de bovengrens (+7.4 \\%) waarop de classificatie gebaseerd is.")}
+```{r figtrend, fig.cap= str_c("Gemiddelde jaarlijkse trend met 90 \\% betrouwbaarheidsinterval ", legend_klasses)}
 
 
 trend_plot <- trend %>%
@@ -339,14 +339,14 @@ De habitatkenmerken 'aanwezigheid van vis' en 'permanente waterkolom' zijn binai
 In Figuur \@ref(fig:fighk1) geven voor elk meetnet de proportie van de plassen met aanwezigheid van vis en met een permanente waterkolom.
 De figuur toont ook het 90%-betrouwbaarheidsinterval op de geschatte proportie.
 
-```{r fighk1, fig.cap = "Proportie van de waterpartijen met aanwezigheid van vis en met een permanente waterkolom en 90% betrouwbaarheidsinterval"}
+```{r fighk1, fig.width = 7, fig.cap = "Proportie van de waterpartijen met aanwezigheid van vis en met een permanente waterkolom en 90 \\% betrouwbaarheidsinterval"}
 habitatkenmerken_numeric_status %>%
   filter(habitatkenmerk %in% c("aanwezigheid_vis", "permanente_waterkolom")) %>%
   mutate(habitatkenmerk = str_replace(habitatkenmerk, "_", " "),
          habitatkenmerk = str_to_sentence(habitatkenmerk)) %>%
   ggplot(aes(x = meetnet, y = waarde)) +
  # stat_sum(alpha = 0.6) +
-  stat_summary(fun.data = "mean_cl_boot", fun.args = list(conf.int = .9), colour = "red", size = 1) +
+  stat_summary(fun.data = "mean_cl_boot", fun.args = list(conf.int = .9), colour = "red", size = 1, alpha = 0.6) +
   facet_wrap( ~ habitatkenmerk, scales = "free") +
   labs(y = "Proportie van de plassen", x = "Soort") +
   scale_y_continuous(labels = scales::percent, limits = c(0, 1))
@@ -360,7 +360,7 @@ habitatkenmerken_numeric_status %>%
   filter(habitatkenmerk == "ph") %>%
   ggplot(aes(x = meetnet, y = waarde)) +
   stat_sum(alpha = 0.6) +
-  stat_summary(fun.data = "mean_cl_boot", fun.args = list(conf.int = .9), colour = "red", size = 1) +
+  stat_summary(fun.data = "mean_cl_boot", fun.args = list(conf.int = .9), colour = "red", size = 1, alpha = 0.6) +
   labs(y = "Zuurtgegraad (pH)", x = "Soort", size = "Aantal plassen")
 ```
 
@@ -481,7 +481,7 @@ De andere habitatkernmerken worden bepaald aan de hand van vaste categorieën.
 In Figuur \@ref(fig:fighk3) en \@ref(fig:fighk4) geven we per habitatkenmerk de verdeling van de plassen over de verschillende categorieën.
 De figuur toont ook het totaal aantal plassen per categorie.
 
-```{r fighk3, fig.width = 11, fig.height= 7, fig.cap= "Proportie van de plassen en totaal aantal plassen voor de verschillende categorieën van de habitatkenmerken waterkwaliteit, maximale diepte, beschaduwing en oppervlakte plas"}
+```{r fighk3, fig.width = 11, fig.height= 9, fig.cap= "Proportie van de plassen en totaal aantal plassen voor de verschillende categorieën van de habitatkenmerken waterkwaliteit, maximale diepte, beschaduwing en oppervlakte plas"}
 grid.arrange(p1, p2, p3, p4)
 ```
 

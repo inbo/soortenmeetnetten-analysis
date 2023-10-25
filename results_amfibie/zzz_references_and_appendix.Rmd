@@ -4,6 +4,81 @@
 INBOmd::references(appendix = TRUE)
 ```
 
-# Eerste hoofdstuk van de bijlage
+# Beschrijving van de analyse {#bijlage1}
 
-Inhoud van de eerste bijlage
+## Selectie van gegevens voor de analyse
+
+De gegevens die we gebruiken voor de analyse moeten aan volgende voorwaarden voldoen:
+
+-   de gegevens zijn afkomstig van meetnetten waarvoor er al minstens drie jaar tellingen zijn uitgevoerd (en de tellingen werden ingevoerd in de meetnetten.be-databank);
+
+-   de gegevens zijn afkomstig van tellocaties waar de doelsoort van het meetnet al minstens tijdens één bezoek werd waargenomen (locaties met enkel nulwaarnemingen zijn niet relevant voor het bepalen van trends of verschillen tussen de jaren);
+
+-   de gegevens werden ingezameld volgens het veldwerkprotocol;
+
+-   de gegevens zijn afkomstig van meetnetlocaties (bijkomende tellingen op locaties die niet tot de steekproef behoren gebruiken we niet in de analyse omdat dit to vertekening kan leiden)
+
+-   voor knoflookpad gebruiken we enkele de tellingen via een hydrofoon
+
+## Model voor verschillen tussen de jaren
+
+Via een statistisch model analyseren we de getelde aantallen als functie van het jaar.
+Op die manier krijgen we een schatting per jaar.
+We voegen ook een locatie-effect toe aan het model onder de vorm van een *random intercept*.
+Hiermee geven we aan dat tellingen op eenzelfde locatie gecorreleerd zijn.
+Voor Boomkikker en Rugstreeppad voegen we ook een *random intercept* voor cluster toe, om aan te geven dat de aantallen per poelen binnen een cluster gecorreleerd zijn met elkaar.
+
+De zoekingspanning per telling is verschillend bij de tellingen van vuursalamander, de larvetellingen en de fuiktellingen.
+Daarom maken we gebruik van volgende waarden als *offset* in het model:
+
+-   transectlengte in meter / 1000
+-   aantal schepbewegingen / 10
+-   aantal fuiken
+
+Hierdoor worden de resultaten uitgedrukt als respectievelijk het verschil in aantallen per 1000 meter transectlengte, het verschil in aantallen per 10 schepbewegingen en het verschil in aantallen per fuik.
+
+Op basis van dit model maken we een schatting van de jaarlijkse index.
+Dit is het procentueel verschil in aantallen tussen een bepaald jaar en een referentiejaar.
+
+We maken gebruik van een generalised linear mixed model (GLMM), waarbij we aannemen dat het getelde aantal $C_{lcj}$ op locatie $l$, cluster $c$ en jaar $j$ een negatief binomiale distributie volgt met gemiddelde $\mu_{lcj}$ en overdispersie parameter $k$.
+
+$$C_{lcj} \sim {NB}(\mu_{lcj}, k)$$
+
+$$\operatorname{E}[C_{lcj}]=\mu_{lcj}$$ $$\operatorname{var}(C_{lcj})=\mu_{lcj}+\frac{\mu_{lcj}^2}{k}$$
+
+We maken gebruik van onderstaande link functie.
+
+$$\log(\mu_{lcj}) = \eta_{lcj}$$ De lineaire predictor $\log(\mu_{lcj})$ hangt af van volgende termen:
+
+-   $b_{l}$: een random intercept voor locatie $l$.
+    Het volgt een normale distributie met gemiddelde 0 en variantie $\sigma_{l}^2$
+
+-   $b_{c}$: een random intercept voor cluster $c$.
+    Het volgt een normale distributie met gemiddelde 0 en variantie $\sigma_{c}^2$ (enkel bij boomkikker en kamsalmander)
+
+-   $b_{j}$ het effect van jaar $j$.
+    Dit effect modelleert een eerste orde random walk.
+    Het verschil tussen twee opeenvolgende jaren $\Delta b_j=b_j - b_{j-1}$ volgt een normale verdeling met gemiddelde 0 en variantie $\sigma_{j}^2$.
+
+$$\eta_{lcj}= \beta_{0} + b_{l} + b_{c} + b_{j}$$
+
+$$b_{l} \sim {N(0,\sigma_{l}^2)} $$
+
+$$b_{c} \sim {N(0,\sigma_{c}^2)} $$
+
+$$\Delta b_j \sim {N(0,\sigma_{j}^2)} $$
+
+## Model voor jaarlijkse trend
+
+Lineaire trends veronderstellen dat er een constante wijziging is over de volledige looptijd.
+Het model dat we hiervoor gebruiken is nagenoeg identiek aan het niet-lineaire model.
+Het enige verschil zit in de lineaire predictor waar we de eerste orde random walk ($\Delta b_j$) vervangen door een lineaire trend ($\beta_{1}j$).
+Bij boomkikker en en kamsalamander voegen we een *random slope* voor cluster toe, zodat de lineaire trend kan variëren per cluster ($\beta_{1c}j$).
+Voor vuursalamander gebruiken we een random slope voor de locaties ($\beta_{1l}j$)
+
+Dit model gebruiken we voor volgende schattingen:
+
+-   gemiddelde jaarlijkse lineaire trend in aantallen, m.a.w. de percentage vooruitgang of achteruitgang per jaar;
+
+-   totale trend in aantallen over de volledige periode, m.a.w. de percentage vooruitgang of achteruitgang over de hele periode.
+

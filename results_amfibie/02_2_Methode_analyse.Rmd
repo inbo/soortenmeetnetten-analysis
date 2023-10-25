@@ -14,6 +14,20 @@ De aantallen in een bepaald jaar zijn immers sterk afhankelijk van de locaties d
 
 Voor de analyse maken we gebruik van zogenaamde *generalized linear mixed models* (GLMM).
 Voor een bespreking van de technische achtergrond van deze modellen verwijzen we naar Bijlage \@ref(bijlage1).
+We geven hier enkel de belangrijkste elementen van de gebruikte modellen.
+
+-   De modellen voor alle soorten bevatten een locatie-effect waarmee we aangeven dat het om herhaalde tellingen gaat (elke locatie wordt om het jaar of om de drie jaar geteld).
+
+-   Bij boomkikker en kamsalamander zijn de locaties (poelen) vaak geclusterd en de aantallen per poel binnen zo een cluster zijn vaak gecorreleerd.
+    Daarom voegen we ook een cluster-effect toe aan het model.
+
+-   In sommige gevallen verschilt de zoekinspanning per locatie en deze zoekinspanning heeft een invloed op de getelde aantallen.
+    Daarom nemen we ook de zoekinspanning mee op in de modellen.
+    Bij de larvetellingen gaat het om het aantal keer dar er geschept werd.
+    Bij de vuursalamander drukken we de zoekinspanning uit als de lengte van het afgelegde transect.
+    Bij de fuiktellingen van kamsalamander gaat het om het aantal fuiken.
+    Meestal worden er twee fuiken gebruikt, zoals het protocol voorschrijft, maar in sommige gevallen worden er ook meer of minder fuiken ingezet.
+
 In Bijlage \@ref(bijlage2) geven we informatie over de reproduceerbaarheid van de analyses.
 
 ## Interpretatie van de analyseresultaten {#h:classtrend}
@@ -34,7 +48,7 @@ Hiervoor kiezen de waarde +33 %, wat overeenkomt met eenzelfde relatief effect d
 Dit classificatiesysteem resulteert in 10 klassen (Figuur \@ref(fig:figtrendklasse)).
 In Tabel \@ref(tab:tabelklasse) geven we de codes en de beschrijving die bij de verschillende klassen horen.
 
-```{r figtrendklasse, fig.cap = "Classificatie van trends of verschillen", warning=TRUE, fig.height= 6}
+```{r figtrendklasse, fig.cap = "Classificatie van trends of verschillen", fig.height= 4}
 
 # klasse_color <- c("++" = inbo_groen, "+" = inbo_groen, "--" = inbo_rood, "-" = inbo_rood, "?+" = inbo_grijsblauw, "?-" = inbo_grijsblauw, "?" = inbo_grijsblauw, "~" = inbo_geelgr, "+~" = inbo_groen, "-~" = inbo_rood, "R" = inbo_grijsblauw)
 
@@ -70,7 +84,7 @@ plot_interpretatie <- tribble(
   ggplot(aes(x = x, y = y, ymin = lcl, ymax = ucl, link_sd = s, label = klasse, colour = klasse)) +
   geom_hline(yintercept = 0, linetype = 2) +
   geom_hline(yintercept = c(-1, 1), linetype = 3) +
-  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_errorbar(width = 0, linewidth = 10, alpha = 0.3) +
   geom_point(size = 7) +
   geom_text(size = 4, colour = "white") +
   scale_y_continuous(
@@ -135,7 +149,9 @@ trend_klasses %>%
   kable(align = c("c", "l", "l"),
         caption = "Classificatie van trends of verschillen",
         booktabs = TRUE,
-        escape = FALSE) 
+        escape = FALSE) %>%
+  kable_styling() %>%
+ column_spec(3, width = "30em")
 
 ```
 
@@ -148,3 +164,4 @@ In het tweede geval is de onzekerheid dermate groot dat we geen enkele conclusie
 Ook de klassen 'mogelijke toename' en 'mogelijke afname' geven een meerwaarde.
 Zeker omdat we voor de soortenmeetnetten nog maar enkele jaren aan het meten zijn waardoor de onzekerheid op de schattingen vrij groot kan zijn.
 Via deze bijkomende klassen verkrijgen we al een indicatie van de trendrichting ook al kunnen we nog geen significante trend detecteren.
+
