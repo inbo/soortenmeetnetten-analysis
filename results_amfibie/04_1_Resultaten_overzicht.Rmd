@@ -138,9 +138,9 @@ kable_styling()
 
 ```{r}
 
-trend <- result_trendmodel %>%
+trend_all <- result_trendmodel %>%
   mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
-         n_jaar = jaar_max - jaar_min + 1,
+         n_jaar = 6,
          treshold_low = ifelse(parameter == "trend_average", 
                                round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
                                -25),
@@ -164,9 +164,9 @@ trend_klasses_ch <- trend_klasses %>%
   mutate(klasse = as.character(klasse)) %>%
   select(klasse, klasse_output)
 
-overzicht_trend_tabel <- trend %>%
+overzicht_trend_tabel <- trend_all %>%
   left_join(waic, by = "soort_nl") %>%
-  arrange(desc(trend)) %>%
+  arrange(desc(mean)) %>%
   mutate(trend = round(mean, 0),
          trend_lcl = round(lcl_0.90, 0),
          trend_ucl = round(ucl_0.90, 0),
@@ -215,19 +215,14 @@ Voor een periode van zes jaar (2016 - 2021) komt de ondergrens overeen met een g
 ```{r figtrend, fig.cap= str_c("Gemiddelde jaarlijkse trend met 90 \\% betrouwbaarheidsinterval ", legend_klasses)}
 
 
-trend_plot <- trend %>%
+trend_plot <- trend_all %>%
   filter(parameter == "trend_average") %>%
-  #        !(soort_nl == "Vuursalamander" & jaar_min == 2018)) %>%
+  filter(!(soort_nl == "Vuursalamander" & jaar_min == 2018)) %>%
   mutate(label_y_axis = str_c(soort_nl, " (", jaar_min, " - ", jaar_max, ")"))
            
 
 order_trend <- (trend_plot %>%
   arrange(mean))$label_y_axis
-
-trend <- trend %>%
-  mutate(mean_log = log(mean/100 + 1),
-          lcl_0.90_log = log(lcl_0.90/100 + 1),
-         ucl_0.90_log = log(ucl_0.90/100 + 1))
 
 breaks_log <- log(c( -50, -25, 0, 33, 50)/100 + 1)
 labels_show <- str_c(c( -50, -25, 0, 33, 50), " %")
@@ -236,6 +231,8 @@ plot <- trend_plot %>%
   mutate(label_y_axis = factor(label_y_axis, levels = order_trend)) %>%
   ggplot( aes(x = label_y_axis, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
   geom_hline(yintercept = 0, linetype = 2) +
+  geom_hline(yintercept = log(1.059), linetype = 3) +
+  geom_hline(yintercept = log(0.944), linetype = 3) +
   geom_errorbar(width = 0, size = 10, alpha = 0.3) +
   geom_point(size = 7, alpha = 0.6) +
   geom_text(size = 4, colour = "white") +
@@ -249,6 +246,8 @@ plot <- trend_plot %>%
 # x -> log(trend/100 + 1)
 
 plot
+
+ggsave("../output/trend.png", width = 5, height = 3)
 
 ```
 
@@ -340,16 +339,22 @@ In Figuur \@ref(fig:fighk1) geven voor elk meetnet de proportie van de plassen m
 De figuur toont ook het 90%-betrouwbaarheidsinterval op de geschatte proportie.
 
 ```{r fighk1, fig.width = 7, fig.cap = "Proportie van de waterpartijen met aanwezigheid van vis en met een permanente waterkolom en 90 \\% betrouwbaarheidsinterval"}
+
 habitatkenmerken_numeric_status %>%
   filter(habitatkenmerk %in% c("aanwezigheid_vis", "permanente_waterkolom")) %>%
   mutate(habitatkenmerk = str_replace(habitatkenmerk, "_", " "),
          habitatkenmerk = str_to_sentence(habitatkenmerk)) %>%
   ggplot(aes(x = meetnet, y = waarde)) +
  # stat_sum(alpha = 0.6) +
-  stat_summary(fun.data = "mean_cl_boot", fun.args = list(conf.int = .9), colour = "red", size = 1, alpha = 0.6) +
+  stat_summary(fun.data = "mean_cl_boot", fun.args = list(conf.int = .9),  alpha = 0.4, geom = "linerange",  size=8) +
+  stat_summary(fun = "mean", size = 1, alpha = 0.6) +
   facet_wrap( ~ habitatkenmerk, scales = "free") +
-  labs(y = "Proportie van de plassen", x = "Soort") +
-  scale_y_continuous(labels = scales::percent, limits = c(0, 1))
+  labs(y = "Proportie van de plassen") +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  theme(axis.title.x = element_blank())
+
+ggsave("../output/habkwaliteit1.png", width = 7, height = 3)
+
 ```
 
 Figuur \@ref(fig:fighk2) toont de gemiddelde zuurtegraad (rode cirkel) van de plassen met boomkikker en kamsalamander en het 90%-betrouwbaarheidsinterval.
@@ -361,7 +366,8 @@ habitatkenmerken_numeric_status %>%
   ggplot(aes(x = meetnet, y = waarde)) +
   stat_sum(alpha = 0.6) +
   stat_summary(fun.data = "mean_cl_boot", fun.args = list(conf.int = .9), colour = "red", size = 1, alpha = 0.6) +
-  labs(y = "Zuurtgegraad (pH)", x = "Soort", size = "Aantal plassen")
+  labs(y = "Zuurtgegraad (pH)", x = "Soort", size = "Aantal plassen") +
+  theme(axis.title.x = element_blank())
 ```
 
 ```{r}
@@ -393,7 +399,8 @@ p1 <- waterkwaliteit_status %>%
   geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
   labs(x = "Soort", y = "Proportie van de plassen", fill = "Waterkwaliteit") +
   scale_y_continuous(labels = scales::percent) +
-  labs(title = "Waterkwaliteit")
+  labs(title = "Waterkwaliteit") +
+  theme(axis.title.x = element_blank())
 ```
 
 ```{r}
@@ -419,7 +426,8 @@ p2 <- maximale_diepte_status %>%
   geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
   labs(x = "Soort", y = "Proportie van de plassen", fill = "Maximale diepte (m)") +
   scale_y_continuous(labels = scales::percent) +
-  labs(title = "Maximale diepte plas")
+  labs(title = "Maximale diepte plas") +
+  theme(axis.title.x = element_blank())
 ```
 
 ```{r}
@@ -446,7 +454,8 @@ p3 <- beschaduwing_status %>%
   geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
   labs(x = "Soort", y = "Proportie van de plassen", fill = "Beschaduwing") +
   scale_y_continuous(labels = scales::percent) +
-  labs(title = "Beschaduwing")
+  labs(title = "Beschaduwing") +
+  theme(axis.title.x = element_blank())
 ```
 
 ```{r}
@@ -474,7 +483,8 @@ p4 <- oppervlakte_waterpartij %>%
   geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
   labs(x = "Soort", y = "Proportie van de plassen", fill = "Oppervlakte (m²)") +
   scale_y_continuous(labels = scales::percent) +
-  labs(title = "Oppervlakte plas (m²)")
+  labs(title = "Oppervlakte plas (m²)") +
+  theme(axis.title.x = element_blank())
 ```
 
 De andere habitatkernmerken worden bepaald aan de hand van vaste categorieën.
@@ -483,6 +493,11 @@ De figuur toont ook het totaal aantal plassen per categorie.
 
 ```{r fighk3, fig.width = 11, fig.height= 9, fig.cap= "Proportie van de plassen en totaal aantal plassen voor de verschillende categorieën van de habitatkenmerken waterkwaliteit, maximale diepte, beschaduwing en oppervlakte plas"}
 grid.arrange(p1, p2, p3, p4)
+
+# p_boven <- grid.arrange(p1, p2, ncol = 2 )
+# p_onder <- grid.arrange(p3, p4, ncol = 2 )
+# ggsave("../output/habkwaliteit2.png", plot = p_boven, width = 10, height = 3)
+# ggsave("../output/habkwaliteit3.png", plot = p_onder, width = 10, height = 3)
 ```
 
 ```{r}

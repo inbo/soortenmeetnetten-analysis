@@ -64,12 +64,35 @@ analyseset_rugstreeppad %>%
 ```{r}
 overzicht_tellingen <- analyseset_rugstreeppad %>%
   mutate(aanwezig = aantal > 0) %>%
-  group_by(periode, levensstadium, activiteit) %>%
+  group_by(levensstadium, activiteit) %>%
   summarise(n_locaties = n_distinct(locatie),
             n_bezoeken = n_distinct(visit_id),
             prop_bezoeken_aanwezig = round(mean(aanwezig),2),
             aantal_gemiddeld = mean(aantal),
             aantal_max = max(aantal)) %>%
+  ungroup()
+
+overzicht_tellingen_locatie_type <- analyseset_rugstreeppad %>%
+  group_by(locatie, levensstadium, activiteit) %>%
+  summarise(aantal_type = sum(aantal)) %>%
+  ungroup() %>%
+  group_by(locatie) %>%
+  mutate(aantal_tot = sum(aantal_type)) %>%
+  ungroup() %>%
+  mutate(n_locaties = n_distinct(locatie)) %>%
+  group_by(levensstadium, activiteit, n_locaties) %>%
+  summarise(n_locaties_aanwezig_type = sum(aantal_type > 0),
+            aantal_type = sum(aantal_type)) %>%
+  ungroup()
+
+overzicht_tellingen_locatie_tot <- analyseset_rugstreeppad %>%
+  group_by(locatie) %>%
+  summarise(aantal_tot = sum(aantal)) %>%
+  ungroup() %>%
+  mutate(n_locaties = n_distinct(locatie)) %>%
+  group_by( n_locaties) %>%
+  summarise(n_locaties_aanwezig_type = sum(aantal_tot > 0),
+            aantal_tot = sum(aantal_tot)) %>%
   ungroup()
 
 overzicht_tellingen %>%

@@ -206,3 +206,14 @@ summary_table_all_years %>%
   collapse_rows(c(1,2)) %>%
   scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
 ```
+
+```{r eval=FALSE}
+tabel_overzicht <- summary_table_all_years %>%
+  filter(aantal_totaal > 250) %>%
+  filter(soort_nl != "Boomkikker") %>%
+  pivot_wider(names_from = "type", values_from = "aantal_totaal_ls") %>%
+  select(soort_nl,"adulten en juvenielen", "larven (en metamorfen)", "roepende mannetjes")
+  
+  
+  
+```

@@ -88,9 +88,9 @@ plot_interpretatie <- tribble(
   geom_point(size = 7) +
   geom_text(size = 4, colour = "white") +
   scale_y_continuous(
-    "effect", 
+    "Verschil of trend", 
     breaks = c(-1, 0, 1), 
-    labels = c("ondergrens", "referentie", "bovengrens")
+    labels = c("-25%", "0%", "+33%")
   ) +
   coord_flip() +
   theme(axis.title.y = element_blank(), legend.position = "hide") +
@@ -98,6 +98,8 @@ plot_interpretatie <- tribble(
   
 
 plot_interpretatie
+
+ggsave("../output/fig_interpretation.png", height = 3.7, width = 5)
 ```
 
 ```{r }
@@ -164,4 +166,3 @@ In het tweede geval is de onzekerheid dermate groot dat we geen enkele conclusie
 Ook de klassen 'mogelijke toename' en 'mogelijke afname' geven een meerwaarde.
 Zeker omdat we voor de soortenmeetnetten nog maar enkele jaren aan het meten zijn waardoor de onzekerheid op de schattingen vrij groot kan zijn.
 Via deze bijkomende klassen verkrijgen we al een indicatie van de trendrichting ook al kunnen we nog geen significante trend detecteren.
-

@@ -13,7 +13,6 @@ to_sigma <- function(tau){sqrt(1/tau)}
 ```{r}
 
 analyseset_vuursalamander <- analyseset_vuursalamander %>%
-  filter(is_sample | locatie %in% c("Heilig-Geestgoed", "Trimpont", "Buggenhoutbos zuid")) %>%
   filter(primaire_soort) %>%
   mutate(year_min = min(jaar),
          fjaar = factor(jaar),

@@ -252,20 +252,24 @@ analyseset_vuursalamander <- read_vc(root = file.path(data_path, "output/analyse
 analyseset_larven <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_larven")
 analyseset_heikikker <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_heikikker")
 analyseset_poelkikker <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_poelkikker")
+analyseset_vroedmeesterpad <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_vroedmeesterpad")
 
 observers <- get_observers_smp("amfibieën") %>%
-  distinct(visit_id, naam_teller)
+  distinct(visit_id, naam_teller) %>%
+  mutate(visit_id = as.character(visit_id))
 
 analyseset_all <- bind_rows(
   analyseset_fuiken_detail,
   analyseset_roepkoren_boomkikker,
   analyseset_roepkoren_knoflookpad,
-  analyseset_rugstreeppad,
+  analyseset_rugstreeppad %>%
+    filter(bezoek_status != "Telmethode niet gevolgd"),
   analyseset_vuursalamander,
   analyseset_larven,
   analyseset_heikikker,
-  analyseset_poelkikker
-) 
+  analyseset_poelkikker,
+  analyseset_vroedmeesterpad
+)
 
 visits_all <- analyseset_all %>%
   distinct(meetnet, protocol, locatie, is_sample, jaar, datum, visit_id) %>%
@@ -326,6 +330,8 @@ plot1 <- monitoring_effort_soortgroep_jaar %>%
   geom_line() +
   ylim(0, NA) +
   labs(x = "Jaar", y = "Aantal") 
+
+ggsave("../output/fig_effort.png", width = 5, height = 3)
 
 if (html_output) {
   

@@ -1,0 +1,48 @@
+
+# Dataverkenning Knoflookpad
+
+## Overzicht aantallen
+
+### Meetnet
+
+```{r}
+
+analyseset_roepkoren_vroedmeesterpad <- read_vc(file = "analyseset_vroedmeesterpad", root = "../output/analyseset")
+
+```
+
+```{r}
+analyseset_roepkoren_vroedmeesterpad %>%
+  ggplot(aes(x = jaar, y = aantal, colour = is_sample)) +
+  geom_point(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red", size = 1, alpha = 0.5) +
+  facet_wrap(~ levensstadium, scales = "free_y")
+```
+
+### Per locatie
+
+```{r}
+overzicht_locatie <- analyseset_roepkoren_vroedmeesterpad %>%
+  filter(primaire_soort) %>%
+  group_by(locatie, jaar) %>%
+  summarise(aantal_gemiddeld = round(mean(aantal), 1)) %>%
+  ungroup()
+
+overzicht_wide <- overzicht_locatie %>%
+  arrange(jaar) %>%
+  pivot_wider(names_from = "jaar", values_from = aantal_gemiddeld)
+
+```
+
+```{r}
+overzicht_wide %>%
+  arrange(locatie) %>%
+  kable(caption = "gemiddeld aantal geteld per jaar en per locatie") %>%
+  kable_styling()
+```
+
+
+
+Wanneer bij een bezoek wordt aangegeven dat er met hydrofoon werd geteld, kunnen zowel aantallen ingevuld worden zowel met hydrofoon als zonder hydrofoon. 
+De aantallen zonder hydrofoon zijn op één telling na allemaal nulwaarnemingen.Gaat hier effectief om nulwaarnemingen of zijn het ontbrekende waarden?  
+

@@ -4,24 +4,30 @@
 
 species_group <- "amfibieën"
 
+path = fileman_up("soortenmeetnetten-queries")
 ```
 
 ## Raw data
 
 ```{r}
-visits <- get_visits_smp(species_group = species_group) %>%
+visits <- get_visits_smp(species_group = species_group, file = "raw/bezoeken_20231204") %>%
   mutate(protocol = ifelse(protocol == "Amfibieën - Fuiken (v1)", 
                            "Amfibieën - Fuiken", 
                            protocol),
          protocol = ifelse(protocol == "Vuursalamander - Transect (v1)", 
                            "Vuursalamander - Transect", 
-                           protocol)) 
+                           protocol)) %>%
+  mutate(visit_id = as.character(visit_id))
 
-covar <- get_covariates_smp(species_group = species_group) 
+covar <- read_vc(file = "covariabele_visit_20231204", root = file.path(path, "raw")) %>%
+  mutate(visit_id = as.character(visit_id))
 
-covar_sample <- get_covariates_smp(linked_to = "sample")
+covar_sample <- read_vc(file = "covariabele_sample_20231204", root = file.path(path, "raw")) %>%
+  mutate(visit_id = as.character(visit_id),
+         sample_id = as.character(sample_id))
 
-counts <- get_counts_smp(species_group = species_group)
+counts <- get_counts_smp(species_group = species_group, file = "raw/aantallen_20231204") %>%
+  mutate(visit_id = as.character(visit_id))
 
 locations <- get_locations_smp(only_active = FALSE) %>%
   st_drop_geometry() %>%
@@ -48,7 +54,7 @@ locatie_clusters <- locations %>%
          poel = ifelse(is.na(poel), "1", poel)) 
 
 locaties <- locations %>%
-  filter(meetnet %in% c("Knoflookpad", "Rugstreeppad", "Vuursalamander")) %>%
+  filter(meetnet %in% c("Knoflookpad", "Rugstreeppad", "Vuursalamander", "Vroedmeesterpad")) %>%
   select(meetnet, locatie, is_active, is_sample)
   
 ```
@@ -348,6 +354,56 @@ analyseset_roepkoren_boomkikker <- dataset_roepkoren %>%
          meetcyclus_end = min(jaar) + duur_cyclus - 1) %>%
   ungroup() %>%
   select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium,  aantal, notes, hoofdteller)
+```
+
+## Analyseset roepkoren Vroedmeesterpad
+
+```{r}
+dataset_roepkoren <-  visits %>%
+  filter(meetnet == "Vroedmeesterpad") %>%
+  filter(protocol == "Vroedmeesterpad - Roepkoren") %>%
+  left_join(locaties, by = c("meetnet", "locatie")) %>%
+  left_join(select(counts, visit_id, sample_id,  soort_nl, soort_wet, primaire_soort, levensstadium, aantal), by = "visit_id") 
+```
+
+### Overzicht tellingen per type locatie (actief of niet-actief) en al dan niet geschikt voor analyse
+
+Onderstaande tabel geeft een overzicht van het aantal records, bezoeken en locaties voor de verschillende combinaties van:
+
++ protocol
++ bezoek_status
++ is_active
++ voor_analyse
+
+
+```{r}
+dataset_check <- dataset_roepkoren %>%
+  group_by(meetnet, protocol, bezoek_status, is_active,  voor_analyse) %>%
+  summarise(n_records = n(),
+            n_visits = n_distinct(visit_id),
+            n_locaties = n_distinct(locatie)) %>%
+  ungroup()
+
+dataset_check %>%
+  datatable(rownames = FALSE,
+            filter = "top")
+```
+
+### We someren de aantallen per locatie
+
+```{r}
+
+analyseset_roepkoren_vroedmeesterpad <-  dataset_roepkoren %>%
+  group_by(soortgroep, meetnet, protocol, locatie, is_sample, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium, notes, hoofdteller) %>%
+  summarise(aantal = sum(aantal),
+            n_points = n()) %>%
+  ungroup() %>%
+  filter(levensstadium != "onbekend")
+
+analyseset_roepkoren_vroedmeesterpad %>%
+  select(meetnet, protocol, locatie, jaar, datum, aantal, notes) %>%
+  arrange(locatie, datum) %>%
+  write_csv2("../output/aantallen_vroedmeesterpad.csv")
 ```
 
 ## Analyseset Fuiken Kamsalamander
@@ -793,6 +849,14 @@ Van de ‘niet verplichte’ locaties kunnen de locaties die systematisch geteld
 + Trimpont
 + Buggenhoutbos zuid
 
+
+```{r}
+dataset_vuursalamander <- dataset_vuursalamander %>%
+  filter(is_sample | locatie %in% c("Heilig-Geestgoed", "Trimpont", "Buggenhoutbos zuid")) 
+```
+
+
+
 ### Lengte transecten
 
 ```{r}
@@ -824,6 +888,7 @@ transects <- transects %>%
 analyseset_vuursalamander <-  dataset_vuursalamander %>%
   left_join(transects, by = c("meetnet", "locatie"))
 ```
+
 
 ## Analyseset Heikikker
 
@@ -1422,6 +1487,8 @@ write_vc(analyseset_heikikker, file = "analyseset_heikikker", root = "../output/
 write_vc(analyseset_poelkikker, file = "analyseset_poelkikker", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_wet", "visit_id"), strict = FALSE)
 
 write_vc(analyseset_rugstreeppad, file = "analyseset_rugstreeppad", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_nl", "visit_id", "levensstadium", "activiteit"), strict = FALSE)
+
+write_vc(analyseset_roepkoren_vroedmeesterpad, file = "analyseset_vroedmeesterpad", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_nl", "visit_id"), strict = FALSE)
 
 write_vc(habitatkenmerken_boomkikker_kamsalamander_wide, file = "habitatkenmerken_boomkikker_kamsalamander_wide", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "visit_id"), strict = FALSE)
 

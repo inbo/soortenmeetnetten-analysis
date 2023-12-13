@@ -340,7 +340,7 @@ indexmodel_jaar_rw1_iid <- inla(formula = aantal ~ f(jaar_scaled,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
-model_occurence_iid <- inla(formula = occurence ~ 0 + meetcyclus  + 
+model_occurence_iid_0 <- inla(formula = occurence ~ 0 + meetcyclus  + 
                                 f(locatie, 
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
@@ -352,6 +352,21 @@ model_occurence_iid <- inla(formula = occurence ~ 0 + meetcyclus  +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE),
                        quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+model_occurence_iid <- inla(formula = occurence ~ meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "binomial",
+                       data = analyseset_larven_boomkikker_meetcyclus,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+model_occurence_iid$summary.fixed
 
 ```
 
@@ -367,7 +382,7 @@ set.seed(3297)
 
 results_index_meetcyclus_boomkikker_larve <- derive_index_meetcyclus_inla(analyseset_larven_boomkikker_jaar, indexmodel_meetcyclus_iid, set_seed = 55469)
 
-results_occurence_boomkikker_larve <- model_occurence_iid$summary.fixed %>%
+results_occurence_boomkikker_larve <- model_occurence_iid_0$summary.fixed %>%
   rownames_to_column("meetcyclus") %>%
   select(meetcyclus, mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
   mutate(mean = plogis(mean),
@@ -653,7 +668,7 @@ indexmodel_jaar_rw1_iid <- inla(formula = aantal ~ f(jaar_scaled,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
-model_occurence_iid <- inla(formula = occurence ~ 0 + meetcyclus  + 
+model_occurence_iid_0 <- inla(formula = occurence ~ 0 + meetcyclus  + 
                                 f(locatie, 
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
@@ -665,6 +680,21 @@ model_occurence_iid <- inla(formula = occurence ~ 0 + meetcyclus  +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE),
                        quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+model_occurence_iid <- inla(formula = occurence ~ meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "binomial",
+                       data = analyseset_larven_kamsalamander,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+model_occurence_iid$summary.fixed
 
 ```
 
@@ -683,7 +713,7 @@ results_index_meetcyclus_kamsalamander_larve <- derive_index_meetcyclus_inla(ind
 
 set.seed(78787)
 
-results_occurence_kamsalamander_larve <- model_occurence_iid$summary.fixed %>%
+results_occurence_kamsalamander_larve <- model_occurence_iid_0$summary.fixed %>%
   rownames_to_column("meetcyclus") %>%
   select(meetcyclus, mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
   mutate(mean = plogis(mean),
@@ -884,6 +914,123 @@ iid_checked_plot %>%
     
 ```
 
+
+## Vroedmeesterpad
+
+### Analyseset
+
+
++ locaties met totaal aantal waargenomen individuen > 0
+
+```{r}
+analyseset_roepkoren_vroedmeesterpad <- read_vc(file = "analyseset_vroedmeesterpad", root = "../output/analyseset")
+
+analyseset_roepkoren_vroedmeesterpad <- analyseset_roepkoren_vroedmeesterpad %>%
+  filter(primaire_soort) %>%
+  mutate(year_min = min(jaar),
+         fjaar = factor(jaar),
+        jaar_scaled = jaar - year_min + 1,
+        year_scaled = jaar_scaled) %>%
+  group_by(locatie) %>%
+  mutate(aantal_totaal = sum(aantal)) %>%
+  ungroup() %>%
+  filter(aantal_totaal > 0)
+```
+
+### Model
+
++ vergelijking jaren
+  + 1ste orde random walk voor jaar (herschaald)
+  + random effect voor locatie
+  
++ jaarlijkse trend
+  + jaar (herschaald) als continue variabele
+  + random effect voor locatie
+
+```{r}
+
+indexmodel_iid_rw1year_vroedmeesterpad <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       data = analyseset_roepkoren_vroedmeesterpad,
+                       family = "nbinomial",
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trendmodel_iid_vroedmeesterpad <- inla(formula = aantal ~ year_scaled +  
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_vroedmeesterpad,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+```
+
+### Modeloutput
+
+```{r}
+
+set.seed(45688)
+
+results_index_vroedmeesterpad <- derive_index_rw_inla(analyseset_species = analyseset_roepkoren_vroedmeesterpad, 
+                       inlamodel_rw = indexmodel_iid_rw1year_vroedmeesterpad, set_seed = 8254)
+
+set.seed(2645)
+
+results_trend_vroedmeesterpad <- derive_trend(analyseset_species = analyseset_roepkoren_vroedmeesterpad, trendmodel_nbinom = trendmodel_iid_vroedmeesterpad)
+
+results_waic_vroedmeesterpad  <- bind_rows(
+  get_waic(analyseset_roepkoren_vroedmeesterpad, trendmodel_iid_vroedmeesterpad) %>%
+    mutate(model = "trendmodel"),
+  get_waic(analyseset_roepkoren_vroedmeesterpad, indexmodel_iid_rw1year_vroedmeesterpad) %>%
+    mutate(model = "indexmodel"))
+
+```
+
+### Validatie
+
+#### Dispersion
+
+```{r}
+plot(dispersion_check(indexmodel_iid_rw1year_vroedmeesterpad))
+```
+
+#### Distribution
+
+```{r}
+plot(fast_distribution_check(indexmodel_iid_rw1year_vroedmeesterpad))
+```
+
+#### Random effect
+
++ Location
+
+```{r}
+
+ precision_location <- indexmodel_iid_rw1year_vroedmeesterpad$summary.hyperpar$mean[2]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_location),
+                  precision = precision_location,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_location))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_location), 3))))
+    
+```
+
+
+
 ## Vuursalamander
 
 ### Analyseset
@@ -907,10 +1054,9 @@ analyseset_vuursalamander <- analyseset_vuursalamander %>%
   group_by(locatie) %>%
   mutate(aantal_totaal = sum(aantal)) %>%
   ungroup() %>%
-  filter(aantal_totaal > 0) %>%
-  filter(jaar <= 2022)
+  filter(aantal_totaal > 0)
 
-analyseset_vuursalamander_2018_2022 <- analyseset_vuursalamander %>%
+analyseset_vuursalamander_2018_2023 <- analyseset_vuursalamander %>%
   filter(jaar >= 2018) %>%
   mutate(year_min = min(jaar),
          fjaar = factor(jaar),
@@ -957,7 +1103,7 @@ trendmodel_iid2 <- inla(formula = aantal ~ year_scaled +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
-trendmodel_iid2_2018_2022 <- inla(formula = aantal ~ year_scaled +
+trendmodel_iid2_2018_2023 <- inla(formula = aantal ~ year_scaled +
                                 f(locatie,
                                   model = "iid",
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) +
@@ -967,17 +1113,17 @@ trendmodel_iid2_2018_2022 <- inla(formula = aantal ~ year_scaled +
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
                        offset = n_100m,
-                       data = analyseset_vuursalamander_2018_2022,
+                       data = analyseset_vuursalamander_2018_2023,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
-indexmodel_iid_rw1year_2018_2022 <- inla(formula = aantal ~  f(jaar_scaled, 
+indexmodel_iid_rw1year_2018_2023 <- inla(formula = aantal ~  f(jaar_scaled, 
                                   model = "rw1", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
                                 f(locatie, 
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
-                       data = analyseset_vuursalamander_2018_2022,
+                       data = analyseset_vuursalamander_2018_2023,
                        family = "nbinomial",
                        offset = n_100m,
                        control.compute = list(config = TRUE, waic = TRUE),
@@ -998,18 +1144,18 @@ results_trend_vuursalamander <- derive_trend(analyseset_species = analyseset_vuu
 
 set.seed(23784845)
 
-results_trend_vuursalamander_2018_2022 <- derive_trend(analyseset_species = analyseset_vuursalamander_2018_2022, trendmodel_nbinom = trendmodel_iid2_2018_2022)
+results_trend_vuursalamander_2018_2023 <- derive_trend(analyseset_species = analyseset_vuursalamander_2018_2023, trendmodel_nbinom = trendmodel_iid2_2018_2023)
 
-results_waic_vuursalamander_2016_2022 <- bind_rows(
+results_waic_vuursalamander_2016_2023<- bind_rows(
   get_waic(analyseset_vuursalamander, trendmodel_iid2) %>%
     mutate(model = "trendmodel"),
   get_waic(analyseset_vuursalamander, indexmodel_iid_rw1year) %>%
     mutate(model = "indexmodel"))
 
-results_waic_vuursalamander_2018_2022 <- bind_rows(
-  get_waic(analyseset_vuursalamander_2018_2022, trendmodel_iid2_2018_2022) %>%
+results_waic_vuursalamander_2018_2023 <- bind_rows(
+  get_waic(analyseset_vuursalamander_2018_2023, trendmodel_iid2_2018_2023) %>%
     mutate(model = "trendmodel"),
-  get_waic(analyseset_vuursalamander_2018_2022, indexmodel_iid_rw1year_2018_2022) %>%
+  get_waic(analyseset_vuursalamander_2018_2023, indexmodel_iid_rw1year_2018_2023) %>%
     mutate(model = "indexmodel")
   )
 ```
@@ -1101,7 +1247,7 @@ klasse_color[4] <- inbo_steun_blauw
 breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
 labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
 
-results_indexmodel_cyclus_table %>%
+verschil_meetcycli_table %>%
   ggplot(aes(x = meetcyclus, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
   geom_errorbar(width = 0, size = 10, alpha = 0.3) +
   geom_point(size = 7, alpha = 0.6) +
@@ -1139,6 +1285,7 @@ results_index_jaar <- results_index_knoflookpad %>%
   bind_rows(results_index_vuursalamander) %>%
   bind_rows(results_index_jaar_kamsalamander) %>%
   bind_rows(results_index_jaar_boomkikker) %>%
+  bind_rows(results_index_vroedmeesterpad) %>%
   mutate(levensstadium = "adult") %>%
   bind_rows(results_index_jaar_kamsalamander_larve %>%
               mutate(levensstadium = "larve"),
@@ -1166,7 +1313,7 @@ verschil_jaren_table <- verschil_jaren %>%
 ```
 
 
-```{r, fig.height=}
+```{r, fig.height= 7}
 breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
 labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
 
@@ -1194,8 +1341,9 @@ verschil_jaren_table %>%
 results_trend <- results_trend_kamsalamander %>%
   bind_rows(results_trend_boomkikker) %>%
   bind_rows(results_trend_knoflookpad) %>%
+  bind_rows(results_trend_vroedmeesterpad) %>%
   bind_rows(results_trend_vuursalamander) %>%
-  bind_rows(results_trend_vuursalamander_2018_2022) 
+  bind_rows(results_trend_vuursalamander_2018_2023) 
 
 trend <- results_trend %>%
   group_by(soort_nl) %>%
