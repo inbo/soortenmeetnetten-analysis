@@ -1,10 +1,12 @@
 
 ```{r}
-year_evaluation <- 2022
+year_evaluation <- 2023
 
 data_path <- fileman_up("soortenmeetnetten-queries")
 
-versie <- get_date_export_smp()
+#versie <- get_date_export_smp()
+
+versie <- "2023-12-04"
 ```
 
 ```{r data import}
@@ -218,20 +220,20 @@ aantallen_planten_bezoek <- get_counts_smp(species_group = "planten") %>%
   ungroup() %>%
   mutate(bron = "meetnetten.be")
 
-aantallen_planten_extern <- read_csv2("C:/Rprojecten/soortenmeetnetten-queries/output/controle_plantendata/plantenmeetnetten_migratie_2022.csv") %>%
-  mutate(datum = as.Date(datum, format = "%d/%m/%Y")) %>%
-  filter(!is.na(visit_id)) %>%
-  filter(! visit_id %in% aantallen_planten_bezoek$visit_id) %>%
-  group_by(meetnet, locatie, datum, visit_id) %>%
-  summarise(n_puntlocaties = n_distinct(x),
-            code_all = str_c(code, collapse = "-")) %>%
-  ungroup() %>%
-  mutate(bron = "waarnemingen.be",
-         track = FALSE) %>%
-  inner_join(select(bezoeken, visit_id, hoofdteller), by = "visit_id")
-
-aantallen_planten_bezoek <- bind_rows(aantallen_planten_bezoek,
-                               aantallen_planten_extern)
+# aantallen_planten_extern <- read_csv2("C:/Rprojecten/soortenmeetnetten-queries/output/controle_plantendata/plantenmeetnetten_migratie_2022.csv") %>%
+#   mutate(datum = as.Date(datum, format = "%d/%m/%Y")) %>%
+#   filter(!is.na(visit_id)) %>%
+#   filter(! visit_id %in% aantallen_planten_bezoek$visit_id) %>%
+#   group_by(meetnet, locatie, datum, visit_id) %>%
+#   summarise(n_puntlocaties = n_distinct(x),
+#             code_all = str_c(code, collapse = "-")) %>%
+#   ungroup() %>%
+#   mutate(bron = "waarnemingen.be",
+#          track = FALSE) %>%
+#   inner_join(select(bezoeken, visit_id, hoofdteller), by = "visit_id")
+# 
+# aantallen_planten_bezoek <- bind_rows(aantallen_planten_bezoek,
+#                                aantallen_planten_extern)
 
 bezoeken_planten <- bezoeken %>% 
   filter(soortgroep == "planten") %>%
@@ -306,7 +308,7 @@ overzicht_planten <- evaluatie_locaties_planten %>%
   ungroup()
 
 overzicht_locaties_planten <- evaluatie_locaties_planten %>%
-  filter(jaar >= 2022) %>%
+  filter(jaar >= 2023) %>%
   select(meetnet, jaar, locatie, n_bezoeken_totaal, n_bezoeken_meetnetten, n_bezoeken_waarnemingen, n_bezoeken_track, voldoende_geteld_totaal_nieuw) %>%
   arrange(meetnet, locatie)
 
@@ -694,7 +696,7 @@ doelbereik <- sum(evaluatie_locaties_vleermuizen$voldoende_geteld)/n_distinct(ta
 
 
 
-```{r, eval = FALSE}
+```{r, eval = TRUE}
 counts_locatie_analyse <- counts_bezoek %>%
   group_by(soortgroep, meetnet, protocol, locatie) %>%
   mutate(n_visits = n_distinct(visit_id),

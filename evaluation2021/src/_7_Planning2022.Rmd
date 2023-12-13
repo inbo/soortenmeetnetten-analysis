@@ -183,7 +183,14 @@ locaties_to_do <- evaluatie_locaties_kamsalamander_geteld %>%
   bind_rows(locaties_kamsalamander_niet_geteld) %>%
   select(meetnet, locatie, larventelling, fuiken) %>%
   mutate(larventelling = ifelse(is.na(larventelling), "to do", larventelling),
-         fuiken = ifelse(is.na(fuiken), "to do", fuiken))
+         fuiken = ifelse(is.na(fuiken), "to do", fuiken),
+         afgerond = larventelling != "to do" &  fuiken != "to do")
+
+locaties_to_do %>%
+  write_csv2("../output/to_do_kamsalamander.csv")
+
+check <- locaties_to_do %>%
+filter(fuiken == "to do" | larventelling == "to do")
 ```
 
 ```{r}

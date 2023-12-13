@@ -1,5 +1,5 @@
 ---
-title: "Meetnetevaluatie 2022"
+title: "Meetnetevaluatie 2023"
 author: 
   -
     name: "Toon Westra"
@@ -29,9 +29,9 @@ opts_chunk$set(
   echo = FALSE, 
   eval = TRUE,
   cache = FALSE,
-  warning = TRUE,
+  warning = FALSE,
   error = TRUE,
-  message = TRUE
+  message = FALSE
 )
 
 #devtools::install_github("dmurdoch/leaflet@crosstalk4")

@@ -1,0 +1,130 @@
+---
+title: "Inhaalslag Otter"
+output: html_document
+date: "2023-06-12"
+---
+
+```{r}
+
+locaties_otter <- locaties %>%
+  filter(meetnet == "Otter")
+
+zoekgebieden_otter <- locaties_otter %>%
+  filter(!is_active) %>%
+  select(zoekgebied = locatie)
+
+hoofdlocaties_otter <- locaties_otter %>%
+  filter(is_active) %>%
+  filter(locatie != "Ijzervallei") %>%
+  filter(locatie_type == "locatie") %>%
+  st_join(zoekgebieden_otter)
+
+hoofdlocaties_zoekgebied <- hoofdlocaties_otter %>%
+  st_drop_geometry() %>%
+  select(zoekgebied, locatie)
+
+hoofdlocaties_otter_parent_id <- hoofdlocaties_otter %>%
+  st_drop_geometry() %>%
+  select(locatie, parent_id = id)
+
+sublocaties_otter <- locaties_otter %>%
+  filter(locatie_type == "sublocatie") %>%
+  select(parent_id, refpunt = locatie) %>%
+  left_join(hoofdlocaties_otter_parent_id, by = "parent_id")
+
+```
+
+```{r}
+bezoeken_otter <- bezoeken %>%
+  filter(meetnet == "Otter") %>%
+  mutate(winter = str_c(year(datum + 182) - 1, "-", year(datum + 182))) %>%
+  left_join(hoofdlocaties_zoekgebied, by = "locatie") %>%
+  mutate(locatie_detail = ifelse(is.na(sublocatie), locatie, str_c(sublocatie, "@", locatie)))
+
+aantallen_locaties_otter <- aantallen %>%
+  filter(meetnet == "Otter") %>%
+  filter(locatie %in% bezoeken_otter$locatie)
+
+aantallen_sublocatie_otter <- aantallen %>%
+  filter(meetnet == "Otter") %>%
+  filter(locatie %in% bezoeken_otter$sublocatie) %>%
+  select(-locatie) %>%
+  left_join(select(bezoeken_otter, visit_id, locatie), by = "visit_id")
+
+overzicht_aantallen_otter <- aantallen_locaties_otter %>%
+  bind_rows(aantallen_sublocatie_otter) %>%
+  group_by(sample_id) %>%
+  mutate(spoor = c("spraint", "pootafdruk")) %>%
+  ungroup() %>%
+  group_by(locatie, spoor) %>%
+  summarise(aantal_tot = sum(aantal),
+            n_nulwaarnemingen = sum(aantal == 0),
+            n_sublocaties = n_distinct(sublocatie)) %>%
+  ungroup() %>%
+  group_by(locatie, aantal_tot, n_nulwaarnemingen) %>%
+  summarise(spoor = str_c(spoor, collapse = "; ")) %>%
+  ungroup()
+
+overzicht_otter <- bezoeken_otter %>%
+  group_by(winter, zoekgebied) %>%
+  summarise(n_bezoeken = n_distinct(visit_id, na.rm = TRUE),
+            n_locaties = n_distinct(locatie, na.rm = TRUE),
+            n_refpunten = n_distinct(sublocatie, na.rm = TRUE),
+            locaties_bezocht = str_c(unique(locatie_detail), collapse = "; ")) %>%
+  ungroup()
+              
+overzicht_otter2 <- bezoeken_otter %>%
+  arrange(winter, zoekgebied, locatie) %>%
+  group_by(locatie) %>%
+  summarise(n_bezoeken = n(),
+            veldseizoen = str_c(unique(winter), collapse = "; ")
+            ) %>%
+  ungroup()
+
+overzicht_otter3 <- hoofdlocaties_zoekgebied %>%
+  left_join(overzicht_otter2, by = c("locatie")) %>%
+  arrange(zoekgebied) %>%
+  mutate(n_bezoeken = ifelse(is.na(n_bezoeken), 0, n_bezoeken)) %>%
+  left_join(overzicht_aantallen_otter, by = "locatie") %>%
+  mutate(waarneming_spoor = ifelse(aantal_tot > 0, str_c(aantal_tot, " ", spoor), NA)) %>%
+  group_by(locatie) %>%
+  filter(n() == 1 | !is.na(waarneming_spoor)) %>%
+  ungroup() %>%
+  select(-aantal_tot, -spoor) %>%
+  select(zoekgebied, locatie, veldseizoen, n_bezoeken, waarneming_spoor, n_nulwaarnemingen)
+
+overzicht_locaties <- hoofdlocaties_otter %>%
+  select(locatie) %>%
+  left_join(overzicht_otter3, by = "locatie") %>%
+  mutate(status = ifelse(n_bezoeken == 0, "Niet bezocht",
+                         ifelse(!is.na(waarneming_spoor), "Spoor waargenomen", "Geen sporen gezien"))) %>%
+  select(locatie, status) %>%
+  mutate(show_color = ifelse(status == "Spoor waargenomen", "yellow",
+                            ifelse(status == "Geen sporen gezien", "blue", "red")))
+  
+```
+
+Onderstaande kaart geeft een overzicht van de status van de locaties in de inhaalslag Otter:
+
++ Bezocht, maar geen sporen gevonden (blauw)
++ Bezocht en sporen gevonden (geel)
++ Niet bezocht (rood)
+
+```{r}
+overzicht_locaties %>%
+  leaflet() %>%
+  addTiles() %>%
+  addPolygons(color = ~show_color, label = ~locatie) 
+```
+
+Onderstaande tabel geeft een overzicht van de inhaalslag per locatie.
+
+
+```{r}
+overzicht_otter3 %>%
+  kable(caption = "Overzicht inhaalslag Otter") %>%
+  kable_styling() %>%
+  collapse_rows(1)
+```
+```
+

@@ -56,7 +56,7 @@ update_wp <- werkpakket_soort %>%
 
 ```{r}
 
-meetnet_select <- c("Vroege glazenmaker")
+meetnet_select <- c("Bosbeekjuffer")
 
 
 werkpakket_soort <- werkpakketten_locaties %>%
@@ -66,7 +66,13 @@ werkpakket_soort <- werkpakketten_locaties %>%
   left_join(detail_cyclus, by = c("meetnet")) %>%
   filter(jaar >= jaar_min) %>%
   mutate(voldoende_geteld_cyclus = ifelse(is.na(voldoende_geteld_cyclus), FALSE, voldoende_geteld_cyclus),
-         voldoende_data_cyclus = ifelse(is.na(voldoende_data_cyclus), FALSE, voldoende_data_cyclus))
+         voldoende_data_cyclus = ifelse(is.na(voldoende_data_cyclus), FALSE, voldoende_data_cyclus),
+         bezocht = !is.na(protocol)) %>%
+  filter(jaar < 2023)
+
+niet_geteld <- werkpakket_soort %>%
+  filter(jaar == 2022) %>%
+  filter(!voldoende_geteld_cyclus)
 
 update_wp <- werkpakket_soort %>%
   mutate(add_to_wp = (jaar < year_planning) & (!voldoende_data_cyclus),
@@ -78,9 +84,13 @@ update_wp <- werkpakket_soort %>%
 nieuwe_cyclus <- werkpakket_soort %>%
   mutate(jaar = jaar + 3) %>%
   group_by(meetnet, locatie) %>%
-  summarise(jaar = min(jaar)) %>%
-  ungroup()
+  summarise(jaar = min(jaar),
+            status_vorige_cyclus = ifelse(any(voldoende_geteld_cyclus), "voldoende geteld",
+                                          ifelse(any(bezocht), "bezocht/ niet voldoende geteld", "niet geteld/ niet bezocht"))) %>%
+  ungroup() %>%
+  arrange(meetnet, jaar)
 
+write_csv2(nieuwe_cyclus, "../output/overzicht_libellen_2023_2025.csv")
 ```
 
 ## Dagvlidners
