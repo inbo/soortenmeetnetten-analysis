@@ -1,0 +1,171 @@
+
+
+# Libellen - Transecttelling"
+
+```{r}
+
+species_group <- "libellen"
+protocol_selection <- c("Libellen - Transect", "Libellen - Larvenhuidjes", "Libellen - Larvenhuidjes Beekrombout")
+
+name_analysis <- "libellen_transecten"
+
+set.seed(47830)
+```
+
+## Selectie analyseset
+
+```{r select data, warning = FALSE}
+
+locatie_detail <- get_locations_smp() %>%
+  st_drop_geometry() %>%
+  filter(locatie_type == "locatie") %>%
+  select(meetnet, locatie, is_active, is_sample)
+
+visits <- get_visits_smp("libellen")
+
+counts <- get_counts_smp(species_group = "libellen", count_aggregation = "individuals") %>%
+  filter(primaire_soort)
+
+covars <- get_covariates_smp(species_group = "libellen") %>%
+  filter(protocol %in% protocol_selection) %>%
+  select(visit_id, lengte_transect = waarde, eenheid) %>%
+  mutate(lengte_transect = as.numeric(lengte_transect))
+
+count_period <- get_characteristics_smp(species_group = "libellen") %>%
+  mutate(doy_min = as.numeric(format(start_telperiode, "%j")),
+         doy_max = as.numeric(format(einde_telperiode, "%j")),
+         doy_mid = doy_min + round((doy_max - doy_min)/2, 0)) %>%
+  distinct(meetnet, protocol, doy_min, doy_max, doy_mid)
+
+meetnetten_selection <- visits %>%
+  filter(protocol == protocol_selection) %>%
+  group_by(meetnet, protocol) %>%
+  summarise(n_jaar = n_distinct(jaar)) %>%
+  filter(n_jaar >= 3)
+
+visits_selection <- visits %>%
+  filter(meetnet %in% meetnetten_selection$meetnet) %>%
+  left_join(locatie_detail, by = c("meetnet", "locatie")) %>%
+  filter(voor_analyse & !is.na(is_active)) %>%
+  left_join(count_period, by = c("meetnet", "protocol")) %>%
+  mutate(doy_scaled = (doy - doy_mid)/28,
+         fjaar = factor(jaar)) %>%
+  group_by(soortgroep, meetnet, protocol, locatie, jaar, fjaar) %>%
+  mutate(n_obs = n_distinct(visit_id)) %>%
+  ungroup()
+
+counts_selection <- visits_selection %>%
+  select(soortgroep, meetnet, protocol, locatie, jaar, datum, doy, doy_scaled, doy_min, doy_max, doy_mid, visit_id, n_obs, voor_analyse, is_active, is_sample, bezoek_status) %>%
+  left_join(select(counts, visit_id, soort_nl, soort_wet, aantal), by = "visit_id") %>%
+  left_join(covars, by = "visit_id")
+
+```
+
+### Transectlengte
+
+
+```{r}
+overzicht_missing <- counts_selection %>%
+  select(meetnet, protocol, locatie, jaar, datum, soort_nl, aantal, lengte_transect)
+
+overzicht_missing_locatie <- overzicht_missing %>%
+  group_by(meetnet, locatie) %>%
+  summarise(bezoeken = n(),
+            prop_ingevuld = round(sum(!is.na(lengte_transect))/n(), 2),
+            verschillende_lengtes = n_distinct(lengte_transect, na.rm = TRUE)) %>%
+  ungroup()
+
+write.csv2(overzicht_missing, "../output/transect_length_missing.csv", row.names = FALSE)
+write.csv2(overzicht_missing_locatie, "../output/transect_length_missing_locatie.csv", row.names = FALSE)
+```
+
+
+Voor Rivierrombout komt de transectlengte overeen met de lengte van de locatie (=lijn) in meetnetten.be
+
+```{r}
+transect_Rivierrombout <- get_locations_smp() %>% 
+  filter(meetnet == "Rivierrombout") %>%
+  st_transform(crs = 31370) %>%
+  group_by(locatie) %>%
+  mutate(lengte_locatie = round(drop_units(st_length(geom)), 0)) %>%
+  ungroup() %>%
+  st_drop_geometry() %>%
+  select(meetnet, locatie, lengte_locatie)
+
+```
+
+Voor andere soorten wordt de transectlengte ingegevoerd.
+
+```{r}
+# aandeel ontbrekende waardes
+
+proportion_missing <- counts_selection %>%
+  group_by(meetnet) %>%
+  summarise(n_missing = sum(is.na(lengte_transect)),
+            n_tot = n(),
+            prop_missiing  = n_missing/n_tot) %>%
+  ungroup()
+  
+
+transect_other <- counts_selection %>%
+  filter(meetnet != "Rivierrombout") %>%
+  distinct(meetnet, locatie, datum, visit_id, lengte_transect) %>%
+  group_by(meetnet) %>%
+  mutate(mean_meetnet = mean(lengte_transect, na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_by(locatie) %>%
+  mutate(mean_locatie = mean(lengte_transect, na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_by(locatie, datum) %>%
+  mutate(mean_locatie_datum = mean(lengte_transect, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(lengte_transect_est = ifelse(!is.na(lengte_transect), lengte_transect,
+                                      ifelse(!is.nan(mean_locatie_datum), mean_locatie_datum,
+                                             ifelse(!is.na(mean_locatie), mean_locatie, mean_meetnet)))) %>%
+  select(meetnet, locatie, datum, visit_id, lengte_transect = lengte_transect_est)
+
+```
+
+```{r}
+counts_selection_rivierrombout <- counts_selection %>%
+  filter(meetnet == "Rivierrombout") %>%
+  left_join(transect_Rivierrombout, by = c("meetnet", "locatie")) %>%
+  mutate(lengte_transect = ifelse(is.na(lengte_transect), lengte_locatie, lengte_transect)) %>%
+  select(-lengte_locatie)
+
+counts_selection_other <- counts_selection %>%
+  filter(meetnet != "Rivierrombout") %>%
+  select(-lengte_transect) %>%
+  inner_join(transect_other, by = c("meetnet", "locatie", "datum", "visit_id"))
+  
+counts_selection2 <- bind_rows(counts_selection_rivierrombout,
+                              counts_selection_other)    
+  
+```
+
+
+```{r}
+
+counts_analysis <- counts_selection2 %>%
+  group_by(meetnet, locatie) %>%
+  mutate(n_jaren = n_distinct(jaar),
+            max_count = max(aantal)) %>%
+  ungroup() %>%
+  mutate(fjaar = factor(jaar),
+         locatie = factor(locatie),
+         doy_scaled_2 = doy_scaled * doy_scaled,
+         log_section_100 = log(lengte_transect/100))
+  
+
+
+``` 
+
+```{r}
+
+write_vc(counts_analysis, 
+         file = str_c("analyseset_", name_analysis), 
+         root = here(str_c("analysis_", species_group, "/output/temp")), 
+         sorting = c("meetnet", "locatie", "visit_id"), 
+         strict = FALSE)
+  
+```

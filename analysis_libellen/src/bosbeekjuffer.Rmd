@@ -1,0 +1,248 @@
+# Model bosbeekjuffer
+
+```{r}
+seed <- 20211124
+
+set.seed(seed)
+
+analyseset_locations_by_species <- counts_analysis %>%
+  filter(meetnet != "Beekrombout") %>%
+  filter(n_jaren > 1,
+         max_count > 0) %>%
+  group_by(meetnet) %>%
+  nest() %>%
+  mutate(offset_var = "log_section_100",
+         use_seed = seed)
+
+
+models_inla <- analyseset_locations_by_species %>%
+  mutate(indexmodel = pmap(list(data, offset_var), fit_indexmodel_rw_nbinom_inla),
+         trendmodel = map2(data, offset_var, fit_trendmodel_rw_nbinom_inla))
+
+results_indexmodel <- models_inla %>%
+  transmute(index = pmap(list(data, indexmodel, use_seed), derive_index_rw_inla)) %>%
+  unnest(cols = c(meetnet, index))
+
+results_trendmodel  <- models_inla %>%
+  transmute(trend = map2(data, trendmodel, derive_trend)) %>%
+  select(meetnet, trend) %>%
+  unnest()
+
+waic_index  <- models_inla %>%
+  transmute(waic_index =  map2(data, indexmodel, get_waic)) %>%
+  select(meetnet, waic_index) %>%
+  unnest() %>%
+  mutate(model = "indexmodel")
+
+waic_trend  <- models_inla %>%
+  transmute(waic_trend =  map2(data, trendmodel, get_waic)) %>%
+  select(meetnet, waic_trend) %>%
+  unnest() %>%
+  mutate(model = "trendmodel")
+
+results_waic <- bind_rows(waic_index, 
+                         waic_trend) %>%
+  spread(key = "model", value = "waic") %>%
+  mutate(diff_waic = trendmodel - indexmodel,
+         type_trend = ifelse(diff_waic > 0,
+                               "Niet lineair",
+                               ifelse(diff_waic > -2,
+                                      "Quasi lineair", "Lineair")))
+```
+`
+
+
+
+```{r}
+analyseset_species_locations <- counts_analysis %>%
+  filter(meetnet == "Bosbeekjuffer") %>%
+    filter(n_jaren > 1,
+         max_count > 0) %>%
+  mutate( jaar_scaled = jaar - min(jaar),
+         locatie = as.character(locatie),
+         locatie = as.factor(locatie),
+         doy_scaled2 = doy - min(doy),
+         meetcyclus = ifelse(jaar < 2021, "2018_2020", "2021_2023"),
+         meetcyclus = factor(meetcyclus))
+
+indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ meetcyclus  + 
+                                f(doy_scaled2, model = "rw2", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = "iid", 
+                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                              family = "nbinomial",
+                              data = analyseset_species_locations,
+                              offset = log_section_100,
+                              control.compute = list(config = TRUE, waic = TRUE),
+                              control.predictor = list(compute = TRUE), quantiles = c(0.025, 0.05, 0.95, 0.975)
+                                )
+
+results_index_meetcyclus_bj <- derive_index_meetcyclus_inla(indexmodel_nbinom_inla = indexmodel_doyrw2_iid_meetcyclus, 
+                                                                    function_eval = function(...) {exp(meetcyclus2021_2023)}, set_seed = 9332)
+
+```
+
+```{r}
+# klassenamen <- trend_klasses %>%
+#   select(klasse, klasse_naam, klasse_output) %>%
+#   mutate(klasse = as.character(klasse))
+
+result_indexmodel_refvalue <- results_indexmodel %>%
+  filter(parameter == "index") %>%
+  distinct( parameter, soort_nl, soort_wet, ref_jaar) %>%
+  mutate(jaar = ref_jaar,
+         mean = 1,
+         klasse = "R") 
+
+result_indexmodel_table <- results_indexmodel %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(lcl_0.90)) %>%
+  mutate(klasse = as.character(classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1))) %>%
+  bind_rows(result_indexmodel_refvalue) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+verschil_jaren_refvalue <- result_indexmodel_table %>%
+  distinct(soort_nl, soort_wet,  ref_jaar) %>%
+  mutate(jaar = ref_jaar,
+        mean = 1,
+         klasse = "R") 
+
+result_indexmodel_table <- result_indexmodel_table %>%
+  bind_rows(verschil_jaren_refvalue) 
+
+result_verschil_table <- results_indexmodel %>%
+  filter(parameter == "diff_previous_year") %>%
+  mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
+  filter(!is.na(lcl_0.90)) %>%
+  mutate(klasse = as.character(classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1))) %>%
+  bind_rows(result_indexmodel_refvalue) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1) %>%
+  filter(!is.na(periode))
+
+result_indexmodel_cyclus_refvalue <- results_index_meetcyclus_bj %>%
+  distinct(soort_nl, soort_wet, meetcyclus_ref) %>%
+  mutate(meetcyclus = meetcyclus_ref,
+         mean = 1,
+         klasse = "R") 
+
+result_indexmodel_cyclus_table <- results_index_meetcyclus_bj %>%
+  mutate(klasse = as.character(classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)),
+         meetcyclus = str_remove(meetcyclus, "meetcyclus")) %>%
+  bind_rows(result_indexmodel_cyclus_refvalue) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+```
+
+```{r, eval = FALSE }
+
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
+
+labels_prct <- c(-95,-75, -50, -25, 0, 33, 100, 200, 400, 1000, 2500, 5000)
+breaks_log <- log(labels_prct/100 + 1) + 1
+labels_show <- str_c(labels_prct, " %")
+
+  
+size_bar <- 35 * 2 / (2023 - 2018 + 1)
+size_bar2 <- 35 * 2 / (2023 - 2018)
+
+result_indexmodel_table %>%
+  filter(soort_nl == "Bosbeekjuffer") %>%
+  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = size_bar, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(colour = "white") +
+  facet_wrap(~ soort_nl ) +
+  labs(y = "Verschil t.o.v. referentiejaar", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+ggsave("../output/fig_verschil_ref.png", width = 4, height = 3.1)
+
+
+result_indexmodel_cyclus_table %>%
+  mutate(meetcyclus = str_replace(meetcyclus, "_", " - ")) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = meetcyclus, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10 * 2.58 / 2, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  facet_wrap(~ soort_nl ) +
+  labs(y = "Vreschil t.o.v. referentie meetcyclus", x = "Meetcyclus") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+ggsave("../output/fig_verschil_meetcyclus.png", width = 3, height = 3.1)
+
+
+```
+
+
+
+
+```{r}
+analyseset_species_locations %>%
+  mutate(meetcyclus = ifelse(meetcyclus == "2018_2020", "2018 - 2020", "2021 - 2023")) %>%
+  group_by(locatie, meetcyclus) %>%
+  summarise(aantal_mean = mean(aantal),
+            n_visits = n()) %>%
+  ungroup() %>%
+  ggplot(aes(x = meetcyclus, y = aantal_mean, group = locatie)) +
+  geom_point(alpha = 0.6, size = 2) +
+  geom_line(alpha = 0.1) +
+  labs(y = "Gemiddeld aantal per telling", x = "Meetcyclus")
+
+ggsave("../output/fig_dataverkenning1.png", width = 3, height = 3.1)
+```
+```{r}
+analyseset_species_locations %>%
+  group_by(locatie, jaar) %>%
+  summarise(aantal_mean = mean(aantal),
+            n_visits = n()) %>%
+  ungroup() %>%
+  ggplot(aes(x = jaar, y = aantal_mean, group = locatie)) +
+  geom_point() +
+  geom_line(alpha = 0.1)
+```
+
+
+```{r}
+
+order_locations <- (analyseset_species_locations %>%
+                      filter(meetcyclus == "2021_2023") %>%
+  group_by(locatie) %>%
+  summarise(tot = sum(aantal)) %>%
+  ungroup() %>%
+  arrange(tot))$locatie
+
+analyseset_species_locations %>%
+  mutate(meetcyclus = ifelse(meetcyclus == "2018_2020", "2018 - 2020", "2021 - 2023"),
+         locatie = factor(locatie, levels = order_locations)) %>%
+  group_by(locatie, meetcyclus) %>%
+  summarise(aantal_mean = mean(aantal),
+            n_visits = n()) %>%
+  ungroup() %>%
+  ggplot(aes(x = meetcyclus, y = locatie, size = aantal_mean)) +
+  geom_point(alpha = 0.5) + 
+  scale_size_continuous(range = c(1, 8), breaks = c(0, 10, 25, 50, 75, 100)) +
+  labs(size = "Gemiddeld aantal per telling", x = "Meetcyclus", y = "Locatie")
+
+ggsave("../output/fig_dataverkenning2.png", width = 7, height = 5)
+```

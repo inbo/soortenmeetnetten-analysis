@@ -24,10 +24,6 @@ output:
 library(knitr)
 options(knitr.kable.NA = '')
 
-library(showtext)
-
-showtext_auto()
-font_add("Calibri", "Calibri.TTF")
 ```
 
 
@@ -52,6 +48,9 @@ library(inlatools)
 library(openssl)
 library(units)
 
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::select)
+conflicted::conflicts_prefer(dplyr::lag)
 ```
 
 
