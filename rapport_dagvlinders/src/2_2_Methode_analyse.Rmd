@@ -91,8 +91,7 @@ trend_klasses <- data.frame(
                           "Significante positieve trend/verandering, significant hoger dan bovenste drempelwaarde",
                           "Significante negatieve trend/verandering, significant hoger dan onderste drempelwaarde")) %>%
   mutate(klasse = classification(lcl, ucl, threshold = c(-0.25, 0.33), reference = 0),
-         klasse_naam = factor(klasse_naam, levels = c("sterke afname", "afname", "matige afname", "mogelijke afname", "onbekend", "stabiel", "mogelijke toename", "matige toename", "toename", "sterke toename" )),
-         klasse_plot = format(klasse, type = "plot"))
+         klasse_naam = factor(klasse_naam, levels = c("sterke afname", "afname", "matige afname", "mogelijke afname", "onbekend", "stabiel", "mogelijke toename", "matige toename", "toename", "sterke toename" )))
 
 if (doc.type == "html") {
   

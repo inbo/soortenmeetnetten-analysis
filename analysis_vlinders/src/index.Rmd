@@ -44,6 +44,8 @@ library(effectclass)
 library(openssl)
 library(lubridate)
 library(git2rdata)
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::lag)
 ```
 
 

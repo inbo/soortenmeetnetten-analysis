@@ -176,15 +176,17 @@ get_observers_smp <- function(species_group = NULL,
 
 get_covariates_smp <- function(species_group = NULL,
                                linked_to = "visit",
+                               file_visit = "raw/covariabele",
+                               file_sample = "raw/covariabele_sample",
                               path = fileman_up("soortenmeetnetten-queries")) {
   
   if (linked_to == "visit") {
     
-    file <- "raw/covariabele"
+    file <- file_visit
     
   } else if (linked_to == "sample") {
     
-    file <- "raw/covariabele_sample"
+    file <- file_sample
     
   }
   

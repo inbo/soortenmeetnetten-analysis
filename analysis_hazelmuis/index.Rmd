@@ -43,6 +43,7 @@ library(openssl)
 library(lubridate)
 library(git2rdata)
 library(n2khab)
+ conflicted::conflicts_prefer(dplyr::filter)
 ```
 
 
@@ -61,11 +62,11 @@ Figuur \@ref(fig:nesten) toont het aantal getelde (nieuwe) nesten per transect p
 
 ```{r }
 
-visits_hazelmuis <- get_visits_smp() %>%
+visits_hazelmuis <- get_visits_smp(file = "raw/bezoeken_20231213") %>%
   filter(protocol == "Hazelmuis - Transect") %>%
   select(visit_id, bezoek_status, validatie)
 
-aantal_nesten <- get_counts_smp() %>%
+aantal_nesten <- get_counts_smp(file = "raw/aantallen_20231213") %>%
   filter(protocol == "Hazelmuis - Transect") %>%
   select(meetnet, locatie, visit_id, datum, jaar, activiteit, aantal) %>%
   mutate(activiteit = ifelse(visit_id == 640 & aantal == 0, "nest (hervondst)", activiteit)) %>%
@@ -89,7 +90,7 @@ locaties_2019 <- aantal_nesten %>%
 aantal_nesten_2019 <- aantal_nesten_onverzicht %>%
   filter(jaar >= 2019) 
 
-  
+write_csv2(aantal_nesten_onverzicht, "../output/hazelmuis_transecten.csv") 
 ```
 
 ```{r nesten, fig.cap = "Aantal nesten per transect sinds 2019"}
@@ -131,11 +132,12 @@ Figuur \@ref(fig:occurencebuis) toont per jaar de proportie van de nesbuizen met
 
 ```{r}
 
-visits_nestbuizen <- get_visits_smp() %>%
+visits_nestbuizen <- get_visits_smp(file = "raw/bezoeken_20231213") %>%
   filter(protocol == "Hazelmuis - Nestbuizen") %>%
-  select(visit_id, bezoek_status, validatie)
+  select(visit_id, bezoek_status, validatie) %>%
+  mutate(visit_id = as.character(visit_id))
 
-aantal_nestenbuizen <- read_vc(root = fileman_up("soortenmeetnetten-queries"), file = "raw/aantal_hazelmuis_nestbuizen") %>%
+aantal_nestenbuizen <- read_vc(root = fileman_up("soortenmeetnetten-queries"), file = "raw/aantal_hazelmuis_nestbuizen_20231218") %>%
   mutate(sublocatie = str_c(locatie, "-", sublocatie)) %>%
   left_join(visits_nestbuizen, by = "visit_id")
 
@@ -162,6 +164,14 @@ occurence <- occurence_nestbuizen %>%
             prop_aanwezig_oud = sum(aanwezig_oud_onzeker)/n_distinct(sublocatie),
             n_nestbuizen = n_distinct(sublocatie)) %>%
   ungroup()
+
+overzicht_nestbuizen <- occurence_locatie %>%
+  mutate(activiteit = ifelse(activiteit == "in nestbuis", "individuen", activiteit),
+         prop_aanwezig = round(prop_aanwezig, 3)) %>%
+  rename(type_waarneming = activiteit) %>%
+  select(-prop_aanwezig_oud)
+
+write_csv2(overzicht_nestbuizen, "../output/hazelmuis_nestbuizen.csv") 
 
 ```
 

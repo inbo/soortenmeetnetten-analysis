@@ -819,7 +819,7 @@ result_indexmodel_table %>%
   filter(model_description == "without offset" | is.na(model_description)) %>%
   # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
   ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse, colour = klasse)) +
-  geom_errorbar(width = 0, size = size_bar, alpha = 0.3) +
+  geom_errorbar(width = 0, size = 16, alpha = 0.3) +
   geom_hline(yintercept = 1, linetype = 2) +
   geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
   geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
@@ -830,12 +830,12 @@ result_indexmodel_table %>%
   labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
   #scale_x_continuous(breaks= c(2017, 2018)) +
   # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
-  facet_wrap(~ meetnet + ref_jaar_tekst) +
+  facet_wrap(~ meetnet) +
   scale_y_continuous(breaks = breaks_log, labels = labels_show) +
   scale_color_manual(values = klasse_color) +
   theme(legend.position = "hide")
 
-
+ggsave("../output/gentiaanblauwtje_index.png", height = 3, width = 4.5)
 ```
 
 

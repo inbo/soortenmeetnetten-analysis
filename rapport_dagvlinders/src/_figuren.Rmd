@@ -34,19 +34,22 @@ ggsave("../output/figuren/dagvlinders_trend.png", height = 3.5, width = 5)
 
 plot
 ```
-```{r fig.height = 8}
+
+```{r fig.height = 3}
 breaks_log <- log(c(0.05, 0.25, 0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-95, -75, -50, -25, 0, 33, 100), " %")
 
 
-ref_jaar <- (meetnet_characteristics %>%
-  filter(meetnet == m))$opstartjaar %>%
-  unique()
+# ref_jaar <- (meetnet_characteristics %>%
+#   filter(meetnet == m))$opstartjaar %>%
+#   unique()
   
 size_bar <- 50 * 2.54 / (2022 - ref_jaar + 1)
 size_bar2 <- 50 * 2.54 / (2022 - ref_jaar)
 
 plot_index <- result_indexmodel_table %>%
+  filter(meetnet == "Gentiaanblauwtje") %>%
+  mutate(meetnet = "Phengaris alcon") %>%
   mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar)) %>%
   filter(is.na(model_description) | model_description == "without offset") %>%
   #filter(meetnet == "Moerasparelmoervlinder") %>%
@@ -60,15 +63,16 @@ plot_index <- result_indexmodel_table %>%
   # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
   geom_point(aes(colour = klasse), size = 4) +
   geom_text(size = 3, colour = "white") +
-  labs(y = "Vreschil t.o.v. referentiejaar", x = "Jaar") +
+  labs(y = "Difference (reference year = 2016)", x = "Year") +
   #scale_x_continuous(breaks= c(2017, 2018)) +
   # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
   facet_wrap(~ meetnet, ncol = 3, scales = "free_y") +
   scale_y_continuous(breaks = breaks_log, labels = labels_show) +
   scale_color_manual(values = klasse_color) +
-  theme(legend.position = "hide", axis.text.x = element_text(angle = 90))
+  theme(legend.position = "hide", axis.text.x = element_text(angle = 90),
+        strip.text = element_text(face = "italic"))
 
-ggsave("../output/figuren/dagvlinders_index.png", height = 7.5, width = 7)
+ggsave("../output/figuren/gentiaanblauwtje_index.png", height = 3, width = 4)
 
 plot_index
 ```
@@ -79,7 +83,7 @@ breaks_log <- log(c(0.05, 0.25, 0.5, 0.75, 1, 1.33, 2)) + 1
 labels_show <- str_c(c(-95, -75, -50, -25, 0, 33, 100), " %")
 
 result_verschil_table %>%
-  #filter(meetnet == m) %>%
+  filter(meetnet == "Gentiaanblauwtje") %>%
   filter(!is.na(periode)) %>%
   filter(is.na(model_description) | model_description == "without offset") %>%
   filter(!periode %in% c("2017 - 2017", "2018 - 2018", "2019 - 2019", "2020 - 2020", "2021 - 2021", "2022 - 2022")) %>%
@@ -141,4 +145,96 @@ result_verschil_table %>%
 
 ggsave("../output/figuren/dagvlinders_verschil_2021_2022.png", height = 4, width = 5)
 ```
+```{r}
 
+trend <- trend %>%
+  mutate(soort_wet = ifelse(soort_wet == "Gentiaanblauwtje",
+                            "Phengaris alcon", soort_wet))
+
+order_trend_wet <- (trend %>%
+  filter(parameter == "trend_average") %>%
+  arrange(mean))$soort_wet
+
+breaks_log <- log(c( -50, -25, 0, 33, 50)/100 + 1)
+labels_show <- str_c(c( -50, -25, 0, 33, 50), " %")
+
+plot <- trend %>%
+  filter(parameter == "trend_average") %>%
+  filter(soort_nl != "Moerasparelmoervlinder") %>%
+  mutate(soort_wet = factor(soort_wet, levels = order_trend_wet)) %>%
+  ggplot( aes(x = soort_wet, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_hline(aes(yintercept = max(log(treshold_low/100 +1))), linetype = 3, alpha = 0.8) +
+  geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3, alpha = 0.8) +
+  geom_hline(yintercept = 0, linetype = 2, alpha = 0.8) +
+  geom_errorbar(width = 0, size = 7, alpha = 0.3) +
+  geom_point(size = 5, alpha = 0.6) +
+  geom_text(size = 3, colour = "white") +
+  labs(y = "Average Yearly trend (%)", x = "Species") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show, limits = c(min(breaks_log), max(breaks_log))) +
+  coord_flip() +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide",
+        axis.text.y = element_text(face = "italic"))
+
+
+ggsave("../output/figuren/dagvlinders_trend_wet.png", height = 3.5, width = 5)
+```
+
+```{r }
+breaks_log <- log(c(0.10,  0.33, 0.75, 1, 1.33, 2, 4)) + 1
+labels_show <- str_c(c(-90,  -66, -25, 0, 33, 100, 300), " %")
+
+plot_index <- result_indexmodel_table %>%
+  filter(meetnet == "Gentiaanblauwtje") %>%
+  filter(is.na(model_description) | model_description == "without offset") %>%
+  #filter(meetnet == "Moerasparelmoervlinder") %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 14, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  #geom_line( colour = "blue", size = 1) +
+  # geom_ribbon(alpha = 0.2, fill = inbo.steun.blauw) + 
+  geom_point(aes(colour = klasse), size = 4) +
+  geom_text(size = 3, colour = "white") +
+  labs(y = "Difference (reference year = 2016)", x = "Year") +
+  #scale_x_continuous(breaks= c(2017, 2018)) +
+  # scale_y_continuous(labels = scales::percent, limits = c(0,NA)) +
+  facet_wrap(~ soort_wet, ncol = 3, scales = "free_y") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide", 
+        strip.text = element_text(face = "italic"))
+
+ggsave("../output/figuren/kommavlinder_index.png", height = 3, width = 4.7)
+
+plot_index
+```
+
+```{r}
+breaks_log <- log(c(0.10,  0.33, 0.75, 1, 1.33, 2, 4)) + 1
+labels_show <- str_c(c(-90,  -66, -25, 0, 33, 100, 300), " %")
+
+result_verschil_table %>%
+  filter(meetnet == "Kommavlinder") %>%
+  filter(parameter == "diff_previous_year") %>%
+  filter(!periode %in% c("2017 - 2017", "2018 - 2018", "2019 - 2019", "2020 - 2020", "2021 - 2021", "2022 - 2022")) %>%
+  # mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 14, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_point(aes(colour = klasse), size = 4) +
+  geom_text(size = 3, colour = "white") +
+  labs(y = "Difference consecutive years", x = "Period") +
+  facet_wrap(~ soort_wet, ncol = 3, scales = "free_y") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide", 
+        strip.text = element_text(face = "italic"))
+
+ggsave("../output/figuren/kommavlinder_verschil_jaren.png", height = 3, width = 4.7)
+
+```

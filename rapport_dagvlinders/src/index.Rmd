@@ -91,7 +91,8 @@ library(htmltools)
 library(effectclass)
 library(here)
 library(lubridate)
-
+conflicted::conflicts_prefer(plotly::filter)
+conflicted::conflicts_prefer(dplyr::lag)
 if (interactive()) {
   theme_set(theme_inbo(base_size = 10))
 } else {

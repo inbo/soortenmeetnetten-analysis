@@ -74,7 +74,6 @@ results_indexmodel <- models_inla %>%
   unnest(cols = c(meetnet, index)) %>%
   filter(parameter == "index")
 
-
 models_inla_compare <- analyseset_locations_by_species %>%
   mutate(indexmodel = pmap(list(data, offset_var), fit_indexmodel_rw_nbinom_inla),
          trendmodel = map2(data, offset_var, fit_trendmodel_rw_nbinom_inla))
@@ -671,11 +670,11 @@ iid_checked_plot %>%
 
 ```{r}
 results_indexmodel_all <- bind_rows(results_indexmodel,
-                                results_indexmodel_gebied,
+                               # results_indexmodel_gebied,
                                 results_indexmodel_eitelling)
 
 results_trendmodel_all <- bind_rows(results_trendmodel,
-                                results_trendmodel_gebied,
+                               # results_trendmodel_gebied,
                                 results_trendmodel_eitelling)
 ```
 
@@ -705,7 +704,7 @@ verschillen_refjaar %>%
       escape = FALSE,
       align = "lcccccc") %>%
 kable_styling() %>%
-add_header_above(c(" " = 3, "Verschil t.o.v. referentiejaar" = 6))
+add_header_above(c(" " = 3, "Verschil t.o.v. referentiejaar" = 7))
 ```
 
 ```{r}

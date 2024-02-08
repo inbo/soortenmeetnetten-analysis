@@ -1,5 +1,5 @@
 ---
-title: "Inhaalsalg Roestbruine kniptor: evaluatie 2022"
+title: "Inhaalsalg Roestbruine kniptor: evaluatie 2023"
 author: 
   -
     name: "Toon Westra"
@@ -46,6 +46,7 @@ library(INBOtheme)
 library(git2rdata)
 library(n2khab)
 library(units)
+conflicted::conflicts_prefer(dplyr::filter)
 
 source("../../src/functions_smp.R")
 

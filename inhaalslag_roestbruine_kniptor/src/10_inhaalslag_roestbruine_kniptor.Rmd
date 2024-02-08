@@ -16,22 +16,22 @@ locaties_roestbruine_kniptor <- get_locations_smp(only_active = FALSE) %>%
   filter(meetnet == "Roestbruine kniptor") %>%
   select(locatie, is_active)
 
-covariabelen <- get_covariates_smp() %>%
+covariabelen <- get_covariates_smp("raw/covariabele_visit_20240105") %>%
   filter(meetnet == "Roestbruine kniptor") %>%
   select(-protocol, -task_id, -eenheid) %>%
   spread(key = "bezoekvariabele", value = "waarde") %>%
   rename(uren_gevangen = "aantal uren gevangen", weersomstandigheden = "weersomstandigheden - saproxyle kevers")
   
-bezoeken <- get_visits_smp() %>%
+bezoeken <- get_visits_smp(file = "raw/bezoeken_20240105") %>%
   filter(meetnet == "Roestbruine kniptor") %>%
-  select(locatie, visit_id, start_date = datum, start_time, end_time, end_date, validatie) %>%
+  select(locatie, visit_id, start_date = datum, start_time, end_time, end_date, bezoek_status, validatie, notes) %>%
   mutate(start = ymd_hms(str_c(start_date, " ", start_time)),
          end = ymd_hms(str_c(end_date, " ", end_time)),
          hours_calc = difftime(end, start, units = "hours"),
          days_calc = difftime(end, start, units = "days"),
-         days_calc_approx =  end_date - start_date) 
+         days_calc_approx =  as.Date(end_date) - as.Date(start_date)) 
 
-data_roestbruine_kniptor_meetnetten_detail <- get_counts_smp() %>%
+data_roestbruine_kniptor_meetnetten_detail <- get_counts_smp(file = "raw/aantallen_20240105") %>%
   filter(meetnet == "Roestbruine kniptor") %>%
   filter(primaire_soort) %>%
   filter(activiteit == "ter plaatse (in val)") %>%
@@ -46,7 +46,7 @@ data_meetnetten_sf <- data_roestbruine_kniptor_meetnetten_detail %>%
   st_as_sf(coords = c("x", "y"), crs = 31370) %>%
   select(locatie_meetnetten = locatie, observation_id, datum_meetnetten = start_date, aantal_val, uren_gevangen_meetnetten = uren_gevangen)
 
-write.csv2(data_roestbruine_kniptor_meetnetten_detail, "output/data_roestbruinekniptor_meetnetten_versie2022-02-16.csv", row.names = FALSE)
+write.csv2(data_roestbruine_kniptor_meetnetten_detail, "output/data_roestbruinekniptor_meetnetten_versie2023-01-08.csv", row.names = FALSE)
 
 check_locatie <- data_meetnetten_sf %>%
   st_transform(crs = 4326) %>%
@@ -54,9 +54,6 @@ check_locatie <- data_meetnetten_sf %>%
   mutate(check = locatie_meetnetten == locatie)
 
 ```
-
-
-
 
 # Locaties waar soort is waargenomen
 
@@ -84,6 +81,22 @@ locaties_aanwezig %>%
   kable_styling()
 ```
 
+# Locaties niet geschikt
+
+```{r}
+locaties_niet_geschikt <- bezoeken %>%
+  filter(str_detect(bezoek_status, "Geen veldwerk mogelijk")) %>%
+  filter(year(start_date) == 2023)
+```
+
+```{r}
+locaties_niet_geschikt %>%
+  select( locatie, start_date, end_date, bezoek_status, notes) %>%
+  kable(caption = "Niet geschikte locaties") %>%
+  kable_styling()
+```
+
+
 
 # Zoekinspanning voor actieve locaties (hokken) waar soort niet is waargenomen
 
@@ -99,17 +112,6 @@ zoekinspanning_meetnetten <- data_roestbruine_kniptor_meetnetten_detail %>%
   
 ```
 
-
-
-+ Voor volgende bezoeken ontbreekt de duur van de vangst en kan de duur ook niet afgeleid worden uit het begin- en eindtijdstip van het bezoek:
-
-```{r}
-zoekinspanning_meetnetten %>%
-  filter(uren_gevangen == "" & is.na(days_calc) & is.na(days_calc_approx)) %>%
-  select(locatie, start_date, end_date, visit_id, uren_gevangen, start_time, end_time) %>%
-  kable() %>%
-  kable_styling()
-```
 
 ```{r}
 zoekinspanning_meetnetten <- data_roestbruine_kniptor_meetnetten_detail %>%
@@ -135,14 +137,12 @@ zoekinspanning_meetnetten_locatie <- zoekinspanning_meetnetten %>%
   
 ```
 
-
-
 ```{r}
 zoekinspanning <- zoekinspanning_meetnetten_locatie %>%
   arrange(locatie, bron) %>%
   select(locatie, is_active, bron, everything()) %>%
   arrange(desc(n_puntlocaties_minstens6dagen)) %>%
-  filter(str_detect(jaren_bezoeken, "2022"))
+  filter(str_detect(jaren_bezoeken, "2023"))
 ```
 
 
@@ -177,7 +177,7 @@ Onderstaande kaart geeft een overzicht van de actieve locaties (hokken) in meetn
 ```{r}
 puntlocaties_mn_sf <- data_roestbruine_kniptor_meetnetten_detail %>%
   filter(!is.na(x)) %>% 
-  filter(year(start_date) == 2022) %>%
+  filter(year(start_date) == 2023) %>%
   rename(uren_gevangen_invoer = uren_gevangen) %>%
   mutate(uren_gevangen = str_replace(string = uren_gevangen_invoer, pattern = ",", ".")) %>%
   mutate(uren_gevangen = ifelse(uren_gevangen_invoer == "8 dagen", as.character(8 * 24), 
@@ -207,7 +207,8 @@ factpal2_mn <- colorFactor(colorpal2, puntlocaties_mn_sf$status_punt)
 shapes_to_filter <- locaties_roestbruine_kniptor %>%
   filter(is_active) %>%
   mutate(locatie_status = ifelse(locatie %in% locaties_aanwezig$locatie, "aanwezig - goedgekeurd",
-                         ifelse(locatie %in% zoekinspanning$locatie, "onderzocht - niet waargenomen", "niet onderzocht"))) %>%
+                         ifelse(locatie %in% zoekinspanning$locatie, "onderzocht - niet waargenomen", 
+                                ifelse(locatie %in% locaties_niet_geschikt$locatie, "niet geschikt", "niet onderzocht")))) %>%
   left_join(zoekinspanning, by = c("locatie", "is_active")) %>%
   select(-meetnet, -is_active) %>%
   select(locatie, locatie_status, bron, everything()) %>%
@@ -220,7 +221,7 @@ sd_map <- SharedData$new(shapes_to_filter)
 
 sd_df <- SharedData$new(as.data.frame(shapes_to_filter@data), group = sd_map$groupName())
 
-colorpal <- c(inbo_groen,  inbo_rood, inbo_steun_blauw)
+colorpal <- c(inbo_groen,  inbo_rood, "black", inbo_steun_blauw)
 factpal <- colorFactor(colorpal, sd_map$locatie_status)
 
 #Create crosstalk filters using sd_df:
@@ -232,7 +233,7 @@ bscols(filter_checkbox("locatie_status",  "Locatiestatus (hokken)", sd_df, ~loca
 
 leaflet(sd_map) %>%
   addTiles %>%
-  addPolygons( color = ~factpal(locatie_status), label = ~locatie, opacity = 0.8, group = "Hokken") %>%
+  addPolygons( color = ~factpal(locatie_status), label = ~str_c(locatie, " - ", locatie_status), opacity = 0.8, group = "Hokken") %>%
     addCircleMarkers(data = puntlocaties_mn_sf, label = ~label, fillColor  = ~factpal2_mn(status_punt), fillOpacity = 0.8, radius = 4, color = "black", weight = 2, group = "Puntlocaties meetnetten.be") %>%
   addLegend(pal = factpal, values = ~locatie_status, title = "Locatiestatus (hokken)") %>%
   addLayersControl(

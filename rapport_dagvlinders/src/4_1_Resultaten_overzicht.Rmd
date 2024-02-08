@@ -2,9 +2,9 @@
 # Overzicht van de resultaten
 
 ```{r}
-name_analysis_gebiedstelling <- "output/results/vlinders_imago_gebied_2023-01-25"
-name_analysis_transecttelling <- "output/results/vlinders_imago_transect_2023-01-25"
-name_analysis_eitelling <- "output/results/vlinders_eitelling_2023-01-25"
+name_analysis_gebiedstelling <- "output/results/vlinders_imago_gebied_2023-12-19"
+name_analysis_transecttelling <- "output/results/vlinders_imago_transect_2023-12-19"
+name_analysis_eitelling <- "output/results/vlinders_eitelling_2023-12-19"
 
 path_results <- fileman_up("analysis_vlinders")
 
@@ -110,7 +110,7 @@ verschillen_jaren %>%
       align = "lccccc",
      format = format_table) %>%
 kable_styling(font_size = font_size_table) %>%
-add_header_above(c(" " = 2, "Verschil t.o.v. referentiejaar" = 6))
+add_header_above(c(" " = 2, "Verschil t.o.v. referentiejaar" = 7))
 
 ```
 

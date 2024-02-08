@@ -328,7 +328,6 @@ data_predict %>%
 
 ```{r}
 
-
 compare_index <- bind_rows(
   derive_index_rw_inla(analyseset_species = analyseset_species_locations, 
                        inlamodel_rw = indexmodel_doy_jaarrw1_iid) %>%
