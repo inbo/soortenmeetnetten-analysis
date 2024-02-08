@@ -148,6 +148,8 @@ Onderstaande tabel geeft een overzicht van de tellingen buiten de telperiode. De
 
 bezoeken_buiten_telperiode %>%
   filter(soortgroep %in% soortgroep_sel) %>%
+  filter(meetnet != "Vroedmeesterpad") %>%
+  filter(meetnet != "Poelkikker") %>%
   select(-soortgroep) %>%
  #  kable(booktabs = TRUE,
  #        caption = "Bezoeken buiten telperiode",
@@ -649,7 +651,7 @@ cyclus1 %>%
 
 
 
-```{r tabelcyclus1extra, eval = FALSE}
+```{r tabelcyclus1extra, eval = TRUE}
 cyclus1_extra <- overzicht_kamsalamander %>%
   filter(status == "afgewerkt") %>%
   filter(!is_sample) %>%

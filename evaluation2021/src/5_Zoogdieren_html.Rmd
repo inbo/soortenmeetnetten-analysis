@@ -16,8 +16,7 @@ species_list <- unique(bezoeken_soortgroep$meetnet)
 
 tabel_meetnetkarakteristieken %>%
   mutate(telperiode = str_c(start_telperiode, " - ", einde_telperiode)) %>%
-  filter(soortgroep %in% soortgroep_sel,
-         is_sample) %>%
+  filter(soortgroep %in% soortgroep_sel) %>%
   select(meetnet, protocol, type, opstartjaar, 'duur meetcyclus'= duur_meetcyclus,  'bezoeken (/jaar)' = bezoeken, telperiode) %>%
   unique() %>%
   arrange(meetnet) %>%
@@ -60,7 +59,37 @@ tabel_rapport %>%
   
 ```
 
+```{r}
+n_extra <- tabel_rapport %>%
+   filter(soortgroep %in% soortgroep_sel,
+          jaar == year_evaluation | jaar == str_c(year_evaluation - 1, " - ", year_evaluation)) %>%
+  filter(type_locatie == "Extra locatie") %>%
+  nrow()
+```
 
+
+`r if (n_extra > 0) {"Ten slotte geven we een overzicht van de tellingen in 'extra locaties' die niet tot de jaardoelen behoren."}` 
+
+```{r }
+
+if (n_extra > 0) {
+  
+  tabel_rapport %>%
+    arrange(meetnet) %>%
+    filter(soortgroep %in% soortgroep_sel,
+          jaar == year_evaluation | jaar == str_c(year_evaluation - 1, " - ", year_evaluation)) %>%
+    filter(type_locatie == "Extra locatie") %>%
+    select(meetnet,  protocol,  "tellingen conform protocol", "tellingen niet uitvoerbaar",  "locaties voldoende geteld - totaal") %>%
+    kable(booktabs = TRUE, 
+        caption = "Overzicht van tellingen in extra locaties", 
+        align = c("l", "l", "l","c","c", "c", "c", "c", "c", "c", "c")) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+               font_size = 11) %>%
+    collapse_rows(columns = c(1))
+  
+}
+
+```
 
 
 
@@ -160,7 +189,6 @@ if (nrow(bezoeken_afwijkingen) > 0) {
 ### Inhaalslag Otter
 
 
-
 ```{r}
 locaties_otter <- locaties %>%
   filter(meetnet == "Otter")
@@ -192,6 +220,8 @@ sublocaties_otter <- locaties_otter %>%
 ```
 
 
+
+
 ```{r}
 bezoeken_otter <- bezoeken %>%
   filter(meetnet == "Otter") %>%
@@ -202,7 +232,8 @@ bezoeken_otter <- bezoeken %>%
 aantallen_otter <- aantallen %>%
   filter(meetnet == "Otter") %>%
   group_by(locatie) %>%
-  summarise(n_nulwaarnemingen = n()) %>%
+  summarise(n_punten = n_distinct(observation_id),
+            aanwezigheid = ifelse(sum(aantal) > 0, "aanwezig", "afwezig")) %>%
   ungroup()
 
 overzicht_otter <- bezoeken_otter %>%
@@ -225,12 +256,26 @@ overzicht_otter3 <- hoofdlocaties_zoekgebied %>%
   left_join(overzicht_otter2, by = c("locatie")) %>%
   arrange(zoekgebied) %>%
   mutate(n_bezoeken = ifelse(is.na(n_bezoeken), 0, n_bezoeken)) %>%
-  left_join(aantallen_otter)
+  left_join(aantallen_otter) %>%
+  mutate(aanwezigheid = ifelse(is.na(aanwezigheid), "afwezig", aanwezigheid))
 ```
+```{r}
+aantallen %>%
+  filter(meetnet == "Otter") %>%
+  filter(aantal > 0) %>%
+  select(datum, locatie,aantal, type_aantal) %>%
+  kable(caption = "Tellingen waarbij sporen van Otter werden gevonden") %>%
+  kable_styling()
+```
+
+Onderstaande tabel geeft een overzicht van alle bezoeken voor de inhaalslag Otter.
+
+Het jaardoel van 2023 is om alle locaties in het zoekgebied 'Schelde Dendermonde - Antwerpen te bezoeken' te onderzoeken.
+
 
 ```{r}
 overzicht_otter3 %>%
-  kable(caption = "Overzicht inhaalslag Otter") %>%
+  kable(caption = "Overzicht van alle bezochte locaties voor inhaalslag Otter") %>%
   kable_styling() %>%
   collapse_rows(1)
 ```

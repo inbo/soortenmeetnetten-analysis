@@ -21,7 +21,7 @@ tabel_meetnetkarakteristieken %>%
   group_by(meetnet, protocol, is_sample) %>%
   mutate(bezoeken_tot = sum(bezoeken)) %>%
   ungroup() %>%
-  select(meetnet, protocol, type, opstartjaar, 'duur meetcyclus'= duur_meetcyclus,  'bezoeken (/jaar)' = bezoeken_tot, telperiode) %>%
+  select(meetnet, protocol, type, opstartjaar, 'duur meetcyclus' = duur_meetcyclus,  'bezoeken (/jaar)' = bezoeken_tot, telperiode) %>%
   unique() %>%
   arrange(meetnet) %>%
   kable(caption = "Overzicht van de karakteristieken van de vleermuizenmeetnetten: veldprotocol, type meetnet (integraal of steekproef), aantal meetnetlocaties en de meetcyclus in jaren",
@@ -95,7 +95,8 @@ if (n_extra > 0) {
 
 ### Tijdstippen van de tellingen
 
-Figuur \@ref(fig:figuurBezoekenVleermuizen) geeft een overzicht van de tijdstippen van de bezoeken.  
+Figuur \@ref(fig:figuurBezoekenVleermuizen) geeft een overzicht van de tijdstippen van de bezoeken.
+Als een locatie verschillende keren is bezocht, selecteren we enkel het bezoek dat het minst afwijkt van de telperiode. 
 
 ```{r figuurBezoekenVleermuizen, fig.height = 7, fig.cap = str_c("Overzicht tijdstippen waarop tellingen werden uitgevoerd in ", year_evaluation, ". De stippellijnen geven de telperiodes aan volgens het protocol.") }
 
@@ -121,13 +122,12 @@ ggplot(data = bezoeken_figuur, aes(x = datum, fill = bezoek_status_detail)) +
 
 ```{r figuurBezoekenVleermuizen2, fig.cap = str_c("Overzicht tijdstippen waarop wintertellingen werden uitgevoerd in ", year_evaluation - 1, "-", year_evaluation ) }
 
-bezoeken_figuur <- bezoeken %>% 
-  left_join(telperiode, by = c("meetnet", "protocol")) %>%
-  filter(soortgroep %in% soortgroep_sel) %>% 
+bezoeken_figuur <- bezoeken_telperiode %>%
   filter(meetnet == "Vleermuizen - Wintertellingen") %>%
   filter(year(datum + 182) == year_evaluation) %>% 
-  select(meetnet,locatie, datum,  bezoek_status_detail, start_telperiode, einde_telperiode) %>%
-  unique()
+  group_by(locatie) %>%
+  filter(abs(verschil_dagen) == min(abs(verschil_dagen))) %>%
+  ungroup()
 
 ggplot(data = bezoeken_figuur, aes(x = datum, fill = bezoek_status_detail)) + 
   geom_histogram(binwidth = 7, colour = "white") +
@@ -138,7 +138,29 @@ ggplot(data = bezoeken_figuur, aes(x = datum, fill = bezoek_status_detail)) +
          legend.position = "bottom",
          legend.direction = "vertical")
 ```
+Onderstaande tabel geeft een overzicht van de tellingen buiten de telperiode. De kolom 'verschil_dagen' geeft (de absolute waarde van) het verschil in dagen t.o.v. de telperiode volgens het veldprotocol.
+Als een locatie verschillende keren is bezocht, selecteren we enkel het bezoek dat het minst afwijkt van de telperiode. 
 
+```{r}
+
+bezoeken_figuur %>%
+  filter(verschil_dagen_abs > 0) %>%
+  arrange(desc(verschil_dagen_abs)) %>%
+  select(meetnet, telperiode, locatie, eurobats = is_sample, datum, visit_id, verschil_dagen) %>%
+  datatable(rownames = FALSE,
+            filter = 'top',
+            extensions = c('Buttons', 'Scroller'),
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'excel'),
+              language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Dutch.json'),
+              autoWidth = TRUE,
+              columnDefs = list(list(width = '8%', targets = c(4, 5)))
+              )
+            )
+
+
+```
 
 ### Afwijkingen van het protocol
 
@@ -264,6 +286,8 @@ aantallen_soort <- aantallen %>%
 
 aantallen_soort %>%
   filter(meetnet != "Vleermuizen - Wintertellingen") %>%
+  mutate(taak = str_to_lower(taak)) %>%
+  filter(taak != "extra telling") %>%
   ggplot(aes(x= taak, y = aantal)) +  
   geom_point(alpha = 0.6, colour = inbo_grijs) +
   stat_summary(fun.data = "mean_cl_boot", colour = inbo_rood, size = 1, alpha = 0.8) +

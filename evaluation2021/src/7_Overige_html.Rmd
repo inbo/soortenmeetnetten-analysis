@@ -98,7 +98,7 @@ if (n_extra > 0) {
 
 Figuur \@ref(fig:figuurBezoekenoverige) geeft een overzicht van de tijdstippen van de bezoeken.  
 
-```{r figuurBezoekenoverige, fig.height= 6, fig.width= 6.5,  fig.cap = "Overzicht tijdstippen waarop tellingen werden uitgevoerd in 2018" }
+```{r figuurBezoekenoverige, fig.height= 6, fig.width= 6.5,  fig.cap = "Overzicht tijdstippen waarop tellingen werden uitgevoerd" }
 
 bezoeken_figuur <- bezoeken %>% 
   left_join(telperiode, by = c("meetnet", "protocol")) %>%
@@ -352,8 +352,4 @@ overzicht_prioritair %>%
   kable_styling()
 ```
 
-```{r}
-overzicht_herbezoek %>%
-  kable(caption = "Overzicht te herbezoeken locaties (waarvoor de laatste aanwezigheid meer dan 12 jaar geleden werd vastgesteld)") %>%
-  kable_styling()
-```
+

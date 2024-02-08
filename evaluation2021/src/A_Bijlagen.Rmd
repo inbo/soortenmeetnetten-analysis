@@ -1,6 +1,6 @@
 # Bijlagen {#h:bijlage}
 
-## Tabel met alle tellingen in 2022
+## Tabel met alle tellingen in `r year_evaluation`
 
 ```{r}
 
@@ -22,7 +22,7 @@ tabel_bezoeken_jaar %>%
 ```
 
 
-## Tabel met evaluatie meetnetlocaties in 2022
+## Tabel met evaluatie meetnetlocaties in `r year_evaluation`
 
 ```{r}
 

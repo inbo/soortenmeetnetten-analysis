@@ -335,11 +335,11 @@ Zie [deze website](https://inbo.github.io/soortenmeetnetten-dataexploration/#vli
 
 Zie [deze website](https://inbo.github.io/soortenmeetnetten-dataexploration/#vlinders).
 
+```{r verkenningAantallenVlinders, message=FALSE, warning= FALSE, eval = FALSE}
+
 ## Aantal getelde secties per transect
 
-Voor de vlinders die via transecten worden opgevolgd verkennen we eerst het aantal 50 meter-secties per transect en het aantal tellingen per sectie. In figuur \@ref(fig:figuurSectiesVlinders) stelt elke rij een transect voor. Elk hok geeft een sectie weer van ongeveer 50 meter. De kleur geeft aan of een sectie al dan niet voldoende werd geteld. De transecten zijn maximaal 1 kilometer lang, maar voor kleine populaties zijn enkel korte transecten haalbaar.
-
-```{r verkenningAantallenVlinders, message=FALSE, warning= FALSE}
+# Voor de vlinders die via transecten worden opgevolgd verkennen we eerst het aantal 50 meter-secties per transect en het aantal tellingen per sectie. In figuur \@ref(fig:figuurSectiesVlinders) stelt elke rij een transect voor. Elk hok geeft een sectie weer van ongeveer 50 meter. De kleur geeft aan of een sectie al dan niet voldoende werd geteld. De transecten zijn maximaal 1 kilometer lang, maar voor kleine populaties zijn enkel korte transecten haalbaar.
 
 aantallen_vlinders <- aantallen %>%
   filter(soortgroep == "dagvlinders" & meetnet!="" & soort_nl!="" & primaire_soort) %>%
@@ -363,7 +363,7 @@ vlinders_transecten <- aantallen %>%
 
 ```
 
-```{r figuurSectiesVlinders, message=FALSE, warning= FALSE, fig.width= 8, fig.height= 14, fig.cap = "Aantal tellingen per sectie en per jaar voor de verschillende vlindertransecten" }
+```{r figuurSectiesVlinders, message=FALSE, warning= FALSE, fig.width= 8, fig.height= 14, fig.cap = "Aantal tellingen per sectie en per jaar voor de verschillende vlindertransecten" , eval = FALSE}
 
 aantallen_vlinders_bezoek %>%
   filter(meetnet %in% vlinders_transecten$meetnet)%>%
