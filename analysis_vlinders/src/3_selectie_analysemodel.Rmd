@@ -1,7 +1,6 @@
 
 # Selectie analysemodellen
 
-
 ## Telling imago's
 
 ### Modellering van seizoenaliteit
@@ -12,9 +11,7 @@ Vergelijking tussen twee manieren om seizoenaliteit te modelleren:
  
 + 2de graads polynoom voor doy (day of year)
 
-
 + random walk
-
 
 ```{r}
 
@@ -255,9 +252,6 @@ indexmodel_doyrw2_iid$summary.random$doy_scaled2 %>%
        x = "doy scaled", y = "relative effect")
 ```
 
-
-
-
 ```{r, fig.cap= "Gemodelleerde en geobserveerde aantallen voor Veldparelmoervlinder op basis van model met 2de graads polynoom voor doy"}
 data_predict <- data_combine %>%
     mutate(fitted_mean = exp(indexmodel_doy_iid$summary.fitted.values$mean),
@@ -297,9 +291,6 @@ data_predict %>%
   facet_wrap(~fjaar)
 ```
 
-
-
-
 ```{r, fig.cap= "Gemodelleerde en geobserveerde aantallen voor Veldparelmoervlinder op basis van model met 2de orde random walk voor doy"}
 data_predict <- data_combine %>%
     mutate(fitted_mean = exp(indexmodel_doyrw2_iid$summary.fitted.values$mean),
@@ -317,14 +308,6 @@ data_predict %>%
   geom_point(aes(y = aantal_100m_obs, x = doy)) +
   facet_wrap(~fjaar)
 ```
-
-
-
-
-
-
-
-
 
 ```{r}
 
@@ -382,11 +365,6 @@ fast_distribution_check(indexmodel_doyrw2_jaarrw1_iid) %>%
   plot()
 ```
 
-
-
-
-
-
 #### Model voor soort met twee generaties
 
 Bij enkele soorten zijn er twee generaties binnen het seizoen. 
@@ -395,7 +373,6 @@ We vergelijken verschillende manieren om de generatie mee op te nemen in het mod
 + generatie als extra covariabele 
 + generatie als extra covariabele inclusief een interactie seizoenseffect en generatie (seizoenseffect kan verschillen per generatie)
 + random walk voor doy
-
 
 ```{r}
 analyseset_species_locations <- analyseset_locations %>%
@@ -582,7 +559,6 @@ waic_rw2doy_rw1jaar <- get_waic(analyseset_species_locations, indexmodel_doyrw2_
 
 ```
 
-
 ```{r}
 sigma_rw1_est <- indexmodel_doyrw1_iid_generatie$marginals.hyperpar$`Precision for doy_scaled2` %>%
   inla.emarginal(fun = to_sigma)
@@ -645,8 +621,6 @@ compare_index <-  bind_rows(index_generatie2) %>%
   select(soort_nl, jaareffect, seizoenseffect, jaar, ref_jaar, mean, lcl_0.90, ucl_0.90) 
 ```
 
-
-
 ```{r}
 breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
 labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
@@ -670,14 +644,7 @@ compare_index %>%
   scale_y_continuous(breaks = breaks_log, labels = labels_show) 
 ```
 
-
-
-
-
-
-
 ```{r}
-
 
 data_predict_generatie2 <- data_combine %>%
     mutate(fitted_mean = exp(indexmodel_doy_iid_generatie_interactie$summary.fitted.values$mean),
@@ -725,7 +692,6 @@ data_predict %>%
   geom_point(aes(y = aantal_100m_obs, x = doy,  colour = generatie)) +
   facet_grid(model ~ fjaar)
 ```
-
 
 
 ```{r, eval = FALSE}

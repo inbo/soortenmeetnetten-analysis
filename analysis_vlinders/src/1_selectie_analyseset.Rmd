@@ -29,7 +29,7 @@ locatie_detail <- get_locations_smp() %>%
   filter(locatie_type == "locatie") %>%
   select(meetnet, locatie, is_active, is_sample)
 
-visits <- get_visits_smp(species_group = species_group, file = "raw/bezoeken_20231213") %>%
+visits <- get_visits_smp(species_group = species_group) %>%
   filter(protocol %in% protocol_selection) %>%
   mutate(protocol = ifelse(str_detect(protocol, "Gebiedstelling"),
                            "Vlinders - Gebiedstelling",
@@ -40,7 +40,7 @@ visits <- get_visits_smp(species_group = species_group, file = "raw/bezoeken_202
                                voor_analyse)) %>%
   mutate(visit_id = as.character(visit_id))
 
-counts_all <- get_counts_smp(species_group = species_group, file = "raw/aantallen_20231213")
+counts_all <- get_counts_smp(species_group = species_group)
 
 counts_all <- counts_all %>%
   group_by(soortgroep, meetnet, protocol, jaar, datum, doy, locatie, sublocatie, visit_id, niet_geteld, checklist, species_id, soort_nl, soort_wet, primaire_soort, sample_id, type_aantal) %>%
@@ -53,12 +53,20 @@ counts_gb <- read_vc(root = fileman_up("soortenmeetnetten-queries"), file = "raw
   mutate(locatie = ifelse(visit_id %in% c(765, 766),
                           str_c(locatie, "_buitenplot"),
                           locatie)) %>%
-  mutate(plant = as.numeric(plant))
+  mutate(plant = as.numeric(plant),
+         species_id = as.numeric(species_id),
+         sample_id = as.numeric(sample_id)) 
 
 counts <-  counts_all %>%
 #   filter(primaire_soort) %>%
   filter(!niet_geteld) %>%
   bind_rows(counts_gb)
+
+counts_locatie_tot <- counts %>%
+  filter(primaire_soort) %>%
+  group_by(meetnet, protocol, locatie, primaire_soort) %>%
+  summarise(aantal_tot = sum(aantal)) %>%
+  ungroup()
 
 covars <- get_covariates_smp(species_group = species_group) %>%
   filter(protocol %in% protocol_selection) %>%
@@ -118,7 +126,8 @@ visits_selection <- visits %>%
 
 locaties_niet_actief <- visits %>%
   distinct(meetnet, locatie) %>%
-  anti_join(visits_selection, by = c("meetnet", "locatie"))
+  anti_join(visits_selection, by = c("meetnet", "locatie")) %>%
+  left_join(counts_locatie_tot, by = c("meetnet", "locatie"))
 
 locaties_niet_actief %>%
   kable(caption = "Niet actieve locaties waarvoor bezoeken niet geselecteerd werden") %>%
@@ -129,7 +138,7 @@ locaties_niet_actief %>%
 
 ```{r}
 counts_sublocation_selection <- visits_selection %>%
-  select(soortgroep, meetnet, protocol, generatie, locatie, jaar, datum, doy, doy_scaled, doy_min, doy_max, doy_mid,  visit_id, n_obs, voor_analyse, is_active, is_sample, bezoek_status, notes) %>%
+  select(soortgroep, meetnet, protocol, generatie, locatie, jaar, datum, doy, doy_scaled, doy_min, doy_max, doy_mid,  visit_id, n_obs, voor_analyse, is_active, is_sample, bezoek_status, opmerking) %>%
   left_join(select(counts, visit_id, sublocatie, soort_nl, soort_wet, aantal, niet_geteld, primaire_soort, plant, stengel, knop, type_aantal), by = "visit_id") %>%
   left_join(covars, by = c("meetnet", "protocol", "visit_id")) %>%
   filter(!is.na(aantal)) %>%
@@ -183,8 +192,9 @@ analyseset_gebied <- counts_sublocation_selection_sample %>%
 
 name_analysis0 <- "vlinders_imago_gebied"
 
-write_vc(analyseset_gebied, file = str_c("analyseset_", name_analysis0), 
-       root = here(str_c("analysis_vlinders/output/temp")), 
+write_vc(analyseset_gebied, 
+       file = str_c("analyseset_", name_analysis0), 
+       root = "../output/temp", 
        sorting = c("meetnet", "locatie", "sublocatie", "visit_id"), 
        strict = FALSE)
 ```
@@ -345,23 +355,19 @@ analyseset_transecten_locations <- counts_location_transecten %>%
 
 ``` 
 
-
-
 ```{r}
-
-
 
 name_analysis1 <- "vlinders_imago_sectie"
 
 write_vc(analyseset_transecten_sublocations, file = str_c("analyseset_", name_analysis1), 
-       root = here(str_c("analysis_vlinders/output/temp")), 
+       root = "../output/temp", 
        sorting = c("meetnet", "locatie", "sublocatie", "visit_id"), 
        strict = FALSE)
 
 name_analysis2 <- "vlinders_imago_transect"
 
 write_vc(analyseset_transecten_locations, file = str_c("analyseset_", name_analysis2), 
-       root = here(str_c("analysis_vlinders/output/temp")), 
+       root = "../output/temp", 
        sorting = c("meetnet", "locatie",  "visit_id"), 
        strict = FALSE)
   
@@ -398,10 +404,6 @@ counts_gb <- counts_sublocation_selection_sample %>%
   filter(gebied != "Hageven")
 ```
 
-
-
-
-
 ### Locaties
 
 In de meetnetlocaties van Gentiaanblauwtje zit er een bepaalde hiërarchie die van belang is bij de analyse.
@@ -425,38 +427,31 @@ locaties_hierarchy %>%
 In de plot die in Hageven gelegen is komen er geen eitjes van Gentiaanblauwtje meer voor, maar in andere delen van het gebied worden er nog wel eitjes gevonden.
 Daarom nemen we de tellingen in deze plot niet mee in de analyse.
 
-
-
-
 ### Analysevariabelen
-
 
 + Totaal aantal eitjes per plot
 + Totaal aantal planten per plot kan als offset gebruikt worden
 + Proportie van planten die eitjes bevatten als indicatie voor de lokale populatiegrootte
 + Proportie van de knoppen die eitjes bevatten als indicatie voor de lokale populatiegrootte
 
-
 ```{r}
 
 analyseset_gb <- counts_gb %>%
-  group_by(meetnet, locatie, gebied, subgebied, plot, visit_id, datum, jaar, bezoek_status, notes, plant, stengel, knop) %>%
+  group_by(meetnet, locatie, gebied, subgebied, plot, visit_id, datum, jaar, bezoek_status, opmerking, plant, stengel, knop) %>%
   summarise(n_ei_knop = sum(aantal)) %>%
   ungroup() %>%
-  group_by(meetnet, locatie, gebied, subgebied, plot, visit_id, datum, jaar, bezoek_status, notes, plant) %>%
+  group_by(meetnet, locatie, gebied, subgebied, plot, visit_id, datum, jaar, bezoek_status, opmerking, plant) %>%
   summarise(n_ei_plant = sum(n_ei_knop),
             n_knop_metei = sum(n_ei_knop > 0),
             n_knop_zonderei = sum(n_ei_knop == 0)) %>%
   ungroup() %>%
-  group_by(meetnet, locatie, gebied, subgebied, plot, visit_id, datum, jaar, bezoek_status, notes) %>%
+  group_by(meetnet, locatie, gebied, subgebied, plot, visit_id, datum, jaar, bezoek_status, opmerking) %>%
   summarise(n_ei_totaal = sum(n_ei_plant),
             n_knop_metei = sum(n_knop_metei),
             n_knop_zonderei = sum(n_knop_zonderei),
             n_plant_metei = sum(n_ei_plant > 0),
             n_plant_zonderei = sum(n_ei_plant == 0)) %>%
   ungroup()
-
-unique(analyseset_gb$locatie)
 
 ```
 
@@ -465,7 +460,7 @@ unique(analyseset_gb$locatie)
 name_analysis3 <- "vlinders_eitelling"
 
 write_vc(analyseset_gb, file = str_c("analyseset_", name_analysis3), 
-       root = here(str_c("analysis_vlinders/output/temp")), 
+       root = "../output/temp", 
        sorting = c("meetnet", "locatie", "visit_id"), 
        strict = FALSE)
   
@@ -530,7 +525,7 @@ if (new_analysis) {
   
   for (name_analysis in names_analysis) {
     
-     new_path <- here(str_c("analysis_vlinders/output/analyseset/", name_analysis, "_", Sys.Date()))
+     new_path <- str_c("../output/analyseset/", name_analysis, "_", Sys.Date())
      
      if (!dir.exists(new_path)) {
        
@@ -549,7 +544,9 @@ if (new_analysis) {
   }
   
   analysis_hashes %>%
-       write_vc(file = "analysis_hashes", root = here("analysis_vlinders/output/"), sorting = c("name_analysis", "version", "filename"), strict = FALSE)
+       write_vc(file = "analysis_hashes", 
+                root = "../output", 
+                sorting = c("name_analysis", "version", "filename"), strict = FALSE)
   
   } 
  

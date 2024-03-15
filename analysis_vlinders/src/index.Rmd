@@ -44,6 +44,8 @@ library(effectclass)
 library(openssl)
 library(lubridate)
 library(git2rdata)
+library(n2khab)
+
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(dplyr::lag)
 ```
@@ -52,7 +54,10 @@ conflicted::conflicts_prefer(dplyr::lag)
 
 
 ```{r, cache=FALSE}
-source(here("src", "functions_smp.R"))
+
+path_functions <- fileman_up("soortenmeetnetten-analysis")
+
+source(file.path(path_functions, "src/functions_smp.R"))
 
 ```
 

@@ -5,7 +5,6 @@
 
 ### Keuze model
 
-
 We opteren voor een model met:
 
 + seizoenseffect via tweede orde random walk voor locatie
@@ -15,48 +14,74 @@ We opteren voor een model met:
 + meetcyclus als factor voor indexmodel om meetcycli te vergelijken
 + het logaritme van van de transectlengte/100 als offset
 
-
-
-
-```{r, eval = FALSE}
-analyseset_locations_species <- analyseset_locations %>%
-  filter(meetnet == "Heivlinder")
-
-seed <- 20211124
-
-model <- fit_indexmodel_rw_nbinom_inla(analyseset_locations_species, offset_var = "log_section_100")
-
-model2 <- fit_indexmodel_rw_nbinom_inla(analyseset_locations_species, offset_var = "log_section_100")
-
-
-all_equal(model$summary.random$jaar_centered,
-          model2$summary.random$jaar_centered)
-
-# set.seed(seed)
-test <- derive_index_rw_inla(analyseset_locations_species, model, set_seed = seed) %>%
-  select(soort_nl, parameter, mean) %>%
-  filter(parameter == "index")
-
-# set.seed(seed)
-test2 <- derive_index_rw_inla(analyseset_locations_species, model2, set_seed = seed) %>%
-  select(soort_nl, parameter, mean) %>%
-  filter(parameter == "index")
-
-all.equal(test, test2)
-
-
-model_trend <- fit_trendmodel_rw_nbinom_inla(analyseset_locations_species, offset_var = "log_section_100")
-
-test_trend <- derive_trend(analyseset_locations_species, model_trend)
-```
-
-
-
 ```{r, eval=FALSE}
 # check reproduceerbaarheid
-seed <- 20211124
 
-set.seed(seed)
+#one analysis
+
+analyseset_heivlinder <- analyseset_transecten_locations %>%
+  filter(meetnet %in% c("Heivlinder")) %>%
+  mutate(locatie = as.character(locatie),
+           locatie = as.factor(locatie),
+           jaar_centered = jaar - min(jaar),
+           doy_centered = doy - min(doy))
+  
+  formula_indexmodel <- as.formula("aantal ~ f(jaar_centered, model = \"rw1\", 
+                                  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.3, 0.05)))) + 
+                                f(doy_centered, model = \"rw2\", 
+                                  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = \"iid\", 
+                                   hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.05))))")
+  
+  set.seed(949)
+  indexmodel1 <- inla(formula_indexmodel,
+                family = "nbinomial",
+                data = analyseset_heivlinder,
+                offset = log_section_100,
+                control.compute = list(config = TRUE, waic = TRUE),
+                control.predictor = list(compute = TRUE))
+  result1 <- indexmodel1$summary.fixed
+
+
+    set.seed(949)
+  indexmodel2 <- inla(formula_indexmodel,
+                family = "nbinomial",
+                data = analyseset_heivlinder,
+                offset = log_section_100,
+                control.compute = list(config = TRUE, waic = TRUE),
+                control.predictor = list(compute = TRUE))
+  result2 <- indexmodel2$summary.fixed
+
+set.seed(949)
+indexmodel1_heivlinder <- fit_indexmodel_rw_nbinom_inla(analyseset_heivlinder, offset_var = "log_section_100")
+set.seed(2235)
+trendmodel1_heivlinder <- fit_trendmodel_rw_nbinom_inla(analyseset_heivlinder, offset_var = "log_section_100")
+
+set.seed(949)
+results1_indexmodel_heivlinder <- derive_index_rw_inla(analyseset_heivlinder, indexmodel1_heivlinder, set_seed = 5156)
+set.seed(251668)
+results1_trendmodel_heivlinder <- derive_trend(analyseset_heivlinder, trendmodel1_heivlinder)
+
+set.seed(949)
+indexmodel2_heivlinder <- fit_indexmodel_rw_nbinom_inla(analyseset_heivlinder, offset_var = "log_section_100")
+set.seed(2235)
+trendmodel2_heivlinder <- fit_trendmodel_rw_nbinom_inla(analyseset_heivlinder, offset_var = "log_section_100")
+
+set.seed(4849)
+results2_indexmodel_heivlinder <- derive_index_rw_inla(analyseset_heivlinder, indexmodel2_heivlinder, set_seed = 5156)
+set.seed(251668)
+results2_trendmodel_heivlinder <- derive_trend(analyseset_heivlinder, trendmodel2_heivlinder)
+
+check_analysis_index <- all.equal(results1_indexmodel_heivlinder, results2_indexmodel_heivlinder)
+check_analysis_trend <- all.equal(results1_trendmodel_heivlinder, results2_trendmodel_heivlinder)
+
+check <- indexmodel1_heivlinder$summary.fixed %>%
+  mutate(model = "1") %>%
+  bind_rows(indexmodel2_heivlinder$summary.fixed %>%
+  mutate(model = "2")) %>%
+  bind_rows(result1, result2)
+
+#combined analysis
 
 analyseset_locations_by_species <- analyseset_transecten_locations %>%
   filter(meetnet %in% c("Heivlinder", "Aardbeivlinder")) %>%
@@ -86,13 +111,11 @@ results_indexmodel_compare <- models_inla_compare %>%
 
 all.equal(results_indexmodel, results_indexmodel_compare)
 
+indexmodel_1 <- models_inla$indexmodel
+
 ```
 
 ```{r}
-
-seed <- 20211124
-
-set.seed(seed)
 
 analyseset_locations_by_species <- analyseset_transecten_locations %>%
   group_by(meetnet) %>%
@@ -136,16 +159,24 @@ results_waic <- bind_rows(waic_index,
 
 ```
 
-
-
 ```{r}
-analyseset_species_locations <- analyseset_transecten_locations %>%
+analyseset_meetcyclus <- analyseset_transecten_locations %>%
+  filter(meetnet %in% c("Heivlinder", "Argusvlinder", "Oranje zandoogje")) %>%
+  mutate(start_jaar = ifelse(meetnet %in% c("Heivlinder", "Argusvlinder"), 2016, 2017),
+         duur_cyclus = 3,
+         meetcyclus_i = ceiling((jaar - start_jaar + 1) / duur_cyclus)) %>%
+  group_by(meetnet, meetcyclus_i) %>%
+  mutate(jaar_min = min(jaar),
+         jaar_max = max(jaar)) %>%
+  ungroup() 
+
+analyseset_meetcyclus_heivlinder <- analyseset_meetcyclus %>%
   filter(meetnet == "Heivlinder") %>%
   mutate( jaar_scaled = jaar - min(jaar),
          locatie = as.character(locatie),
          locatie = as.factor(locatie),
          doy_scaled2 = doy - min(doy),
-         meetcyclus = ifelse(jaar <= 2018, "2016_2018", "2019_2021"),
+         meetcyclus = str_c(jaar_min, "_", jaar_min + duur_cyclus - 1),
          meetcyclus = factor(meetcyclus))
 
 indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ meetcyclus  + 
@@ -154,22 +185,23 @@ indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ meetcyclus  +
                                  f(locatie, model = "iid", 
                                    hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                               family = "nbinomial",
-                              data = analyseset_species_locations,
+                              data = analyseset_meetcyclus_heivlinder,
                               offset = log_section_100,
                               control.compute = list(config = TRUE, waic = TRUE),
                               control.predictor = list(compute = TRUE))
 
-index_meetcyclus_hv <- derive_index_meetcyclus_inla(analyseset_species_locations,
+set.seed(54545)
+index_meetcyclus_hv <- derive_index_meetcyclus_inla(analyseset_meetcyclus_heivlinder, 
+                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
                              indexmodel_doyrw2_iid_meetcyclus, set_seed = seed)
 
-
-analyseset_species_locations <- analyseset_transecten_locations %>%
+analyseset_meetcyclus_argusvlinder <- analyseset_meetcyclus %>%
   filter(meetnet == "Argusvlinder") %>%
   mutate( jaar_scaled = jaar - min(jaar),
          locatie = as.character(locatie),
          locatie = as.factor(locatie),
          doy_scaled2 = doy - min(doy),
-         meetcyclus = ifelse(jaar <= 2018, "2016_2018", "2019_2021"),
+         meetcyclus = str_c(jaar_min, "_", jaar_min + duur_cyclus - 1),
          meetcyclus = factor(meetcyclus))
 
 indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ meetcyclus  + 
@@ -178,16 +210,59 @@ indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ meetcyclus  +
                                  f(locatie, model = "iid", 
                                    hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                               family = "nbinomial",
-                              data = analyseset_species_locations,
+                              data = analyseset_meetcyclus_argusvlinder,
                               offset = log_section_100,
                               control.compute = list(config = TRUE, waic = TRUE),
                               control.predictor = list(compute = TRUE))
 
-index_meetcyclus_av <- derive_index_meetcyclus_inla(analyseset_species_locations,
+set.seed(54545)
+index_meetcyclus_av <- derive_index_meetcyclus_inla(analyseset_meetcyclus_argusvlinder, 
+                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
                              indexmodel_doyrw2_iid_meetcyclus, set_seed = seed)
 
-result_indexmodel_meetcyclus <- bind_rows(index_meetcyclus_av,
-                              index_meetcyclus_hv)
+analyseset_meetcyclus_oz <- analyseset_meetcyclus %>%
+  filter(meetnet == "Oranje zandoogje") %>%
+  mutate( jaar_scaled = jaar - min(jaar),
+         locatie = as.character(locatie),
+         locatie = as.factor(locatie),
+         doy_scaled2 = doy - min(doy),
+         meetcyclus = str_c(jaar_min, "_", jaar_min + duur_cyclus - 1),
+         meetcyclus = factor(meetcyclus))
+
+indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ meetcyclus  + 
+                                f(doy_scaled2, model = "rw2", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = "iid", 
+                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                              family = "nbinomial",
+                              data = analyseset_meetcyclus_oz,
+                              offset = log_section_100,
+                              control.compute = list(config = TRUE, waic = TRUE),
+                              control.predictor = list(compute = TRUE))
+
+set.seed(54545)
+index_meetcyclus_oz <- derive_index_meetcyclus_inla(analyseset_meetcyclus_oz, 
+                                                    function_eval = function(...) {c(exp(meetcyclus2020_2022), exp(meetcyclus2023_2025))},
+                             indexmodel_doyrw2_iid_meetcyclus, set_seed = seed)
+
+result_indexmodel_meetcyclus <- index_meetcyclus_av %>%
+  bind_rows(index_meetcyclus_hv) %>%
+  bind_rows(index_meetcyclus_oz)
+```
+
+```{r}
+analyseset_heivlinder_paired <- analyseset_meetcyclus_heivlinder %>%
+  group_by(meetnet, locatie) %>%
+  mutate(n_cycli = n_distinct(meetcyclus)) %>%
+  ungroup() %>%
+  filter(n_cycli == 3)
+  
+model_paired <- fit_trendmodel_nbinom_inla(analyseset_species = analyseset_heivlinder_paired,
+                                              offset_var = "log_section_100")
+
+result1 <- derive_trend(analyseset_heivlinder_paired, model_paired)
+
+
 ```
 
 
@@ -197,24 +272,24 @@ result_indexmodel_meetcyclus <- bind_rows(index_meetcyclus_av,
 results_indexmodel %>%
   filter(parameter != "sample_value") %>%
   write_vc(file = str_c("results_indexmodel_", name_analysis2), 
-         root = here(str_c("analysis_vlinders/output/temp")), 
+         root = "../output/temp", 
          sorting = c("parameter", "soort_nl", "jaar"),
          strict = FALSE)
 
 result_indexmodel_meetcyclus %>%
   write_vc(file = str_c("results_indexmodel_meetcyclus", name_analysis2), 
-         root = here(str_c("analysis_vlinders/output/temp")), 
+         root = "../output/temp", 
          sorting = c("parameter", "soort_nl", "meetcyclus"),
          strict = FALSE)
 
 results_trendmodel %>%
   write_vc(file = str_c("results_trendmodel_", name_analysis2), 
-         root = here(str_c("analysis_vlinders/output/temp")), 
+         root = "../output/temp", 
          sorting = c("parameter", "soort_nl"), strict = FALSE)
 
 results_waic %>%
   write_vc(file = str_c("results_waic_", name_analysis2), 
-         root = here(str_c("analysis_vlinders/output/temp")), 
+         root = "../output/temp", 
          sorting = c("parameter", "soort_nl"),
          strict = FALSE)
 
@@ -229,7 +304,6 @@ model_validation <- models_inla %>%
             distribution_check_model = map(indexmodel, fast_distribution_check),
             iid_check = map(indexmodel, check_random_effect)
             )
-
 
 dispersion <- model_validation %>%
   transmute(dispersion_data = map(dispersion_check_model, "data"),
@@ -358,18 +432,18 @@ results_waic_gebied <- bind_rows(waic_index_gebied,
 results_indexmodel_gebied %>%
   filter(parameter != "sample_vaue") %>%
   write_vc(file = str_c("results_indexmodel_", name_analysis0), 
-         root = here(str_c("analysis_vlinders/output/temp")), 
+         root = "../output/temp", 
          sorting = c("parameter", "soort_nl", "jaar"),
          strict = FALSE)
 
 results_trendmodel_gebied %>%
   write_vc(file = str_c("results_trendmodel_", name_analysis0), 
-         root = here(str_c("analysis_vlinders/output/temp")), 
+         root = "../output/temp", 
          sorting = c("parameter", "soort_nl"), strict = FALSE)
 
 results_waic_gebied %>%
   write_vc(file = str_c("results_waic_", name_analysis0), 
-         root = here(str_c("analysis_vlinders/output/temp")), 
+         root = "../output/temp", 
          sorting = c("parameter", "soort_nl"),
          strict = FALSE)
 
@@ -590,18 +664,18 @@ results_waic_eitelling <- bind_rows(results_waic_eitelling_offset,
 results_indexmodel_eitelling %>%
   filter(parameter != "sample_value") %>%
   write_vc(file = str_c("results_indexmodel_", name_analysis3), 
-         root = here(str_c("analysis_vlinders/output/temp")), 
+         root = "../output/temp", 
          sorting = c("parameter", "soort_nl", "jaar"),
          strict = FALSE)
 
-results_trendmodel_eitelling%>%
+results_trendmodel_eitelling %>%
   write_vc(file = str_c("results_trendmodel_", name_analysis3), 
-         root = here(str_c("analysis_vlinders/output/temp")), 
+         root = "../output/temp", 
          sorting = c("parameter", "soort_nl"), strict = FALSE)
 
 results_waic_eitelling %>%
   write_vc(file = str_c("results_waic_", name_analysis3), 
-         root = here(str_c("analysis_vlinders/output/temp")), 
+         root = "../output/temp", 
          sorting = c("parameter", "soort_nl"),
          strict = FALSE)
 
@@ -670,11 +744,11 @@ iid_checked_plot %>%
 
 ```{r}
 results_indexmodel_all <- bind_rows(results_indexmodel,
-                               # results_indexmodel_gebied,
+                                results_indexmodel_gebied,
                                 results_indexmodel_eitelling)
 
 results_trendmodel_all <- bind_rows(results_trendmodel,
-                               # results_trendmodel_gebied,
+                                results_trendmodel_gebied,
                                 results_trendmodel_eitelling)
 ```
 
@@ -750,8 +824,6 @@ trend <- results_trendmodel_all %>%
          treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) *100, 1)) %>%
   mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
 
-
-
 ```
 
 ```{r}
@@ -805,7 +877,7 @@ result_waic_all %>%
 
 names_analysis <- c(name_analysis0, name_analysis1, name_analysis2, name_analysis3)
 
-mypath <- here(str_c("analysis_vlinders/output/temp"))
+mypath <- "../output/temp"
 
 hashes <-
     tibble(filepath = str_c(mypath, "/",
@@ -829,7 +901,7 @@ hashes <-
            sha256) %>%
   filter(str_detect(filename, "result"))
 
-file_name <- here(str_c("analysis_vlinders/output/analysis_hashes.tsv"))
+file_name <- "../output/analysis_hashes.tsv"
 
 if (!file.exists(file_name)) {
   
@@ -841,7 +913,7 @@ if (!file.exists(file_name)) {
 
 } else {
   
-  analysis_hashes <- read_vc(file = "analysis_hashes", root = here("analysis_vlinders/output/"))
+  analysis_hashes <- read_vc(file = "analysis_hashes", root = "../output")
   
   hashes_new <- hashes %>%
     anti_join(analysis_hashes, by = c("name_analysis", "filename", "md5", "sha256"))
@@ -859,7 +931,7 @@ if (new_analysis) {
   
   for (i in 1:nrow(hashes_new)) {
     
-     path_to <- here(str_c("analysis_vlinders/output/results/", hashes_new$name_analysis[i], "_", hashes_new$version[i]))
+     path_to <- str_c("../output/results/", hashes_new$name_analysis[i], "_", hashes_new$version[i])
      
      if (!dir.exists(path_to)) {
        
@@ -874,12 +946,9 @@ if (new_analysis) {
   }
   
      analysis_hashes %>%
-       write_vc(file = "analysis_hashes", root = here("analysis_vlinders/output/"), sorting = c("name_analysis", "version", "filename"), strict = FALSE)
+       write_vc(file = "analysis_hashes", root = "../output", sorting = c("name_analysis", "version", "filename"), strict = FALSE)
 }
 
- 
-  
- 
 
 ```
 

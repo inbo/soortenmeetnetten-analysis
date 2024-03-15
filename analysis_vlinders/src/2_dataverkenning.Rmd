@@ -1,7 +1,6 @@
 
 # Dataverkenning
 
-
 ## Tellingen imago's
 
 ### GemiddeldeGetelde aantallen
@@ -44,6 +43,19 @@ analyseset_transecten_locations %>%
   geom_point(alpha = 0.6) +
   facet_grid(meetnet ~ jaar, scales = "free_y")
 ```
+
+### GemiddeldeGetelde aantallen per locatie
+
+```{r}
+aantallen_locaties <- analyseset_transecten_locations %>%
+  group_by(meetnet, locatie, jaar) %>%
+  summarise(mean_aantal_100 =  mean(aantal/lengte_transect *100)) %>%
+  ungroup() %>%
+  arrange(jaar) %>%
+  pivot_wider(names_from = "jaar",
+              values_from = "mean_aantal_100")
+```
+
 
 ### Seizoenaliteit
 
@@ -151,8 +163,6 @@ analyseset_gb_long %>%
   geom_smooth(se = FALSE)
 ```
 
-
-
 ```{r}
 analyseset_gb %>%
 ggplot(aes(x = jaar, y = n_ei_totaal, group = plot, colour = plot)) +
@@ -162,8 +172,6 @@ ggplot(aes(x = jaar, y = n_ei_totaal, group = plot, colour = plot)) +
   ylab("Totaal aantal eitjes per plot")
   
 ```
-
-
 
 ```{r}
 analyseset_gb %>%
