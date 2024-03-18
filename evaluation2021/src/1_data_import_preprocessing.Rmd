@@ -14,6 +14,7 @@ versie <- "2024-01-30"
 bezoeken_orig <- get_visits_smp()
 
 bezoeken <- bezoeken_orig %>%
+  rename(notes = opmerking) %>%
   filter(meetnet != "Algemene Vlindermonitoring") %>%
   filter(validatie != "-1") %>%
   mutate(taak = ifelse(is.na(taak), "Extra telling", taak),
@@ -244,7 +245,7 @@ aantallen_planten_extern <- read_csv2("C:/Rprojecten/soortenmeetnetten-queries/o
   ungroup() %>%
   mutate(bron = "waarnemingen.be",
          track = FALSE) %>%
-  inner_join(select(bezoeken, visit_id, hoofdteller), by = "visit_id")
+  inner_join(select(bezoeken, visit_id), by = "visit_id")
 
 aantallen_planten_bezoek <- bind_rows(aantallen_planten_bezoek,
                                aantallen_planten_extern)
@@ -364,7 +365,7 @@ overzicht_bezoeken_planten <- bezoeken_planten %>%
   filter(jaar == year_evaluation) %>%
   mutate(aantallen_ingevoerd = ifelse(is.na(track), 0, 1),
          track_geregistreerd = ifelse(is.na(track), 0, track)) %>%
-  select( meetnet, protocol, jaar, locatie, datum, hoofdteller, status = bezoek_status_detail, aantallen_ingevoerd, track_geregistreerd)
+  select( meetnet, protocol, jaar, locatie, datum,  status = bezoek_status_detail, aantallen_ingevoerd, track_geregistreerd)
 
 #write.csv2(overzicht_bezoeken_planten, "../output/plantenmeetnetten_bezoeken_2020_versie2020-01-11.csv", row.names = FALSE)
 
@@ -618,7 +619,8 @@ bezoeken_telperiode <- bezoeken %>%
 bezoeken_buiten_telperiode <- bezoeken_telperiode %>%
   filter(abs(verschil_dagen) > 1 ) %>%
   arrange( desc(verschil_dagen_abs)) %>%
-    select(soortgroep, meetnet, protocol, telperiode, locatie, is_sample,  bezoek_status_detail, datum, visit_id, verschil_dagen) %>%
+  mutate(visit_id = str_c('<a href = "https://www.meetnetten.be/fieldwork/visits/', visit_id,'">', visit_id, '</a>')) %>%
+  select(soortgroep, meetnet, protocol, telperiode, locatie, is_sample,  bezoek_status_detail, datum, visit_id, verschil_dagen) %>%
   rename("bezoek status" = bezoek_status_detail, "verschil dagen" = verschil_dagen, "datum bezoek" = datum)
 
 write.csv2(bezoeken_buiten_telperiode, paste("../output/bezoeken_buiten_telperiode", versie,".csv", sep=""))
@@ -730,21 +732,32 @@ counts_locations_controle_tabel_caption <- "Actieve meetnetlocaties waar de doel
 
 taak_locaties <- taken %>%
   filter(werkpakket == "EUROBATS 2022-2023") %>%
-  left_join(select(locaties, meetnet, locatie, is_active, is_sample), by = c("meetnet", "locatie"))
+  left_join(select(locaties, meetnet, locatie, is_active, is_sample), by = c("meetnet", "locatie")) %>%
+  st_drop_geometry()
 
 evaluatie_locaties_vleermuizen <- evaluatie_locaties %>%
-  semi_join(taak_locaties, by = c("meetnet", "locatie")) %>%
-  filter(jaar == year_evaluation)
+  semi_join(taak_locaties, by = c("meetnet")) %>%
+  filter(jaar == year_evaluation) %>%
+  select(meetnet, locatie, aantal_tellingen_cp, aantal_tellingen_gvm, voldoende_geteld)
 
+overzicht_wintertellingen <- taak_locaties %>%
+  select(meetnet, locatie, werkpakket, is_active, is_sample) %>%
+  left_join(evaluatie_locaties_vleermuizen, by = c("meetnet", "locatie")) %>%
+  filter(is_active) %>%
+  mutate(aantal_tellingen_cp = ifelse(is.na(aantal_tellingen_cp), 0, aantal_tellingen_cp),
+         aantal_tellingen_gvm = ifelse(is.na(aantal_tellingen_gvm), 0, aantal_tellingen_gvm),
+         voldoende_geteld = ifelse(is.na(voldoende_geteld), 0, voldoende_geteld)) %>%
+  select(meetnet, werkpakket, locatie, aantal_tellingen_cp, aantal_tellingen_gvm, voldoende_geteld)
 
+write_csv2(overzicht_wintertellingen, "../output/overzicht_wintertellingen_2022_2023.csv")
 
-doelbereik <- sum(evaluatie_locaties_vleermuizen$voldoende_geteld)/n_distinct(taak_locaties$locatie)
+doelbereik <- sum(overzicht_wintertellingen$voldoende_geteld)/nrow(overzicht_wintertellingen)
 
 ```
 
 
 
-```{r, eval = FALSE}
+```{r, eval = TRUE}
 counts_locatie_analyse <- counts_bezoek %>%
   group_by(soortgroep, meetnet, protocol, locatie) %>%
   mutate(n_visits = n_distinct(visit_id),
@@ -816,9 +829,11 @@ trend_locatie_klasse <- trend_locatie %>%
          treshold_high = round((exp(log(1.33)/(n_jaren - 1)) - 1) *100, 1)) %>%
   mutate(klasse = classification_tw(trend_lcl0.95, trend_ucl0.95, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
 
+```
 
-
-
+```{r}
+bezoeken <- bezoeken %>%
+  mutate(link = str_c('<a href = "https://www.meetnetten.be/fieldwork/visits/', visit_id,'">', visit_id, '</a>'))
 ```
 
 

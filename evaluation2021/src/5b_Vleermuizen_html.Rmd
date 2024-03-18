@@ -147,8 +147,10 @@ bezoeken_figuur %>%
   filter(verschil_dagen_abs > 0) %>%
   arrange(desc(verschil_dagen_abs)) %>%
   select(meetnet, telperiode, locatie, eurobats = is_sample, datum, visit_id, verschil_dagen) %>%
+  mutate(visit_id = str_c('<a href = "https://www.meetnetten.be/fieldwork/visits/', visit_id,'">', visit_id, '</a>')) %>%
   datatable(rownames = FALSE,
             filter = 'top',
+            escape = FALSE,
             extensions = c('Buttons', 'Scroller'),
             options = list(
               dom = 'Bfrtip',
@@ -169,7 +171,7 @@ bezoeken_afwijkingen <- bezoeken %>%
   filter(soortgroep %in% soortgroep_sel) %>% 
   filter(jaar == year_evaluation) %>% 
   filter(bezoek_status_detail != "Conform protocol") %>% 
-  select(meetnet,  datum, locatie, eurobats =  jaardoel, "bezoek status" = bezoek_status_detail, opmerkingen = notes) %>%
+  select(link, meetnet,  datum, locatie, eurobats =  jaardoel, "bezoek status" = bezoek_status_detail, opmerkingen = notes) %>%
   mutate(opmerkingen = gsub("\n", ". ", opmerkingen))
 ```
 
@@ -181,14 +183,10 @@ bezoeken_afwijkingen <- bezoeken %>%
 if (nrow(bezoeken_afwijkingen) > 0) {
   
   bezoeken_afwijkingen %>%
-  # kable(booktabs = TRUE, escape = TRUE) %>%
-  # kable_styling(latex_options =  c( "hold_position"),
-  #               bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
-  #   column_spec(5, width = "6cm") %>%
-  #  column_spec(2, width = "3cm")
     datatable(
             rownames = FALSE,
             filter = 'top',
+            escape = FALSE,
             extensions = c('Buttons', 'Scroller'),
             options = list(
               dom = 'Bfrtip',

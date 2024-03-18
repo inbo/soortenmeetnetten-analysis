@@ -2,7 +2,7 @@
 
 ```{r}
 
-year_planning <- 2023
+year_planning <- 2024
 
 werkpakketten_locaties <- read_vc(root = fileman_up("soortenmeetnetten-queries"),
                                file =  "raw/werkpakketten_locaties")
@@ -12,10 +12,21 @@ evaluatie_locaties_cyclus <- evaluatie_locaties %>%
   group_by(meetnet) %>%
   filter(meetcyclus == max(meetcyclus)) %>%
   ungroup() %>%
-  group_by(meetnet, locatie, protocol) %>%
+  group_by(meetnet, locatie, protocol, meetcyclus) %>%
   summarise(voldoende_geteld_cyclus = sum(voldoende_geteld) > 0,
-         voldoende_data_cyclus = sum(voldoende_data) > 0) %>%
+         voldoende_data_cyclus = sum(voldoende_data) > 0,
+         max_n_tellingen = max(aantal_tellingen_jaardoel),
+         jaar = str_c(jaar, collapse = "; ")) %>%
   ungroup()
+
+meetnet_protocol <- evaluatie_locaties_cyclus %>%
+  distinct(meetnet, protocol, meetcyclus)
+
+overzicht_locaties_cyclus <- locaties_metadata %>%
+  inner_join(meetnet_protocol, by = c("meetnet")) %>%
+  left_join(evaluatie_locaties_cyclus, by = c("meetnet", "protocol", "locatie", "meetcyclus")) %>%
+  mutate(voldoende_geteld_cyclus = ifelse(is.na(voldoende_geteld_cyclus), FALSE, voldoende_geteld_cyclus),
+         voldoende_data_cyclus = ifelse(is.na(voldoende_data_cyclus), FALSE, voldoende_data_cyclus))
 
 detail_cyclus <- evaluatie_locaties %>%
   filter(duur_meetcyclus == 3) %>%

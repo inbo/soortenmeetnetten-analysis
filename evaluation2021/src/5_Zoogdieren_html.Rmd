@@ -149,7 +149,7 @@ bezoeken_afwijkingen <- bezoeken %>%
   filter(soortgroep %in% soortgroep_sel) %>% 
   filter(jaar == year_evaluation) %>% 
   filter(bezoek_status_detail != "Conform protocol") %>% 
-  select(meetnet, datum, locatie, "bezoek status" = bezoek_status_detail, opmerkingen = notes) %>%
+  select(link, meetnet, datum, locatie, "bezoek status" = bezoek_status_detail, opmerkingen = notes) %>%
   mutate(opmerkingen = gsub("\n", ". ", opmerkingen))
 ```
 
@@ -161,14 +161,10 @@ bezoeken_afwijkingen <- bezoeken %>%
 if (nrow(bezoeken_afwijkingen) > 0) {
   
   bezoeken_afwijkingen %>%
-  # kable(booktabs = TRUE, escape = TRUE) %>%
-  # kable_styling(latex_options =  c( "hold_position"),
-  #               bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
-  #   column_spec(5, width = "6cm") %>%
-  #  column_spec(2, width = "3cm")
     datatable(
             rownames = FALSE,
             filter = 'top',
+            escape = FALSE,
             extensions = c('Buttons', 'Scroller'),
             options = list(
               dom = 'Bfrtip',
