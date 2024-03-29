@@ -16,22 +16,22 @@ locaties_roestbruine_kniptor <- get_locations_smp(only_active = FALSE) %>%
   filter(meetnet == "Roestbruine kniptor") %>%
   select(locatie, is_active)
 
-covariabelen <- get_covariates_smp("raw/covariabele_visit_20240105") %>%
+covariabelen <- get_covariates_smp() %>%
   filter(meetnet == "Roestbruine kniptor") %>%
-  select(-protocol, -task_id, -eenheid) %>%
+  select(-protocol,  -eenheid) %>%
   spread(key = "bezoekvariabele", value = "waarde") %>%
   rename(uren_gevangen = "aantal uren gevangen", weersomstandigheden = "weersomstandigheden - saproxyle kevers")
   
-bezoeken <- get_visits_smp(file = "raw/bezoeken_20240105") %>%
+bezoeken <- get_visits_smp() %>%
   filter(meetnet == "Roestbruine kniptor") %>%
-  select(locatie, visit_id, start_date = datum, start_time, end_time, end_date, bezoek_status, validatie, notes) %>%
+  select(locatie, visit_id, start_date = datum, start_time, end_time, end_date, bezoek_status, validatie, opmerking) %>%
   mutate(start = ymd_hms(str_c(start_date, " ", start_time)),
          end = ymd_hms(str_c(end_date, " ", end_time)),
          hours_calc = difftime(end, start, units = "hours"),
          days_calc = difftime(end, start, units = "days"),
          days_calc_approx =  as.Date(end_date) - as.Date(start_date)) 
 
-data_roestbruine_kniptor_meetnetten_detail <- get_counts_smp(file = "raw/aantallen_20240105") %>%
+data_roestbruine_kniptor_meetnetten_detail <- get_counts_smp() %>%
   filter(meetnet == "Roestbruine kniptor") %>%
   filter(primaire_soort) %>%
   filter(activiteit == "ter plaatse (in val)") %>%
@@ -46,7 +46,7 @@ data_meetnetten_sf <- data_roestbruine_kniptor_meetnetten_detail %>%
   st_as_sf(coords = c("x", "y"), crs = 31370) %>%
   select(locatie_meetnetten = locatie, observation_id, datum_meetnetten = start_date, aantal_val, uren_gevangen_meetnetten = uren_gevangen)
 
-write.csv2(data_roestbruine_kniptor_meetnetten_detail, "output/data_roestbruinekniptor_meetnetten_versie2023-01-08.csv", row.names = FALSE)
+write.csv2(data_roestbruine_kniptor_meetnetten_detail, "output/data_roestbruinekniptor_inhaalslag.csv", row.names = FALSE)
 
 check_locatie <- data_meetnetten_sf %>%
   st_transform(crs = 4326) %>%
@@ -55,98 +55,68 @@ check_locatie <- data_meetnetten_sf %>%
 
 ```
 
-# Locaties waar soort is waargenomen
+## Data waarnemingen.be
 
-Onderstaande tabel geeft een overzicht van de nog actieve locaties (hokken) waar de soort is waargenomen. Deze locaties moeten niet verder onderzocht worden en mogen op inactief gezet worden in meetnetten.  
+De gegevens uit waarnemingen.be bevatten het aantal gevangen individuen. De duur dat de val is geplaatst wordt vaak in het opmerkingen veld vermeld. Maar dit gebeurt niet op een gestructureerde manier, zodat dit op een manuele manier uit het opmerkingen veld moet afgeleid worden. Dit is enkel nog maar gebeurt voor de datasets van 2020 en 2021.
+
+De gegevens uit waarnemingen.be overlappen ook deels met deze uit meetnetten.be. De gegevens die aan volgende voorwaarde voldoen worden niet weerhouden:
+
++ puntlocatie ligt op minder dan 50 meter van een puntlocatie uit de meetnetten-dataset, EN
++ de ingevoerde aantallen in waarnemingen.be komt overeen met de aantallen in meetnetten.be, EN
++ er is minder dan 10 dagen verschil tussen de datum in waarnemingen.be en de datum in meetnetten.be
 
 ```{r}
-aanwezigheid_meetnetten <- data_roestbruine_kniptor_meetnetten_detail %>%
-  mutate(jaar = year(start_date)) %>%
-  group_by(meetnet, locatie, is_active) %>%
-  summarise(aanwezig = sum(aantal_val) > 0,
-            jaar_telling = str_c(unique(jaar), collapse = ";")) %>%
+data_roestbruine_kniptor_extern <- read_csv2(file.path(fileman_up("soortenmeetnetten-queries"),"processed/data_extern_roestbruine_kniptor.csv")) %>%
+  select(id, meetnet, methode, jaar, datum, locatie, aantal, x, y, gebied, validatie, uren_gevangen, opmerking) %>%
+  left_join(st_drop_geometry(locaties_roestbruine_kniptor), by = "locatie") %>%
+  mutate(locatie_in_meetnetten = !is.na(locatie),
+         locatie = ifelse(is.na(locatie),
+                          ifelse((!gebied %in% c("", " ", "  ")) & (!is.na(gebied)), gebied, str_c("nieuw_", id)),
+                          locatie)) %>%
+  mutate(bron = "waarnemingen.be",
+         x_coord = x,
+         y_coord = y) %>%
+  st_as_sf(coords = c("x_coord", "y_coord"), crs = 31370) %>%
+  group_by(id) %>%
+  mutate(dist_data_meetnetten = min(st_distance(geometry, data_meetnetten_sf))) %>%
   ungroup() %>%
-  mutate(bron = "meetnetten",
-         goedgekeurd = TRUE)
+  st_join(data_meetnetten_sf, join = st_nearest_feature)
 
-locaties_aanwezig <- aanwezigheid_meetnetten %>%
-  filter(is_active) %>%
-  filter(aanwezig)
+data_roestbruine_kniptor_extern_dubbels <- data_roestbruine_kniptor_extern %>%
+  st_drop_geometry() %>%
+  filter(abs(datum - datum_meetnetten) <= 10,
+         aantal == aantal_val,
+         drop_units(dist_data_meetnetten) <= 50) %>%
+  select(locatie, id_wnm = id, datum_wnm = datum, datum_mn = datum_meetnetten, aantal_wnm = aantal, aantal_mn = aantal_val, dist_data_meetnetten)
 
 ```
+
+Op basis van bovenstaande voorwaarden, werden `r nrow(data_roestbruine_kniptor_extern_dubbels)` waarnemingen verwijderd uit de dataset.
 
 ```{r}
-locaties_aanwezig %>%
-  kable() %>%
-  kable_styling()
+data_roestbruine_kniptor_extern <- data_roestbruine_kniptor_extern %>%
+  st_drop_geometry() %>%
+  select(-observation_id, -dist_data_meetnetten, -aantal_val, -datum_meetnetten, -locatie_meetnetten, -uren_gevangen_meetnetten) %>%
+  filter(!id %in% data_roestbruine_kniptor_extern_dubbels$id_wnm)
+ 
+write.csv2(data_roestbruine_kniptor_extern, "../output/data_roestbruinekniptor_waarnemingen_versie2024-03-27.csv", row.names = FALSE) 
 ```
 
-# Locaties niet geschikt
+# Overzicht per locatie
 
-```{r}
-locaties_niet_geschikt <- bezoeken %>%
-  filter(str_detect(bezoek_status, "Geen veldwerk mogelijk")) %>%
-  filter(year(start_date) == 2023)
-```
+Per locatie van de inhaalslag bepalen we de status met volgende categorieën:
 
-```{r}
-locaties_niet_geschikt %>%
-  select( locatie, start_date, end_date, bezoek_status, notes) %>%
-  kable(caption = "Niet geschikte locaties") %>%
-  kable_styling()
-```
-
-
-
-# Zoekinspanning voor actieve locaties (hokken) waar soort niet is waargenomen
++ **aanwezig**: roestbruine kniptor werd waargenomen (op basis van gegevens van meetnetten.be en/of waarnemingen.be)
++ **afwezig - voldoende onderzocht**: roestbruine kniptor werd niet waargenomen en hok wordt als voldoende onderzocht beschouwd. 
+We kennen deze categorie toe als:
+  + Hok op inactief werd gezet en er nulwaarnemingen zijn uit meetnetten.be en waarnemingen.be (ook al werd op basis van de data de zoekinspanning niet gehaald)
+  + Er een voldoende zoekinspanning werd geleverd (enkel bij de meetnetten.be data is de zoekinspanning gestructureerd bijgehouden)
++ **afwezig - niet gedocumenteerd**: hok werd op inactief gezet, maar er is geen data beschikbaar voor dat hok. Het is dus onduidelijk waarom het hok op inactief werd gezet. Arno?
 
 De zoekinspanning schatten we in op basis van: 
 
 + het aantal puntlocaties bunnen een hok waar er een val is geplaatst
 + de duur van de plaatsing van de val
-
-```{r}
-zoekinspanning_meetnetten <- data_roestbruine_kniptor_meetnetten_detail %>%
-  anti_join(locaties_aanwezig, by = "locatie") %>%
-  filter(is_active)
-  
-```
-
-
-```{r}
-zoekinspanning_meetnetten <- data_roestbruine_kniptor_meetnetten_detail %>%
-  anti_join(locaties_aanwezig, by = "locatie") %>% 
-  filter(is_active) %>%
-  rename(uren_gevangen_invoer = uren_gevangen) %>%
-  mutate(uren_gevangen = str_replace(string = uren_gevangen_invoer, pattern = ",", ".")) %>%
-  mutate(uren_gevangen = ifelse(uren_gevangen_invoer == "8 dagen", as.character(8 * 24), 
-                                       ifelse(uren_gevangen_invoer == "ca 50 uur", "50", 
-                                              ifelse(uren_gevangen_invoer == "13x24", as.character(13*24), uren_gevangen))),
-         uren_gevangen = as.numeric(uren_gevangen)) %>%
-  mutate(dagen_val = ifelse(!is.na(uren_gevangen) & uren_gevangen != "0", as.numeric(uren_gevangen)/24,
-                               ifelse(!is.na(days_calc), as.numeric(days_calc), as.numeric(days_calc_approx))))
-  
-zoekinspanning_meetnetten_locatie <- zoekinspanning_meetnetten %>%
-  group_by(meetnet, locatie, is_active) %>%
-  summarise(n_puntlocaties = n_distinct(observation_id),
-            dagen_val_totaal = round(sum(dagen_val, na.rm = TRUE), 0),
-            n_puntlocaties_minstens6dagen = sum(dagen_val >= 6, na.rm = TRUE),
-            jaren_bezoeken = str_c(unique(year(start_date)), collapse = "; ")) %>%
-  ungroup() %>%
-  mutate(bron = "meetnetten")
-  
-```
-
-```{r}
-zoekinspanning <- zoekinspanning_meetnetten_locatie %>%
-  arrange(locatie, bron) %>%
-  select(locatie, is_active, bron, everything()) %>%
-  arrange(desc(n_puntlocaties_minstens6dagen)) %>%
-  filter(str_detect(jaren_bezoeken, "2023"))
-```
-
-
-Onderstaande tabel geeft de zoekinspanning weer op basis van de gegevens uit meetnetten.be.
 
 De zoekinspanning wordt uitgedrukt in: 
 
@@ -155,63 +125,114 @@ De zoekinspanning wordt uitgedrukt in:
 + n_puntlocaties_minstens6dagen: aantal puntlocaties waar er val voor minstens 6 dagen werd geplaatst
 
 ```{r}
-zoekinspanning %>%
-  select(-is_active, -meetnet) %>%
-  datatable(extensions = 'Buttons', 
-            options = list(dom = 'Bfrtip',
-                           buttons = c('copy', 'csv', 'excel')
-                           ),
-            filter = 'top',
-            rownames = FALSE,
-            caption = "Zoekinspanning voor de inhaalsaglocaties waar Roestbruine kniptor nog niet werd waargenomen")
-  
-```
-
-
-
-
-# Overzicht tellingen in actieve locaties meetnetten.be
-
-Onderstaande kaart geeft een overzicht van de actieve locaties (hokken) in meetnetten.be en van de puntlocaties uit meetnetten.be en waarnemingen.be.
-
-```{r}
-puntlocaties_mn_sf <- data_roestbruine_kniptor_meetnetten_detail %>%
-  filter(!is.na(x)) %>% 
-  filter(year(start_date) == 2023) %>%
+data_roestbruine_kniptor_all <- data_roestbruine_kniptor_meetnetten_detail %>%
+  mutate(bron = "meetnetten",
+         goedgekeurd = TRUE,
+         locatie_in_meetnetten = TRUE,
+         jaar = year(start_date),
+         aantal = aantal_val,
+         datum = start_date,
+         methode = "op feromonen") %>%
   rename(uren_gevangen_invoer = uren_gevangen) %>%
   mutate(uren_gevangen = str_replace(string = uren_gevangen_invoer, pattern = ",", ".")) %>%
   mutate(uren_gevangen = ifelse(uren_gevangen_invoer == "8 dagen", as.character(8 * 24), 
                                        ifelse(uren_gevangen_invoer == "ca 50 uur", "50", 
                                               ifelse(uren_gevangen_invoer == "13x24", as.character(13*24), uren_gevangen))),
          uren_gevangen = as.numeric(uren_gevangen)) %>%
+  bind_rows(data_roestbruine_kniptor_extern %>%
+              mutate(goedgekeurd = validatie == "goedgekeurd"))  %>% 
   mutate(dagen_val = ifelse(!is.na(uren_gevangen) & uren_gevangen != "0", as.numeric(uren_gevangen)/24,
-                               ifelse(!is.na(days_calc), as.numeric(days_calc), as.numeric(days_calc_approx))),
-         dagen_val = round(dagen_val, 1)) %>%
-  rename(aantal = aantal_val) %>%
-  mutate(bron = "meetnetten.be",
-         label = str_c(bron, ": aantal = ", aantal, "; jaar = ", year(start_date), "; dagen_val = ", ifelse(!is.na(dagen_val), dagen_val, " onbekend")),
-         status_punt = ifelse(aantal > 0, "aanwezig", "niet waargenomen")) %>%
+                               ifelse(!is.na(days_calc), as.numeric(days_calc), as.numeric(days_calc_approx)))) %>%
+  select(meetnet, bron, id_wnm = id, methode, locatie, locatie_in_meetnetten, is_active, x, y, jaar, datum, start_date, start_time, end_date, end_time, uren_gevangen, uren_gevangen_invoer, dagen_val, aantal, weersomstandigheden, goedgekeurd, validatie, opmerking) %>%
+  arrange(desc(locatie_in_meetnetten), locatie, jaar)
+
+overzicht_locaties <- data_roestbruine_kniptor_all %>%
+  group_by(locatie, locatie_in_meetnetten, is_active) %>%
+  summarise(aanwezig = sum(aantal) > 0,
+            aantal_tot = sum(aantal),
+            goedgekeurd = any(goedgekeurd),
+            jaar = str_c(unique(jaar), collapse = "; "),
+            bron = str_c(unique(bron), collapse = "; "),
+            n_puntlocaties = n_distinct(x),
+            dagen_val_totaal = round(sum(dagen_val, na.rm = TRUE), 0),
+            n_puntlocaties_minstens6dagen = sum(dagen_val >= 6, na.rm = TRUE)) %>%
+  ungroup()
+
+locaties_notes <- get_locations_notes_smp() %>%
+  filter(meetnet == "Roestbruine kniptor") %>%
+  select(meetnet, locatie, opmerking_locatie, datum_opmerking) %>%
+  st_drop_geometry() %>%
+  group_by(meetnet, locatie) %>%
+  slice_max(datum_opmerking) %>%
+  ungroup()
+
+locaties_niet_geschikt <- bezoeken %>%
+  filter(str_detect(bezoek_status, "Geen veldwerk mogelijk")) 
+
+overzicht_locaties_inhaalslag <- locaties_roestbruine_kniptor %>%
+  left_join(overzicht_locaties, by = c("locatie", "is_active")) %>%
+  left_join(locaties_notes, by = c( "locatie")) %>%
+  mutate(locatie_in_meetnetten = ifelse(is.na(locatie_in_meetnetten), TRUE, locatie_in_meetnetten),
+         locatie_geschikt = ifelse(locatie %in% locaties_niet_geschikt$locatie, FALSE, TRUE),
+         status = ifelse(aanwezig & !is.na(aanwezig), "aanwezig",
+                         ifelse(is.na(aanwezig) & !is_active, "afwezig - niet gedocumenteerd",
+                                ifelse(!aanwezig & ((!is_active) | n_puntlocaties >= 3), "afwezig - voldoende onderzocht", "niet onderzocht"))))
+
+```
+
+
+
+```{r, eval = FALSE}
+overzicht_locaties_inhaalslag %>%
+  st_drop_geometry() %>%
+  arrange(locatie) %>%
+  select(locatie, is_active, status, bron, n_puntlocaties, n_puntlocaties_minstens6dagen) %>%
+  datatable(rownames = FALSE,
+           filter = "top")
+```
+
+
+
+
+
+
+
+
+# Overzicht tellingen in actieve locaties meetnetten.be
+
+Onderstaande kaart geeft een overzicht van de locaties (hokken) in meetnetten.be en van de puntlocaties uit meetnetten.be en waarnemingen.be (geel = aanwezig, rood = afwezig).
+
+Beide datalagen zijn terug te vinden in de geopackage `inhaalslag_roestbruine_kniptor.gpkg`
+
+```{r}
+data_roestbruine_kniptor_all %>%
+  filter(!is.na(x)) %>%
   st_as_sf(coords = c("x", "y"), crs = 31370) %>%
-  st_transform(crs = 4326) %>%
-  select(bron, aantal, label, status_punt)
+  st_write(layer = "roestbruine_kniptor_puntlocaties", dsn = "../output/inhaalslag_roestbruine_kniptor.gpkg", delete_layer = TRUE)
 
-puntlocaties <- puntlocaties_mn_sf
-
-colorpal2 <- c(inbo_groen,  inbo_lichtblauw)
-factpal2_mn <- colorFactor(colorpal2, puntlocaties_mn_sf$status_punt)
+overzicht_locaties_inhaalslag %>%
+  select(locatie, status, bron, jaar, aantal_tot, n_puntlocaties, dagen_val_totaal, n_puntlocaties_minstens6dagen, opmerking_locatie, datum_opmerking) %>%
+  st_transform(crs = 31370) %>%
+  st_write(layer = "roestbruine_kniptor_hokken", dsn = "../output/inhaalslag_roestbruine_kniptor.gpkg", delete_layer = TRUE)
 ```
 
 
 ```{r}
+puntlocaties_mn_sf <- data_roestbruine_kniptor_all %>%
+  mutate(label = str_c(bron, ": aantal = ", aantal, "; jaar = ", jaar, "; dagen_val = ", ifelse(!is.na(dagen_val), dagen_val, " onbekend")),
+         status_punt = ifelse(aantal > 0, "aanwezig", "niet waargenomen"),
+         show_color = ifelse(aantal > 0, "yellow", "red")) %>%
+  filter(!is.na(x)) %>%
+  st_as_sf(coords = c("x", "y"), crs = 31370) %>%
+  st_transform(crs = 4326) %>%
+  select(bron, aantal, label, status_punt, show_color)
 
-shapes_to_filter <- locaties_roestbruine_kniptor %>%
-  filter(is_active) %>%
-  mutate(locatie_status = ifelse(locatie %in% locaties_aanwezig$locatie, "aanwezig - goedgekeurd",
-                         ifelse(locatie %in% zoekinspanning$locatie, "onderzocht - niet waargenomen", 
-                                ifelse(locatie %in% locaties_niet_geschikt$locatie, "niet geschikt", "niet onderzocht")))) %>%
-  left_join(zoekinspanning, by = c("locatie", "is_active")) %>%
-  select(-meetnet, -is_active) %>%
-  select(locatie, locatie_status, bron, everything()) %>%
+```
+
+```{r}
+
+shapes_to_filter <- overzicht_locaties_inhaalslag %>%
+  select(locatie, status, bron, jaar, aantal_tot, n_puntlocaties, dagen_val_totaal, n_puntlocaties_minstens6dagen, opmerking_locatie) %>%
   as_Spatial()
 
 ```
@@ -221,28 +242,48 @@ sd_map <- SharedData$new(shapes_to_filter)
 
 sd_df <- SharedData$new(as.data.frame(shapes_to_filter@data), group = sd_map$groupName())
 
-colorpal <- c(inbo_groen,  inbo_rood, "black", inbo_steun_blauw)
+colorpal <- c("yellow",  "red",  "blue")
 factpal <- colorFactor(colorpal, sd_map$locatie_status)
 
 #Create crosstalk filters using sd_df:
 
-bscols(filter_checkbox("locatie_status",  "Locatiestatus (hokken)", sd_df, ~locatie_status)
+bscols(filter_checkbox("locatie_status",  "Locatiestatus (hokken)", sd_df, ~status)
 )
 
 #Create the map using the sd_map object:
 
 leaflet(sd_map) %>%
   addTiles %>%
-  addPolygons( color = ~factpal(locatie_status), label = ~str_c(locatie, " - ", locatie_status), opacity = 0.8, group = "Hokken") %>%
-    addCircleMarkers(data = puntlocaties_mn_sf, label = ~label, fillColor  = ~factpal2_mn(status_punt), fillOpacity = 0.8, radius = 4, color = "black", weight = 2, group = "Puntlocaties meetnetten.be") %>%
-  addLegend(pal = factpal, values = ~locatie_status, title = "Locatiestatus (hokken)") %>%
+  addPolygons( color = ~factpal(status), label = ~str_c(locatie, " - ", status), opacity = 0.8, group = "Hokken") %>%
+  addCircleMarkers(data = puntlocaties_mn_sf, label = ~label, color = ~show_color, opacity = 0.6, group = "Puntlocaties meetnetten.be en waarnemingen.be") %>%
+  addLegend(pal = factpal, values = ~status, title = "Locatiestatus (hokken)") %>%
   addLayersControl(
-    overlayGroups = c("Hokken", "Puntlocaties meetnetten.be"),
+    overlayGroups = c("Hokken", "Puntlocaties meetnetten.be en waarnemingen.be"),
     options = layersControlOptions(collapsed = FALSE)
   )
 
 datatable(sd_df,
           rownames = FALSE,
-            filter = 'top')
+            filter = 'top',
+          extensions = 'Buttons', 
+          options = list(
+          dom = 'Bfrtip',
+          buttons = c('copy', 'csv', 'excel')
+  ))
+```
+
+
+# Conclusie inhaalslag
+
+Hieronder geven we een overzicht van alle onderzochte hokken uit de inhaalslag.
+
+```{r}
+overzicht_locaties_inhaalslag %>%
+  st_drop_geometry() %>%
+  group_by(status) %>%
+  summarise(n_hokken = n_distinct(locatie)) %>%
+  ungroup() %>%
+  kable() %>%
+  kable_styling()
 ```
 
