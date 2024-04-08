@@ -88,7 +88,7 @@ obs_most_recent <- data_zeggekorfslak_all %>%
                               ifelse((2023 - maxjaar_buffer) >= 6,  "tussen 6 en 12 jaar geleden", "< 6 jaar geleden")),
          laatste_wmn = factor(laatste_wmn, levels = c(">= 12 jaar geleden", "tussen 6 en 12 jaar geleden", "< 6 jaar geleden")))
 
-st_write(obs_most_recent, "../output/inhaalslag_zeggekorfslak.gpkg", "recentste_waarnemingen", driver = "gpkg")
+st_write(obs_most_recent, "../output/inhaalslag_zeggekorfslak.gpkg", "recentste_waarnemingen", driver = "gpkg", delete_layer = TRUE)
   
 ```
 
@@ -143,11 +143,12 @@ locaties_herbezoek_buffer <- leefgebied_herbezoek %>%
 
 locaties_herbezoek_buffer %>%
   st_transform(crs = 4326) %>%
-  st_write(dsn = "../output/zeggekorfslak_prioritering", layer = "locaties_herbezoek_temp2", append = TRUE, driver = "ESRI Shapefile")
+  st_write(dsn = "../output/zeggekorfslak_prioritering", layer = "locaties_herbezoek_temp3", append = TRUE, driver = "ESRI Shapefile")
 
 
 leefgebied_herbezoek_locaties_2023 <- read_sf(dsn = "../output/zeggekorfslak_prioritering", layer = "locaties_herbezoek_temp2") %>%
-  rename(geom = geometry)
+  rename(geom = geometry) %>%
+  filter(!is.na(meetnet))
 
 # leefgebied_herbezoek_locaties_2023 %>%
 #   leaflet() %>%

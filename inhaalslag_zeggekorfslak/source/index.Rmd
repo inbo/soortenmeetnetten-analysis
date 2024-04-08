@@ -62,12 +62,6 @@ library(conflicted)
 conflicts_prefer(dplyr::filter())
 ```
 
-
-
 ```{r}
-source(here("src", "functions_smp.R"))
+source(file.path(fileman_up("soortenmeetnetten-analysis") ,"src/functions_smp.R"))
 ```
-
-
-
-

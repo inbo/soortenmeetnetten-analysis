@@ -13,7 +13,7 @@ aantallen_mollusken <- get_counts_smp(species_group = "mollusken") %>%
   select(-meetnet, -datum, -jaar, -locatie)
 
 visits_mollusken <- get_visits_smp(species_group = "mollusken") %>%
-  select( meetnet, locatie, datum, jaar, visit_id, bezoek_status, notes)
+  select( meetnet, locatie, datum, jaar, visit_id, bezoek_status, opmerking)
 
 data_mollusken_meetnetten <- visits_mollusken %>%
   left_join(aantallen_mollusken, by = c("visit_id")) %>%
@@ -35,7 +35,6 @@ data_mollusken_meetnetten_union <- data_mollusken_meetnetten %>%
   ungroup()
 
 ```
-
 
 + Gegevens ingevoerd in waarnemingen.be, aangeleverd door Natuurpunt Studie
   + Gegevens met zelfde locatie/datum als een bezoek in meetnetten.be en die op minder dan 100 meter verwijderd liggen van de dichtsbijzijnste meetnetten.be-waarneming beschouwen we als dubbel ingevoerde gegevens en worden verwijderd. 
@@ -71,8 +70,6 @@ check <- data_mollusken_extern %>%
   filter(n() > 1)
 
 ```
-
-
 
 ```{r}
 
@@ -131,24 +128,13 @@ data_zeggekorfslak_buffer <- data_zeggekorfslak_sf %>%
  data_zeggekorfslak_inbo <- data_zeggekorfslak_inbo %>%
    anti_join(data_zeggekorfslak_inbo_remove, by = "id") 
  
-
-
 ```
-
-
-
-
-
-
-
 
 ## Overzicht onderzochte locaties
 
 Onderstaande tabel geeft een overzicht van het aantal onderzochte locaties op basis van alle aangeleverde data (zowel meetnetten.be en waarnemingen.be).
 
-
 ```{r}
-
 
 data_mollusken_locatie <- data_mollusken_all %>%
   group_by(meetnet, locatie, nieuwe_locatie, locatie_prioritair, is_active) %>%
@@ -191,6 +177,7 @@ overzicht_mollusken %>%
   kable_styling()  %>%
   collapse_rows(c(1,2))
 ```
+
 ```{r}
 data_zeggekorfslak_all <- data_zeggekorfslak_sf %>%
   bind_rows(data_zeggekorfslak_inbo) %>%
