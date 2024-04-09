@@ -46,7 +46,7 @@ data_meetnetten_sf <- data_roestbruine_kniptor_meetnetten_detail %>%
   st_as_sf(coords = c("x", "y"), crs = 31370) %>%
   select(locatie_meetnetten = locatie, observation_id, datum_meetnetten = start_date, aantal_val, uren_gevangen_meetnetten = uren_gevangen)
 
-write.csv2(data_roestbruine_kniptor_meetnetten_detail, "output/data_roestbruinekniptor_inhaalslag.csv", row.names = FALSE)
+write.csv2(data_roestbruine_kniptor_meetnetten_detail, "../output/data_roestbruinekniptor_inhaalslag.csv", row.names = FALSE)
 
 check_locatie <- data_meetnetten_sf %>%
   st_transform(crs = 4326) %>%
@@ -68,6 +68,7 @@ De gegevens uit waarnemingen.be overlappen ook deels met deze uit meetnetten.be.
 ```{r}
 data_roestbruine_kniptor_extern <- read_csv2(file.path(fileman_up("soortenmeetnetten-queries"),"processed/data_extern_roestbruine_kniptor.csv")) %>%
   select(id, meetnet, methode, jaar, datum, locatie, aantal, x, y, gebied, validatie, uren_gevangen, opmerking) %>%
+  filter(id != 279641225) %>% # afgekeurde waarneming
   left_join(st_drop_geometry(locaties_roestbruine_kniptor), by = "locatie") %>%
   mutate(locatie_in_meetnetten = !is.na(locatie),
          locatie = ifelse(is.na(locatie),
@@ -111,7 +112,7 @@ Per locatie van de inhaalslag bepalen we de status met volgende categorieën:
 We kennen deze categorie toe als:
   + Hok op inactief werd gezet en er nulwaarnemingen zijn uit meetnetten.be en waarnemingen.be (ook al werd op basis van de data de zoekinspanning niet gehaald)
   + Er een voldoende zoekinspanning werd geleverd (enkel bij de meetnetten.be data is de zoekinspanning gestructureerd bijgehouden)
-+ **afwezig - niet gedocumenteerd**: hok werd op inactief gezet, maar er is geen data beschikbaar voor dat hok. Het is dus onduidelijk waarom het hok op inactief werd gezet. Arno?
++ **niet onderzocht**: hok werd op inactief gezet omdat het minder prioritair was om te onderzoeken, gezien er al een hok in de omgeving ervan werd onderzocht.
 
 De zoekinspanning schatten we in op basis van: 
 
@@ -146,6 +147,8 @@ data_roestbruine_kniptor_all <- data_roestbruine_kniptor_meetnetten_detail %>%
   select(meetnet, bron, id_wnm = id, methode, locatie, locatie_in_meetnetten, is_active, x, y, jaar, datum, start_date, start_time, end_date, end_time, uren_gevangen, uren_gevangen_invoer, dagen_val, aantal, weersomstandigheden, goedgekeurd, validatie, opmerking) %>%
   arrange(desc(locatie_in_meetnetten), locatie, jaar)
 
+write_csv2(data_roestbruine_kniptor_all, "../output/data_inhaalslag_roestbruinekniptor_versie2024-04-09.csv") 
+
 overzicht_locaties <- data_roestbruine_kniptor_all %>%
   group_by(locatie, locatie_in_meetnetten, is_active) %>%
   summarise(aanwezig = sum(aantal) > 0,
@@ -175,7 +178,7 @@ overzicht_locaties_inhaalslag <- locaties_roestbruine_kniptor %>%
   mutate(locatie_in_meetnetten = ifelse(is.na(locatie_in_meetnetten), TRUE, locatie_in_meetnetten),
          locatie_geschikt = ifelse(locatie %in% locaties_niet_geschikt$locatie, FALSE, TRUE),
          status = ifelse(aanwezig & !is.na(aanwezig), "aanwezig",
-                         ifelse(is.na(aanwezig) & !is_active, "afwezig - niet gedocumenteerd",
+                         ifelse(is.na(aanwezig) & !is_active, "niet onderzocht",
                                 ifelse(!aanwezig & ((!is_active) | n_puntlocaties >= 3), "afwezig - voldoende onderzocht", "niet onderzocht"))))
 
 ```
@@ -275,7 +278,7 @@ datatable(sd_df,
 
 # Conclusie inhaalslag
 
-Hieronder geven we een overzicht van alle onderzochte hokken uit de inhaalslag.
+Hieronder geven we een overzicht van alle hokken van de inhaalslag.
 
 ```{r}
 overzicht_locaties_inhaalslag %>%
