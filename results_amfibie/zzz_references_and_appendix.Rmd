@@ -16,7 +16,7 @@ De gegevens die we gebruiken voor de analyse moeten aan volgende voorwaarden vol
 
 -   de gegevens werden ingezameld volgens het veldwerkprotocol;
 
--   de gegevens zijn afkomstig van meetnetlocaties (bijkomende tellingen op locaties die niet tot de steekproef behoren gebruiken we niet in de analyse omdat dit to vertekening kan leiden)
+-   de gegevens zijn afkomstig van meetnetlocaties (bijkomende tellingen op locaties die niet tot de steekproef behoren gebruiken we niet in de analyse omdat dit tot vertekening kan leiden)
 
 -   voor knoflookpad gebruiken we enkele de tellingen via een hydrofoon
 
@@ -28,7 +28,7 @@ We voegen ook een locatie-effect toe aan het model onder de vorm van een *random
 Hiermee geven we aan dat tellingen op eenzelfde locatie gecorreleerd zijn.
 Voor Boomkikker en Rugstreeppad voegen we ook een *random intercept* voor cluster toe, om aan te geven dat de aantallen per poelen binnen een cluster gecorreleerd zijn met elkaar.
 
-De zoekingspanning per telling is verschillend bij de tellingen van vuursalamander, de larvetellingen en de fuiktellingen.
+De zoekinspanning per telling is verschillend bij de tellingen van vuursalamander, de larvetellingen en de fuiktellingen.
 Daarom maken we gebruik van volgende waarden als *offset* in het model:
 
 -   transectlengte in meter / 1000
@@ -73,7 +73,7 @@ $$\Delta b_j \sim {N(0,\sigma_{j}^2)} $$
 Lineaire trends veronderstellen dat er een constante wijziging is over de volledige looptijd.
 Het model dat we hiervoor gebruiken is nagenoeg identiek aan het niet-lineaire model.
 Het enige verschil zit in de lineaire predictor waar we de eerste orde random walk ($\Delta b_j$) vervangen door een lineaire trend ($\beta_{1}j$).
-Bij boomkikker en en kamsalamander voegen we een *random slope* voor cluster toe, zodat de lineaire trend kan variëren per cluster ($\beta_{1c}j$).
+Bij boomkikker en kamsalamander voegen we een *random slope* voor cluster toe, zodat de lineaire trend kan variëren per cluster ($\beta_{1c}j$).
 Voor vuursalamander gebruiken we een random slope voor de locaties ($\beta_{1l}j$)
 
 Dit model gebruiken we voor volgende schattingen:
@@ -81,4 +81,3 @@ Dit model gebruiken we voor volgende schattingen:
 -   gemiddelde jaarlijkse lineaire trend in aantallen, m.a.w. de percentage vooruitgang of achteruitgang per jaar;
 
 -   totale trend in aantallen over de volledige periode, m.a.w. de percentage vooruitgang of achteruitgang over de hele periode.
-

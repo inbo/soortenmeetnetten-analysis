@@ -18,10 +18,10 @@ We geven hier enkel de belangrijkste elementen van de gebruikte modellen.
 
 -   De modellen voor alle soorten bevatten een locatie-effect waarmee we aangeven dat het om herhaalde tellingen gaat (elke locatie wordt om het jaar of om de drie jaar geteld).
 
--   Bij boomkikker en kamsalamander zijn de locaties (poelen) vaak geclusterd en de aantallen per poel binnen zo een cluster zijn vaak gecorreleerd.
+-   Bij boomkikker, heikikker, kamsalamander en poelkikker zijn de locaties (poelen) vaak geclusterd en de aantallen per poel binnen zo een cluster zijn vaak gecorreleerd.
     Daarom voegen we ook een cluster-effect toe aan het model.
 
--   In sommige gevallen verschilt de zoekinspanning per locatie en deze zoekinspanning heeft een invloed op de getelde aantallen.
+-   In sommige gevallen verschilt de zoekinspanning per locatie, wat een invloed heeft op de getelde aantallen.
     Daarom nemen we ook de zoekinspanning mee op in de modellen.
     Bij de larvetellingen gaat het om het aantal keer dar er geschept werd.
     Bij de vuursalamander drukken we de zoekinspanning uit als de lengte van het afgelegde transect.
@@ -48,7 +48,7 @@ Hiervoor kiezen de waarde +33 %, wat overeenkomt met eenzelfde relatief effect d
 Dit classificatiesysteem resulteert in 10 klassen (Figuur \@ref(fig:figtrendklasse)).
 In Tabel \@ref(tab:tabelklasse) geven we de codes en de beschrijving die bij de verschillende klassen horen.
 
-```{r figtrendklasse, fig.cap = "Classificatie van trends of verschillen", fig.height= 4}
+```{r figtrendklasse, fig.cap = "Classificatie van trends of verschillen", fig.height= 6}
 
 # klasse_color <- c("++" = inbo_groen, "+" = inbo_groen, "--" = inbo_rood, "-" = inbo_rood, "?+" = inbo_grijsblauw, "?-" = inbo_grijsblauw, "?" = inbo_grijsblauw, "~" = inbo_geelgr, "+~" = inbo_groen, "-~" = inbo_rood, "R" = inbo_grijsblauw)
 
@@ -125,7 +125,7 @@ trend_klasses <- data.frame(
                           "Significante negatieve trend/verandering, significant hoger dan onderste drempelwaarde")) %>%
   mutate(klasse = classification(lcl, ucl, threshold = c(-0.25, 0.33), reference = 0),
          klasse_naam = factor(klasse_naam, levels = c("sterke afname", "afname", "matige afname", "mogelijke afname", "onbekend", "stabiel", "mogelijke toename", "matige toename", "toename", "sterke toename" )),
-         klasse_plot = format(klasse, type = "plot"))
+         klasse_plot = format(klasse, type = "markdown"))
 
 if (html_output) {
   
@@ -164,5 +164,5 @@ In het eerste geval weten we met zekerheid dat er geen sterke toename of afname 
 In het tweede geval is de onzekerheid dermate groot dat we geen enkele conclusie kunnen trekken op basis van de data.
 
 Ook de klassen 'mogelijke toename' en 'mogelijke afname' geven een meerwaarde.
-Zeker omdat we voor de soortenmeetnetten nog maar enkele jaren aan het meten zijn waardoor de onzekerheid op de schattingen vrij groot kan zijn.
+Zeker omdat we voor de soortenmeetnetten nog maar enkele jaren aan het tellen zijn waardoor de onzekerheid op de schattingen vrij groot kan zijn.
 Via deze bijkomende klassen verkrijgen we al een indicatie van de trendrichting ook al kunnen we nog geen significante trend detecteren.

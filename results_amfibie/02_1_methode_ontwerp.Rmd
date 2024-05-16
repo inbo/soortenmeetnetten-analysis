@@ -13,7 +13,8 @@ names_sc <- names_sc %>%
                    soort_wet = c("Coronella austriaca", "Rana arvalis")))
 
 meetnetcharacteristics <- get_characteristics_smp() %>%
-  filter(soortgroep %in% c("amfibieën", "reptielen"))
+  filter(soortgroep %in% c("amfibieën", "reptielen")) %>%
+  mutate(opstartjaar = ifelse(meetnet == "Vroedmeesterpad", 2019, opstartjaar))
 ```
 
 ## Ontwerp van de soortenmeetnetten
@@ -59,40 +60,37 @@ meetnetcharacteristics %>%
 
 ### Telmethode
 
-De amfibieën en reptielen worden geteld op basis van één of meerdere van volgende veldprotocollen:
+De amfibieën en reptielen worden geteld op basis van één of meerdere van volgende veldprotocollen.
 
--   **Transecttelling vuursalamander**.
-    Het aantal post-metamorfe vuursalamanders wordt geteld langs een transect van ongeveer 1 km.
-    De telling gebeurt na periodes met hevige regenval en start bij voorkeur 2 uur na zonsondergang.
+-   **Transecttelling vuursalamander**: Het aantal post-metamorfe vuursalamanders wordt geteld langs een transect van ongeveer 1 km.
+    De telling gebeurt tijdens of na periodes met hevige regenval en start bij voorkeur 2 uur na zonsondergang.
 
--   **Fuikentelling kamsalamander**.
-    Per waterpartij worden 2 amfibieënfuiken geplaatst die na 24 uren leeg gemaakt worden.
+-   **Fuikentelling kamsalamander**: Per waterpartij worden 2 amfibieënfuiken geplaatst die na 24 uren leeg gemaakt worden.
     Alle adulte kamsalamanders worden geteld per fuik.
 
--   **Roepkorentelling**.
-    Het aantal roepende mannetjes wordt geteld.
+-   \*\*Roepkorentelling\*: Het aantal roepende mannetjes wordt geteld.
     Daarbij zijn er een aantal varianten:
 
-    -   Voor boomkikker, poelkikker en knoflookpad tellen we het aantal roepende mannetjes per poel. Voor vroedmeesterpad tellen we het aantal roepende mannetjes per gebied omdat deze soort vanop het land roept.
+    -   Voor boomkikker, poelkikker en knoflookpad tellen we het aantal roepende mannetjes per poel. Voor vroedmeesterpad tellen we het aantal roepende dieren per gebied omdat deze soort vanop het land roept.
     -   Knoflookpad mannetjes roepen vanop de bodem van een poel en worden daarom met behulp van een hydrofoon geteld.
     -   Voor poelkikker tellen we het totaal van de roepende poelkikkers en bastaardkikkers samen, omdat de roep van beide soorten moeilijk te onderscheiden is. Via DNA analyse van een 50-tal larven per poel maken we vervolgens een inschatting van de verhouding tussen beide soorten.
 
 -   **Telling larven en metamorfen** Larven van kamsalamander, boomkikker, poelkikker en vroedmeesterpad worden geteld met een schepnet.
     Per 2 meter oevertraject voert men een schepbeweging uit met een maximum van 30 schepbewegingen per poel.
-    We noteren het aantal larven en metamorfen per soort en ook het aantal uitgevoerde schepbeweging.
-    Om poelkikker en bastaardkikker te onderscheiden voeren we ook een genetische bemonstering uit door een staartpuntje te knippen van ongeveer 50 larven per poel.
+    We noteren het aantal larven en metamorfen per soort en ook het aantal uitgevoerde schepbewegingen.
+    Om poelkikker en bastaardkikker te onderscheiden voeren we ook een genetische bemonstering uit door het staartpuntje te knippen van ongeveer 50 larven per poel.
 
 -   **Eitelling en DNA-analyse** Eiklompen van heikikker worden geteld per poel.
     Omdat de eiklompen van heikikker visueel moeilijk te onderscheiden zijn van deze van de bruine kikker, verzamelen we 1 eitje per eiklomp met een maximum van 50 eitjes.
     Via een DNA-analyse van de eitjes bepalen we het aandeel van de eitjes dat van heikikker afkomstig is.
 
--   **Transecttelling rugstreeppad** Rugstreeppad plant zich vooral voor in tijdelijke plassen die per jaar sterk kunnen variëren in grootte en ligging.
-    Daarom tellen we de soort langsheen een vast transect die verschillende waterpartijen verbindt.
+-   **Transecttelling rugstreeppad** De rugstreeppad is een pioniersoort die voor de voortplanting gebruik maakt van tijdelijke plassen die per jaar sterk kunnen variëren in grootte en ligging.
+    Daarom tellen we de soort langsheen een vast transect dat verschillende waterpartijen verbindt.
     Tijdens een avondbezoek worden langsheen het transect roepende mannetjes, eisnoeren en larven geteld.
     Ook zichtwaarnemingen van adulten en juvenielen worden genoteerd.
 
--   **Telling van gladde slang onder platen** In elk gebied worden er een aantal artificiële platen geplaatst.
-    Per plaat tellen we aantal adulte en juveniele dieren tijdens geschikte weersomstandigheden, bij temperaturen tussen 17 en 22°C
+-   **Telling van gladde slang onder platen** In elk gebied worden er een vooropgesteld aantal artificiële platen gelegd waaronder gladde slangen zich gaan ophouden.
+    Per plaat tellen we het aantal adulte en juveniele dieren tijdens geschikte weersomstandigheden, bij temperaturen tussen 17 en 22°C
 
 Een overzicht van de gebruikte veldprotocollen vind je in Tabel \@ref(tab:tabkarakteristiekentelperiode).
 Voor elke soort vermelden we de telperiode(s) waarin de tellingen gebeuren en het aantal bezoeken per telperiode.
@@ -107,6 +105,7 @@ meetnetcharacteristics1 <- meetnetcharacteristics %>%
   select(Meetnet = meetnet, Veldprotocol =  protocol_naam,  Telperiode = telperiode, "Aantal bezoeken per telperiode" = bezoeken)
 
 meetnetcharacteristics1 %>%
+  arrange(Meetnet, Veldprotocol) %>%
   kable(caption = "Overzicht van de meetnetkarakterisitieken: veldprotocol, telperiode en aantal bezoeken",
         align = "llcc",
         booktabs = TRUE) %>%
@@ -117,19 +116,27 @@ meetnetcharacteristics1 %>%
 
 ### Selectie van de meetnetlocaties
 
-Wanneer er van een bepaalde soort minder dan 30 populaties voorkomen in Vlaanderen, worden alle populaties opgenomen in het meetnet.
+Voor elk meetnet selecteren we een aantal locaties waar de tellingen uitgevoerd moeten worden.
+De ruimtelijke definitie van een locatie verschilt per meetnet en hangt af van de gebruikte telmethode.
+
+Bij de meetnetten boomkikker, heikikker, kamsalamander, knoflookpad en poelkikker komt een locatie overeen met één poel.
+De telling gebeurt hier dus voor elke poel afzonderlijk.
+Bij de meetnetten van rugstreeppad en vroedmeesterpad beschouwen we een (ruimtelijk aaneengesloten) gebied met verschillende poelen als locatie.
+De reden hiervoor is, zoals eerder vermeld, dat de vroedmeesterpad vanop land roept en dat de rugstreeppad vaak voorkomt in tijdelijke poelen waarvan de locatie varieert jaar tot jaar.
+Ook voor vuursalamander en gladde slang gebruiken we een gebied als locatie.
+
+Wanneer een soort voorkomt op minder dan 60 locaties in Vlaanderen, nemen we alle locaties op in het meetnet.
 We spreken dan van een integrale monitoring.
-Wanneer er meer dan 30 populaties zijn, is het niet meer haalbaar om alle populaties te tellen.
-We selecteren dan 30 populaties via een willekeurige steekproef.
-Tabel \@ref(tab:tabkarakteristiekenselectie) toont voor elk meetnet het aantal meetnetlocaties/populaties en of de soort integraal dan wel via een steekproef wordt geteld.
+Wanneer er meer dan 60 locaties zijn, is het niet meer haalbaar om alle locaties te tellen.
+We selecteren dan 60 locaties via een willekeurige steekproef.
+Tabel \@ref(tab:tabkarakteristiekenselectie) toont voor elk meetnet het aantal meetnetlocaties en of de soort integraal dan wel via een steekproef wordt geteld.
 De tabel geeft ook de duur van de meetcyclus weer.
 Dit is de periode waarin alle meetnetlocaties geteld worden.
 Een meetcyclus van drie jaar betekent dus dat elke meetnetlocatie om de drie jaar geteld wordt.
-Voor de soorten met een integrale selectie worden alle meetnetlocaties jaarlijks geteld.
 
-We moeten er uiteraard ook mee rekening houden dat het aantal populaties verandert in de tijd.
-Bij de integrale monitoring voegen we nieuwe locaties met populaties toe aan het meetnet, zolang de grens van 30 locaties niet wordt overschreden.
-In het geval van een steekproef, zullen we een nieuwe steekproef trekken wanneer de verspreiding van de populaties sterk wijzigt.
+We moeten er uiteraard ook rekening mee houden dat het aantal locaties kan veranderen in de tijd.
+Bij de integrale monitoring voegen we nieuwe locaties toe aan het meetnet, zolang de grens van 60 locaties niet wordt overschreden.
+In het geval van een steekproef, zullen we een nieuwe steekproef trekken wanneer de verspreiding van de soort sterk wijzigt.
 Daarbij gebruiken we een methode die garandeert dat een zo groot mogelijk aandeel van de oorspronkelijk geselecteerde locaties behouden blijft.
 
 ```{r tabkarakteristiekenselectie}
@@ -143,6 +150,7 @@ meetnetcharacteristics2 <- meetnetcharacteristics %>%
   unique()
 
 meetnetcharacteristics2 %>%
+  arrange(Meetnet) %>%
   kable(caption = "Overzicht van de meetnetkarakteristieken: selectie van locaties, aantal locaties en duur van de meetcyclus",
         align = "llcc",
         booktabs = TRUE,
@@ -212,31 +220,27 @@ include_graphics("image/dummy_figuur.png")
 
 ### Habitatkenmerken
 
-*Waarom geen habitatkenmerken voor poelkikker en heikikker??*
-
 Voor de boomkikker, kamsalamander, rugstreeppad en vroedmeesterpad vragen we ook om enkele habitatkenmerken te bepalen van de getelde poelen, zodat we een ruwe inschatting kunnen maken van de kwaliteit van het aquatische deel van het leefgebied.
 Het bepalen van de habitatkenmerken gebeurt op het moment dat de larven geteld worden.
 
 Volgende variabelen worden bepaald:
 
--   aanwezigheid van vis
--   beschaduwing van de poel (%)
--   maximale diepte (m)
+-   Aanwezigheid van vis
+-   Beschaduwing van de poel (%)
+-   Maximale diepte (m)
 -   Oppervlakte van de waterpartij (m²)
 -   Permanente waterkolom (ja/nee)
 -   Waterkwaliteit op basis van volgende categorieën
-    -   plas verdwenen of volledig verland
-    -   slecht: verwaarloosde poel met eutroof water (algen, kroos), anders vervuild of verregaand verland
-    -   middelmatig: tussen slecht en goed
-    -   goed: helder water, typische oever en/of waterplanten, weinig verlanding, niet zichtbaar vervuild
+    -   Plas verdwenen of volledig verland
+    -   Slecht: verwaarloosde poel met eutroof water (algen, kroos), anders vervuild of verregaand verland
+    -   Middelmatig: tussen slecht en goed
+    -   Goed: helder water, typische oever en/of waterplanten, weinig verlanding, niet zichtbaar vervuild
 
 Voor rugstreeppad en vroedmeesterpad vragen we bijkomend een inschatting van de bedekking (%) van:
 
--   drijvende vegetatie
--   onderwatervegetatie
--   verticale vegetatie
-
-*Waarom deze variabelen niet bij niet bij boomkikker en kamsalamander??*
+-   Drijvende vegetatie
+-   Onderwatervegetatie
+-   Verticale vegetatie
 
 ## Ingezamelde telgegevens
 
@@ -250,13 +254,14 @@ analyseset_roepkoren_knoflookpad <- read_vc(root = file.path(data_path, "output/
 analyseset_rugstreeppad <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_rugstreeppad")
 analyseset_vuursalamander <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_vuursalamander")
 analyseset_larven <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_larven")
-analyseset_heikikker <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_heikikker")
-analyseset_poelkikker <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_poelkikker")
+analyseset_heikikker <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_heikikker") %>%
+  mutate(is_sample = TRUE)
+analyseset_poelkikker <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_poelkikker") %>%
+  mutate(is_sample = TRUE)
 analyseset_vroedmeesterpad <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_vroedmeesterpad")
 
 observers <- get_observers_smp("amfibieën") %>%
-  distinct(visit_id, naam_teller) %>%
-  mutate(visit_id = as.character(visit_id))
+  distinct(visit_id, naam_teller)
 
 analyseset_all <- bind_rows(
   analyseset_fuiken_detail,
@@ -308,7 +313,11 @@ n_tellocaties <- n_distinct(visits_all$locatie)
 
 n_tellers <- n_distinct(visits_all$naam_teller)
 
+n_tellingen_optioneel <- n_distinct((visits_all %>%
+                                        filter(!is_sample))$visit_id) 
 
+n_tellocaties_optioneel <- n_distinct((visits_all %>%
+                                        filter(!is_sample))$locatie) 
 
 ```
 
@@ -317,14 +326,12 @@ Sinds de start van de meetnetten in 2016 tot en met 2023 hebben `r n_tellers` te
 
 In Figuur \@ref(fig:figinspanning) zien we de monitoringinspanning in de tijd voor alle amfibieënmeetnetten samen.
 We drukken de monitoringinspanning uit als het aantal uitgevoerde tellingen, het aantal tellocaties en het aantal tellers.
-Naast de meetnetlocaties, kunnen ook andere locaties (die niet tot de steekproef behoren) optioneel geteld worden.
-Dit geven we weer in Figuur \@ref(fig:figinspanning).
-Het gaat vooral om tellingen van de weider verspreide kamsalamander.
 
 ```{r figinspanning,  fig.cap = "Monitoringinspanning voor de meetnetlocaties van alle amfibieënmeetnetten samen", warning=TRUE}
 
 plot1 <- monitoring_effort_soortgroep_jaar %>%
   filter(is_sample) %>%
+  filter(jaar < 2024) %>%
   ggplot(aes(x = jaar, y = aantal, colour = monitoringsinspanning)) +
   geom_point() +
   geom_line() +
@@ -351,9 +358,14 @@ if (html_output) {
 
 ```
 
-```{r figinspanningopt,  fig.cap = "Monitoringinspanning voor de optionele locaties van alle amfibieënmeetnetten samen", warning=TRUE}
+Naast de meetnetlocaties, kunnen ook andere locaties (die niet tot de steekproef behoren) optioneel geteld worden.
+In totaal werden er zo in totaal `r n_tellingen_optioneel` tellingen uitgevoerd op `r n_tellocaties_optioneel` optionele locaties.
+Het gaat vooral om tellingen van de wijder verspreide kamsalamander.
+
+```{r figinspanningopt,  fig.cap = "Monitoringinspanning voor de optionele locaties van alle amfibieënmeetnetten samen", warning=TRUE, eval = FALSE}
 
 plot1 <- monitoring_effort_soortgroep_jaar %>%
+  filter(jaar < 2024) %>%
   filter(!is_sample) %>%
   ggplot(aes(x = jaar, y = aantal, colour = monitoringsinspanning)) +
   geom_point() +

@@ -1,0 +1,206 @@
+# Resultaten van de pilootprojecten voor heikikker en poelkikker {#pilootproject}
+
+```{r}
+resultaten_piloot <- read_vc("results_pilootproject",
+                              root = path_results)
+
+resultaten_piloot_table <- resultaten_piloot %>%
+    mutate(n_digits = 1,
+           mean = ifelse(str_detect(parameter, "aantal"), mean, mean * 100),
+           lcl_0.90 = ifelse(str_detect(parameter, "aantal"), lcl_0.90, lcl_0.90 * 100),
+         ucl_0.90 = ifelse(str_detect(parameter, "aantal"), ucl_0.90, ucl_0.90 * 100),
+         mean_lcl = round(lcl_0.90, n_digits),
+         mean_ucl = round(ucl_0.90 , n_digits),
+         mean = round(mean, n_digits),
+         mean_tbl = ifelse(str_detect(parameter, "aantal"), 
+                           str_c(mean, " (",mean_lcl, "; ", mean_ucl, ")"),
+                           str_c(mean, "% (",mean_lcl, "%; ", mean_ucl, "%)"))
+         )
+```
+
+## Heikikker
+
+```{r}
+overzicht_metingen <- analyseset_heikikker %>%
+  group_by(meetnet) %>%
+  summarise(aantal_locaties = n_distinct(locatie),
+            aantal_tellingen = n_distinct(visit_id),
+            aantal_staalnames = sum(staalname),
+            aantal_eitjes_bemonsterd = sum(aantal_bemonsterd, na.rm = TRUE)) %>%
+  ungroup()
+```
+
+Op `r overzicht_metingen$aantal_locaties` locaties werden er in totaal `r overzicht_metingen$aantal_tellingen` eitellingen uitgevoerd.
+Er werden `r overzicht_metingen$aantal_staalnames` stalen genomen van in totaal `r overzicht_metingen$aantal_eitjes_bemonsterd` kikkereitjes.
+
+Op basis van een DNA-analyse op de kikkereitjes werd per staal het aandeel heikikkereitjes bepaald.
+Figuur \@ref(fig:figstalenhei) toont de verdeling van het aandeel heikikkereitjes in de geanalyseerde stalen.
+
+```{r figstalenhei, fig.cap = "Verdeling van het aandeel heikikkereitjes in de geanalyseerde stalen"}
+analyseset_heikikker %>%
+  filter(!is.na(aandeel_doelsoort)) %>%
+  mutate(aandeel_doelsoort_klasse = ifelse(aandeel_doelsoort == 100, "100%",
+                                          ifelse(aandeel_doelsoort >= 75, "75-99%",
+                                                 ifelse(aandeel_doelsoort >= 25, "25-74%",
+                                                        ifelse(aandeel_doelsoort > 0, "1-24%",
+                                                               "0%")))),
+         aandeel_doelsoort_klasse = factor(aandeel_doelsoort_klasse, levels = c("0%", "1-24%", "25-74%", "75-99%", "100%"))) %>%
+  ggplot(aes(x = aandeel_doelsoort_klasse)) +
+  geom_bar() +
+  labs(x = "Aandeel heikikkereitjes", y = "Aantal stalen")
+```
+
+Het aandeel heikikereitjes afgeleid uit de DNA-analyse gaan we vervolgens gebruiken om in te schatten hoeveel van de getelde kikkereitjes in een poel afkomstig zijn van de heikikker.
+
+Figuur \@ref(fig:fighei2) toont de verdeling van het afgeleide aantal eiklompen afkomstig van heikikker.
+Een deel van de nulwaarnemingen in deze figuur is te verklaren doordat er initieel geen kikkereitjes werden waargenomen (en er dus ook geen staal werd genomen).
+Bij een ander deel van de nulwaarnemingen werden er initieel wel kikkereitjes geteld, maar geeft de DNA-analyse aan dat de kikkereitjes niet afkomstig zijn van de heikikker.
+
+In Figuur \@ref(fig:fighei2) zie je ook dat voor twee bezoeken het aantal heikikkereiklompen kon ingeschat worden zonder staalname.
+Dit komt omdat een expert de eitjes visueel kon onderscheiden en er dus geen staalname nodig was.
+**In beide bezoeken werden 122 eitjes geteld. Klopt dat??**
+
+```{r fighei2, fig.cap= "Verdeling van het geschatte aantal eiklompen afkomtig van heikikker"}
+analyseset_heikikker %>%
+  filter(!is.na(aantal_doelsoort)) %>%
+  mutate(Staalname = ifelse(staalname, "Ja", "Nee"),
+         aantal_doelsoort_klasse = ifelse(aantal_doelsoort >= 500, "500-1000",
+                                          ifelse(aantal_doelsoort >= 250, "250-499",
+                                                 ifelse(aantal_doelsoort >= 100, "100-249",
+                                                        ifelse(aantal_doelsoort >= 25, "25-99",
+                                                               ifelse(aantal_doelsoort >= 1, "1-24",
+                                                               "0"))))),
+         aantal_doelsoort_klasse = factor(aantal_doelsoort_klasse, levels = c("0", "1-24", "25-99", "100-249", "250-499", "500-1000"))) %>%
+  ggplot(aes(x = aantal_doelsoort_klasse, fill = Staalname)) +
+  geom_bar() +
+  labs(x = "Aantal heikikkereiklompen", y = "Aantal tellingen")
+```
+
+Ten slotte kunnen we voor de periode 2021-2023 een schatting maken van:
+
+-   het percentage van de heikikkerpoelen waar er eitjes voorkomen;
+-   het gemiddeld aantal heikikkereiklompen per bezoek;
+-   het gemiddelde van het totaal aantal heikikkereiklompen over de verschillende bezoeken per poel.
+
+Deze resultaten worden getoond in Tabel \@ref(tab:tabheipiloot).
+
+```{r tabheipiloot}
+resultaten_piloot_table %>%
+  filter(soort_nl == "heikikker") %>%
+  filter(parameter %in% c("occurence", "aantal", "aantal_tot")) %>%
+  mutate(Variabele = ifelse(parameter == "occurence", "Voorkomen heikikkereiklompen",
+                            ifelse(parameter == "aantal", "Gemiddeld aantal heikikkereiklompen per bezoek", 
+                                   ifelse(parameter == "aantal_tot", "Gemiddelde van totaal aantal heikikkereiklompen per poel", NA)))) %>%
+  select(Variabele, "Schatting (90% betrouwbaarheidsinterval)" = mean_tbl) %>%
+  kable(caption = "Overzicht resultaten pilootproject heikikker",
+        booktabs = TRUE) %>%
+  kable_styling()
+```
+
+## Poelkikker
+
+```{r}
+overzicht_metingen_roepkoren <- analyseset_poelkikker %>%
+  filter(protocol == "Padden en kikkers - Roepkoren") %>%
+  group_by(meetnet) %>%
+  summarise(aantal_locaties_roepkoor = n_distinct(locatie),
+            aantal_roekpoortellingen = n_distinct(visit_id),) %>%
+  ungroup()
+
+overzicht_metingen_larrven <- analyseset_poelkikker %>%
+  filter(protocol == "Poelkikker - DNA larven") %>%
+  group_by(meetnet) %>%
+  summarise(aantal_locaties_larven = n_distinct(locatie),
+            aantal_larvestalen = sum(aantal_bemonsterd > 0),
+            aantal_larvebemonsterd = sum(aantal_bemonsterd, na.rm = TRUE)) %>%
+  ungroup()
+```
+
+Op `r overzicht_metingen_roepkoren$aantal_locaties_roepkoor` locaties werden er in totaal `r overzicht_metingen_roepkoren$aantal_roekpoortellingen` roepkoortellignen uitgevoerd.
+
+Er werden op `r overzicht_metingen_larrven$aantal_locaties_larven` locaties naar kikkerlarven gezocht en op `r overzicht_metingen_larrven$aantal_larvestalen` van deze locaties werden er DNA-stalen genomen van in totaal `r overzicht_metingen_larrven$aantal_larvebemonsterd` kikkerlarven.
+
+Op basis van een DNA-analyse van de kikkerlarven werd per staal het aandeel poelkikkerlarven bepaald.
+Figuur \@ref(fig:figstalenpoel) toont de verdeling van het aandeel poelkikkerlarven in de geanalyseerde stalen.
+
+```{r figstalenpoel, fig.cap = "Verdeling van het aandeel poelkikkerlarven in de geanalyseerde stalen"}
+analyseset_poelkikker %>%
+  filter(!is.na(aandeel_doelsoort)) %>%
+  mutate(aandeel_doelsoort_klasse = ifelse(aandeel_doelsoort == 100, "100%",
+                                          ifelse(aandeel_doelsoort >= 75, "75-99%",
+                                                 ifelse(aandeel_doelsoort >= 25, "25-74%",
+                                                        ifelse(aandeel_doelsoort > 0, "1-24%",
+                                                               "0%")))),
+         aandeel_doelsoort_klasse = factor(aandeel_doelsoort_klasse, levels = c("0%", "1-24%", "25-74%", "75-99%", "100%"))) %>%
+  ggplot(aes(x = aandeel_doelsoort_klasse)) +
+  geom_bar() +
+  labs(x = "Aandeel poelkikkerlarven", y = "Aantal stalen")
+```
+
+Het aandeel poelkikkerlarven afgeleid uit de DNA-analyse gaan we vervolgens gebruiken om in te schatten hoeveel van de getelde roepkoren afkomstig zijn van de poelkikker.
+
+Figuur \@ref(fig:figpoel2) toont de verdeling van de het afgeleide aantal roepkoren afkomstig van poelkikker.
+Een deel van de nulwaarnemingen in deze figuur is te verklaren doordat er initieel geen roepkoren werden gehoord.
+Bij een ander deel van de nulwaarnemingen werden er wel roepkoren gehoord, maar geeft de DNA-analyse aan dat er geen poelkikkerlarven aanwezig zijn.
+We gaan er dan vanuit dat de roepkoren niet van poelkikker afkomstig zijn.
+
+We zien in Figuur \@ref(fig:figpoel2) dat er ook een aantal onbekende waarden zijn voor het aantal roepkoren van poelkikker.
+Dit is het geval als het aandeel poelkikkerlarven niet bepaald kon worden, doordat er geen larvetelling werd uitgevoerd of doordat er geen larven gevonden werden.
+Voor enkele bezoeken konden de poelkikkerroepkoren onderscheiden worden, zodat een staalname niet nodig was.
+
+```{r figpoel2, fig.cap= "Verdeling van het geschatte aantal roepkoren afkomstig van de poelkikker"}
+
+poelkikker_staalname <- analyseset_poelkikker %>%
+  filter(protocol == "Poelkikker - DNA larven") %>%
+  select(locatie, aandeel_doelsoort, aantal_bemonsterd, aantal_larve_poel = aantal)
+
+poelkikker_roepkoor <- analyseset_poelkikker %>%
+  filter(protocol == "Padden en kikkers - Roepkoren") %>%
+  filter(soort_nl != "Meerkikker") %>%
+  filter(!(soort_nl == "Poelkikker" & aantal == 0)) %>%
+  select(locatie, jaar, datum, soort_nl, aantal) %>%
+  left_join(poelkikker_staalname, by = "locatie") %>%
+  mutate(staalname = ifelse(is.na(aantal_bemonsterd), "Nee - geen larventelling",
+                            ifelse(aantal_bemonsterd == 0, "Nee - nulwaarneming larven", "Ja")),
+         aantal_roepkoren_poel = ifelse(soort_nl == "Poelkikker" | aantal == 0, aantal, 
+                                        ifelse(soort_nl == "Poelkikker/bastaardkikker", round(aantal * aandeel_doelsoort/100), NA)))
+
+poelkikker_roepkoor_aggr <- poelkikker_roepkoor %>%
+  group_by(locatie, datum, staalname) %>%
+  summarise(aantal_roepkoren_poel =sum(aantal_roepkoren_poel),
+            aantal_roepkoren_tot = sum(aantal)) %>%
+  ungroup()
+
+poelkikker_roepkoor_aggr %>%
+  mutate(aantal_doelsoort_klasse = ifelse(is.na(aantal_roepkoren_poel), "onbekend",
+                                          ifelse(aantal_roepkoren_poel >= 50, "50-100",
+                                                 ifelse(aantal_roepkoren_poel >= 25, "25-49",
+                                                        ifelse(aantal_roepkoren_poel >= 10, "10-24",
+                                                               ifelse(aantal_roepkoren_poel >= 1, "1-9",
+                                                               "0"))))),
+         aantal_doelsoort_klasse = factor(aantal_doelsoort_klasse, levels = c("onbekend", "0", "1-9", "10-24", "25-49", "50-100"))) %>%
+  ggplot(aes(x = aantal_doelsoort_klasse, fill = staalname)) +
+  geom_bar() +
+  labs(x = "Aantal poelkikkerroepkoren", y = "Aantal tellingen") 
+```
+
+Ten slotte kunnen we voor de periode 2021-2023 een schatting maken van:
+
+-   het percentage van de poelkikkerpoelen waar er larven voorkomen;
+-   het gemiddeld aantal poelkikkerroepkoren per bezoek;
+
+Deze resultaten worden getoond in Tabel \@ref(tab:tabhpoelpiloot).
+
+```{r tabhpoelpiloot}
+resultaten_piloot_table %>%
+  filter(soort_nl == "poelkikker") %>%
+  filter(parameter %in% c("occurence", "aantal")) %>%
+  mutate(Variabele = ifelse(parameter == "occurence", "Voorkomen poelkikkerlarven",
+                            ifelse(parameter == "aantal", "Gemiddeld aantal poelkikkerroepkoren per bezoek", NA))) %>%
+  select(Variabele, "Schatting (90% betrouwbaarheidsinterval)" = mean_tbl) %>%
+  kable(caption = "Overzicht resultaten pilootproject poelkikker",
+        booktabs = TRUE) %>%
+  kable_styling()
+```
+
+\pagebreak

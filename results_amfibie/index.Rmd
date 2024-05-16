@@ -19,6 +19,7 @@ author:
       given: "Sam"
       family: "Van de Poel"
     email: "sam.vandepoel@natuurpunt.be"
+    orcid: "0000-0001-6251-3766"
     affiliation: "Natuurpunt Studie"
   - name:
       given: "Loïc"
@@ -45,6 +46,10 @@ floatbarrier: subsubsection
 keywords: "meetnetten; soorten"
 community: "inbo"
 publication_type: report
+year: 2023
+doi: 10.21436/inbor.99216099
+reportnr: 51
+depotnr: D/2023/3241/392
 funder: Instituut voor Natuur- en Bosonderzoek (INBO)
 rightsholder: Instituut voor Natuur- en Bosonderzoek (INBO)
 bibliography: references.bib
@@ -125,7 +130,7 @@ html_output <- opts_knit$get("rmarkdown.pandoc.to") == "html"
 
 functions_path <- fileman_up("soortenmeetnetten-analysis")
 
-source(file.path(functions_path, "src/functions_smp.R"))
+source(file.path(functions_path, "source/functions_smp.R"))
 
 data_path <- "../data"
 ```

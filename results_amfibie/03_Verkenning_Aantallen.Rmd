@@ -2,12 +2,17 @@
 
 In dit onderdeel geven we een overzicht van de aantallen waargenomen tijdens de tellingen.
 
+We maken onderscheid tussen de prioritaire soorten en de secundaire soorten.
+De prioritaire soorten zijn de soorten in functie waarvan de meetnet ontwerpen werden (zie Tabel \@ref(tab:tabsoorten)).\
+Maar bij de meeste meetnetten is het ook mogelijk om andere amfibieën te noteren die tijdens de telling worden waargenomen.
+Deze noemen we de secundaire soorten.
+
 ```{r, message=FALSE}
 
 analyseset_aggr <- analyseset_all %>%
   mutate(soort_nl = ifelse(str_detect(soort_wet, "Pelophylax lessonae"), "Poelkikker/ Bastaardkikker", soort_nl),
          soort_wet = ifelse(soort_wet == "Pelophylax lessonae", "Pelophylax lessonae/ kl. esculentus", soort_wet)) %>%
-  mutate(type = ifelse(meetnet %in% c("Boomkikker", "Vroedmeestpad", "Knoflookpad", "Poelkikker"), "roepende mannetjes", levensstadium),
+  mutate(type = ifelse(meetnet %in% c("Boomkikker", "Vroedmeestpad", "Knoflookpad", "Poelkikker") & levensstadium == "adult", "roepende mannetjes", levensstadium),
          type = ifelse(meetnet == "Rugstreeppad" & activiteit == "roepend", "roepende mannetjes", type),
          type = ifelse(meetnet %in% c("Boomkikker", "Kamsalamander", "Rugstreeppad") & levensstadium %in% c("larve", "metamorf"), "larven (en metamorfen)", type),
          type = ifelse(meetnet == "Kamsalamander" & levensstadium %in% c("adult", "juveniel"), "adulten en juvenielen", type),
@@ -40,6 +45,24 @@ summary_table <- summary_counts_year %>%
   left_join(summary_verspreiding_year, by = c("is_sample", "primaire_soort", "jaar", "soort_nl", "soort_wet", "type")) %>%
   arrange(soort_nl, type, jaar)
   
+summary_year_sec <- analyseset_aggr %>%
+  mutate(protocol = ifelse(protocol == "Amfibieën - Larven", "Amfibieën - Larven en metamorfen", protocol)) %>%
+  filter(!primaire_soort) %>%
+  group_by(protocol, jaar) %>%
+  mutate(n_locaties_secundair = n_distinct(locatie),
+         n_tellingen_secundair = n_distinct(visit_id),
+         meetnetten = str_c(unique(meetnet), collapse = "; ")) %>%
+  ungroup() %>%
+  group_by(primaire_soort, protocol, soort_nl, soort_wet, type, locatie, jaar, n_locaties_secundair, n_tellingen_secundair, meetnetten) %>%
+  summarise(aanwezig = sum(aantal) > 0,
+            aantal_tot = sum(aantal)) %>%
+  ungroup() %>%
+  group_by(primaire_soort, protocol, soort_nl, soort_wet, type, jaar, n_locaties_secundair, n_tellingen_secundair, meetnetten) %>%
+  summarise(n_aanwezig = sum(aanwezig),
+            aantal_tot = sum(aantal_tot)) %>%
+  ungroup() %>%
+  mutate(prop_aanwezig = round(n_aanwezig/n_locaties_secundair * 100, 1),
+         aantal_mean = round(aantal_tot/n_tellingen_secundair, 1))
 ```
 
 ## Aantallen voor de prioritaire soorten
@@ -48,8 +71,8 @@ summary_table <- summary_counts_year %>%
 
 Tabel \@ref(tab:tabaantaltot) toont per soort, levensstadium en per jaar:
 
--   het totaal aantallen per soort en per levensstadium;
--   het gemiddeld aantal per bezoek;
+-   het totaal aantal individuen per soort en per levensstadium;
+-   het gemiddeld aantal individuen per bezoek;
 -   het aantal getelde meetnetlocaties;
 -   de proportie van de bezochte meetnetlocaties waar de soort werd waargenomen.
 
@@ -164,9 +187,6 @@ include_graphics("image/dummy_figuur.png")
 
 ## Aantallen voor de secundaire soorten
 
-Elk amfibieënmeetnet is specifiek ontworpen voor één bepaalde prioritaire soort.
-Naast de prioritaire soort is het ook mogelijk om andere amfibieën te noteren die tijdens de telling worden waargenomen.
-We noemen deze de secundaire soorten.
 Deze gegevens kunnen zeker een meerwaarde zijn, maar we moeten wel voorzichtig zijn bij het interpreteren of analyseren ervan.
 Zowel de tellocaties als de telperiode zijn immers specifiek gekozen voor de prioritaire soorten.
 Dat maakt dat de aantallen voor de secundaire soorten niet altijd representatief zijn voor een uitspraak op schaal Vlaanderen.
@@ -205,6 +225,37 @@ summary_table_all_years %>%
   column_spec(2, italic = TRUE) %>%
   collapse_rows(c(1,2)) %>%
   scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
+```
+
+Voor de alpenwatersalamander, de kleine watersalamander en de vinpootsalamander tonen we in Tabel \@ref(tab: tabaantalsec) ook de getelde aantallen per jaar.
+Dit doen we op basis van zowel tellingen op meetnetlocaties als tellingen op optionele locaties.
+Voor de secundaire soorten worden nulwaarnemingen meestal niet ingevoerd.
+Daarom veronderstellen we dat wanneer er aantallen worden ingevoerd voor één of meerdere secundaire soorten, de niet genoteerde secundaire soorten afwezig zijn.
+
+De in Tabel \@ref(tab:tabaantalsec) getoonde aantallen voor adulten en juvenielen komen van de fuiktellingen van het meetnet kamsalamander.
+De aantallen van larven en metamorfen komen van de larvetellingen van het meetnet boomkikker en het meetnet kamsalamander.
+
+```{r tabaantalsec, eval=TRUE}
+
+summary_year_sec %>% 
+  filter(!primaire_soort, soort_nl %in% c("Vinpootsalamander", "Alpenwatersalamander", "Kleine watersalamander")) %>%
+  filter(protocol %in% c("Amfibieën - Fuiken", "Amfibieën - Larven en metamorfen")) %>%
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Levensstadium" = type,  Jaar = jaar, "Totaal" = aantal_tot, "Gemiddeld" = aantal_mean, "Locaties" = n_locaties_secundair, "Proportie (%)" = prop_aanwezig) %>%
+  kable(caption = "Overzicht getelde aantallen voor de secundaire soorten (Totaal = totaal aantal, Gemiddeld = gemiddeld aantal per bezoek, Locaties = aantal getelde locaties met secundaire soorten, Proportie = proportie van de locaties waar de soort en het levensstadium werd waargenomen)",
+      booktabs = TRUE,
+      longtable = TRUE,
+      align = "lllccccc") %>%
+  kable_styling(bootstrap_options = c( "condensed"), 
+                latex_options = c("scale_down", "repeat_header"),
+                repeat_header_text = "(vervolg)",
+                font_size = 8) %>%
+  column_spec(1, width = "9em") %>%
+  column_spec(2, italic = TRUE, width = "7em") %>%
+  column_spec(3, italic = TRUE, width = "6em") %>%
+  collapse_rows(c(1,2, 3), target = 1, valign = "top", latex_hline = "major") %>%
+  scroll_box(width = "100%", height = "600px", fixed_thead = TRUE) 
+  
+
 ```
 
 ```{r eval=FALSE}

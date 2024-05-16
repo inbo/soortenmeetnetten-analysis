@@ -6,11 +6,14 @@ Voor elk meetnet tonen we:
 
 -   de karakteristieken van het meetnet;
 -   de jaarlijkse monitoringsinspanning;
--   de jaarlijkse verschillen in aantallen met t.o.v. het referentiejaar (eerste jaar van het meetnet);
--   de verschillen tussen opeenvolgende jaren;
 -   de gemiddelde jaarlijkse trend.
 
-Voor meetnetten met een driejarige meetcyclus tonen we ook de verschillen tussen de meetcycli.
+Wanneer de meetnetlocaties jaarlijks geteld worden tonen we ook:
+
+-   de jaarlijkse verschillen in aantallen met t.o.v. het referentiejaar (eerste jaar van het meetnet);
+-   de verschillen tussen opeenvolgende jaren.
+
+In het geval van een driejarige meetcyclus tonen we verschillen tussen de meetcycli.
 
 Voor een verklaring van de symbolen en referentielijnen in de figuren verwijzen we naar paragraaf \@ref(h:classtrend).
 
@@ -44,7 +47,6 @@ verschil_jaren_refvalue <- result_indexmodel_table %>%
 result_indexmodel_table <- result_indexmodel_table %>%
   bind_rows(verschil_jaren_refvalue) 
 
-
 result_verschil_table <- result_indexmodel %>%
   filter(parameter == "diff_previous_year") %>%
   mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
@@ -72,7 +74,10 @@ result_indexmodel_cyclus_table <- result_indexmodel_meetcyclus %>%
 
 meetnetcharacteristics_long <- meetnetcharacteristics1 %>%
   left_join(meetnetcharacteristics2, by = "Meetnet") %>%
-  pivot_longer(cols = c("Telperiode", "Aantal bezoeken per telperiode", "Selectie", "Aantal meetnetlocaties", "Duur meetcyclus (jaar)"), 
+  left_join(select(meetnetcharacteristics, Meetnet = meetnet, "Opstartjaar" = opstartjaar) %>%
+              unique(), 
+            by = "Meetnet") %>%
+  pivot_longer(cols = c("Opstartjaar", "Telperiode", "Aantal bezoeken per telperiode", "Selectie", "Aantal meetnetlocaties", "Duur meetcyclus (jaar)"), 
                names_to = "Variabele", 
                values_to = "Meetnetkarakteristieken", values_transform = as.character)
 
@@ -188,7 +193,7 @@ meetnetcharacteristics_long %>%
   rename(" " = Variabele) %>%
   arrange(Veldprotocol) %>%
   kable(align = "llc", 
-        caption = str_c("Karakteristieken van het meetnet ", m),
+        caption = str_c("Karakteristieken van het meetnet ", str_to_lower(m)),
         booktabs = TRUE) %>%
   kable_styling(full_width = FALSE) %>%
   collapse_rows(1)
@@ -198,7 +203,7 @@ meetnetcharacteristics_long %>%
 
 Figuur \@ref(fig:meboomkikker) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
 
-```{r meboomkikker, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m)}
+```{r meboomkikker, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", str_to_lower(m))}
 
 plot_m <- monitoring_effort %>%
   filter(is_sample) %>%
@@ -226,68 +231,13 @@ if (html_output) {
 
 ```
 
-### Vergelijking tussen de jaren
+### Vergelijking tussen de meetcycli
 
-Figuur \@ref(fig:vjboomkikker) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet).
-In Figuur \@ref(fig:vj2boomkikker) tonen we de verschillen tussen opeenvolgende jaren.
-
-```{r vjboomkikker,  fig.width = 7, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar (weergegeven in de figuur met R) met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r vmboomkikker, fig.cap= str_c("Verschillen in aantallen per meetcyclus t.o.v. referentie meetcyclus met het 90\\% betrouwbaarheidsinterval voor de ", str_to_lower(m), ".")}
 
 labels_prct <- c(-95,-75, -50, -25, 0, 33, 100, 200, 400, 1000, 2500, 5000)
 breaks_log <- log(labels_prct/100 + 1) + 1
 labels_show <- str_c(labels_prct, " %")
-
-ref_jaar <- (meetnetcharacteristics %>%
-  filter(meetnet == m))$opstartjaar %>%
-  unique()
-  
-size_bar <- 35 * 2 / (2023 - ref_jaar + 1)
-size_bar2 <- 35 * 2 / (2023 - ref_jaar)
-
-result_indexmodel_table %>%
-  mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar),
-         soort_show = str_c(soort_nl, " ", levensstadium)) %>%
-  filter(soort_nl == m) %>%
-  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = as.character(jaar), label = klasse, colour = klasse)) +
-  geom_errorbar(width = 0, size = size_bar, alpha = 0.3) +
-  geom_hline(yintercept = 1, linetype = 2) +
-  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
-  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
-  geom_point(aes(colour = klasse), size = 7) +
-  geom_text(size = 4, colour = "white") +
-  labs(y = "Verschil t.o.v. referentiejaar", x = "Jaar") +
-  facet_wrap(~ soort_show) +
-  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
-  scale_color_manual(values = klasse_color) +
-  theme(legend.position = "hide")
-
-
-```
-
-```{r vj2boomkikker, fig.width = 7, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
-
-result_verschil_table %>%
-  filter(soort_nl == m) %>%
-    mutate(soort_show = str_c(soort_nl, " ", levensstadium)) %>%
-  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, label = klasse, colour = klasse)) +
-  geom_errorbar(width = 0, size = size_bar2, alpha = 0.3) +
-  geom_hline(yintercept = 1, linetype = 2) +
-  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
-  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
-  geom_point(aes(colour = klasse), size = 7) +
-  geom_text(size = 4, colour = "white") +
-  labs(y = "Vreschil tussen opeenvolgende jaren", x = "Periode") +
-  facet_wrap(~ soort_show) +
-  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
-  scale_color_manual(values = klasse_color) +
-  theme(legend.position = "hide", axis.text.x = element_text(angle = 45))
-
-
-```
-
-### Vergelijking tussen de meetcycli
-
-```{r vmboomkikker, fig.width = 5, fig.cap= str_c("Verschillen in aantallen per meetcyclus t.o.v. referentie meetcyclus met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
 
 result_indexmodel_cyclus_table %>%
   filter(soort_nl == m) %>%
@@ -305,10 +255,9 @@ result_indexmodel_cyclus_table %>%
   scale_color_manual(values = klasse_color) +
   theme(legend.position = "hide")
 
-
 ```
 
-```{r vmoboomkikker, fig.width = 2.5, fig.cap= str_c("Voorkomen per meetcyclus met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r vmoboomkikker, fig.width = 4, fig.cap= str_c("Percentage aanwezigheid van boomkikkerlarven per meetcyclus met het 90\\% betrouwbaarheidsinterval voor de ", str_to_lower(m), ".")}
 
 result_occurence %>%
   filter(soort_nl == m) %>%
@@ -317,7 +266,7 @@ result_occurence %>%
   ggplot(aes(y = mean, ymin = lcl_0.90, ymax = ucl_0.90, x = meetcyclus)) +
   geom_errorbar(width = 0, size = 20 * 2.58 / 2, alpha = 0.3) +
   geom_point(size = 7) +
-  labs(y = "Voorkomen", x = "Meetcyclus") +
+  labs(y = "Aanwezigheid", x = "Meetcyclus") +
   facet_wrap(~ soort_show, ncol = 2) +
   scale_y_continuous(labels = scales::percent, limits = c(0,1)) +
   theme(legend.position = "hide")
@@ -341,7 +290,7 @@ trend_total_meetnet <- result_trendmodel %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))`.
 
 \pagebreak
 
@@ -362,7 +311,7 @@ meetnetcharacteristics_long %>%
   rename(" " = Variabele) %>%
   arrange(Veldprotocol) %>%
   kable(align = "llc", 
-        caption = str_c("Karakteristieken van het meetnet ", m),
+        caption = str_c("Karakteristieken van het meetnet ", str_to_lower(m)),
         booktabs = TRUE) %>%
   kable_styling(full_width = FALSE) %>%
   collapse_rows(1)
@@ -372,7 +321,7 @@ meetnetcharacteristics_long %>%
 
 Figuur \@ref(fig:meknoflookpad) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
 
-```{r meknoflookpad, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m)}
+```{r meknoflookpad, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", str_to_lower(m))}
 
 plot_m <- monitoring_effort %>%
   filter(is_sample) %>%
@@ -405,7 +354,7 @@ if (html_output) {
 Figuur \@ref(fig:vjknoflookpad) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet).
 In Figuur \@ref(fig:vj2knoflookpad) tonen we de verschillen tussen opeenvolgende jaren.
 
-```{r vjknoflookpad, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar (weergegeven in de figuur met R) met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r vjknoflookpad, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar (weergegeven in de figuur met R) met het 90\\% betrouwbaarheidsinterval voor de ", str_to_lower(m), ".")}
 
 labels_prct <- c(-95,-75, -50, -25, 0, 33, 100, 200, 400, 1000, 2500, 5000)
 breaks_log <- log(labels_prct/100 + 1) + 1
@@ -438,7 +387,7 @@ result_indexmodel_table %>%
 
 ```
 
-```{r vj2knoflookpad, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r vj2knoflookpad, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", str_to_lower(m), ".")}
 
 result_verschil_table %>%
   filter(soort_nl == m) %>%
@@ -476,18 +425,18 @@ trend_total_meetnet <- result_trendmodel %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))`.
 
-## Kamsalamander (*Triturus cristatus*) {#kamsalamander}
+## Vroedmeesterpad (*Alytes obstetricans*) {#vroedmeesterpad}
 
 ```{r}
-m <- "Kamsalamander"
+m <- "Vroedmeesterpad"
 
 ```
 
 ### Meetnetkarakteristieken
 
-```{r mkkamsalamander}
+```{r mkvroedmeesterpad}
 
 meetnetcharacteristics_long %>%
   filter(Meetnet == m) %>%
@@ -495,7 +444,7 @@ meetnetcharacteristics_long %>%
   rename(" " = Variabele) %>%
   arrange(Veldprotocol) %>%
   kable(align = "llc", 
-        caption = str_c("Karakteristieken van het meetnet ", m),
+        caption = str_c("Karakteristieken van het meetnet ", str_to_lower(m)),
         booktabs = TRUE) %>%
   kable_styling(full_width = FALSE) %>%
   collapse_rows(1)
@@ -503,9 +452,9 @@ meetnetcharacteristics_long %>%
 
 ### Aantal tellingen, tellers en getelde locaties
 
-Figuur \@ref(fig:mekamsalamander) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+Figuur \@ref(fig:mevroedmeesterpad) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
 
-```{r mekamsalamander, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m)}
+```{r mevroedmeesterpad, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", str_to_lower(m))}
 
 plot_m <- monitoring_effort %>%
   filter(is_sample) %>%
@@ -535,10 +484,10 @@ if (html_output) {
 
 ### Vergelijking tussen de jaren
 
-Figuur \@ref(fig:vjkamsalamander) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet).
-In Figuur \@ref(fig:vj2kamsalamander) tonen we de verschillen tussen opeenvolgende jaren.
+Figuur \@ref(fig:vjvroedmeesterpad) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet).
+In Figuur \@ref(fig:vj2vroedmeesterpad) tonen we de verschillen tussen opeenvolgende jaren.
 
-```{r vjkamsalamander, fig.width = 7, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar (weergegeven in de figuur met R) met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r vjvroedmeesterpad, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar (weergegeven in de figuur met R) met het 90\\% betrouwbaarheidsinterval voor de ", str_to_lower(m), ".")}
 
 labels_prct <- c(-95,-75, -50, -25, 0, 33, 100, 200, 400, 1000, 2500, 5000)
 breaks_log <- log(labels_prct/100 + 1) + 1
@@ -548,8 +497,8 @@ ref_jaar <- (meetnetcharacteristics %>%
   filter(meetnet == m))$opstartjaar %>%
   unique()
   
-size_bar <- 35 * 2 / (2023 - ref_jaar + 1)
-size_bar2 <- 35 * 2 / (2023 - ref_jaar)
+size_bar <- 50 * 2 / (2023 - ref_jaar + 1)
+size_bar2 <- 50 * 2 / (2023 - ref_jaar)
 
 result_indexmodel_table %>%
   mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar),
@@ -571,7 +520,7 @@ result_indexmodel_table %>%
 
 ```
 
-```{r vj2kamsalamander, fig.width = 7, fig.height= 3.5, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r vj2vroedmeesterpad, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", str_to_lower(m), ".")}
 
 result_verschil_table %>%
   filter(soort_nl == m) %>%
@@ -592,9 +541,85 @@ result_verschil_table %>%
 
 ```
 
+### Trend
+
+```{r}
+
+trend_average_meetnet <- result_trendmodel %>%
+  filter(soort_nl == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- result_trendmodel %>%
+  filter(soort_nl == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))`.
+
+\pagebreak
+
+## Kamsalamander (*Triturus cristatus*) {#kamsalamander}
+
+```{r}
+m <- "Kamsalamander"
+
+```
+
+### Meetnetkarakteristieken
+
+```{r mkkamsalamander}
+
+meetnetcharacteristics_long %>%
+  filter(Meetnet == m) %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  arrange(Veldprotocol) %>%
+  kable(align = "llc", 
+        caption = str_c("Karakteristieken van het meetnet ", str_to_lower(m)),
+        booktabs = TRUE) %>%
+  kable_styling(full_width = FALSE) %>%
+  collapse_rows(1)
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:mekamsalamander) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r mekamsalamander, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", str_to_lower(m))}
+
+plot_m <- monitoring_effort %>%
+  filter(is_sample) %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+if (html_output) {
+  
+  ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+} else {
+  plot_m
+}
+
+```
+
 ### Vergelijking tussen de meetcycli
 
-```{r vmkamsalamander, fig.width = 5, fig.cap= str_c("Verschillen in aantallen per meetcyclus t.o.v. referentie meetcyclus met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r vmkamsalamander,  fig.cap= str_c("Verschillen in aantallen per meetcyclus t.o.v. referentie meetcyclus met het 90\\% betrouwbaarheidsinterval voor de ", str_to_lower(m), ".")}
 
 result_indexmodel_cyclus_table %>%
   filter(soort_nl == m) %>%
@@ -615,7 +640,7 @@ result_indexmodel_cyclus_table %>%
 
 ```
 
-```{r vmokamsalamander,  fig.width= 2.5, fig.cap= str_c("Voorkomen per meetcyclus met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r vmokamsalamander,  fig.width= 4, fig.cap= str_c("Voorkomen per meetcyclus met het 90\\% betrouwbaarheidsinterval voor de ", str_to_lower(m), ".")}
 
 result_occurence %>%
   filter(soort_nl == m) %>%
@@ -648,7 +673,7 @@ trend_total_meetnet <- result_trendmodel %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))`.
 
 \pagebreak
 
@@ -669,7 +694,7 @@ meetnetcharacteristics_long %>%
   rename(" " = Variabele) %>%
   arrange(Veldprotocol) %>%
   kable(align = "llc", 
-        caption = str_c("Karakteristieken van het meetnet ", m),
+        caption = str_c("Karakteristieken van het meetnet ", str_to_lower(m)),
         booktabs = TRUE) %>%
   kable_styling(full_width = FALSE) %>%
   collapse_rows(1)
@@ -679,7 +704,7 @@ meetnetcharacteristics_long %>%
 
 Figuur \@ref(fig:mevuursalamander) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
 
-```{r mevuursalamander, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", m)}
+```{r mevuursalamander, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", str_to_lower(m))}
 
 plot_m <- monitoring_effort %>%
   filter(is_sample) %>%
@@ -712,7 +737,7 @@ if (html_output) {
 Figuur \@ref(fig:vjvuursalamander) toont de jaarlijkse verschillen t.o.v. referentiejaar (eerste jaar van het meetnet).
 In Figuur \@ref(fig:vj2vuursalamander) tonen we de verschillen tussen opeenvolgende jaren.
 
-```{r vjvuursalamander, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar (weergegeven in de figuur met R) met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r vjvuursalamander, fig.cap= str_c("Jaarlijkse verschillen in aantallen t.o.v. referentiejaar (weergegeven in de figuur met R) met het 90\\% betrouwbaarheidsinterval voor de ", str_to_lower(m), ".")}
 
 labels_prct <- c(-95,-75, -50, -25, 0, 33, 100, 200, 400, 1000, 2500, 5000)
 breaks_log <- log(labels_prct/100 + 1) + 1
@@ -745,7 +770,7 @@ result_indexmodel_table %>%
 
 ```
 
-```{r vj2vuursalamander, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", m, ".")}
+```{r vj2vuursalamander, fig.cap= str_c("Verschillen in aantallen tussen opeenvolgende jaren met het 90\\% betrouwbaarheidsinterval voor de ", str_to_lower(m), ".")}
 
 result_verschil_table %>%
   filter(soort_nl == m) %>%
@@ -782,24 +807,9 @@ trend_total_meetnet <- result_trendmodel %>%
   filter(soort_nl == m) %>%
   filter(parameter == "trend_total")
 
-trend_average_meetnet_2018 <- result_trendmodel %>%
-  filter(soort_nl == m) %>%
-  filter(jaar_min == 2018) %>%
-  filter(parameter == "trend_average") %>%
-  mutate(klasse = as.character(klasse)) %>%
-  left_join(klassenamen, by = "klasse")
-
-trend_total_meetnet_2018 <- result_trendmodel %>%
-  filter(jaar_min == 2018) %>%
-  filter(soort_nl == m) %>%
-  filter(parameter == "trend_total")
-
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
-
-Over de periode `r trend_average_meetnet_2018$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet_2018$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet_2018$lcl_0.90, 0)` % en `r round(trend_average_meetnet_2018$ucl_0.90, 0)` %.
-Sinds 2018 zijn de aantallen dus **stabiel**.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))`.
 
 \pagebreak
