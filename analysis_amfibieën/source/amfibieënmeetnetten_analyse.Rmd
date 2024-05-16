@@ -19,7 +19,6 @@ output:
       smooth_scroll: FALSE
 ---
 
-
 ```{r setup, include = FALSE}
 library(knitr)
 options(knitr.kable.NA = '')
@@ -27,7 +26,7 @@ options(knitr.kable.NA = '')
 opts_chunk$set(
   echo = FALSE, 
   eval = TRUE,
-  cache = TRUE,
+  cache = FALSE,
   warning = FALSE,
   message = FALSE,
   fig.width = 180 / 25.4,
@@ -61,7 +60,7 @@ conflicts_prefer(dplyr::lag)
 ```
 
 ```{r}
-source(here("src", "functions_smp.R"))
+source(file.path(fileman_up("soortenmeetnetten-analysis"), "source/functions_smp.R"))
 ```
 
 
@@ -73,6 +72,7 @@ source(here("src", "functions_smp.R"))
 
 species_group <- "amfibieën"
 
+path = fileman_up("soortenmeetnetten-queries")
 ```
 
 ## Raw data
@@ -84,17 +84,21 @@ visits <- get_visits_smp(species_group = species_group) %>%
                            protocol),
          protocol = ifelse(protocol == "Vuursalamander - Transect (v1)", 
                            "Vuursalamander - Transect", 
-                           protocol)) 
+                           protocol),
+         protocol = ifelse(protocol == "Rugstreeppad - Transect (v1)", 
+                           "Rugstreeppad - Transect", 
+                           protocol))
 
-covar <- get_covariates_smp(species_group = species_group) 
+covar <- get_covariates_smp() 
 
 covar_sample <- get_covariates_smp(linked_to = "sample")
 
-counts <- get_counts_smp(species_group = species_group)
+counts <- get_counts_smp()
 
 locations <- get_locations_smp(only_active = FALSE) %>%
   st_drop_geometry() %>%
-  filter(locatie_type == "locatie")
+  filter(locatie_type == "locatie") %>%
+  mutate(is_sample = ifelse(locatie %in% c("Merkske - Poel B45", "Merkske - Poel B48", "Merkske - Poel B43"), TRUE, is_sample)) #aanpassen in meetnetten.be
 
 ```
 
@@ -117,7 +121,7 @@ locatie_clusters <- locations %>%
          poel = ifelse(is.na(poel), "1", poel)) 
 
 locaties <- locations %>%
-  filter(meetnet %in% c("Knoflookpad", "Rugstreeppad", "Vuursalamander")) %>%
+  filter(meetnet %in% c("Knoflookpad", "Rugstreeppad", "Vuursalamander", "Vroedmeesterpad")) %>%
   select(meetnet, locatie, is_active, is_sample)
   
 ```
@@ -207,7 +211,7 @@ locaties_niet_actief %>%
 check_gvm <- dataset_larven_actief %>%
   filter(bezoek_status == "Geen veldwerk mogelijk - locatie ongeschikt") %>%
   filter(levensstadium == "larve") %>%
-  distinct(meetnet, locatie, datum, visit_id, bezoek_status, is_sample, voor_analyse, aantal, notes) 
+  distinct(meetnet, locatie, datum, visit_id, bezoek_status, is_sample, voor_analyse, aantal, opmerking) 
 
 check_gvm %>%
   datatable(rownames = FALSE,
@@ -276,7 +280,7 @@ analyseset_larven <- dataset_larven %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus - 1) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, doy, visit_id, bezoek_status, zoekinspanning, larvetelling, metamorftelling, n_catch, primaire_soort, soort_nl, soort_wet, levensstadium, aantal, notes)
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, doy, visit_id, bezoek_status, zoekinspanning, larvetelling, metamorftelling, n_catch, primaire_soort, soort_nl, soort_wet, levensstadium, aantal, opmerking, hoofdteller)
 ```
 
 ## Analyseset roepkoren Boomkikker
@@ -334,7 +338,7 @@ locaties_niet_actief %>%
 
 check_gvm <- dataset_roepkoren_actief %>%
   filter(bezoek_status == "Geen veldwerk mogelijk - locatie ongeschikt") %>%
-  distinct(meetnet, locatie, datum, visit_id, bezoek_status, is_sample, voor_analyse, aantal, notes) 
+  distinct(meetnet, locatie, datum, visit_id, bezoek_status, is_sample, voor_analyse, aantal, opmerking) 
 
 check_gvm %>%
   datatable(rownames = FALSE)
@@ -416,7 +420,57 @@ analyseset_roepkoren_boomkikker <- dataset_roepkoren %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus - 1) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium,  aantal)
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium,  aantal, opmerking, hoofdteller)
+```
+
+## Analyseset roepkoren Vroedmeesterpad
+
+```{r}
+dataset_roepkoren <-  visits %>%
+  filter(meetnet == "Vroedmeesterpad") %>%
+  filter(protocol == "Vroedmeesterpad - Roepkoren") %>%
+  left_join(locaties, by = c("meetnet", "locatie")) %>%
+  left_join(select(counts, visit_id, sample_id,  soort_nl, soort_wet, primaire_soort, levensstadium, aantal), by = "visit_id") 
+```
+
+### Overzicht tellingen per type locatie (actief of niet-actief) en al dan niet geschikt voor analyse
+
+Onderstaande tabel geeft een overzicht van het aantal records, bezoeken en locaties voor de verschillende combinaties van:
+
++ protocol
++ bezoek_status
++ is_active
++ voor_analyse
+
+
+```{r}
+dataset_check <- dataset_roepkoren %>%
+  group_by(meetnet, protocol, bezoek_status, is_active,  voor_analyse) %>%
+  summarise(n_records = n(),
+            n_visits = n_distinct(visit_id),
+            n_locaties = n_distinct(locatie)) %>%
+  ungroup()
+
+dataset_check %>%
+  datatable(rownames = FALSE,
+            filter = "top")
+```
+
+### We someren de aantallen per locatie
+
+```{r}
+
+analyseset_roepkoren_vroedmeesterpad <-  dataset_roepkoren %>%
+  group_by(soortgroep, meetnet, protocol, locatie, is_sample, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium, opmerking, hoofdteller) %>%
+  summarise(aantal = sum(aantal),
+            n_points = n()) %>%
+  ungroup() %>%
+  filter(levensstadium != "onbekend")
+
+analyseset_roepkoren_vroedmeesterpad %>%
+  select(meetnet, protocol, locatie, jaar, datum, aantal, opmerking) %>%
+  arrange(locatie, datum) %>%
+  write_csv2("../output/aantallen_vroedmeesterpad.csv")
 ```
 
 ## Analyseset Fuiken Kamsalamander
@@ -487,7 +541,7 @@ locaties_niet_actief %>%
 
 check_gvm <- dataset_fuiken_actief %>%
   filter(bezoek_status == "Geen veldwerk mogelijk - locatie ongeschikt") %>%
-  distinct(meetnet, locatie, datum, visit_id, bezoek_status, is_sample, voor_analyse, aantal, notes) 
+  distinct(meetnet, locatie, datum, visit_id, bezoek_status, is_sample, voor_analyse, aantal, opmerking) 
 
 check_gvm %>%
   datatable(rownames = FALSE)
@@ -577,10 +631,10 @@ analyseset_fuiken_detail <- dataset_fuiken %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = ifelse(meetcyclus == 1, 2020, 2023)) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, n_fuiken, primaire_soort, soort_nl, soort_wet, levensstadium, geslacht, aantal)
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, n_fuiken, primaire_soort, soort_nl, soort_wet, levensstadium, geslacht, aantal, opmerking, hoofdteller)
 
 analyseset_fuiken_totaal <- analyseset_fuiken_detail %>%
-  group_by(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, n_fuiken, primaire_soort, soort_nl, soort_wet) %>%
+  group_by(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, n_fuiken, primaire_soort, soort_nl, soort_wet, opmerking, hoofdteller) %>%
   summarise(aantal = sum(aantal)) %>%
   ungroup() %>%
   group_by(protocol, locatie) %>%
@@ -657,11 +711,7 @@ locaties_niet_actief %>%
   kable_styling()
 ```
 
-
-
 + We selecteren enkel tellingen die geschikt zijn voor analyse
-
-  
 
 ```{r}
 
@@ -704,7 +754,6 @@ Onderstaande tabel geeft een overzicht van het aantal records, bezoeken en locat
 + zoekinspanning
 + levensstadium
 
-
 ```{r}
 
 dataset_check2 <- dataset_roepkoren_knoflookpad %>%
@@ -720,13 +769,10 @@ dataset_check2 %>%
             filter = "top")
 ```
 
-
-
 ```{r}
 
 analyseset_roepkoren_knoflookpad <-  dataset_roepkoren_knoflookpad 
 ```
-
 
 ## Analyseset Vuursalamander
 
@@ -862,6 +908,14 @@ Van de ‘niet verplichte’ locaties kunnen de locaties die systematisch geteld
 + Trimpont
 + Buggenhoutbos zuid
 
+
+```{r}
+dataset_vuursalamander <- dataset_vuursalamander %>%
+  filter(is_sample | locatie %in% c("Heilig-Geestgoed", "Trimpont", "Buggenhoutbos zuid")) 
+```
+
+
+
 ### Lengte transecten
 
 ```{r}
@@ -894,6 +948,7 @@ analyseset_vuursalamander <-  dataset_vuursalamander %>%
   left_join(transects, by = c("meetnet", "locatie"))
 ```
 
+
 ## Analyseset Heikikker
 
 ```{r}
@@ -908,7 +963,8 @@ dataset_heikikker <-  visits %>%
   filter(meetnet == "Heikikker") %>%
   left_join(select(covar, visit_id, bezoekvariabele, waarde), by = c("visit_id")) %>%
   left_join(locatie_clusters, by = c("meetnet", "locatie")) %>%
-  left_join(select(counts_heikikker, visit_id,  soort_nl, soort_wet, primaire_soort, levensstadium, aantal), by = "visit_id")
+  left_join(select(counts_heikikker, visit_id,  soort_nl, soort_wet, primaire_soort, levensstadium, aantal), by = "visit_id") %>%
+  filter(!(locatie == "Klein Schietveld noord 1" & is_sample)) #verkeerde locatie
 
 check <- dataset_roepkoren_knoflookpad %>%
   filter(primaire_soort) %>%
@@ -939,21 +995,6 @@ dataset_check %>%
             filter = "top")
 ```
 
-+ **We selecteren enkel tellingen op actieve locaties**
-
-```{r}
-dataset_heikikker_actief <- dataset_heikikker %>%
-  filter(is_active)
-
-locaties_niet_actief <- dataset_heikikker %>%
-  distinct(meetnet, locatie) %>%
-  anti_join(dataset_heikikker_actief, by = c("meetnet", "locatie"))
-
-locaties_niet_actief %>%
-  kable(caption = "Niet actieve locaties waarvoor bezoeken niet geselecteerd werden") %>%
-  kable_styling()
-```
-
 + We selecteren enkel tellingen die geschikt zijn voor analyse
 
 ```{r}
@@ -963,10 +1004,6 @@ dataset_heikikker <- dataset_heikikker %>%
   filter(!is.na(aantal))
 ```
 
-
-
-
-
 ### Overzicht van de type tellingen: primaire soort, zoekinspanning, levensstadium
 
 Onderstaande tabel geeft een overzicht van het aantal records, bezoeken en locaties en de totale aantallen voor de verschillende combinaties van:
@@ -974,7 +1011,6 @@ Onderstaande tabel geeft een overzicht van het aantal records, bezoeken en locat
 + protocol
 + primaire soort
 + levensstadium
-
 
 ```{r}
 
@@ -1013,17 +1049,38 @@ dataset_check3 %>%
 duur_cyclus <- 3
 start_cyclus <- 2021
 
-analyseset_heikikker <- dataset_heikikker %>%
+analyseset_heikikker_long <- dataset_heikikker %>%
   filter(!is.na(aantal)) %>%
   mutate(meetcyclus = ceiling((jaar - start_cyclus + 1 ) / duur_cyclus)) %>%
   group_by(meetcyclus) %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus - 1) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, hoofdteller, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium,  aantal, bezoekvariabele, waarde)
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, is_active, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, hoofdteller, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium,  aantal, bezoekvariabele, waarde)
+
+analyseset_heikikker_wide <- analyseset_heikikker_long %>%
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, is_active, meetcyclus, meetcyclus_start, meetcyclus_end, datum, visit_id, hoofdteller,  doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium, bezoekvariabele, waarde, aantal) %>%
+  pivot_wider(names_from = bezoekvariabele,
+              values_from = waarde) %>%
+  rename(aantal_totaal = "Aantal eiklompen totaal", aantal_bemonsterd = "Aantal eiklompen bemonsterd", aandeel_doelsoort = "Procentueel aandeel doelsoort", staalcode = Staalcode, aantal_doelsoort = aantal) %>%
+  mutate(jaar = year(datum),
+         aantal_bemonsterd = as.numeric(aantal_bemonsterd),
+         aantal_totaal = as.numeric(aantal_totaal),
+         aantal_doelsoort = as.numeric(aantal_doelsoort),
+         aandeel_doelsoort = as.numeric(aandeel_doelsoort),
+         staalcode = ifelse(staalcode == "", NA, staalcode),
+         aantal_doelsoort = ifelse(!is.na(staalcode) & is.na(aandeel_doelsoort), NA, aantal_doelsoort),
+         staalname = !is.na(staalcode),
+         resultaat_ingevoerd = ifelse(staalname, !is.na(aandeel_doelsoort), NA)) %>%
+  arrange(datum) %>%
+  filter(!is.na(aantal_doelsoort)) %>%
+  mutate(aantal = aantal_doelsoort)
+
+analyseset_heikikker_wide_correct <- analyseset_heikikker_wide %>%
+  mutate(aantal_doelsoort = ifelse(aandeel_doelsoort > 0 & aantal_doelsoort == 0 & !is.na(aandeel_doelsoort), NA, aantal_doelsoort),
+         aantal_totaal = ifelse(aandeel_doelsoort > 0 & aantal_totaal == 0 & !is.na(aandeel_doelsoort), NA, aantal_totaal))
+
 ```
-
-
 
 ## Analyseset Poelkikker
 
@@ -1033,13 +1090,17 @@ counts_poelkikker <- counts %>%
   filter(meetnet == "Poelkikker") %>%
   group_by(visit_id,  soort_nl, soort_wet, primaire_soort, levensstadium, type_aantal) %>%
   summarise(aantal = sum(aantal)) %>%
-  ungroup()
+  ungroup() %>%
+  mutate(soort_nl = ifelse(soort_wet == "Pelophylax lessonae/ kl. esculentus", "Poelkikker/bastaardkikker", soort_nl))
+
 
 dataset_poelkikker <-  visits %>%
   filter(meetnet == "Poelkikker") %>%
   left_join(select(covar, visit_id, bezoekvariabele, waarde), by = c("visit_id")) %>%
   left_join(locatie_clusters, by = c("meetnet", "locatie")) %>%
-  left_join(select(counts_poelkikker, visit_id,  soort_nl, soort_wet, primaire_soort, levensstadium, aantal), by = "visit_id")
+  left_join(select(counts_poelkikker, visit_id,  soort_nl, soort_wet, primaire_soort, levensstadium, aantal), by = "visit_id") %>%
+  filter(!(protocol == "Poelkikker - DNA larven" & soort_nl != "Poelkikker")) %>%
+  filter(bezoekvariabele != "staalcode" | is.na(bezoekvariabele)) # staalcode niet ingevuld
 
 ```
 
@@ -1066,9 +1127,6 @@ dataset_check %>%
             filter = "top")
 ```
 
-+ Ontoegankelijke locatie en locatie ongeschikt op inactief zetten? 
-
-
 
 + **We selecteren enkel tellingen op actieve locaties**
 
@@ -1094,10 +1152,6 @@ dataset_poelkikker <- dataset_poelkikker %>%
   filter(!is.na(aantal))
 ```
 
-
-
-
-
 ### Overzicht van de type tellingen: primaire soort, zoekinspanning, levensstadium
 
 Onderstaande tabel geeft een overzicht van het aantal records, bezoeken en locaties en de totale aantallen voor de verschillende combinaties van:
@@ -1105,7 +1159,6 @@ Onderstaande tabel geeft een overzicht van het aantal records, bezoeken en locat
 + protocol
 + primaire soort
 + levensstadium
-
 
 ```{r}
 
@@ -1153,7 +1206,17 @@ analyseset_poelkikker <- dataset_poelkikker %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus - 1) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, hoofdteller, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium,  aantal)
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, is_active, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, hoofdteller, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium, bezoekvariabele, waarde, aantal)
+
+analyseset_poelkikker_wide <- analyseset_poelkikker%>%
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, is_active, meetcyclus, meetcyclus_start, meetcyclus_end, datum, jaar, visit_id, hoofdteller,  doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium, bezoekvariabele, waarde, aantal) %>%
+  pivot_wider(names_from = bezoekvariabele,
+              values_from = waarde) %>%
+  select(-"NA") %>%
+  rename(aantal_bemonsterd = "aantal larven bemonsterd", aandeel_doelsoort = "Procentueel aandeel doelsoort") %>%
+  mutate(aantal_bemonsterd = as.numeric(aantal_bemonsterd),
+         aandeel_doelsoort = as.numeric(aandeel_doelsoort)) %>%
+  arrange(datum)
 ```
 
 
@@ -1164,13 +1227,13 @@ analyseset_poelkikker <- dataset_poelkikker %>%
 
 counts_rugstreeppad_sample <- counts %>%
   filter(meetnet == "Rugstreeppad") %>%
-  group_by(visit_id, sample_id,  soort_nl,  primaire_soort, levensstadium,  activiteit) %>%
+  group_by(visit_id, sample_id,  soort_nl, soort_wet, primaire_soort, levensstadium,  activiteit) %>%
   summarise(aantal = sum(aantal)) %>%
   ungroup()
 
 counts_rugstreeppad_visit <- counts %>%
   filter(meetnet == "Rugstreeppad") %>%
-  group_by(visit_id, soort_nl,  primaire_soort, levensstadium, activiteit) %>%
+  group_by(visit_id, soort_nl, soort_wet, primaire_soort, levensstadium, activiteit) %>%
   summarise(aantal = sum(aantal),
             n_samples = n_distinct(sample_id)) %>%
   ungroup()
@@ -1218,18 +1281,22 @@ In tussentijd veronderstellen we een nulwaarneming bij ontbrekende waarden wanne
 ```{r}
 check_na <- dataset_rugstreeppad %>%
   filter(is.na(aantal)) %>%
-  select(visit_id, meetnet, locatie, datum, hoofdteller, bezoek_status, voor_analyse, is_active,  aantal, notes)
+  select(visit_id, meetnet, locatie, datum, hoofdteller, bezoek_status, voor_analyse, is_active,  aantal, opmerking)
 
 dataset_rugstreeppad_nul <- dataset_rugstreeppad %>%
   filter(is.na(aantal) & bezoek_status == "Conform protocol") %>%
-  select(-levensstadium, -activiteit, -aantal, -n_samples)
+  select(-levensstadium, -activiteit, -aantal, -n_samples, -soort_nl, -soort_wet, -primaire_soort)
 
 nulwaarneming <- dataset_rugstreeppad %>%
   tidyr::expand(visit_id, nesting(levensstadium, activiteit)) %>%
+  filter(levensstadium != "juveniel") %>%
   filter(!is.na(levensstadium)) %>% 
   semi_join(dataset_rugstreeppad_nul, by = "visit_id") %>%
   mutate(aantal = 0,
-         n_samples = 1)
+         n_samples = 1,
+         soort_nl = "Rugstreeppad",
+         soort_wet = "Epidalea calamita",
+         primaire_soort = TRUE)
 
 dataset_rugstreeppad_nul <- dataset_rugstreeppad_nul %>%
   left_join(nulwaarneming, by = "visit_id")
@@ -1272,7 +1339,7 @@ dataset_check %>%
 
 ```{r}
 dataset_rugstreeppad_actief <- dataset_rugstreeppad %>%
-  filter(is_active)
+  filter(is_active | is.na(is_active))
 
 locaties_niet_actief <- dataset_rugstreeppad %>%
   distinct(meetnet, locatie) %>%
@@ -1296,10 +1363,10 @@ dataset_rugstreeppad <- dataset_rugstreeppad %>%
 ```{r}
 dataset_rugstreeppad %>%
   filter(!bezoek_status %in% c("Conform protocol", "Telmethode niet gevolgd")) %>%
-  group_by(locatie, datum, bezoek_status, voor_analyse, visit_id, notes) %>%
+  group_by(locatie, datum, bezoek_status, voor_analyse, visit_id, opmerking) %>%
   summarise(aantal_tot = sum(aantal)) %>%
   ungroup() %>%
-  select(locatie, datum, bezoek_status, voor_analyse, aantal_tot, visit_id, notes) %>%
+  select(locatie, datum, bezoek_status, voor_analyse, aantal_tot, visit_id, opmerking) %>%
   mutate(visit_id = str_c('<a href = "https://www.meetnetten.be/fieldwork/visits/', visit_id,'">', visit_id, '</a>')) %>%
   datatable(rownames = FALSE,
             escape = FALSE)
@@ -1343,14 +1410,33 @@ analyseset_rugstreeppad <- dataset_rugstreeppad %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus - 1) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, levensstadium, activiteit, aantal, n_samples)
+  select(soortgroep, meetnet, protocol, locatie, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, start_time, end_time, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium, activiteit, aantal, n_samples, opmerking, hoofdteller)
+
+analyseset_rugstreeppad <- analyseset_rugstreeppad %>%
+  filter(primaire_soort) %>%
+  group_by(locatie, protocol) %>%
+  mutate(paired = n_distinct(meetcyclus) > 1,
+         multiple_year = n_distinct(jaar) > 1) %>%
+  ungroup() %>%
+  mutate(periode = str_c(meetcyclus_start, " - ", meetcyclus_end)) %>%
+  mutate(start_hour = as.numeric(str_sub(start_time, 1, 2)),
+         type_telling = ifelse(is.na(start_hour), "onbekend",
+                               ifelse(start_hour > 5 & start_hour < 17, "dagtelling", "avondtelling"))) 
+
+# TE CORRIGEREN BEZOEK
+analyseset_rugstreeppad <- analyseset_rugstreeppad %>%
+  mutate(aantal = ifelse((visit_id == 55056) & (levensstadium == "larve"), 120, aantal),
+         aantal = ifelse(visit_id == 55056 & activiteit == "roepend", 0, aantal))
+
+check <- analyseset_rugstreeppad %>%
+  filter(visit_id == "55056")
 ```
 
 ## Analyseset habitatkenmerken
 
 ```{r}
 habitatkenmerken_boomkikker_kamsalamander <- analyseset_larven %>%
-  distinct(meetnet, cluster, locatie, poel, visit_id, datum, bezoek_status, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, notes) %>%
+  distinct(meetnet, cluster, locatie, poel, visit_id, datum, bezoek_status, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, opmerking) %>%
   left_join(covar, by = c("visit_id", "meetnet")) %>%
   filter(!bezoekvariabele %in% c("aantal keer geschept", "zoekinspanning")) %>%
   mutate(waarde = ifelse(waarde == "3" & bezoekvariabele == "waterkwaliteit", "goed (helder water, typische oever en/of waterplanten, weinig verlanding, niet zichtbaar vervuild)", waarde)) %>% 
@@ -1482,11 +1568,13 @@ write_vc(analyseset_roepkoren_knoflookpad, file = "analyseset_roepkoren_knoflook
 
 write_vc(analyseset_vuursalamander, file = "analyseset_vuursalamander", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_nl", "visit_id"), strict = FALSE)
 
-write_vc(analyseset_heikikker, file = "analyseset_heikikker", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_nl", "visit_id", "bezoekvariabele"), strict = FALSE)
+write_vc(analyseset_heikikker_wide_correct, file = "analyseset_heikikker", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_nl", "visit_id"), strict = FALSE)
 
-write_vc(analyseset_poelkikker, file = "analyseset_poelkikker", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_wet", "visit_id"), strict = FALSE)
+write_vc(analyseset_poelkikker_wide, file = "analyseset_poelkikker", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_wet", "visit_id"), strict = FALSE)
 
 write_vc(analyseset_rugstreeppad, file = "analyseset_rugstreeppad", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_nl", "visit_id", "levensstadium", "activiteit"), strict = FALSE)
+
+write_vc(analyseset_roepkoren_vroedmeesterpad, file = "analyseset_vroedmeesterpad", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_nl", "visit_id"), strict = FALSE)
 
 write_vc(habitatkenmerken_boomkikker_kamsalamander_wide, file = "habitatkenmerken_boomkikker_kamsalamander_wide", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "visit_id"), strict = FALSE)
 
@@ -1570,8 +1658,7 @@ datasetset_boomkikker %>%
 + poelen in clusters meestal in zelfde jaar geteld
   + confounding tussen cluster en jaar
   + jaar niet meenemen in model, enkel meetcyclus
-+ Merkske enkel in tweede meetcyclus opgemeten
-  + Merkske niet meenemen om trend te bepalen
+
 + Er zijn ook al tellingen van de 3de meetcyclus, maar 3de meetcyclus is nog niet afgerond dus die tellingen nemen we niet mee
 
 ```{r}
@@ -2521,7 +2608,8 @@ We stellen voorlopig de ontbrekende waarden voor aandeel doelsoort gelijk aan he
 overzicht_heikikker <- analyseset_heikikker %>%
   mutate(aandeel_doelsoort_gemiddeld = mean(aandeel_doelsoort, na.rm = TRUE),
          aandeel_doelsoort = ifelse(is.na(aandeel_doelsoort), aandeel_doelsoort_gemiddeld, aandeel_doelsoort),
-         aantal_doelsoort_calc = ifelse(staalname, aantal_totaal * aandeel_doelsoort/100, aantal_doelsoort)) 
+         aantal_doelsoort_calc = ifelse(staalname, aantal_totaal * aandeel_doelsoort/100, aantal_doelsoort)) %>%
+  filter(!is.na(aantal_doelsoort_calc))
 
 overzicht_heikikker_locatie <- overzicht_heikikker %>%
   mutate(jaar = year(datum)) %>%
@@ -2598,22 +2686,15 @@ overzicht_heikikker_locatie %>%
 analyseset_poelkikker <- read_vc(file = "analyseset_poelkikker", root = "../output/analyseset")
 
 analyseset_poelkikker <- analyseset_poelkikker %>%
-  mutate(soort_nl = ifelse(soort_wet == "Pelophylax lessonae/ kl. esculentus", "Poelkikker/bastaardkikker", soort_nl),
-         aanwezig = aantal > 0) 
-
-overzicht_poel_bastaard <- analyseset_poelkikker %>%
-  filter(soort_nl != "Meerkikker") %>%
-  group_by(meetnet, locatie, cluster, visit_id, datum, jaar, meetcyclus) %>%
-  summarise(aantal = sum(aantal)) %>%
-  ungroup() %>%
-  group_by(meetnet, locatie) %>%
-  mutate(aanwezig = sum(aantal) > 0) %>%
-  ungroup()
+  mutate(aanwezig = aantal > 0) 
 
 ```
 
+## Roepkoren
+
 ```{r}
 analyseset_poelkikker %>%
+  filter(protocol == "Padden en kikkers - Roepkoren") %>%
   ggplot(aes(y = aantal, x = factor(jaar), colour = aanwezig)) +
   geom_point(alpha = 0.3) +
   stat_summary(fun.data = "mean_cl_boot", colour = "red", size = 1, alpha = 0.4) +
@@ -2621,46 +2702,145 @@ analyseset_poelkikker %>%
   labs(x = "jaar")
 ```
 
-
-
-
 ```{r}
-overzicht_poel_bastaard %>%
-  group_by(meetnet, meetcyclus) %>%
-  summarise(n_locaties = n_distinct(locatie), 
-            n_clusters = n_distinct(cluster),
-            prop_locatie_aanwezig = round(mean(aanwezig), 2),
-            aantal_gem = round(mean(aantal))) %>%
-  ungroup() %>%
-  pivot_longer(cols = c("n_locaties", "n_clusters", "prop_locatie_aanwezig", "aantal_gem"), names_to = "parameter", values_to = "waarde") %>%
-  kable(caption = "Overzicht meetcyclus roepkoren Poelkikker + Bastaardkikker") %>%
-  kable_styling() %>%
-  collapse_rows(c(1,2))
-
+analyseset_poelkikker %>%
+  filter(protocol == "Padden en kikkers - Roepkoren") %>%
+  mutate(aantal_klasse = ifelse(aantal == 0, "0",
+                                ifelse(aantal <= 10, "1-10", 
+                                       ifelse(aantal <= 50, "11-50", ">50"))),
+         aantal_klasse = factor(aantal_klasse, levels = c("0", "1-10", "11-50", ">50"))) %>%
+  ggplot(aes(x = aantal_klasse)) +
+  geom_bar() +
+  facet_wrap(~soort_nl, scales = "free_y")
 ```
 ```{r}
-overzicht_poel_bastaard %>%
-  group_by(meetnet, jaar) %>%
-  summarise(n_locaties = n_distinct(locatie), 
-            n_clusters = n_distinct(cluster),
-            prop_locatie_aanwezig = round(mean(aanwezig), 2),
-            aantal_gem = round(mean(aantal))) %>%
-  ungroup() %>%
-  pivot_longer(cols = c("n_locaties", "n_clusters", "prop_locatie_aanwezig", "aantal_gem"), names_to = "parameter", values_to = "waarde") %>%
-  kable(caption = "Overzicht per jaar voor roepkoren Poelkikker + Bastaardkikker") %>%
-  kable_styling() %>%
-  collapse_rows(c(1,2))
+wnm_poelkikker <- analyseset_poelkikker %>%
+  filter(soort_nl == "Poelkikker", 
+         aantal > 0, 
+         protocol == "Padden en kikkers - Roepkoren")
 
+bezoeken_poelkikker <- analyseset_poelkikker %>%
+  semi_join(wnm_poelkikker, by = c("locatie")) %>%
+  filter(soort_nl != "Meerkikker") %>%
+  mutate(link = str_c("<a href=https://www.meetnetten.be/fieldwork/visits/", visit_id, ">", visit_id,"</a")) %>%
+  select(locatie, datum, link, protocol, soort_nl, aantal, aantal_bemonsterd, aandeel_doelsoort) 
+```
+
+Locaties waar roepkoren van poelkikker konden onderscheiden worden. 
+Kan je in één bezoek zowel een aantal raoepkoren van poelkikker en een antal roepkoren van poelkikker/bastaardkikker hebben?
+
+```{r}
+bezoeken_poelkikker %>%
+  datatable(rownames = FALSE,
+            filter = "top",
+            escape = FALSE)
 ```
 
 
 
+## Larven 
 
+```{r}
+analyseset_poelkikker %>%
+  filter(protocol == "Poelkikker - DNA larven") %>%
+  pivot_longer(cols = c("aantal", "aantal_bemonsterd", "aandeel_doelsoort"),
+               names_to = "variabele", values_to = "waarde") %>%
+  ggplot(aes(x = waarde, fill = waarde > 0)) +
+  geom_histogram(binwidth = 10) +
+  facet_wrap(~variabele, scales = "free")
+```
 
+## Roepkoren en larven
 
+### Ruwe gegevens
 
+```{r}
 
+overzicht_locatie_poel_bastaard <- analyseset_poelkikker %>%
+  filter(soort_nl != "Meerkikker") %>%
+  group_by(meetnet, protocol, locatie, levensstadium, soort_nl) %>%
+  summarise(aanwezig = sum(aantal) > 0,
+            aantal_loc = sum(aantal),
+            bezoeken_loc = n_distinct(visit_id)) %>%
+  ungroup()
 
+overzicht_poel_bastaard <- overzicht_locatie_poel_bastaard %>%
+  group_by(meetnet, protocol, levensstadium, soort_nl) %>%
+  summarise(prop_locatie_aanwezig = round(mean(aanwezig), 2),
+            aantal_gem = round(sum(aantal_loc) / sum(bezoeken_loc), 1)) %>%
+  ungroup() 
+
+overzicht_poel_bastaard %>%
+  kable() %>%
+  kable_styling()
+```
+
+### Geschatte aantallen
+
+```{r}
+aandeel_doelsoort <- analyseset_poelkikker %>%
+  filter(soort_nl == "Poelkikker") %>%
+  filter(protocol == "Poelkikker - DNA larven") %>%
+  select(locatie, aantal_larven_bemonsterd = aantal_bemonsterd, aandeel_larven_doelsoort = aandeel_doelsoort)
+
+roepkoren_poelkikker_geschat <- analyseset_poelkikker %>%
+  filter(soort_nl != "Meerkikker") %>%
+  filter(!(soort_nl == "Poelkikker" & aantal == 0)) %>%
+  filter(protocol == "Padden en kikkers - Roepkoren") %>%
+  select(meetnet, locatie, jaar,  datum, visit_id, soort_nl, aantal,) %>%
+  left_join(aandeel_doelsoort, by = "locatie") %>%
+  mutate(aantal_poelkikker_geschat = ifelse(aantal == 0, aantal,
+                                            ifelse(soort_nl == "Poelkikker", aantal,
+                                                   ifelse(soort_nl == "Poelkikker/bastaardkikker", aantal * aandeel_larven_doelsoort / 100, NA)))) %>%
+  rename(aantal_roepkoren = aantal)
+
+write_csv2(roepkoren_poelkikker_geschat, "../output/overzicht_poelkikker.csv", na = "")
+```
+
+#### Roepkoren
+
+```{r}
+overzicht_locatie_poel_geschat <- roepkoren_poelkikker_geschat %>%
+  filter(!is.na(aantal_poelkikker_geschat)) %>%
+  group_by(meetnet, locatie) %>%
+  summarise(aanwezig = sum(aantal_poelkikker_geschat) > 0,
+            aantal_loc = sum(aantal_poelkikker_geschat),
+            aantal_max = max(aantal_poelkikker_geschat),
+            bezoeken_loc = n_distinct(visit_id)) %>%
+  ungroup()
+
+overzicht_poel_geschat <- overzicht_locatie_poel_geschat %>%
+  group_by(meetnet) %>%
+  summarise(prop_locatie_aanwezig = round(mean(aanwezig), 2),
+            n_locaties = n_distinct(locatie),
+            aantal_bezoeken = sum(bezoeken_loc),
+            aantal_telling_gem = round(sum(aantal_loc) / sum(bezoeken_loc), 3),
+            aantal_max_gem = round(sum(aantal_max) / n_distinct(locatie), 3)) %>%
+  ungroup() 
+
+overzicht_poel_geschat %>%
+  kable() %>%
+  kable_styling()
+```
+
+#### Larven
+
+```{r}
+overzicht_locatie_poel_larve <- roepkoren_poelkikker_geschat %>%
+  distinct(meetnet, locatie, jaar, aantal_larven_bemonsterd, aandeel_larven_doelsoort) %>%
+  mutate(aantal_larven_bemonsterd = ifelse(is.na(aantal_larven_bemonsterd), 0, aantal_larven_bemonsterd),
+         aantal_larven_poelkikker = ifelse(aantal_larven_bemonsterd > 0,
+                                           aantal_larven_bemonsterd * aandeel_larven_doelsoort/100,
+                                           0)) %>%
+  group_by(meetnet) %>%
+  summarise(aanwezig_larve = mean(aantal_larven_bemonsterd > 0),
+            aanwezig_larve_poelkikker = mean(aantal_larven_poelkikker > 0)) %>%
+  ungroup()
+
+overzicht_poel_geschat %>%
+  kable() %>%
+  kable_styling()
+```
 
 
 <!--chapter:end:2_6_dataverkenning_poelkikker.Rmd-->
@@ -2671,22 +2851,75 @@ overzicht_poel_bastaard %>%
 
 analyseset_rugstreeppad <- read_vc(file = "analyseset_rugstreeppad", root = "../output/analyseset")
 
-analyseset_rugstreeppad <- analyseset_rugstreeppad %>%
-  filter(primaire_soort) %>%
-  group_by(locatie, protocol) %>%
-  mutate(paired = n_distinct(meetcyclus) > 1,
-         multiple_year = n_distinct(jaar) > 1) %>%
-  ungroup() %>%
-  mutate(periode = str_c(meetcyclus_start, " - ", meetcyclus_end))
 ```
 
 ## Overzicht tellingen
 
-### Meetnetlocaties
+### Type tellingen
+
+We onderscheiden:
+
+-   avondtellingen: startuur telling tussen 17u tot 5u
+-   dagtellingen: startuur telling tussen 5u en 17u
+-   onbekend: geen startuur ingegeven
+
+Onderstaande figuur geeft de relatie weer tussen het startuur van de telling en de getelde aantallen per levensstadium/ activiteit.
+
+```{r}
+analyseset_rugstreeppad %>%
+  mutate(show = ifelse(levensstadium == "adult", str_c(levensstadium, " ", activiteit), levensstadium)) %>%
+  mutate(start_hour = ifelse(is.na(start_hour), -10, start_hour)) %>%
+  ggplot(aes(x = start_hour, y = aantal, colour = type_telling)) +
+  geom_point(alpha = 0.4) +
+  facet_wrap(~ show, scale = "free_y") 
+```
+
+```{r}
+analyseset_rugstreeppad %>%
+  mutate(show = ifelse(levensstadium == "adult", str_c(levensstadium, " ", activiteit), levensstadium)) %>%
+  mutate(start_hour = ifelse(is.na(start_hour), -10, start_hour)) %>%
+  ggplot(aes(x = type_telling, y = aantal)) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap(~ show, scale = "free_y") +
+  theme(axis.text.x = element_text(angle = 30))
+```
+
+```{r}
+overzicht_type <- analyseset_rugstreeppad %>%
+  filter(primaire_soort) %>%
+  filter(bezoek_status == "Conform protocol") %>%
+  group_by(protocol,  levensstadium, activiteit, type_telling) %>%
+  summarise(n_locaties = n_distinct(locatie), 
+            n_bezoeken = n_distinct(visit_id),
+            aantal_max = max(aantal),
+            aantal_gem = mean(aantal)) %>%
+  ungroup()
+```
+
+```{r}
+overzicht_onbekend <- analyseset_rugstreeppad %>%
+  group_by(locatie) %>%
+  filter(any(type_telling == "onbekend")) %>%
+  ungroup() %>%
+  mutate(type_wnm = ifelse(levensstadium == "adult", str_c(levensstadium, "_", activiteit), levensstadium)) %>%
+  select(type_telling, locatie, visit_id, datum, start_time, hoofdteller, type_wnm, aantal) %>%
+  pivot_wider(names_from = "type_wnm", values_from = "aantal")
+
+write_csv2(overzicht_onbekend, "../output/rugstreeppad_tijsdstip_onbekend.csv")
+```
+
+Hieronder een overzicht van de locaties met tellingen waarvan we niet weten of het een dagtelling of een avondtelling is. 
+
+```{r}
+overzicht_onbekend %>%
+  datatable(rownames = FALSE,
+            filter = "top")
+```
+
+### Tellingen per meetcyclus
 
 ```{r}
 overzicht <- analyseset_rugstreeppad %>%
-  filter(is_sample) %>%
   group_by(protocol, paired,locatie, periode) %>%
   summarise(n_tellingen = n_distinct(visit_id)) %>%
   ungroup() %>%
@@ -2698,12 +2931,34 @@ overzicht <- analyseset_rugstreeppad %>%
 overzicht %>%
   select(locatie, "2019 - 2021", "2022 - 2024", gepaard = paired) %>%
   arrange(locatie) %>%
-  kable(caption = "Aantal tellingen per cyclus") %>%
-  kable_styling() 
+  datatable(caption = "Aantal tellingen per cyclus",
+            rownames = FALSE,
+            filter = "top") 
 ```
 
+```{r}
+overzicht_typetelling <- analyseset_rugstreeppad %>%
+  group_by(locatie) %>%
+  mutate(aanwezig_adult = sum(aantal * (levensstadium == "adult")) > 0,
+         aanwezig_voortpl = sum(aantal * (levensstadium != "adult")) > 0) %>% 
+  group_by(protocol, paired,locatie, periode, type_telling, aanwezig_adult, aanwezig_voortpl) %>%
+  summarise(n_tellingen = n_distinct(visit_id)) %>%
+  ungroup() %>%
+  pivot_wider(names_from = "type_telling", values_from = n_tellingen, values_fill = 0) %>%
+  mutate(telling_show = str_c(avondtelling, dagtelling, onbekend, sep = "/")) %>%
+  select(-avondtelling, -dagtelling, -onbekend) %>%
+  pivot_wider(names_from = "periode", values_from = telling_show, values_fill = "")
 
-### Tijdstip van de tellingen
+```
+
+```{r}
+overzicht_typetelling %>%
+  select(locatie, "2019 - 2021", "2022 - 2024", gepaard = paired, aanwezig_adult, aanwezig_voortpl) %>%
+  arrange(locatie) %>%
+  datatable(caption = "Aantal avondtellingen/dagtellingen/tellingen onbekend per cyclus",
+            rownames = FALSE, 
+            filter = "top") 
+```
 
 
 
@@ -2716,35 +2971,155 @@ analyseset_rugstreeppad %>%
   geom_vline(xintercept = as.Date("2022-01-01"), linetype = 2, alpha = 0.5)
 ```
 
+## Overzicht aantallen
 
-
-### Overzicht aantallen
-
-```{r, fig.height= 8}
-analyseset_rugstreeppad %>%
-  ggplot(aes(x = jaar, y = aantal, colour = is_sample)) +
-  geom_point(alpha = 0.3) +
-  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
-  facet_wrap(~ levensstadium + activiteit, scales = "free_y")
-```
-
+### Globaal
 ```{r}
 overzicht_tellingen <- analyseset_rugstreeppad %>%
   mutate(aanwezig = aantal > 0) %>%
-  group_by(periode, levensstadium, activiteit) %>%
+  group_by(levensstadium, activiteit) %>%
   summarise(n_locaties = n_distinct(locatie),
             n_bezoeken = n_distinct(visit_id),
             prop_bezoeken_aanwezig = round(mean(aanwezig),2),
-            aantal_gemiddeld = mean(aantal),
+            aantal_gemiddeld = round(mean(aantal), 1),
             aantal_max = max(aantal)) %>%
   ungroup()
 
+overzicht_tellingen_locatie_type <- analyseset_rugstreeppad %>%
+  group_by(locatie, levensstadium, activiteit) %>%
+  summarise(aantal_type = sum(aantal)) %>%
+  ungroup() %>%
+  group_by(locatie) %>%
+  mutate(aantal_tot = sum(aantal_type)) %>%
+  ungroup() %>%
+  mutate(n_locaties = n_distinct(locatie)) %>%
+  group_by(levensstadium, activiteit, n_locaties) %>%
+  summarise(n_locaties_aanwezig_type = sum(aantal_type > 0),
+            aantal_type = sum(aantal_type)) %>%
+  ungroup()
+
+overzicht_tellingen_locatie_tot <- analyseset_rugstreeppad %>%
+  group_by(locatie) %>%
+  summarise(aantal_tot = sum(aantal)) %>%
+  ungroup() %>%
+  mutate(n_locaties = n_distinct(locatie)) %>%
+  group_by( n_locaties) %>%
+  summarise(n_locaties_aanwezig_type = sum(aantal_tot > 0),
+            aantal_tot = sum(aantal_tot)) %>%
+  ungroup()
+
 overzicht_tellingen %>%
-  kable() %>%
+  kable(caption = "Overzicht voor alle tellingen") %>%
+  kable_styling()
+
+overzicht_tellingen_type <- analyseset_rugstreeppad %>%
+  mutate(aanwezig = aantal > 0) %>%
+  group_by(type_telling, levensstadium, activiteit) %>%
+  summarise(n_locaties = n_distinct(locatie),
+            n_bezoeken = n_distinct(visit_id),
+            prop_bezoeken_aanwezig = round(mean(aanwezig),2),
+            aantal_gemiddeld = round(mean(aantal), 1),
+            aantal_max = max(aantal)) %>%
+  ungroup()
+```
+
+```{r}
+overzicht_tellingen_type %>%
+  kable(caption = "Overzicht per type telling") %>%
   kable_styling()
 ```
 
+### Per meetcyclus
 
+```{r, fig.cap = "Gemiddelde aantallen per meetcyclus voor de avondtellingen"}
+
+analyseset_rugstreeppad %>%
+  mutate(show = ifelse(levensstadium == "adult", str_c(levensstadium, " ", activiteit), levensstadium)) %>%
+  filter(paired) %>%
+  ggplot(aes(x = periode, y = aantal)) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap( ~ show, scales = "free") +
+  labs(title = "Alle tellingen")
+```
+
+```{r, fig.cap = "Gemiddelde aantallen per meetcyclus voor de avondtellingen"}
+
+analyseset_rugstreeppad %>%
+   group_by(visit_id) %>%
+  mutate(type_telling_est = ifelse(type_telling == "onbekend",
+                               ifelse(any(aantal > 0 & levensstadium == "ei"), "dagtelling", "avondtelling"),
+                                type_telling)) %>%
+  ungroup() %>%
+  mutate(show = ifelse(levensstadium == "adult", str_c(levensstadium, " ", activiteit), levensstadium)) %>%
+  filter(paired) %>%
+  filter(type_telling == "avondtelling") %>%
+  ggplot(aes(x = periode, y = aantal)) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap( ~ show, scales = "free") +
+  labs(title = "Avondtellingen")
+```
+
+```{r, fig.cap = "Gemiddelde aantallen per meetcyclus voor de dagtellingen"}
+
+analyseset_rugstreeppad %>%
+   group_by(visit_id) %>%
+  mutate(type_telling_est = ifelse(type_telling == "onbekend",
+                               ifelse(any(aantal > 0 & levensstadium == "ei"), "dagtelling", "avondtelling"),
+                                type_telling)) %>%
+  ungroup() %>%
+  mutate(show = ifelse(levensstadium == "adult", str_c(levensstadium, " ", activiteit), levensstadium)) %>%
+  filter(paired) %>%
+  filter(type_telling == "dagtelling") %>%
+  ggplot(aes(x = periode, y = aantal)) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap( ~ show, scales = "free") +
+  labs(title = "Dagtellingen")
+```
+
+## Overzicht aanwezigheid
+
+```{r}
+overzicht_aanwezig_locatie <- analyseset_rugstreeppad %>%
+  group_by(locatie) %>%
+  summarise(aanwezig = sum(aantal) > 0,
+            aanwezig_adult = sum(aantal * (levensstadium == "adult")) > 0,
+            aanwezig_voortplanting = sum(aantal * (levensstadium != "adult")) > 0) %>%
+  ungroup() 
+
+# overzicht_aanwezig <- overzicht_aanwezig_locatie %>%
+#   group_by(meetcyclus) %>%
+#   summarise(prop_aanwezig = sum(aanwezig) / n_distinct(locatie),
+#             prop_aanwezig_adult = sum(aanwezig_adult) / n_distinct(locatie),
+#             prop_aanwezig_voortpl = sum(aanwezig_voortplanting) / n_distinct(locatie)) %>%
+#   ungroup()
+
+overzicht_aanwezig_type <- analyseset_rugstreeppad %>%
+  group_by(type_telling, locatie, meetcyclus) %>%
+  summarise(aanwezig = sum(aantal) > 0,
+            aanwezig_adult = sum(aantal * (levensstadium == "adult")) > 0,
+            aanwezig_voortplanting = sum(aantal * (levensstadium != "adult")) > 0) %>%
+  ungroup() %>%
+  group_by(type_telling, meetcyclus) %>%
+  summarise(n_locaties = n_distinct(locatie),
+            prop_aanwezig = round(sum(aanwezig) / n_distinct(locatie), 2),
+            prop_aanwezig_adult = round(sum(aanwezig_adult) / n_distinct(locatie), 2),
+            prop_aanwezig_voortpl = round(sum(aanwezig_voortplanting) / n_distinct(locatie), 2)) %>%
+  ungroup()
+```
+
+```{r}
+overzicht_aanwezig_locatie %>%
+  datatable(rownames = FALSE,
+            filter = "top")
+```
+
+
+
+```{r}
+overzicht_aanwezig_type %>%
+  kable(caption = "Overzicht aanwezigheid per locatie") %>%
+  kable_styling()
+```
 
 <!--chapter:end:2_7_dataverkenning_rugstreeppad.Rmd-->
 
@@ -3158,6 +3533,57 @@ oppervlakte_waterpartij_status %>%
 
 <!--chapter:end:2_8_dataverkenning_habitatkenmerken.Rmd-->
 
+
+# Dataverkenning Knoflookpad
+
+## Overzicht aantallen
+
+### Meetnet
+
+```{r}
+
+analyseset_roepkoren_vroedmeesterpad <- read_vc(file = "analyseset_vroedmeesterpad", root = "../output/analyseset")
+
+```
+
+```{r}
+analyseset_roepkoren_vroedmeesterpad %>%
+  ggplot(aes(x = jaar, y = aantal, colour = is_sample)) +
+  geom_point(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red", size = 1, alpha = 0.5) +
+  facet_wrap(~ levensstadium, scales = "free_y")
+```
+
+### Per locatie
+
+```{r}
+overzicht_locatie <- analyseset_roepkoren_vroedmeesterpad %>%
+  filter(primaire_soort) %>%
+  group_by(locatie, jaar) %>%
+  summarise(aantal_gemiddeld = round(mean(aantal), 1)) %>%
+  ungroup()
+
+overzicht_wide <- overzicht_locatie %>%
+  arrange(jaar) %>%
+  pivot_wider(names_from = "jaar", values_from = aantal_gemiddeld)
+
+```
+
+```{r}
+overzicht_wide %>%
+  arrange(locatie) %>%
+  kable(caption = "gemiddeld aantal geteld per jaar en per locatie") %>%
+  kable_styling()
+```
+
+
+
+Wanneer bij een bezoek wordt aangegeven dat er met hydrofoon werd geteld, kunnen zowel aantallen ingevuld worden zowel met hydrofoon als zonder hydrofoon. 
+De aantallen zonder hydrofoon zijn op één telling na allemaal nulwaarnemingen.Gaat hier effectief om nulwaarnemingen of zijn het ontbrekende waarden?  
+
+
+<!--chapter:end:2_9_dataverkenning_vroedmeesterpad.Rmd-->
+
 # Modelverkenning Boomkikker
 
 ## Roepkoren
@@ -3179,6 +3605,7 @@ locatie_enkel_nulw <- analyseset_boomkikker %>%
   filter(aantal_totaal == 0)
   
 ```
+
 ```{r}
 locatie_enkel_nulw %>%
   kable(caption = "Locaties met enkel nultellingen voor roepkoren") %>%
@@ -3210,6 +3637,27 @@ analyseset_roepkoren_boomkikker %>%
   labs(y = "aantal tellingen")
 
 ```
+### Verband tussen aantallen en datum
+
+```{r}
+analyseset_roepkoren_boomkikker %>%
+  mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
+  ggplot(aes(x = datum, y = aantal)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth() +
+  labs("aantal roepende adulten")
+```
+
+```{r, eval = FALSE}
+analyseset_roepkoren_boomkikker %>%
+  mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
+  ggplot(aes(x = datum, y = aantal, group = periode, colour = periode)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth() +
+  labs("aantal roepende adulten")
+```
+
+## Modelvarianten
 
 ```{r}
 
@@ -3317,29 +3765,8 @@ indexmodel_iid <- inla(formula = aantal ~ periode  +
 
 ```
 
-+ random effect voor datum, met sterke prior (bv. probabiliteit sigma > log(1.05) kleiner dan 5%)
 
 
-
-### Verband tussen aantallen en datum
-
-```{r}
-analyseset_roepkoren_boomkikker %>%
-  mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
-  ggplot(aes(x = datum, y = aantal)) +
-  geom_point(alpha = 0.4) +
-  geom_smooth() +
-  labs("aantal roepende adulten")
-```
-
-```{r}
-analyseset_roepkoren_boomkikker %>%
-  mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
-  ggplot(aes(x = datum, y = aantal, group = periode, colour = periode)) +
-  geom_point(alpha = 0.4) +
-  geom_smooth() +
-  labs("aantal roepende adulten")
-```
 
 ### Modelering seizonaliteit via random walk
 
@@ -3408,7 +3835,7 @@ indexmodel_iid_doyrw2_bis$summary.random$doy_scaled %>%
   select(doy_scaled = ID, mean, lcl = `0.025quant`, ucl = `0.975quant`) %>%
    mutate(doy = doy_scaled - 1 + doy_min,
          datum = as.Date(doy, origin = "2018-01-01")) %>%
-  mutate(jaar = c(rep(2016, 46), rep(2017, 46), rep(2018, 46), rep(2019, 46), rep(2020, 46), rep(2021, 46))) %>%
+  mutate(jaar = c(rep(2016, 47), rep(2017, 47), rep(2018, 47), rep(2019, 47), rep(2020, 47), rep(2021, 47))) %>%
   mutate_at(c("mean", "lcl", "ucl"), exp) %>%
   ggplot(aes(x = datum, y = mean, ymin = lcl, ymax = ucl)) +
   geom_ribbon(alpha = 0.2) + 
@@ -3417,8 +3844,6 @@ indexmodel_iid_doyrw2_bis$summary.random$doy_scaled %>%
         y = "relative effect") +
   facet_wrap(~jaar)
 
-check <- indexmodel_iid_doyrw2_bis$summary.random$doy_scaled  %>%
-  mutate(jaar = c(rep(2016, 46), rep(2017, 46), rep(2018, 46), rep(2019, 46), rep(2020, 46), rep(2021, 46)))
 ```
 
 
@@ -3444,18 +3869,31 @@ data_predict %>%
 
 Conclusie: seizonaliteit niet meenemen in model.
 
-## Random slope
+## Random slope voor cluster?
+
+### Aantallen per cluster
 
 ```{r, fig.height= 6}
 
 analyseset_roepkoren_boomkikker %>%
   ggplot(aes(x = periode, y = aantal)) +  
-  geom_boxplot() +
-  facet_wrap(~ cluster, scale = "free_y") +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap(~ cluster, scales = "free_y") +
   labs(y = "Aantal roepende mannetjes", x = "Meetcyclus") +
-  theme(legend.position = "bottom") 
+  theme(legend.position = "bottom")
+```
+```{r, fig.height= 6}
+
+analyseset_roepkoren_boomkikker %>%
+  ggplot(aes(x = periode, y = aantal)) +  
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap(~ cluster) +
+  labs(y = "Aantal roepende mannetjes", x = "Meetcyclus") +
+  theme(legend.position = "bottom")
 ```
 
+
+### Modellering random slope
 
 ```{r}
 
@@ -3514,73 +3952,6 @@ indexmodel_iid2 <- inla(formula = aantal ~ periode  +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
-indexmodel_interaction <- inla(formula = aantal ~ periode*cluster2  + 
-                                f(locatie, 
-                                  model = "iid", 
-                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
-                                f(cluster,
-                                  model = "iid", 
-                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))), 
-                       family = "nbinomial",
-                       data = data_combine,
-                       control.compute = list(config = TRUE, waic = TRUE),
-                       control.predictor = list(compute = TRUE))
-
-
-```
-
-
-```{r}
-
-data_predict_random_slope <- data_combine %>%
-    mutate(fitted_mean = exp(indexmodel_interaction$summary.fitted.values$mean),
-         fitted_0.025quant = exp(indexmodel_interaction$summary.fitted.values$`0.025quant`),
-         fitted_0.975quant = exp(indexmodel_interaction$summary.fitted.values$`0.975quant`)) %>%
-  filter(data_type == "simulated_cluster") %>%
-  select(periode, meetcyclus, cluster, fitted_mean, fitted_0.025quant, fitted_0.975quant) 
-
-data_predict_random_slope %>%
-  left_join(select(analyseset_roepkoren_boomkikker, aantal_obs = aantal, cluster, periode), by = c("cluster", "periode")) %>%
-  ggplot(aes(y = fitted_mean, x = periode,  ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
-  geom_point(size = 4, colour = "red", alpha = 0.3) +
-  geom_errorbar(alpha = 0.3, colour = "red") +
-  facet_wrap(~cluster, scales = "free_y") 
-```
-
-```{r}
-overview_results <- bind_rows(
-  trendmodel_iid2$summary.fixed %>%
-    rownames_to_column("parameter") %>%
-    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
-    mutate(model = "trendmodel_iid2",
-           waic = trendmodel_iid2$waic$waic),
-  trendmodel_iid$summary.fixed %>%
-    rownames_to_column("parameter") %>%
-    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
-    mutate(model = "trendmodel_iid",
-           waic = trendmodel_iid$waic$waic),
-  indexmodel_iid$summary.fixed %>%
-    rownames_to_column("parameter") %>%
-    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
-    mutate(model = "indexmodel_iid",
-           waic = indexmodel_iid$waic$waic),
-  indexmodel_iid2$summary.fixed %>%
-    rownames_to_column("parameter") %>%
-    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
-    mutate(model = "indexmodel_iid2",
-           waic = indexmodel_iid2$waic$waic),
-  indexmodel_interaction$summary.fixed %>%
-    rownames_to_column("parameter") %>%
-    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
-    mutate(model = "indexmodel_interaction",
-           waic = indexmodel_interaction$waic$waic)
-) %>%
-  select(model, waic, parameter, mean, `0.025quant`, `0.975quant` )
-
-overview_results %>%
-  kable() %>%
-  kable_styling %>%
-  collapse_rows(c(1,2))
 ```
 
 ```{r}
@@ -3635,7 +4006,7 @@ trend %>%
   geom_hline(aes(yintercept = max(log(treshold_low/100 + 1))), linetype = 3) +
   geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3) +
   geom_hline(yintercept = 0, linetype = 2) +
-  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_errorbar(width = 0, size = 7, alpha = 0.3) +
   geom_point(size = 7, alpha = 0.6) +
   geom_text(size = 4, colour = "black") +
   labs(y = "Gemiddelde jaarlijkse trend (%)", x = "cluster") +
@@ -3644,31 +4015,43 @@ trend %>%
   scale_color_manual(values = klasse_color) +
   theme(legend.position = "hide")
 ```
+
+```{r}
+overview_results <- bind_rows(
+  indexmodel_iid$summary.fixed %>%
+    rownames_to_column("parameter") %>%
+    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
+    mutate(model = "indexmodel_iid",
+           waic = indexmodel_iid$waic$waic),
+  trendmodel_iid$summary.fixed %>%
+    rownames_to_column("parameter") %>%
+    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
+    mutate(model = "trendmodel_iid",
+           waic = trendmodel_iid$waic$waic),
+trendmodel_iid2$summary.fixed %>%
+    rownames_to_column("parameter") %>%
+    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
+    mutate(model = "trendmodel_iid2",
+           waic = trendmodel_iid2$waic$waic),
+  indexmodel_iid2$summary.fixed %>%
+    rownames_to_column("parameter") %>%
+    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
+    mutate(model = "indexmodel_iid2",
+           waic = indexmodel_iid2$waic$waic)
+) %>%
+  select(model, waic, parameter, mean, `0.025quant`, `0.975quant` )
+
+overview_results %>%
+  kable() %>%
+  kable_styling %>%
+  collapse_rows(c(1,2))
+```
+
+
 ## Gewichten
 
 + gewichten voor clusterts?
 
-```{r}
-
-gewichten <- locatie_clusters %>%
-  st_drop_geometry() %>%
-  filter(is_active) %>%
-  group_by(cluster) %>%
-  summarise(n = n_distinct(poel),
-            n_sample = sum(is_sample)) %>%
-  ungroup() %>%
-  mutate(weight = n/n_sample)
-  
-analyseset_roepkoren_boomkikker <- analyseset_roepkoren_boomkikker %>%
-  left_join(gewichten, by = "cluster") 
-
-```
-
-```{r}
-gewichten %>%
-  kable(digits = 2) %>%
-  kable_styling()
-```
 
 ## Validatie
 
@@ -3684,18 +4067,50 @@ indexmodel_iid <- inla(formula = aantal ~ periode  +
                        data = analyseset_roepkoren_boomkikker,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
+
+analyseset_roepkoren_boomkikker <- analyseset_roepkoren_boomkikker %>%
+  mutate(cluster2 = cluster,
+         meetcyclus_scaled = meetcyclus - 1)
+
+indexmodel_iid2 <- inla(formula = aantal ~ periode  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) + 
+                                f(cluster2,
+                                  meetcyclus_scaled,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_boomkikker,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
 ```
 
 ## Dispersion
 
+### Zonder random slope
+
 ```{r}
 plot(dispersion_check(indexmodel_iid))
 ```
+### Met random slope
+
+```{r}
+plot(dispersion_check(indexmodel_iid2))
+```
+
 ## Distribution
 
 ```{r}
 plot(fast_distribution_check(indexmodel_iid))
 ```
+```{r}
+plot(fast_distribution_check(indexmodel_iid2))
+```
+
 ## Random effect
 
 
@@ -3725,6 +4140,70 @@ iid_checked_plot %>%
 ```{r}
 
  precision_cluster <- indexmodel_iid$summary.hyperpar$mean[3]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_cluster),
+                  precision = precision_cluster,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_cluster))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_cluster), 3))))
+    
+```
+
+## Random effect + random slope
+
+### Random effect locatie
+
+```{r}
+
+ precision_cluster <- indexmodel_iid2$summary.hyperpar$mean[2]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_cluster),
+                  precision = precision_cluster,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_cluster))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_cluster), 3))))
+    
+```
+
+### Random effect cluster
+
+```{r}
+
+ precision_cluster <- indexmodel_iid2$summary.hyperpar$mean[3]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_cluster),
+                  precision = precision_cluster,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_cluster))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_cluster), 3))))
+    
+```
+### Random slope cluster
+
+```{r}
+
+ precision_cluster <- indexmodel_iid2$summary.hyperpar$mean[4]
   
   iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_cluster),
                   precision = precision_cluster,
@@ -4991,7 +5470,6 @@ to_sigma <- function(tau){sqrt(1/tau)}
 ```{r}
 
 analyseset_vuursalamander <- analyseset_vuursalamander %>%
-  filter(is_sample | locatie %in% c("Heilig-Geestgoed", "Trimpont", "Buggenhoutbos zuid")) %>%
   filter(primaire_soort) %>%
   mutate(year_min = min(jaar),
          fjaar = factor(jaar),
@@ -5002,13 +5480,14 @@ analyseset_vuursalamander <- analyseset_vuursalamander %>%
   mutate(aantal_totaal = sum(aantal)) %>%
   ungroup() %>%
   filter(aantal_totaal > 0) %>%
-  filter(jaar <= 2022)
+  filter(jaar <= 2023)
 
 data_sim_add <- analyseset_vuursalamander %>%
   as_tibble() %>%
   tidyr::expand(jaar) %>%
   mutate(jaar_scaled = jaar - min(jaar) + 1,
-         fjaar = factor(jaar)) %>%
+         fjaar = factor(jaar),
+         n_100m = 10) %>%
   mutate(data_type = "simulated")
 
 data_combine <- analyseset_vuursalamander %>%
@@ -5068,13 +5547,14 @@ data_predict <- data_combine %>%
          fitted_0.975quant = exp(indexmodel_iid_rw1year$summary.fitted.values$`0.975quant`)) %>%
   filter(data_type == "simulated") %>%
   select(jaar, fitted_mean, fitted_0.025quant, fitted_0.975quant) %>%
-  left_join(select(analyseset_vuursalamander, jaar, aantal_obs = aantal_100m), by = c("jaar")) 
+  left_join(select(analyseset_vuursalamander, jaar, n_100m, aantal_obs = aantal), by = c("jaar")) %>%
+  mutate(aantal_100m_obs = aantal_obs / n_100m)
 
 data_predict %>%
   ggplot(aes(y = fitted_mean, x = jaar,  ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
   geom_line() +
   geom_ribbon(alpha = 0.3) +
-  geom_point(aes(y = aantal_obs, x = jaar), alpha = 0.4)
+  geom_point(aes(y = aantal_100m_obs, x = jaar), alpha = 0.4)
 ```
 
 + jaar als factor
@@ -5086,7 +5566,7 @@ data_predict <- data_combine %>%
          fitted_0.975quant = exp(indexmodel_iid$summary.fitted.values$`0.975quant`)) %>%
   filter(data_type == "simulated") %>%
   select(jaar, fitted_mean, fitted_0.025quant, fitted_0.975quant) %>%
-  left_join(select(analyseset_vuursalamander, jaar, aantal_obs = aantal_100m), by = c("jaar")) 
+  left_join(select(analyseset_vuursalamander, jaar, aantal_obs = aantal), by = c("jaar")) 
 
 data_predict %>%
   ggplot(aes(y = fitted_mean, x = jaar,  ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
@@ -5145,8 +5625,8 @@ overzicht_modellen %>%
 
 ```{r}
 
-fun_2016_2022 <-  function(...) {
-        c(exp(fjaar2017), exp(fjaar2018), exp(fjaar2019), exp(fjaar2020), exp(fjaar2021), exp(fjaar2022))
+fun_2016_2023 <-  function(...) {
+        c(exp(fjaar2017), exp(fjaar2018), exp(fjaar2019), exp(fjaar2020), exp(fjaar2021), exp(fjaar2022), exp(fjaar2023))
       }
 
 compare_index <- bind_rows(
@@ -5162,7 +5642,7 @@ compare_index <- bind_rows(
            randomeffect_teller = "ja"),
   derive_index_inla(analyseset_species = analyseset_vuursalamander, 
                   indexmodel_nbinom_inla = indexmodel_iid,
-                  fun = fun_2016_2022) %>%
+                  fun = fun_2016_2023) %>%
     mutate(jaareffect = "factor jaar",
            randomeffect_teller = "nee")
 ) %>%
@@ -5405,6 +5885,629 @@ iid_checked_plot %>%
 
 <!--chapter:end:3_4_modelverkenning_vuursalamander.Rmd-->
 
+# Poelkikker
+
+```{r}
+
+analyseset_poelkikker <- read_vc(file = "analyseset_poelkikker", root = "../output/analyseset")
+```
+
+## Larven
+
+```{r}
+
+roepkoren_poelkikker_locatie <- analyseset_poelkikker %>%
+  filter(protocol == "Padden en kikkers - Roepkoren") %>%
+  group_by(meetnet, cluster, locatie) %>%
+  summarise(aanwezig_poel_bastaard = sum(aantal) > 0,
+            roepkoor_tot = sum(aantal)) %>%
+  ungroup()
+
+larven_poelkikker <- analyseset_poelkikker %>%
+  filter(protocol == "Poelkikker - DNA larven")
+
+larven_poelkikker <- roepkoren_poelkikker_locatie %>%
+  full_join(larven_poelkikker, by = c("meetnet", "cluster", "locatie"))
+
+larven_poelkikker_analyse <- larven_poelkikker %>%
+  filter(!is.na(aantal_bemonsterd)) %>%
+  select(meetnet, cluster, locatie, datum, jaar, aantal_bemonsterd, aandeel_doelsoort) %>%
+  mutate(aanwezig_larve_poel_bastaard = ifelse(aantal_bemonsterd > 0, 1, 0),
+         aantal_larve_poel = ifelse(aantal_bemonsterd == 0, 0, aantal_bemonsterd * aandeel_doelsoort / 100),
+         aanwezig_larve_poel = ifelse(aantal_larve_poel > 0, 1, 0)) %>%
+  mutate(locatie = factor(locatie),
+         cluster = factor(cluster))
+
+mean(larven_poelkikker_analyse$aanwezig_larve_poel_bastaard)
+mean(larven_poelkikker_analyse$aanwezig_larve_poel)
+
+mean_prop <- larven_poelkikker_analyse %>%
+  filter(!is.na(aandeel_doelsoort)) %>%
+  group_by(meetnet) %>%
+  summarise(weighted_mean = sum(aandeel_doelsoort * aantal_bemonsterd) / sum(aantal_bemonsterd)) %>%
+  ungroup()
+```
+
+## Larven poelkikker + bastaardkikker
+
+```{r}
+model_occurence_larve <- inla(formula = aanwezig_larve_poel_bastaard ~ 1,
+                       family = "binomial",
+                       data = larven_poelkikker_analyse,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_occurence_poel_bastaard_larve <- model_occurence_larve$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = plogis(mean),
+         lcl_0.90 = plogis(lcl_0.90),
+         lcl_0.95 = plogis(lcl_0.95),
+         ucl_0.90 = plogis(ucl_0.90),
+         ucl_0.95 = plogis(ucl_0.95),
+         soort_nl = "poelkikker/bastaardkikker",
+         levensstadium = "larve",
+         parameter = "occurence") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+```
+
+## Larven poelkikker
+
+```{r}
+
+model_occurence_larve <- inla(formula = aanwezig_larve_poel ~ 1,
+                       family = "binomial",
+                       data = larven_poelkikker_analyse,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_occurence_poel_larve <- model_occurence_larve$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = plogis(mean),
+         lcl_0.90 = plogis(lcl_0.90),
+         lcl_0.95 = plogis(lcl_0.95),
+         ucl_0.90 = plogis(ucl_0.90),
+         ucl_0.95 = plogis(ucl_0.95),
+         soort_nl = "poelkikker",
+         levensstadium = "larve",
+         parameter = "occurence") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+```
+
+## Aandeel larven poelkikker
+
+```{r}
+
+larven_poelkikker_analyse_bemonsterd <- larven_poelkikker_analyse %>%
+  filter(!is.na(aandeel_doelsoort)) %>%
+  mutate(aandeel_doelsoort = aandeel_doelsoort/100,
+         aantal_larve_poel = round(aantal_larve_poel))
+
+model_prop_larve <- inla(formula = aantal_larve_poel ~ 1,
+                       family = "binomial",
+                       Ntrials = aantal_bemonsterd,
+                       data = larven_poelkikker_analyse_bemonsterd,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_aandeel_poel <- model_prop_larve$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = plogis(mean),
+         lcl_0.90 = plogis(lcl_0.90),
+         lcl_0.95 = plogis(lcl_0.95),
+         ucl_0.90 = plogis(ucl_0.90),
+         ucl_0.95 = plogis(ucl_0.95),
+         soort_nl = "poelkikker",
+         levensstadium = "larve",
+         parameter = "prop_poel") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+
+
+```
+
+
+## roepkoren
+
+```{r}
+larven_poelkikker <- analyseset_poelkikker %>%
+  filter(protocol == "Poelkikker - DNA larven") %>%
+  select(locatie, aandeel_doelsoort)
+
+roepkoren_poelkikker_geschat <- analyseset_poelkikker %>%
+  filter(str_detect(protocol, "Roepkoren")) %>%
+  filter(soort_nl != "Meerkikker") %>%
+  select(locatie, cluster, jaar, datum, soort_nl, aantal) %>%
+  left_join(larven_poelkikker, by = "locatie") %>%
+  mutate(aantal_poel_geschat = ifelse(soort_nl == "Poelkikker" | aantal == 0, aantal,
+                                      ifelse(soort_nl == "Poelkikker/bastaardkikker", round(aantal * aandeel_doelsoort / 100), NA))) %>%
+  group_by(locatie, cluster, jaar, datum) %>%
+  summarise(aantal_poel_geschat = sum(aantal_poel_geschat)) %>%
+  ungroup() %>%
+  filter(!is.na(aantal_poel_geschat))
+
+roepkoren_poelkikker_geschat_max <- roepkoren_poelkikker_geschat %>%
+  group_by(locatie) %>%
+  summarise(aantal_poel_geschat_max = max(aantal_poel_geschat),
+            aantal_poel_geschat_tot = sum(aantal_poel_geschat),
+            n_bezoeken = n()) %>%
+  ungroup()
+
+mean(roepkoren_poelkikker_geschat$aantal_poel_geschat)
+
+model_roepkoren_iid <- inla(formula = aantal_poel_geschat ~ f(locatie,
+                                  model = "iid",
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "gaussian",
+                       data = roepkoren_poelkikker_geschat,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+model_roepkoren <- inla(formula = aantal_poel_geschat ~ 1,
+                       family = "nbinomial",
+                       data = roepkoren_poelkikker_geschat,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_roepkoren <- model_roepkoren$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = exp(mean),
+         lcl_0.90 = exp(lcl_0.90),
+         lcl_0.95 = exp(lcl_0.95),
+         ucl_0.90 = exp(ucl_0.90),
+         ucl_0.95 = exp(ucl_0.95),
+         soort_nl = "poelkikker",
+         levensstadium = "adult",
+         parameter = "aantal") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+
+results_roepkoren_iid <- model_roepkoren_iid$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant")
+
+model_roepkoren_max <- inla(formula = aantal_poel_geschat_max ~ 1,
+                       family = "nbinomial",
+                       data = roepkoren_poelkikker_geschat_max,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_roepkoren_max <- model_roepkoren_max$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = exp(mean),
+         lcl_0.90 = exp(lcl_0.90),
+         lcl_0.95 = exp(lcl_0.95),
+         ucl_0.90 = exp(ucl_0.90),
+         ucl_0.95 = exp(ucl_0.95),
+         soort_nl = "poelkikker",
+         levensstadium = "adult",
+         parameter = "aantal_max") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+
+model_roepkoren_tot <- inla(formula = aantal_poel_geschat_tot ~ 1,
+                       family = "nbinomial",
+                       offset = n_bezoeken,
+                       data = roepkoren_poelkikker_geschat_max,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_roepkoren_tot <- model_roepkoren_tot$summary.fixed %>%
+  rownames_to_column("meetcyclus") %>%
+  select(meetcyclus, mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = exp(mean),
+         lcl_0.90 = exp(lcl_0.90),
+         lcl_0.95 = exp(lcl_0.95),
+         ucl_0.90 = exp(ucl_0.90),
+         ucl_0.95 = exp(ucl_0.95),
+         soort_nl = "poelkikker",
+         levensstadium = "adult",
+         parameter = "aantal_tot") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+```
+
+
+# Heikikker
+
+```{r}
+
+analyseset_heikikker <- read_vc(file = "analyseset_heikikker", root = "../output/analyseset")
+
+```
+
+```{r}
+eitjes_heikikker_occurence <- analyseset_heikikker %>%
+  mutate(aanwezig = aantal_doelsoort > 0 | (aandeel_doelsoort > 0 & !is.na(aandeel_doelsoort))) %>%
+  group_by(meetnet, protocol, cluster, locatie, jaar, bezoek_status, soort_nl, soort_wet) %>%
+  summarise(aantal_tot = sum(aantal_doelsoort),
+            aanwezig = ifelse(any(aanwezig), 1, 0),
+            aantal_max = max(aantal_doelsoort),
+            n_bezoeken = n()) %>%
+  ungroup()
+
+mean(eitjes_heikikker_occurence$aanwezig)
+mean(analyseset_heikikker$aantal_doelsoort, na.rm = TRUE)
+mean(eitjes_heikikker_occurence$aantal_tot, na.rm = TRUE)
+
+eitjes_aandeel_doelsoort <- analyseset_heikikker %>%
+  filter(!is.na(aandeel_doelsoort),
+         !is.na(aantal_bemonsterd)) %>%
+  mutate(aantal_bemonsterd_hei = round(aantal_bemonsterd * aandeel_doelsoort/100))
+
+mean(eitjes_aandeel_doelsoort$aandeel_doelsoort)
+
+mean_prop <- eitjes_aandeel_doelsoort %>%
+  group_by(meetnet) %>%
+  summarise(weighted_mean = sum(aandeel_doelsoort * aantal_bemonsterd) / sum(aantal_bemonsterd)) %>%
+  ungroup()
+```
+
+## Voorkomen eitjes heikikker
+
+```{r}
+model_occurence_ei <- inla(formula = aanwezig ~ 1,
+                       family = "binomial",
+                       data = eitjes_heikikker_occurence,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_occurence_ei <- model_occurence_ei$summary.fixed %>%
+  rownames_to_column("meetcyclus") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = plogis(mean),
+         lcl_0.90 = plogis(lcl_0.90),
+         lcl_0.95 = plogis(lcl_0.95),
+         ucl_0.90 = plogis(ucl_0.90),
+         ucl_0.95 = plogis(ucl_0.95),
+         soort_nl = "heikikker",
+         levensstadium = "eitjes",
+         parameter = "occurence") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+```
+
+## Aandeel eitjes heikikker
+
+```{r}
+model_prop_ei_iid <- inla(formula = aantal_bemonsterd_hei ~ f(locatie,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "binomial",
+                       Ntrials = aantal_bemonsterd,
+                       data = eitjes_aandeel_doelsoort,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_prop_ei_iid <- model_prop_ei_iid$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = plogis(mean),
+         lcl_0.90 = plogis(lcl_0.90),
+         lcl_0.95 = plogis(lcl_0.95),
+         ucl_0.90 = plogis(ucl_0.90),
+         ucl_0.95 = plogis(ucl_0.95),
+         soort_nl = "heikikker",
+         levensstadium = "eitjes",
+         parameter = "prop_hei") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+
+model_prop_ei <- inla(formula = aantal_bemonsterd_hei ~ 1,
+                       family = "binomial",
+                       Ntrials = aantal_bemonsterd,
+                       data = eitjes_aandeel_doelsoort,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_prop_ei <- model_prop_ei$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = plogis(mean),
+         lcl_0.90 = plogis(lcl_0.90),
+         lcl_0.95 = plogis(lcl_0.95),
+         ucl_0.90 = plogis(ucl_0.90),
+         ucl_0.95 = plogis(ucl_0.95),
+         soort_nl = "heikikker",
+         levensstadium = "eitjes",
+         parameter = "prop_hei") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+```
+
+## Totaal geschat eitjes heikikker
+
+```{r}
+
+eitjes_heikikker_aantal_tot <- eitjes_heikikker_occurence %>%
+  filter(!is.na(aantal_tot))
+
+model_aantal_tot_ei <- inla(formula = aantal_tot ~ 1,
+                       family = "nbinomial",
+                       data = eitjes_heikikker_aantal_tot,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_aantal_tot_ei <- model_aantal_tot_ei$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = exp(mean),
+         lcl_0.90 = exp(lcl_0.90),
+         lcl_0.95 = exp(lcl_0.95),
+         ucl_0.90 = exp(ucl_0.90),
+         ucl_0.95 = exp(ucl_0.95),
+         soort_nl = "heikikker",
+         levensstadium = "eitjes",
+         parameter = "aantal_tot") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+
+model_aantal_ei <- inla(formula = aantal_doelsoort ~ 1,
+                       family = "nbinomial",
+                       data = analyseset_heikikker %>%
+                         filter(!is.na(aantal_doelsoort)),
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_aantal_ei <- model_aantal_ei$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = exp(mean),
+         lcl_0.90 = exp(lcl_0.90),
+         lcl_0.95 = exp(lcl_0.95),
+         ucl_0.90 = exp(ucl_0.90),
+         ucl_0.95 = exp(ucl_0.95),
+         soort_nl = "heikikker",
+         levensstadium = "eitjes",
+         parameter = "aantal") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+
+model_aantal_ei_iid <- inla(formula = aantal ~ f(locatie,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_heikikker,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_aantal_ei_iid <- model_aantal_ei_iid$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = exp(mean),
+         lcl_0.90 = exp(lcl_0.90),
+         lcl_0.95 = exp(lcl_0.95),
+         ucl_0.90 = exp(ucl_0.90),
+         ucl_0.95 = exp(ucl_0.95),
+         soort_nl = "heikikker",
+         levensstadium = "eitjes",
+         parameter = "aantal") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+
+
+```
+
+
+```{r}
+results_pilootproject <- bind_rows(
+  results_occurence_poel_larve,
+  results_aandeel_poel,
+  results_roepkoren,
+  results_roepkoren_max,
+  results_occurence_ei,
+  results_prop_ei,
+  results_aantal_ei,
+  results_aantal_tot_ei
+)
+
+write_vc(results_pilootproject, file = "results_pilootproject", root = "../output/results", sorting = c("soort_nl", "levensstadium", "parameter"))
+```
+
+
+<!--chapter:end:4_1_analyse_pilootproject.Rmd-->
+
+# Analyse rugstreeppad
+
+```{r}
+
+analyseset_rugstreeppad <- read_vc(file = "analyseset_rugstreeppad", root = "../output/analyseset")
+
+```
+
+## Adulten
+
+Indien het type telling onbekend is, veronderstellen we een avondbezoek, behalve als er enkel eitjes werden geteld.
+
+```{r}
+analyseset_rugstreeppad_est <- analyseset_rugstreeppad %>%
+  group_by(visit_id) %>%
+  mutate(type_telling_est = ifelse(type_telling == "onbekend",
+                               ifelse(any(aantal > 0 & levensstadium == "ei"), "dagtelling", "avondtelling"),
+                                type_telling))
+
+check <- analyseset_rugstreeppad_adult %>%
+  distinct(type_telling, type_telling_est)
+```
+
+```{r}
+analyseset_rugstreeppad_adult <- analyseset_rugstreeppad_est %>%
+  filter(jaar < 2024) %>%
+  filter(type_telling_est == "avondtelling") %>%
+  filter(levensstadium == "adult") %>%
+  group_by(locatie) %>%
+  mutate(paired = n_distinct(meetcyclus) > 1) %>%
+  mutate(aanwezig = sum(aantal) > 0) %>%
+  ungroup() %>%
+  mutate(meetcyclus = ifelse(meetcyclus == 1, "2019_2021", "2022_2024")) %>%
+  select(meetnet, locatie, paired, aanwezig, visit_id, datum, jaar, meetcyclus, periode, type_telling, n_samples, activiteit, aantal, soort_nl, soort_wet) %>%
+  pivot_wider(values_from = "aantal", names_from = "activiteit") %>%
+  rename(ter_plaatse = "ter plaatse") %>%
+  mutate(aantal_adult_roepend = roepend,
+         aantal_adult_tot = roepend + ter_plaatse)
+  
+```
+
+```{r}
+analyseset_rugstreeppad_adult %>%
+  filter(aanwezig) %>%
+  group_by(periode) %>%
+  summarise(mean_puntlocaties = mean(n_samples),
+            mean_roepend = mean(roepend),
+            mean_roepend_per_punt = mean(roepend/n_samples),
+            mean_terplaatse = mean(ter_plaatse),
+            mean_terplaatse_punt = mean(ter_plaatse/n_samples)) %>%
+  ungroup() %>%
+  kable(caption = "Gemiddelde per periode voor alle avondtellingen",
+        digits = 2) %>%
+  kable_styling()
+```
+
+```{r}
+analyseset_rugstreeppad_adult %>%
+  filter(aanwezig) %>%
+  filter(paired) %>%
+  group_by(periode) %>%
+  summarise(mean_puntlocaties = mean(n_samples),
+            mean_roepend = mean(roepend),
+            mean_roepend_per_punt = mean(roepend/n_samples),
+            mean_terplaatse = mean(ter_plaatse),
+            mean_terplaatse_punt = mean(ter_plaatse/n_samples)) %>%
+  ungroup() %>% 
+  kable(caption = "Gemiddelde per periode voor de avondtellingen van gepaarde locaties", digits = 2) %>%
+  kable_styling()
+```
+
+```{r}
+analyseset_rugstreeppad_adult %>%
+  filter(aanwezig) %>%
+  filter(paired) %>%
+  group_by(periode, locatie) %>%
+  summarise(mean_puntlocaties = mean(n_samples),
+            mean_roepend = mean(roepend),
+            mean_roepend_per_punt = mean(roepend/n_samples),
+            mean_terplaatse = mean(ter_plaatse),
+            mean_terplaatse_punt = mean(ter_plaatse/n_samples)) %>%
+  ungroup() %>% 
+  arrange(locatie) %>%
+  kable(caption = "Gemiddelde per periode voor de avondtellingen van gepaarde locaties", digits = 2) %>%
+  kable_styling()
+```
+
+```{r}
+indexmodel_meetcyclus_iid <- inla(formula = aantal_adult_roepend ~ meetcyclus + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_rugstreeppad_adult %>%
+                         filter(aanwezig),
+                       offset = n_samples,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+indexmodel_paired_meetcyclus_iid <- inla(formula = aantal_adult_roepend ~ meetcyclus + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_rugstreeppad_adult %>%
+                         filter(paired) %>%
+                         filter(aanwezig),
+                       offset = n_samples,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+indexmodel_paired_meetcyclus_iid_nooffset <- inla(formula = aantal_adult_roepend ~ meetcyclus + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_rugstreeppad_adult %>%
+                         filter(paired) %>%
+                         filter(aanwezig),
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+
+results_index_meetcyclus_rugstreeppad <- derive_index_meetcyclus_inla(indexmodel_nbinom_inla = indexmodel_meetcyclus_iid, 
+                                                                    function_eval = function(...) {exp(meetcyclus2022_2024)}, 
+                                                                    set_seed =  21354)
+
+results_index_meetcyclus_paired_rugstreeppad <- derive_index_meetcyclus_inla(indexmodel_nbinom_inla = indexmodel_paired_meetcyclus_iid, 
+                                                                    function_eval = function(...) {exp(meetcyclus2022_2024)}, 
+                                                                    set_seed =  21354)
+
+results_index_meetcyclus_paired_rugstreeppad_nooffset <- derive_index_meetcyclus_inla(indexmodel_nbinom_inla = indexmodel_paired_meetcyclus_iid_nooffset, 
+                                                                    function_eval = function(...) {exp(meetcyclus2022_2024)}, 
+                                                                    set_seed =  21354)
+```
+
+```{r}
+
+results_index_meetcyclus <- results_index_meetcyclus_paired_rugstreeppad %>%
+  mutate(levensstadium = "adult roepend")
+
+verschil_meetcycli <- results_index_meetcyclus %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  select( soort_nl, soort_wet, levensstadium, meetcyclus_ref, meetcyclus, klasse, mean, lcl_0.90, ucl_0.90) 
+  
+```
+
+```{r}
+verschil_meetcycli_refvalue <- verschil_meetcycli %>%
+  distinct(soort_nl, soort_wet, levensstadium, meetcyclus_ref) %>%
+  mutate(meetcyclus = meetcyclus_ref,
+        mean = 1,
+         klasse = "R") 
+
+verschil_meetcycli_table <- verschil_meetcycli %>%
+  bind_rows(verschil_meetcycli_refvalue) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+```
+
+
+```{r, fig.height = 6}
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+verschil_meetcycli_table %>%
+  ggplot(aes(x = meetcyclus, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiemeetcyclus", x = "meetcyclus") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~soort_nl + levensstadium, scales = "free_x")
+```
+
+<!--chapter:end:4_2_analyse_rugstreeppad.Rmd-->
+
 # Analyse
 
 ## Boomkikker roepkoren
@@ -5428,7 +6531,8 @@ analyseset_roepkoren_boomkikker_meetcyclus <-  analyseset_roepkoren_boomkikker %
          meetcyclus = ifelse(meetcyclus == 1, "2016_2018", "2019_2021"),
          year_scaled = jaar - min(jaar) + 1,
          jaar_scaled = year_scaled,
-         cluster2 = cluster)
+         cluster2 = cluster,
+         fjaar = factor(jaar))
 
 analyseset_roepkoren_boomkikker_jaar <-  analyseset_roepkoren_boomkikker %>%
   filter(is_sample) %>%
@@ -5438,7 +6542,8 @@ analyseset_roepkoren_boomkikker_jaar <-  analyseset_roepkoren_boomkikker %>%
   ungroup() %>%
   mutate(year_scaled = jaar - min(jaar) + 1,
          jaar_scaled = year_scaled,
-         cluster2 = cluster)
+         cluster2 = cluster,
+         fjaar = factor(jaar))
 ```
 
 ### Model
@@ -5475,7 +6580,7 @@ indexmodel_meetcyclus_iid <- inla(formula = aantal ~ meetcyclus  +
 
 indexmodel_jaar_rw1_iid <- inla(formula = aantal ~ f(jaar_scaled, 
                                   model = "rw1", 
-                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) +
                                 f(locatie, 
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
@@ -5484,6 +6589,20 @@ indexmodel_jaar_rw1_iid <- inla(formula = aantal ~ f(jaar_scaled,
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
                        data = analyseset_roepkoren_boomkikker_jaar,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_jaar_rw1_iid_pertrend <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) +
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_boomkikker_meetcyclus,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
@@ -5519,7 +6638,15 @@ results_index_meetcyclus_boomkikker <- derive_index_meetcyclus_inla(indexmodel_n
 
 set.seed(6778)
 results_trend_boomkikker <- derive_trend(analyseset_roepkoren_boomkikker_meetcyclus, trendmodel_iid2)
+
+results_waic_boomkikker <- bind_rows(
+  get_waic(analyseset_roepkoren_boomkikker_meetcyclus, trendmodel_iid2) %>%
+    mutate(model = "trendmodel"),
+  get_waic(analyseset_roepkoren_boomkikker_meetcyclus, indexmodel_jaar_rw1_iid_pertrend) %>%
+    mutate(model = "indexmodel"))
+  
 ```
+
 ```{r checkreproducible, eval = FALSE}
 
 indexmodel_meetcyclus_iid <- inla(formula = aantal ~ meetcyclus  + 
@@ -5723,7 +6850,7 @@ indexmodel_jaar_rw1_iid <- inla(formula = aantal ~ f(jaar_scaled,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
-model_occurence_iid <- inla(formula = occurence ~ 0 + meetcyclus  + 
+model_occurence_iid_0 <- inla(formula = occurence ~ 0 + meetcyclus  + 
                                 f(locatie, 
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
@@ -5735,6 +6862,21 @@ model_occurence_iid <- inla(formula = occurence ~ 0 + meetcyclus  +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE),
                        quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+model_occurence_iid <- inla(formula = occurence ~ meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "binomial",
+                       data = analyseset_larven_boomkikker_meetcyclus,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+model_occurence_iid$summary.fixed
 
 ```
 
@@ -5750,7 +6892,7 @@ set.seed(3297)
 
 results_index_meetcyclus_boomkikker_larve <- derive_index_meetcyclus_inla(analyseset_larven_boomkikker_jaar, indexmodel_meetcyclus_iid, set_seed = 55469)
 
-results_occurence_boomkikker_larve <- model_occurence_iid$summary.fixed %>%
+results_occurence_boomkikker_larve <- model_occurence_iid_0$summary.fixed %>%
   rownames_to_column("meetcyclus") %>%
   select(meetcyclus, mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
   mutate(mean = plogis(mean),
@@ -5923,6 +7065,12 @@ results_index_jaar_kamsalamander <- derive_index_rw_inla(analyseset_fuiken_totaa
 
 set.seed(556644)
 results_trend_kamsalamander <- derive_trend(analyseset_fuiken_totaal, trendmodel_iid2)
+
+results_waic_kamsalamander <- bind_rows(
+  get_waic(analyseset_fuiken_totaal, trendmodel_iid2) %>%
+    mutate(model = "trendmodel"),
+  get_waic(analyseset_fuiken_totaal, indexmodel_jaar_iid) %>%
+    mutate(model = "indexmodel"))
 ```
 ### Validatie
 
@@ -6030,7 +7178,7 @@ indexmodel_jaar_rw1_iid <- inla(formula = aantal ~ f(jaar_scaled,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
-model_occurence_iid <- inla(formula = occurence ~ 0 + meetcyclus  + 
+model_occurence_iid_0 <- inla(formula = occurence ~ 0 + meetcyclus  + 
                                 f(locatie, 
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
@@ -6042,6 +7190,21 @@ model_occurence_iid <- inla(formula = occurence ~ 0 + meetcyclus  +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE),
                        quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+model_occurence_iid <- inla(formula = occurence ~ meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "binomial",
+                       data = analyseset_larven_kamsalamander,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+model_occurence_iid$summary.fixed
 
 ```
 
@@ -6060,7 +7223,7 @@ results_index_meetcyclus_kamsalamander_larve <- derive_index_meetcyclus_inla(ind
 
 set.seed(78787)
 
-results_occurence_kamsalamander_larve <- model_occurence_iid$summary.fixed %>%
+results_occurence_kamsalamander_larve <- model_occurence_iid_0$summary.fixed %>%
   rownames_to_column("meetcyclus") %>%
   select(meetcyclus, mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
   mutate(mean = plogis(mean),
@@ -6203,6 +7366,7 @@ trendmodel_iid_hydrofoon <- inla(formula = aantal ~ year_scaled +
                        control.predictor = list(compute = TRUE))
 
 ```
+
 ### Modeloutput
 
 ```{r}
@@ -6215,6 +7379,12 @@ results_index_knoflookpad <- derive_index_rw_inla(analyseset_species = analysese
 set.seed(2645)
 
 results_trend_knoflookpad <- derive_trend(analyseset_species = analyseset_knoflookpad_hydrofoon, trendmodel_nbinom = trendmodel_iid_hydrofoon)
+
+results_waic_knoflookpad <- bind_rows(
+  get_waic(analyseset_knoflookpad_hydrofoon, trendmodel_iid_hydrofoon) %>%
+    mutate(model = "trendmodel"),
+  get_waic(analyseset_knoflookpad_hydrofoon, indexmodel_iid_rw1year_hydrofoon) %>%
+    mutate(model = "indexmodel"))
 ```
 
 ### Validatie
@@ -6254,6 +7424,123 @@ iid_checked_plot %>%
     
 ```
 
+
+## Vroedmeesterpad
+
+### Analyseset
+
+
++ locaties met totaal aantal waargenomen individuen > 0
+
+```{r}
+analyseset_roepkoren_vroedmeesterpad <- read_vc(file = "analyseset_vroedmeesterpad", root = "../output/analyseset")
+
+analyseset_roepkoren_vroedmeesterpad <- analyseset_roepkoren_vroedmeesterpad %>%
+  filter(primaire_soort) %>%
+  mutate(year_min = min(jaar),
+         fjaar = factor(jaar),
+        jaar_scaled = jaar - year_min + 1,
+        year_scaled = jaar_scaled) %>%
+  group_by(locatie) %>%
+  mutate(aantal_totaal = sum(aantal)) %>%
+  ungroup() %>%
+  filter(aantal_totaal > 0)
+```
+
+### Model
+
++ vergelijking jaren
+  + 1ste orde random walk voor jaar (herschaald)
+  + random effect voor locatie
+  
++ jaarlijkse trend
+  + jaar (herschaald) als continue variabele
+  + random effect voor locatie
+
+```{r}
+
+indexmodel_iid_rw1year_vroedmeesterpad <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       data = analyseset_roepkoren_vroedmeesterpad,
+                       family = "nbinomial",
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trendmodel_iid_vroedmeesterpad <- inla(formula = aantal ~ year_scaled +  
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_vroedmeesterpad,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+```
+
+### Modeloutput
+
+```{r}
+
+set.seed(45688)
+
+results_index_vroedmeesterpad <- derive_index_rw_inla(analyseset_species = analyseset_roepkoren_vroedmeesterpad, 
+                       inlamodel_rw = indexmodel_iid_rw1year_vroedmeesterpad, set_seed = 8254)
+
+set.seed(2645)
+
+results_trend_vroedmeesterpad <- derive_trend(analyseset_species = analyseset_roepkoren_vroedmeesterpad, trendmodel_nbinom = trendmodel_iid_vroedmeesterpad)
+
+results_waic_vroedmeesterpad  <- bind_rows(
+  get_waic(analyseset_roepkoren_vroedmeesterpad, trendmodel_iid_vroedmeesterpad) %>%
+    mutate(model = "trendmodel"),
+  get_waic(analyseset_roepkoren_vroedmeesterpad, indexmodel_iid_rw1year_vroedmeesterpad) %>%
+    mutate(model = "indexmodel"))
+
+```
+
+### Validatie
+
+#### Dispersion
+
+```{r}
+plot(dispersion_check(indexmodel_iid_rw1year_vroedmeesterpad))
+```
+
+#### Distribution
+
+```{r}
+plot(fast_distribution_check(indexmodel_iid_rw1year_vroedmeesterpad))
+```
+
+#### Random effect
+
++ Location
+
+```{r}
+
+ precision_location <- indexmodel_iid_rw1year_vroedmeesterpad$summary.hyperpar$mean[2]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_location),
+                  precision = precision_location,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_location))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_location), 3))))
+    
+```
+
+
+
 ## Vuursalamander
 
 ### Analyseset
@@ -6277,10 +7564,9 @@ analyseset_vuursalamander <- analyseset_vuursalamander %>%
   group_by(locatie) %>%
   mutate(aantal_totaal = sum(aantal)) %>%
   ungroup() %>%
-  filter(aantal_totaal > 0) %>%
-  filter(jaar <= 2022)
+  filter(aantal_totaal > 0)
 
-analyseset_vuursalamander_2018_2022 <- analyseset_vuursalamander %>%
+analyseset_vuursalamander_2018_2023 <- analyseset_vuursalamander %>%
   filter(jaar >= 2018) %>%
   mutate(year_min = min(jaar),
          fjaar = factor(jaar),
@@ -6327,7 +7613,7 @@ trendmodel_iid2 <- inla(formula = aantal ~ year_scaled +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
-trendmodel_iid2_2018_2022 <- inla(formula = aantal ~ year_scaled +
+trendmodel_iid2_2018_2023 <- inla(formula = aantal ~ year_scaled +
                                 f(locatie,
                                   model = "iid",
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) +
@@ -6337,11 +7623,22 @@ trendmodel_iid2_2018_2022 <- inla(formula = aantal ~ year_scaled +
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
                        offset = n_100m,
-                       data = analyseset_vuursalamander_2018_2022,
+                       data = analyseset_vuursalamander_2018_2023,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
-results_trend_vuursalamander_2018_2022 <- derive_trend(analyseset_species = analyseset_vuursalamander_2018_2022, trendmodel_nbinom = trendmodel_iid2_2018_2022)
+indexmodel_iid_rw1year_2018_2023 <- inla(formula = aantal ~  f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       data = analyseset_vuursalamander_2018_2023,
+                       family = "nbinomial",
+                       offset = n_100m,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
 ```
 ### Modeloutput
 
@@ -6357,8 +7654,20 @@ results_trend_vuursalamander <- derive_trend(analyseset_species = analyseset_vuu
 
 set.seed(23784845)
 
-results_trend_vuursalamander_2018_2022 <- derive_trend(analyseset_species = analyseset_vuursalamander_2018_2022, trendmodel_nbinom = trendmodel_iid2_2018_2022)
+results_trend_vuursalamander_2018_2023 <- derive_trend(analyseset_species = analyseset_vuursalamander_2018_2023, trendmodel_nbinom = trendmodel_iid2_2018_2023)
 
+results_waic_vuursalamander_2016_2023<- bind_rows(
+  get_waic(analyseset_vuursalamander, trendmodel_iid2) %>%
+    mutate(model = "trendmodel"),
+  get_waic(analyseset_vuursalamander, indexmodel_iid_rw1year) %>%
+    mutate(model = "indexmodel"))
+
+results_waic_vuursalamander_2018_2023 <- bind_rows(
+  get_waic(analyseset_vuursalamander_2018_2023, trendmodel_iid2_2018_2023) %>%
+    mutate(model = "trendmodel"),
+  get_waic(analyseset_vuursalamander_2018_2023, indexmodel_iid_rw1year_2018_2023) %>%
+    mutate(model = "indexmodel")
+  )
 ```
 
 
@@ -6413,7 +7722,9 @@ results_index_meetcyclus <- results_index_meetcyclus_boomkikker %>%
             results_index_meetcyclus_boomkikker_larve %>%
                mutate(levensstadium = "larve"),
             results_index_meetcyclus_kamsalamander_larve %>%
-               mutate(levensstadium = "larve")) %>%
+               mutate(levensstadium = "larve")) 
+
+verschil_meetcycli <- results_index_meetcyclus %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
          klasse = format(klasse, type = "markdown")) %>%
   select( soort_nl, soort_wet, levensstadium, meetcyclus_ref, meetcyclus, klasse, mean, lcl_0.90, ucl_0.90) 
@@ -6421,14 +7732,14 @@ results_index_meetcyclus <- results_index_meetcyclus_boomkikker %>%
 ```
 
 ```{r}
-results_indexmodel_cyclus_refvalue <- results_index_meetcyclus %>%
+verschil_meetcycli_refvalue <- verschil_meetcycli %>%
   distinct(soort_nl, soort_wet, levensstadium, meetcyclus_ref) %>%
   mutate(meetcyclus = meetcyclus_ref,
         mean = 1,
          klasse = "R") 
 
-results_indexmodel_cyclus_table <- results_index_meetcyclus %>%
-  bind_rows(results_indexmodel_cyclus_refvalue) %>%
+verschil_meetcycli_table <- verschil_meetcycli %>%
+  bind_rows(verschil_meetcycli_refvalue) %>%
   mutate(mean_log = log(mean) + 1,
           lcl_0.90_log = log(lcl_0.90) + 1,
          ucl_0.90_log = log(ucl_0.90) + 1)
@@ -6446,7 +7757,7 @@ klasse_color[4] <- inbo_steun_blauw
 breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
 labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
 
-results_indexmodel_cyclus_table %>%
+verschil_meetcycli_table %>%
   ggplot(aes(x = meetcyclus, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
   geom_errorbar(width = 0, size = 10, alpha = 0.3) +
   geom_point(size = 7, alpha = 0.6) +
@@ -6484,36 +7795,39 @@ results_index_jaar <- results_index_knoflookpad %>%
   bind_rows(results_index_vuursalamander) %>%
   bind_rows(results_index_jaar_kamsalamander) %>%
   bind_rows(results_index_jaar_boomkikker) %>%
+  bind_rows(results_index_vroedmeesterpad) %>%
   mutate(levensstadium = "adult") %>%
   bind_rows(results_index_jaar_kamsalamander_larve %>%
               mutate(levensstadium = "larve"),
             results_index_jaar_boomkikker_larve %>%
-              mutate(levensstadium = "larve")) %>%
+              mutate(levensstadium = "larve")) 
+
+verschil_jaren <- results_index_jaar %>%
   filter(parameter == "index") %>%
   filter(!is.na(mean)) %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
          klasse = format(klasse, type = "markdown")) %>%
   select( soort_nl, soort_wet, levensstadium, ref_jaar, jaar, klasse, mean, lcl_0.90, ucl_0.90) 
 
-results_indexmodel_jaar_refvalue <- results_index_jaar %>%
+verschil_jaren_refvalue <- verschil_jaren %>%
   distinct(soort_nl, soort_wet, levensstadium, ref_jaar) %>%
   mutate(jaar = ref_jaar,
         mean = 1,
          klasse = "R") 
 
-result_indexmodel_jaar_table <- results_index_jaar %>%
-  bind_rows(results_indexmodel_jaar_refvalue) %>%
+verschil_jaren_table <- verschil_jaren %>%
+  bind_rows(verschil_jaren_refvalue) %>%
   mutate(mean_log = log(mean) + 1,
           lcl_0.90_log = log(lcl_0.90) + 1,
          ucl_0.90_log = log(ucl_0.90) + 1)
 ```
 
 
-```{r, fig.height=}
+```{r, fig.height= 7}
 breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
 labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
 
-result_indexmodel_jaar_table %>%
+verschil_jaren_table %>%
   ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
   geom_errorbar(width = 0, size = 10, alpha = 0.3) +
   geom_point(size = 7, alpha = 0.6) +
@@ -6534,19 +7848,22 @@ result_indexmodel_jaar_table %>%
 
 ```{r}
 
-trend <- results_trend_kamsalamander %>%
+results_trend <- results_trend_kamsalamander %>%
   bind_rows(results_trend_boomkikker) %>%
   bind_rows(results_trend_knoflookpad) %>%
+  bind_rows(results_trend_vroedmeesterpad) %>%
   bind_rows(results_trend_vuursalamander) %>%
-  bind_rows(results_trend_vuursalamander_2018_2022) %>%
+  bind_rows(results_trend_vuursalamander_2018_2023) 
+
+trend <- results_trend %>%
   group_by(soort_nl) %>%
   mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
          n_jaar = jaar_max - jaar_min + 1,
          treshold_low = ifelse(parameter == "trend_average", 
-                               round((exp(log(0.75)/(n_jaar - 1)) - 1) *100, 1),
+                               round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
                                -25),
          treshold_high = ifelse(parameter == "trend_average", 
-                                round((exp(log(1.33)/(n_jaar - 1)) - 1) *100, 1),
+                                round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1),
                                 33)) %>%
   ungroup() %>%
   mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
@@ -6588,7 +7905,7 @@ overzicht_trend_tabel %>%
 
 De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in Figuur \@ref(fig:figtrend). De x-as van deze figuur heeft een logaritmische schaal. Een halvering (-50 %) is immers een even sterk effect als een verdubbeling (+100 %). Opnieuw maken we gebruik van de [classificatie](#h:classtrend) zoals besproken in paragraaf \@ref(h:classtrend) met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over de meetperiode. Voor een periode van zes jaar (2016 - 2021) komt de ondergrens overeen met een gemiddelde jaarlijkse trend van -5,6 % en de bovengrens met een gemiddelde jaarlijkse trend van +5,9 %. 
 
-```{r figtrend, fig.cap= str_c("Gemiddelde jaarlijkse trend met 90 \\% betrouwbaarheidsinterval ", legend_klasses, ". De stippellijnen tonen de referentiewaarde (0 \\%), de ondergrens (-6.7 \\%) en de bovengrens (+7.4 \\%) waarop de classificatie gebaseerd is.")}
+```{r figtrend}
 
 trend <- trend %>%
   mutate(mean_log = log(mean/100 + 1),
@@ -6643,11 +7960,11 @@ trend %>%
 ```
 ```{r}
  results_index_jaar %>%
-  write_vc(root = "../output/results", file = "results_indexmodel_amfibieën", sorting = c("soort_nl", "levensstadium", "jaar"))
+  write_vc(root = "../output/results", file = "results_indexmodel_amfibieën", sorting = c("soort_nl", "levensstadium", "jaar", "parameter"), strict = FALSE)
 ```
 ```{r}
  results_index_meetcyclus %>%
-  write_vc(root = "../output/results", file = "results_indexmodel_meetcyclus_amfibieën", sorting = c("soort_nl", "levensstadium", "meetcyclus"))
+  write_vc(root = "../output/results", file = "results_indexmodel_meetcyclus_amfibieën", sorting = c("soort_nl", "levensstadium", "meetcyclus"), strict = FALSE)
 ```
 
 
@@ -6655,6 +7972,27 @@ trend %>%
  results_occurence %>%
   write_vc(root = "../output/results", file = "results_occurence_meetcyclus_amfibieën", sorting = c("soort_nl", "levensstadium", "meetcyclus"))
 ```
+
+```{r}
+results_waic <- bind_rows(
+  results_waic_boomkikker,
+  results_waic_kamsalamander,
+  results_waic_knoflookpad,
+  results_waic_vuursalamander_2016_2023 %>%
+    mutate(trend_start = 2016),
+  results_waic_vuursalamander_2018_2023 %>%
+    mutate(trend_start = 2018)
+) %>% pivot_wider(names_from = "model", values_from = "waic") %>%
+  mutate(diff_waic = trendmodel - indexmodel,
+         type_trend = ifelse(diff_waic > 0,
+                               "Niet lineair",
+                               ifelse(diff_waic > -2,
+                                      "Quasi lineair", "Lineair")))
+
+results_waic %>%
+  write_vc(root = "../output/results", file = "results_waic_amfibieën", sorting = c("soort_nl", "trend_start"), strict = FALSE)
+```
+
 
 <!--chapter:end:4_analyse.Rmd-->
 

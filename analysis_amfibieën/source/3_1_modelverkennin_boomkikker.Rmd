@@ -19,6 +19,7 @@ locatie_enkel_nulw <- analyseset_boomkikker %>%
   filter(aantal_totaal == 0)
   
 ```
+
 ```{r}
 locatie_enkel_nulw %>%
   kable(caption = "Locaties met enkel nultellingen voor roepkoren") %>%
@@ -50,6 +51,27 @@ analyseset_roepkoren_boomkikker %>%
   labs(y = "aantal tellingen")
 
 ```
+### Verband tussen aantallen en datum
+
+```{r}
+analyseset_roepkoren_boomkikker %>%
+  mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
+  ggplot(aes(x = datum, y = aantal)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth() +
+  labs("aantal roepende adulten")
+```
+
+```{r, eval = FALSE}
+analyseset_roepkoren_boomkikker %>%
+  mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
+  ggplot(aes(x = datum, y = aantal, group = periode, colour = periode)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth() +
+  labs("aantal roepende adulten")
+```
+
+## Modelvarianten
 
 ```{r}
 
@@ -157,29 +179,8 @@ indexmodel_iid <- inla(formula = aantal ~ periode  +
 
 ```
 
-+ random effect voor datum, met sterke prior (bv. probabiliteit sigma > log(1.05) kleiner dan 5%)
 
 
-
-### Verband tussen aantallen en datum
-
-```{r}
-analyseset_roepkoren_boomkikker %>%
-  mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
-  ggplot(aes(x = datum, y = aantal)) +
-  geom_point(alpha = 0.4) +
-  geom_smooth() +
-  labs("aantal roepende adulten")
-```
-
-```{r}
-analyseset_roepkoren_boomkikker %>%
-  mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
-  ggplot(aes(x = datum, y = aantal, group = periode, colour = periode)) +
-  geom_point(alpha = 0.4) +
-  geom_smooth() +
-  labs("aantal roepende adulten")
-```
 
 ### Modelering seizonaliteit via random walk
 
@@ -248,7 +249,7 @@ indexmodel_iid_doyrw2_bis$summary.random$doy_scaled %>%
   select(doy_scaled = ID, mean, lcl = `0.025quant`, ucl = `0.975quant`) %>%
    mutate(doy = doy_scaled - 1 + doy_min,
          datum = as.Date(doy, origin = "2018-01-01")) %>%
-  mutate(jaar = c(rep(2016, 46), rep(2017, 46), rep(2018, 46), rep(2019, 46), rep(2020, 46), rep(2021, 46))) %>%
+  mutate(jaar = c(rep(2016, 47), rep(2017, 47), rep(2018, 47), rep(2019, 47), rep(2020, 47), rep(2021, 47))) %>%
   mutate_at(c("mean", "lcl", "ucl"), exp) %>%
   ggplot(aes(x = datum, y = mean, ymin = lcl, ymax = ucl)) +
   geom_ribbon(alpha = 0.2) + 
@@ -257,8 +258,6 @@ indexmodel_iid_doyrw2_bis$summary.random$doy_scaled %>%
         y = "relative effect") +
   facet_wrap(~jaar)
 
-check <- indexmodel_iid_doyrw2_bis$summary.random$doy_scaled  %>%
-  mutate(jaar = c(rep(2016, 46), rep(2017, 46), rep(2018, 46), rep(2019, 46), rep(2020, 46), rep(2021, 46)))
 ```
 
 
@@ -284,18 +283,31 @@ data_predict %>%
 
 Conclusie: seizonaliteit niet meenemen in model.
 
-## Random slope
+## Random slope voor cluster?
+
+### Aantallen per cluster
 
 ```{r, fig.height= 6}
 
 analyseset_roepkoren_boomkikker %>%
   ggplot(aes(x = periode, y = aantal)) +  
-  geom_boxplot() +
-  facet_wrap(~ cluster, scale = "free_y") +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap(~ cluster, scales = "free_y") +
   labs(y = "Aantal roepende mannetjes", x = "Meetcyclus") +
-  theme(legend.position = "bottom") 
+  theme(legend.position = "bottom")
+```
+```{r, fig.height= 6}
+
+analyseset_roepkoren_boomkikker %>%
+  ggplot(aes(x = periode, y = aantal)) +  
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap(~ cluster) +
+  labs(y = "Aantal roepende mannetjes", x = "Meetcyclus") +
+  theme(legend.position = "bottom")
 ```
 
+
+### Modellering random slope
 
 ```{r}
 
@@ -354,73 +366,6 @@ indexmodel_iid2 <- inla(formula = aantal ~ periode  +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
-indexmodel_interaction <- inla(formula = aantal ~ periode*cluster2  + 
-                                f(locatie, 
-                                  model = "iid", 
-                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
-                                f(cluster,
-                                  model = "iid", 
-                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))), 
-                       family = "nbinomial",
-                       data = data_combine,
-                       control.compute = list(config = TRUE, waic = TRUE),
-                       control.predictor = list(compute = TRUE))
-
-
-```
-
-
-```{r}
-
-data_predict_random_slope <- data_combine %>%
-    mutate(fitted_mean = exp(indexmodel_interaction$summary.fitted.values$mean),
-         fitted_0.025quant = exp(indexmodel_interaction$summary.fitted.values$`0.025quant`),
-         fitted_0.975quant = exp(indexmodel_interaction$summary.fitted.values$`0.975quant`)) %>%
-  filter(data_type == "simulated_cluster") %>%
-  select(periode, meetcyclus, cluster, fitted_mean, fitted_0.025quant, fitted_0.975quant) 
-
-data_predict_random_slope %>%
-  left_join(select(analyseset_roepkoren_boomkikker, aantal_obs = aantal, cluster, periode), by = c("cluster", "periode")) %>%
-  ggplot(aes(y = fitted_mean, x = periode,  ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
-  geom_point(size = 4, colour = "red", alpha = 0.3) +
-  geom_errorbar(alpha = 0.3, colour = "red") +
-  facet_wrap(~cluster, scales = "free_y") 
-```
-
-```{r}
-overview_results <- bind_rows(
-  trendmodel_iid2$summary.fixed %>%
-    rownames_to_column("parameter") %>%
-    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
-    mutate(model = "trendmodel_iid2",
-           waic = trendmodel_iid2$waic$waic),
-  trendmodel_iid$summary.fixed %>%
-    rownames_to_column("parameter") %>%
-    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
-    mutate(model = "trendmodel_iid",
-           waic = trendmodel_iid$waic$waic),
-  indexmodel_iid$summary.fixed %>%
-    rownames_to_column("parameter") %>%
-    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
-    mutate(model = "indexmodel_iid",
-           waic = indexmodel_iid$waic$waic),
-  indexmodel_iid2$summary.fixed %>%
-    rownames_to_column("parameter") %>%
-    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
-    mutate(model = "indexmodel_iid2",
-           waic = indexmodel_iid2$waic$waic),
-  indexmodel_interaction$summary.fixed %>%
-    rownames_to_column("parameter") %>%
-    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
-    mutate(model = "indexmodel_interaction",
-           waic = indexmodel_interaction$waic$waic)
-) %>%
-  select(model, waic, parameter, mean, `0.025quant`, `0.975quant` )
-
-overview_results %>%
-  kable() %>%
-  kable_styling %>%
-  collapse_rows(c(1,2))
 ```
 
 ```{r}
@@ -475,7 +420,7 @@ trend %>%
   geom_hline(aes(yintercept = max(log(treshold_low/100 + 1))), linetype = 3) +
   geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3) +
   geom_hline(yintercept = 0, linetype = 2) +
-  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_errorbar(width = 0, size = 7, alpha = 0.3) +
   geom_point(size = 7, alpha = 0.6) +
   geom_text(size = 4, colour = "black") +
   labs(y = "Gemiddelde jaarlijkse trend (%)", x = "cluster") +
@@ -484,31 +429,43 @@ trend %>%
   scale_color_manual(values = klasse_color) +
   theme(legend.position = "hide")
 ```
+
+```{r}
+overview_results <- bind_rows(
+  indexmodel_iid$summary.fixed %>%
+    rownames_to_column("parameter") %>%
+    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
+    mutate(model = "indexmodel_iid",
+           waic = indexmodel_iid$waic$waic),
+  trendmodel_iid$summary.fixed %>%
+    rownames_to_column("parameter") %>%
+    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
+    mutate(model = "trendmodel_iid",
+           waic = trendmodel_iid$waic$waic),
+trendmodel_iid2$summary.fixed %>%
+    rownames_to_column("parameter") %>%
+    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
+    mutate(model = "trendmodel_iid2",
+           waic = trendmodel_iid2$waic$waic),
+  indexmodel_iid2$summary.fixed %>%
+    rownames_to_column("parameter") %>%
+    select(parameter, mean, `0.025quant`, `0.975quant`) %>%
+    mutate(model = "indexmodel_iid2",
+           waic = indexmodel_iid2$waic$waic)
+) %>%
+  select(model, waic, parameter, mean, `0.025quant`, `0.975quant` )
+
+overview_results %>%
+  kable() %>%
+  kable_styling %>%
+  collapse_rows(c(1,2))
+```
+
+
 ## Gewichten
 
 + gewichten voor clusterts?
 
-```{r}
-
-gewichten <- locatie_clusters %>%
-  st_drop_geometry() %>%
-  filter(is_active) %>%
-  group_by(cluster) %>%
-  summarise(n = n_distinct(poel),
-            n_sample = sum(is_sample)) %>%
-  ungroup() %>%
-  mutate(weight = n/n_sample)
-  
-analyseset_roepkoren_boomkikker <- analyseset_roepkoren_boomkikker %>%
-  left_join(gewichten, by = "cluster") 
-
-```
-
-```{r}
-gewichten %>%
-  kable(digits = 2) %>%
-  kable_styling()
-```
 
 ## Validatie
 
@@ -524,18 +481,50 @@ indexmodel_iid <- inla(formula = aantal ~ periode  +
                        data = analyseset_roepkoren_boomkikker,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
+
+analyseset_roepkoren_boomkikker <- analyseset_roepkoren_boomkikker %>%
+  mutate(cluster2 = cluster,
+         meetcyclus_scaled = meetcyclus - 1)
+
+indexmodel_iid2 <- inla(formula = aantal ~ periode  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) + 
+                                f(cluster2,
+                                  meetcyclus_scaled,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_boomkikker,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
 ```
 
 ## Dispersion
 
+### Zonder random slope
+
 ```{r}
 plot(dispersion_check(indexmodel_iid))
 ```
+### Met random slope
+
+```{r}
+plot(dispersion_check(indexmodel_iid2))
+```
+
 ## Distribution
 
 ```{r}
 plot(fast_distribution_check(indexmodel_iid))
 ```
+```{r}
+plot(fast_distribution_check(indexmodel_iid2))
+```
+
 ## Random effect
 
 
@@ -565,6 +554,70 @@ iid_checked_plot %>%
 ```{r}
 
  precision_cluster <- indexmodel_iid$summary.hyperpar$mean[3]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_cluster),
+                  precision = precision_cluster,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_cluster))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_cluster), 3))))
+    
+```
+
+## Random effect + random slope
+
+### Random effect locatie
+
+```{r}
+
+ precision_cluster <- indexmodel_iid2$summary.hyperpar$mean[2]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_cluster),
+                  precision = precision_cluster,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_cluster))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_cluster), 3))))
+    
+```
+
+### Random effect cluster
+
+```{r}
+
+ precision_cluster <- indexmodel_iid2$summary.hyperpar$mean[3]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_cluster),
+                  precision = precision_cluster,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_cluster))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_cluster), 3))))
+    
+```
+### Random slope cluster
+
+```{r}
+
+ precision_cluster <- indexmodel_iid2$summary.hyperpar$mean[4]
   
   iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_cluster),
                   precision = precision_cluster,

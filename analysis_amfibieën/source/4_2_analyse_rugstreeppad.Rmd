@@ -1,0 +1,191 @@
+# Analyse rugstreeppad
+
+```{r}
+
+analyseset_rugstreeppad <- read_vc(file = "analyseset_rugstreeppad", root = "../output/analyseset")
+
+```
+
+## Adulten
+
+Indien het type telling onbekend is, veronderstellen we een avondbezoek, behalve als er enkel eitjes werden geteld.
+
+```{r}
+analyseset_rugstreeppad_est <- analyseset_rugstreeppad %>%
+  group_by(visit_id) %>%
+  mutate(type_telling_est = ifelse(type_telling == "onbekend",
+                               ifelse(any(aantal > 0 & levensstadium == "ei"), "dagtelling", "avondtelling"),
+                                type_telling))
+
+check <- analyseset_rugstreeppad_adult %>%
+  distinct(type_telling, type_telling_est)
+```
+
+```{r}
+analyseset_rugstreeppad_adult <- analyseset_rugstreeppad_est %>%
+  filter(jaar < 2024) %>%
+  filter(type_telling_est == "avondtelling") %>%
+  filter(levensstadium == "adult") %>%
+  group_by(locatie) %>%
+  mutate(paired = n_distinct(meetcyclus) > 1) %>%
+  mutate(aanwezig = sum(aantal) > 0) %>%
+  ungroup() %>%
+  mutate(meetcyclus = ifelse(meetcyclus == 1, "2019_2021", "2022_2024")) %>%
+  select(meetnet, locatie, paired, aanwezig, visit_id, datum, jaar, meetcyclus, periode, type_telling, n_samples, activiteit, aantal, soort_nl, soort_wet) %>%
+  pivot_wider(values_from = "aantal", names_from = "activiteit") %>%
+  rename(ter_plaatse = "ter plaatse") %>%
+  mutate(aantal_adult_roepend = roepend,
+         aantal_adult_tot = roepend + ter_plaatse)
+  
+```
+
+```{r}
+analyseset_rugstreeppad_adult %>%
+  filter(aanwezig) %>%
+  group_by(periode) %>%
+  summarise(mean_puntlocaties = mean(n_samples),
+            mean_roepend = mean(roepend),
+            mean_roepend_per_punt = mean(roepend/n_samples),
+            mean_terplaatse = mean(ter_plaatse),
+            mean_terplaatse_punt = mean(ter_plaatse/n_samples)) %>%
+  ungroup() %>%
+  kable(caption = "Gemiddelde per periode voor alle avondtellingen",
+        digits = 2) %>%
+  kable_styling()
+```
+
+```{r}
+analyseset_rugstreeppad_adult %>%
+  filter(aanwezig) %>%
+  filter(paired) %>%
+  group_by(periode) %>%
+  summarise(mean_puntlocaties = mean(n_samples),
+            mean_roepend = mean(roepend),
+            mean_roepend_per_punt = mean(roepend/n_samples),
+            mean_terplaatse = mean(ter_plaatse),
+            mean_terplaatse_punt = mean(ter_plaatse/n_samples)) %>%
+  ungroup() %>% 
+  kable(caption = "Gemiddelde per periode voor de avondtellingen van gepaarde locaties", digits = 2) %>%
+  kable_styling()
+```
+
+```{r}
+analyseset_rugstreeppad_adult %>%
+  filter(aanwezig) %>%
+  filter(paired) %>%
+  group_by(periode, locatie) %>%
+  summarise(mean_puntlocaties = mean(n_samples),
+            mean_roepend = mean(roepend),
+            mean_roepend_per_punt = mean(roepend/n_samples),
+            mean_terplaatse = mean(ter_plaatse),
+            mean_terplaatse_punt = mean(ter_plaatse/n_samples)) %>%
+  ungroup() %>% 
+  arrange(locatie) %>%
+  kable(caption = "Gemiddelde per periode voor de avondtellingen van gepaarde locaties", digits = 2) %>%
+  kable_styling()
+```
+
+```{r}
+indexmodel_meetcyclus_iid <- inla(formula = aantal_adult_roepend ~ meetcyclus + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_rugstreeppad_adult %>%
+                         filter(aanwezig),
+                       offset = n_samples,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+indexmodel_paired_meetcyclus_iid <- inla(formula = aantal_adult_roepend ~ meetcyclus + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_rugstreeppad_adult %>%
+                         filter(paired) %>%
+                         filter(aanwezig),
+                       offset = n_samples,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+indexmodel_paired_meetcyclus_iid_nooffset <- inla(formula = aantal_adult_roepend ~ meetcyclus + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_rugstreeppad_adult %>%
+                         filter(paired) %>%
+                         filter(aanwezig),
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+
+results_index_meetcyclus_rugstreeppad <- derive_index_meetcyclus_inla(indexmodel_nbinom_inla = indexmodel_meetcyclus_iid, 
+                                                                    function_eval = function(...) {exp(meetcyclus2022_2024)}, 
+                                                                    set_seed =  21354)
+
+results_index_meetcyclus_paired_rugstreeppad <- derive_index_meetcyclus_inla(indexmodel_nbinom_inla = indexmodel_paired_meetcyclus_iid, 
+                                                                    function_eval = function(...) {exp(meetcyclus2022_2024)}, 
+                                                                    set_seed =  21354)
+
+results_index_meetcyclus_paired_rugstreeppad_nooffset <- derive_index_meetcyclus_inla(indexmodel_nbinom_inla = indexmodel_paired_meetcyclus_iid_nooffset, 
+                                                                    function_eval = function(...) {exp(meetcyclus2022_2024)}, 
+                                                                    set_seed =  21354)
+```
+
+```{r}
+
+results_index_meetcyclus <- results_index_meetcyclus_paired_rugstreeppad %>%
+  mutate(levensstadium = "adult roepend")
+
+verschil_meetcycli <- results_index_meetcyclus %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  select( soort_nl, soort_wet, levensstadium, meetcyclus_ref, meetcyclus, klasse, mean, lcl_0.90, ucl_0.90) 
+  
+```
+
+```{r}
+verschil_meetcycli_refvalue <- verschil_meetcycli %>%
+  distinct(soort_nl, soort_wet, levensstadium, meetcyclus_ref) %>%
+  mutate(meetcyclus = meetcyclus_ref,
+        mean = 1,
+         klasse = "R") 
+
+verschil_meetcycli_table <- verschil_meetcycli %>%
+  bind_rows(verschil_meetcycli_refvalue) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+```
+
+
+```{r, fig.height = 6}
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+verschil_meetcycli_table %>%
+  ggplot(aes(x = meetcyclus, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiemeetcyclus", x = "meetcyclus") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~soort_nl + levensstadium, scales = "free_x")
+```

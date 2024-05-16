@@ -1,0 +1,275 @@
+# Dataverkenning Rugstreeppad
+
+```{r}
+
+analyseset_rugstreeppad <- read_vc(file = "analyseset_rugstreeppad", root = "../output/analyseset")
+
+```
+
+## Overzicht tellingen
+
+### Type tellingen
+
+We onderscheiden:
+
+-   avondtellingen: startuur telling tussen 17u tot 5u
+-   dagtellingen: startuur telling tussen 5u en 17u
+-   onbekend: geen startuur ingegeven
+
+Onderstaande figuur geeft de relatie weer tussen het startuur van de telling en de getelde aantallen per levensstadium/ activiteit.
+
+```{r}
+analyseset_rugstreeppad %>%
+  mutate(show = ifelse(levensstadium == "adult", str_c(levensstadium, " ", activiteit), levensstadium)) %>%
+  mutate(start_hour = ifelse(is.na(start_hour), -10, start_hour)) %>%
+  ggplot(aes(x = start_hour, y = aantal, colour = type_telling)) +
+  geom_point(alpha = 0.4) +
+  facet_wrap(~ show, scale = "free_y") 
+```
+
+```{r}
+analyseset_rugstreeppad %>%
+  mutate(show = ifelse(levensstadium == "adult", str_c(levensstadium, " ", activiteit), levensstadium)) %>%
+  mutate(start_hour = ifelse(is.na(start_hour), -10, start_hour)) %>%
+  ggplot(aes(x = type_telling, y = aantal)) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap(~ show, scale = "free_y") +
+  theme(axis.text.x = element_text(angle = 30))
+```
+
+```{r}
+overzicht_type <- analyseset_rugstreeppad %>%
+  filter(primaire_soort) %>%
+  filter(bezoek_status == "Conform protocol") %>%
+  group_by(protocol,  levensstadium, activiteit, type_telling) %>%
+  summarise(n_locaties = n_distinct(locatie), 
+            n_bezoeken = n_distinct(visit_id),
+            aantal_max = max(aantal),
+            aantal_gem = mean(aantal)) %>%
+  ungroup()
+```
+
+```{r}
+overzicht_onbekend <- analyseset_rugstreeppad %>%
+  group_by(locatie) %>%
+  filter(any(type_telling == "onbekend")) %>%
+  ungroup() %>%
+  mutate(type_wnm = ifelse(levensstadium == "adult", str_c(levensstadium, "_", activiteit), levensstadium)) %>%
+  select(type_telling, locatie, visit_id, datum, start_time, hoofdteller, type_wnm, aantal) %>%
+  pivot_wider(names_from = "type_wnm", values_from = "aantal")
+
+write_csv2(overzicht_onbekend, "../output/rugstreeppad_tijsdstip_onbekend.csv")
+```
+
+Hieronder een overzicht van de locaties met tellingen waarvan we niet weten of het een dagtelling of een avondtelling is. 
+
+```{r}
+overzicht_onbekend %>%
+  datatable(rownames = FALSE,
+            filter = "top")
+```
+
+### Tellingen per meetcyclus
+
+```{r}
+overzicht <- analyseset_rugstreeppad %>%
+  group_by(protocol, paired,locatie, periode) %>%
+  summarise(n_tellingen = n_distinct(visit_id)) %>%
+  ungroup() %>%
+  pivot_wider(names_from = "periode", values_from = n_tellingen, values_fill = 0)
+
+```
+
+```{r}
+overzicht %>%
+  select(locatie, "2019 - 2021", "2022 - 2024", gepaard = paired) %>%
+  arrange(locatie) %>%
+  datatable(caption = "Aantal tellingen per cyclus",
+            rownames = FALSE,
+            filter = "top") 
+```
+
+```{r}
+overzicht_typetelling <- analyseset_rugstreeppad %>%
+  group_by(locatie) %>%
+  mutate(aanwezig_adult = sum(aantal * (levensstadium == "adult")) > 0,
+         aanwezig_voortpl = sum(aantal * (levensstadium != "adult")) > 0) %>% 
+  group_by(protocol, paired,locatie, periode, type_telling, aanwezig_adult, aanwezig_voortpl) %>%
+  summarise(n_tellingen = n_distinct(visit_id)) %>%
+  ungroup() %>%
+  pivot_wider(names_from = "type_telling", values_from = n_tellingen, values_fill = 0) %>%
+  mutate(telling_show = str_c(avondtelling, dagtelling, onbekend, sep = "/")) %>%
+  select(-avondtelling, -dagtelling, -onbekend) %>%
+  pivot_wider(names_from = "periode", values_from = telling_show, values_fill = "")
+
+```
+
+```{r}
+overzicht_typetelling %>%
+  select(locatie, "2019 - 2021", "2022 - 2024", gepaard = paired, aanwezig_adult, aanwezig_voortpl) %>%
+  arrange(locatie) %>%
+  datatable(caption = "Aantal avondtellingen/dagtellingen/tellingen onbekend per cyclus",
+            rownames = FALSE, 
+            filter = "top") 
+```
+
+
+
+```{r, fig.height=9}
+
+analyseset_rugstreeppad %>%
+  distinct(is_sample, locatie, datum, n_samples) %>%
+  ggplot(aes(y = locatie, x = datum, size = n_samples, colour = is_sample)) +
+  geom_point(alpha = 0.6) +
+  geom_vline(xintercept = as.Date("2022-01-01"), linetype = 2, alpha = 0.5)
+```
+
+## Overzicht aantallen
+
+### Globaal
+```{r}
+overzicht_tellingen <- analyseset_rugstreeppad %>%
+  mutate(aanwezig = aantal > 0) %>%
+  group_by(levensstadium, activiteit) %>%
+  summarise(n_locaties = n_distinct(locatie),
+            n_bezoeken = n_distinct(visit_id),
+            prop_bezoeken_aanwezig = round(mean(aanwezig),2),
+            aantal_gemiddeld = round(mean(aantal), 1),
+            aantal_max = max(aantal)) %>%
+  ungroup()
+
+overzicht_tellingen_locatie_type <- analyseset_rugstreeppad %>%
+  group_by(locatie, levensstadium, activiteit) %>%
+  summarise(aantal_type = sum(aantal)) %>%
+  ungroup() %>%
+  group_by(locatie) %>%
+  mutate(aantal_tot = sum(aantal_type)) %>%
+  ungroup() %>%
+  mutate(n_locaties = n_distinct(locatie)) %>%
+  group_by(levensstadium, activiteit, n_locaties) %>%
+  summarise(n_locaties_aanwezig_type = sum(aantal_type > 0),
+            aantal_type = sum(aantal_type)) %>%
+  ungroup()
+
+overzicht_tellingen_locatie_tot <- analyseset_rugstreeppad %>%
+  group_by(locatie) %>%
+  summarise(aantal_tot = sum(aantal)) %>%
+  ungroup() %>%
+  mutate(n_locaties = n_distinct(locatie)) %>%
+  group_by( n_locaties) %>%
+  summarise(n_locaties_aanwezig_type = sum(aantal_tot > 0),
+            aantal_tot = sum(aantal_tot)) %>%
+  ungroup()
+
+overzicht_tellingen %>%
+  kable(caption = "Overzicht voor alle tellingen") %>%
+  kable_styling()
+
+overzicht_tellingen_type <- analyseset_rugstreeppad %>%
+  mutate(aanwezig = aantal > 0) %>%
+  group_by(type_telling, levensstadium, activiteit) %>%
+  summarise(n_locaties = n_distinct(locatie),
+            n_bezoeken = n_distinct(visit_id),
+            prop_bezoeken_aanwezig = round(mean(aanwezig),2),
+            aantal_gemiddeld = round(mean(aantal), 1),
+            aantal_max = max(aantal)) %>%
+  ungroup()
+```
+
+```{r}
+overzicht_tellingen_type %>%
+  kable(caption = "Overzicht per type telling") %>%
+  kable_styling()
+```
+
+### Per meetcyclus
+
+```{r, fig.cap = "Gemiddelde aantallen per meetcyclus voor de avondtellingen"}
+
+analyseset_rugstreeppad %>%
+  mutate(show = ifelse(levensstadium == "adult", str_c(levensstadium, " ", activiteit), levensstadium)) %>%
+  filter(paired) %>%
+  ggplot(aes(x = periode, y = aantal)) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap( ~ show, scales = "free") +
+  labs(title = "Alle tellingen")
+```
+
+```{r, fig.cap = "Gemiddelde aantallen per meetcyclus voor de avondtellingen"}
+
+analyseset_rugstreeppad %>%
+   group_by(visit_id) %>%
+  mutate(type_telling_est = ifelse(type_telling == "onbekend",
+                               ifelse(any(aantal > 0 & levensstadium == "ei"), "dagtelling", "avondtelling"),
+                                type_telling)) %>%
+  ungroup() %>%
+  mutate(show = ifelse(levensstadium == "adult", str_c(levensstadium, " ", activiteit), levensstadium)) %>%
+  filter(paired) %>%
+  filter(type_telling == "avondtelling") %>%
+  ggplot(aes(x = periode, y = aantal)) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap( ~ show, scales = "free") +
+  labs(title = "Avondtellingen")
+```
+
+```{r, fig.cap = "Gemiddelde aantallen per meetcyclus voor de dagtellingen"}
+
+analyseset_rugstreeppad %>%
+   group_by(visit_id) %>%
+  mutate(type_telling_est = ifelse(type_telling == "onbekend",
+                               ifelse(any(aantal > 0 & levensstadium == "ei"), "dagtelling", "avondtelling"),
+                                type_telling)) %>%
+  ungroup() %>%
+  mutate(show = ifelse(levensstadium == "adult", str_c(levensstadium, " ", activiteit), levensstadium)) %>%
+  filter(paired) %>%
+  filter(type_telling == "dagtelling") %>%
+  ggplot(aes(x = periode, y = aantal)) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red") +
+  facet_wrap( ~ show, scales = "free") +
+  labs(title = "Dagtellingen")
+```
+
+## Overzicht aanwezigheid
+
+```{r}
+overzicht_aanwezig_locatie <- analyseset_rugstreeppad %>%
+  group_by(locatie) %>%
+  summarise(aanwezig = sum(aantal) > 0,
+            aanwezig_adult = sum(aantal * (levensstadium == "adult")) > 0,
+            aanwezig_voortplanting = sum(aantal * (levensstadium != "adult")) > 0) %>%
+  ungroup() 
+
+# overzicht_aanwezig <- overzicht_aanwezig_locatie %>%
+#   group_by(meetcyclus) %>%
+#   summarise(prop_aanwezig = sum(aanwezig) / n_distinct(locatie),
+#             prop_aanwezig_adult = sum(aanwezig_adult) / n_distinct(locatie),
+#             prop_aanwezig_voortpl = sum(aanwezig_voortplanting) / n_distinct(locatie)) %>%
+#   ungroup()
+
+overzicht_aanwezig_type <- analyseset_rugstreeppad %>%
+  group_by(type_telling, locatie, meetcyclus) %>%
+  summarise(aanwezig = sum(aantal) > 0,
+            aanwezig_adult = sum(aantal * (levensstadium == "adult")) > 0,
+            aanwezig_voortplanting = sum(aantal * (levensstadium != "adult")) > 0) %>%
+  ungroup() %>%
+  group_by(type_telling, meetcyclus) %>%
+  summarise(n_locaties = n_distinct(locatie),
+            prop_aanwezig = round(sum(aanwezig) / n_distinct(locatie), 2),
+            prop_aanwezig_adult = round(sum(aanwezig_adult) / n_distinct(locatie), 2),
+            prop_aanwezig_voortpl = round(sum(aanwezig_voortplanting) / n_distinct(locatie), 2)) %>%
+  ungroup()
+```
+
+```{r}
+overzicht_aanwezig_locatie %>%
+  datatable(rownames = FALSE,
+            filter = "top")
+```
+
+
+
+```{r}
+overzicht_aanwezig_type %>%
+  kable(caption = "Overzicht aanwezigheid per locatie") %>%
+  kable_styling()
+```

@@ -66,8 +66,7 @@ datasetset_boomkikker %>%
 + poelen in clusters meestal in zelfde jaar geteld
   + confounding tussen cluster en jaar
   + jaar niet meenemen in model, enkel meetcyclus
-+ Merkske enkel in tweede meetcyclus opgemeten
-  + Merkske niet meenemen om trend te bepalen
+
 + Er zijn ook al tellingen van de 3de meetcyclus, maar 3de meetcyclus is nog niet afgerond dus die tellingen nemen we niet mee
 
 ```{r}

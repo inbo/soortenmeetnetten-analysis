@@ -10,28 +10,27 @@ path = fileman_up("soortenmeetnetten-queries")
 ## Raw data
 
 ```{r}
-visits <- get_visits_smp(species_group = species_group, file = "raw/bezoeken_20231204") %>%
+visits <- get_visits_smp(species_group = species_group) %>%
   mutate(protocol = ifelse(protocol == "Amfibieën - Fuiken (v1)", 
                            "Amfibieën - Fuiken", 
                            protocol),
          protocol = ifelse(protocol == "Vuursalamander - Transect (v1)", 
                            "Vuursalamander - Transect", 
-                           protocol)) %>%
-  mutate(visit_id = as.character(visit_id))
+                           protocol),
+         protocol = ifelse(protocol == "Rugstreeppad - Transect (v1)", 
+                           "Rugstreeppad - Transect", 
+                           protocol))
 
-covar <- read_vc(file = "covariabele_visit_20231204", root = file.path(path, "raw")) %>%
-  mutate(visit_id = as.character(visit_id))
+covar <- get_covariates_smp() 
 
-covar_sample <- read_vc(file = "covariabele_sample_20231204", root = file.path(path, "raw")) %>%
-  mutate(visit_id = as.character(visit_id),
-         sample_id = as.character(sample_id))
+covar_sample <- get_covariates_smp(linked_to = "sample")
 
-counts <- get_counts_smp(species_group = species_group, file = "raw/aantallen_20231204") %>%
-  mutate(visit_id = as.character(visit_id))
+counts <- get_counts_smp()
 
 locations <- get_locations_smp(only_active = FALSE) %>%
   st_drop_geometry() %>%
-  filter(locatie_type == "locatie")
+  filter(locatie_type == "locatie") %>%
+  mutate(is_sample = ifelse(locatie %in% c("Merkske - Poel B45", "Merkske - Poel B48", "Merkske - Poel B43"), TRUE, is_sample)) #aanpassen in meetnetten.be
 
 ```
 
@@ -144,7 +143,7 @@ locaties_niet_actief %>%
 check_gvm <- dataset_larven_actief %>%
   filter(bezoek_status == "Geen veldwerk mogelijk - locatie ongeschikt") %>%
   filter(levensstadium == "larve") %>%
-  distinct(meetnet, locatie, datum, visit_id, bezoek_status, is_sample, voor_analyse, aantal, notes) 
+  distinct(meetnet, locatie, datum, visit_id, bezoek_status, is_sample, voor_analyse, aantal, opmerking) 
 
 check_gvm %>%
   datatable(rownames = FALSE,
@@ -213,7 +212,7 @@ analyseset_larven <- dataset_larven %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus - 1) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, doy, visit_id, bezoek_status, zoekinspanning, larvetelling, metamorftelling, n_catch, primaire_soort, soort_nl, soort_wet, levensstadium, aantal, notes, hoofdteller)
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, doy, visit_id, bezoek_status, zoekinspanning, larvetelling, metamorftelling, n_catch, primaire_soort, soort_nl, soort_wet, levensstadium, aantal, opmerking, hoofdteller)
 ```
 
 ## Analyseset roepkoren Boomkikker
@@ -271,7 +270,7 @@ locaties_niet_actief %>%
 
 check_gvm <- dataset_roepkoren_actief %>%
   filter(bezoek_status == "Geen veldwerk mogelijk - locatie ongeschikt") %>%
-  distinct(meetnet, locatie, datum, visit_id, bezoek_status, is_sample, voor_analyse, aantal, notes) 
+  distinct(meetnet, locatie, datum, visit_id, bezoek_status, is_sample, voor_analyse, aantal, opmerking) 
 
 check_gvm %>%
   datatable(rownames = FALSE)
@@ -353,7 +352,7 @@ analyseset_roepkoren_boomkikker <- dataset_roepkoren %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus - 1) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium,  aantal, notes, hoofdteller)
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium,  aantal, opmerking, hoofdteller)
 ```
 
 ## Analyseset roepkoren Vroedmeesterpad
@@ -394,14 +393,14 @@ dataset_check %>%
 ```{r}
 
 analyseset_roepkoren_vroedmeesterpad <-  dataset_roepkoren %>%
-  group_by(soortgroep, meetnet, protocol, locatie, is_sample, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium, notes, hoofdteller) %>%
+  group_by(soortgroep, meetnet, protocol, locatie, is_sample, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium, opmerking, hoofdteller) %>%
   summarise(aantal = sum(aantal),
             n_points = n()) %>%
   ungroup() %>%
   filter(levensstadium != "onbekend")
 
 analyseset_roepkoren_vroedmeesterpad %>%
-  select(meetnet, protocol, locatie, jaar, datum, aantal, notes) %>%
+  select(meetnet, protocol, locatie, jaar, datum, aantal, opmerking) %>%
   arrange(locatie, datum) %>%
   write_csv2("../output/aantallen_vroedmeesterpad.csv")
 ```
@@ -474,7 +473,7 @@ locaties_niet_actief %>%
 
 check_gvm <- dataset_fuiken_actief %>%
   filter(bezoek_status == "Geen veldwerk mogelijk - locatie ongeschikt") %>%
-  distinct(meetnet, locatie, datum, visit_id, bezoek_status, is_sample, voor_analyse, aantal, notes) 
+  distinct(meetnet, locatie, datum, visit_id, bezoek_status, is_sample, voor_analyse, aantal, opmerking) 
 
 check_gvm %>%
   datatable(rownames = FALSE)
@@ -564,10 +563,10 @@ analyseset_fuiken_detail <- dataset_fuiken %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = ifelse(meetcyclus == 1, 2020, 2023)) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, n_fuiken, primaire_soort, soort_nl, soort_wet, levensstadium, geslacht, aantal, notes, hoofdteller)
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, n_fuiken, primaire_soort, soort_nl, soort_wet, levensstadium, geslacht, aantal, opmerking, hoofdteller)
 
 analyseset_fuiken_totaal <- analyseset_fuiken_detail %>%
-  group_by(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, n_fuiken, primaire_soort, soort_nl, soort_wet, notes, hoofdteller) %>%
+  group_by(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, n_fuiken, primaire_soort, soort_nl, soort_wet, opmerking, hoofdteller) %>%
   summarise(aantal = sum(aantal)) %>%
   ungroup() %>%
   group_by(protocol, locatie) %>%
@@ -644,11 +643,7 @@ locaties_niet_actief %>%
   kable_styling()
 ```
 
-
-
 + We selecteren enkel tellingen die geschikt zijn voor analyse
-
-  
 
 ```{r}
 
@@ -691,7 +686,6 @@ Onderstaande tabel geeft een overzicht van het aantal records, bezoeken en locat
 + zoekinspanning
 + levensstadium
 
-
 ```{r}
 
 dataset_check2 <- dataset_roepkoren_knoflookpad %>%
@@ -707,13 +701,10 @@ dataset_check2 %>%
             filter = "top")
 ```
 
-
-
 ```{r}
 
 analyseset_roepkoren_knoflookpad <-  dataset_roepkoren_knoflookpad 
 ```
-
 
 ## Analyseset Vuursalamander
 
@@ -904,7 +895,8 @@ dataset_heikikker <-  visits %>%
   filter(meetnet == "Heikikker") %>%
   left_join(select(covar, visit_id, bezoekvariabele, waarde), by = c("visit_id")) %>%
   left_join(locatie_clusters, by = c("meetnet", "locatie")) %>%
-  left_join(select(counts_heikikker, visit_id,  soort_nl, soort_wet, primaire_soort, levensstadium, aantal), by = "visit_id")
+  left_join(select(counts_heikikker, visit_id,  soort_nl, soort_wet, primaire_soort, levensstadium, aantal), by = "visit_id") %>%
+  filter(!(locatie == "Klein Schietveld noord 1" & is_sample)) #verkeerde locatie
 
 check <- dataset_roepkoren_knoflookpad %>%
   filter(primaire_soort) %>%
@@ -935,21 +927,6 @@ dataset_check %>%
             filter = "top")
 ```
 
-+ **We selecteren enkel tellingen op actieve locaties**
-
-```{r}
-dataset_heikikker_actief <- dataset_heikikker %>%
-  filter(is_active)
-
-locaties_niet_actief <- dataset_heikikker %>%
-  distinct(meetnet, locatie) %>%
-  anti_join(dataset_heikikker_actief, by = c("meetnet", "locatie"))
-
-locaties_niet_actief %>%
-  kable(caption = "Niet actieve locaties waarvoor bezoeken niet geselecteerd werden") %>%
-  kable_styling()
-```
-
 + We selecteren enkel tellingen die geschikt zijn voor analyse
 
 ```{r}
@@ -959,10 +936,6 @@ dataset_heikikker <- dataset_heikikker %>%
   filter(!is.na(aantal))
 ```
 
-
-
-
-
 ### Overzicht van de type tellingen: primaire soort, zoekinspanning, levensstadium
 
 Onderstaande tabel geeft een overzicht van het aantal records, bezoeken en locaties en de totale aantallen voor de verschillende combinaties van:
@@ -970,7 +943,6 @@ Onderstaande tabel geeft een overzicht van het aantal records, bezoeken en locat
 + protocol
 + primaire soort
 + levensstadium
-
 
 ```{r}
 
@@ -1009,17 +981,38 @@ dataset_check3 %>%
 duur_cyclus <- 3
 start_cyclus <- 2021
 
-analyseset_heikikker <- dataset_heikikker %>%
+analyseset_heikikker_long <- dataset_heikikker %>%
   filter(!is.na(aantal)) %>%
   mutate(meetcyclus = ceiling((jaar - start_cyclus + 1 ) / duur_cyclus)) %>%
   group_by(meetcyclus) %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus - 1) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, hoofdteller, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium,  aantal, bezoekvariabele, waarde)
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, is_active, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, hoofdteller, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium,  aantal, bezoekvariabele, waarde)
+
+analyseset_heikikker_wide <- analyseset_heikikker_long %>%
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, is_active, meetcyclus, meetcyclus_start, meetcyclus_end, datum, visit_id, hoofdteller,  doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium, bezoekvariabele, waarde, aantal) %>%
+  pivot_wider(names_from = bezoekvariabele,
+              values_from = waarde) %>%
+  rename(aantal_totaal = "Aantal eiklompen totaal", aantal_bemonsterd = "Aantal eiklompen bemonsterd", aandeel_doelsoort = "Procentueel aandeel doelsoort", staalcode = Staalcode, aantal_doelsoort = aantal) %>%
+  mutate(jaar = year(datum),
+         aantal_bemonsterd = as.numeric(aantal_bemonsterd),
+         aantal_totaal = as.numeric(aantal_totaal),
+         aantal_doelsoort = as.numeric(aantal_doelsoort),
+         aandeel_doelsoort = as.numeric(aandeel_doelsoort),
+         staalcode = ifelse(staalcode == "", NA, staalcode),
+         aantal_doelsoort = ifelse(!is.na(staalcode) & is.na(aandeel_doelsoort), NA, aantal_doelsoort),
+         staalname = !is.na(staalcode),
+         resultaat_ingevoerd = ifelse(staalname, !is.na(aandeel_doelsoort), NA)) %>%
+  arrange(datum) %>%
+  filter(!is.na(aantal_doelsoort)) %>%
+  mutate(aantal = aantal_doelsoort)
+
+analyseset_heikikker_wide_correct <- analyseset_heikikker_wide %>%
+  mutate(aantal_doelsoort = ifelse(aandeel_doelsoort > 0 & aantal_doelsoort == 0 & !is.na(aandeel_doelsoort), NA, aantal_doelsoort),
+         aantal_totaal = ifelse(aandeel_doelsoort > 0 & aantal_totaal == 0 & !is.na(aandeel_doelsoort), NA, aantal_totaal))
+
 ```
-
-
 
 ## Analyseset Poelkikker
 
@@ -1029,13 +1022,17 @@ counts_poelkikker <- counts %>%
   filter(meetnet == "Poelkikker") %>%
   group_by(visit_id,  soort_nl, soort_wet, primaire_soort, levensstadium, type_aantal) %>%
   summarise(aantal = sum(aantal)) %>%
-  ungroup()
+  ungroup() %>%
+  mutate(soort_nl = ifelse(soort_wet == "Pelophylax lessonae/ kl. esculentus", "Poelkikker/bastaardkikker", soort_nl))
+
 
 dataset_poelkikker <-  visits %>%
   filter(meetnet == "Poelkikker") %>%
   left_join(select(covar, visit_id, bezoekvariabele, waarde), by = c("visit_id")) %>%
   left_join(locatie_clusters, by = c("meetnet", "locatie")) %>%
-  left_join(select(counts_poelkikker, visit_id,  soort_nl, soort_wet, primaire_soort, levensstadium, aantal), by = "visit_id")
+  left_join(select(counts_poelkikker, visit_id,  soort_nl, soort_wet, primaire_soort, levensstadium, aantal), by = "visit_id") %>%
+  filter(!(protocol == "Poelkikker - DNA larven" & soort_nl != "Poelkikker")) %>%
+  filter(bezoekvariabele != "staalcode" | is.na(bezoekvariabele)) # staalcode niet ingevuld
 
 ```
 
@@ -1062,9 +1059,6 @@ dataset_check %>%
             filter = "top")
 ```
 
-+ Ontoegankelijke locatie en locatie ongeschikt op inactief zetten? 
-
-
 
 + **We selecteren enkel tellingen op actieve locaties**
 
@@ -1090,10 +1084,6 @@ dataset_poelkikker <- dataset_poelkikker %>%
   filter(!is.na(aantal))
 ```
 
-
-
-
-
 ### Overzicht van de type tellingen: primaire soort, zoekinspanning, levensstadium
 
 Onderstaande tabel geeft een overzicht van het aantal records, bezoeken en locaties en de totale aantallen voor de verschillende combinaties van:
@@ -1101,7 +1091,6 @@ Onderstaande tabel geeft een overzicht van het aantal records, bezoeken en locat
 + protocol
 + primaire soort
 + levensstadium
-
 
 ```{r}
 
@@ -1149,7 +1138,17 @@ analyseset_poelkikker <- dataset_poelkikker %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus - 1) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, hoofdteller, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium,  aantal)
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, is_active, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, hoofdteller, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium, bezoekvariabele, waarde, aantal)
+
+analyseset_poelkikker_wide <- analyseset_poelkikker%>%
+  select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, is_active, meetcyclus, meetcyclus_start, meetcyclus_end, datum, jaar, visit_id, hoofdteller,  doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium, bezoekvariabele, waarde, aantal) %>%
+  pivot_wider(names_from = bezoekvariabele,
+              values_from = waarde) %>%
+  select(-"NA") %>%
+  rename(aantal_bemonsterd = "aantal larven bemonsterd", aandeel_doelsoort = "Procentueel aandeel doelsoort") %>%
+  mutate(aantal_bemonsterd = as.numeric(aantal_bemonsterd),
+         aandeel_doelsoort = as.numeric(aandeel_doelsoort)) %>%
+  arrange(datum)
 ```
 
 
@@ -1214,7 +1213,7 @@ In tussentijd veronderstellen we een nulwaarneming bij ontbrekende waarden wanne
 ```{r}
 check_na <- dataset_rugstreeppad %>%
   filter(is.na(aantal)) %>%
-  select(visit_id, meetnet, locatie, datum, hoofdteller, bezoek_status, voor_analyse, is_active,  aantal, notes)
+  select(visit_id, meetnet, locatie, datum, hoofdteller, bezoek_status, voor_analyse, is_active,  aantal, opmerking)
 
 dataset_rugstreeppad_nul <- dataset_rugstreeppad %>%
   filter(is.na(aantal) & bezoek_status == "Conform protocol") %>%
@@ -1272,7 +1271,7 @@ dataset_check %>%
 
 ```{r}
 dataset_rugstreeppad_actief <- dataset_rugstreeppad %>%
-  filter(is_active)
+  filter(is_active | is.na(is_active))
 
 locaties_niet_actief <- dataset_rugstreeppad %>%
   distinct(meetnet, locatie) %>%
@@ -1296,10 +1295,10 @@ dataset_rugstreeppad <- dataset_rugstreeppad %>%
 ```{r}
 dataset_rugstreeppad %>%
   filter(!bezoek_status %in% c("Conform protocol", "Telmethode niet gevolgd")) %>%
-  group_by(locatie, datum, bezoek_status, voor_analyse, visit_id, notes) %>%
+  group_by(locatie, datum, bezoek_status, voor_analyse, visit_id, opmerking) %>%
   summarise(aantal_tot = sum(aantal)) %>%
   ungroup() %>%
-  select(locatie, datum, bezoek_status, voor_analyse, aantal_tot, visit_id, notes) %>%
+  select(locatie, datum, bezoek_status, voor_analyse, aantal_tot, visit_id, opmerking) %>%
   mutate(visit_id = str_c('<a href = "https://www.meetnetten.be/fieldwork/visits/', visit_id,'">', visit_id, '</a>')) %>%
   datatable(rownames = FALSE,
             escape = FALSE)
@@ -1343,14 +1342,33 @@ analyseset_rugstreeppad <- dataset_rugstreeppad %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus - 1) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium, activiteit, aantal, n_samples, notes, hoofdteller)
+  select(soortgroep, meetnet, protocol, locatie, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, start_time, end_time, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium, activiteit, aantal, n_samples, opmerking, hoofdteller)
+
+analyseset_rugstreeppad <- analyseset_rugstreeppad %>%
+  filter(primaire_soort) %>%
+  group_by(locatie, protocol) %>%
+  mutate(paired = n_distinct(meetcyclus) > 1,
+         multiple_year = n_distinct(jaar) > 1) %>%
+  ungroup() %>%
+  mutate(periode = str_c(meetcyclus_start, " - ", meetcyclus_end)) %>%
+  mutate(start_hour = as.numeric(str_sub(start_time, 1, 2)),
+         type_telling = ifelse(is.na(start_hour), "onbekend",
+                               ifelse(start_hour > 5 & start_hour < 17, "dagtelling", "avondtelling"))) 
+
+# TE CORRIGEREN BEZOEK
+analyseset_rugstreeppad <- analyseset_rugstreeppad %>%
+  mutate(aantal = ifelse((visit_id == 55056) & (levensstadium == "larve"), 120, aantal),
+         aantal = ifelse(visit_id == 55056 & activiteit == "roepend", 0, aantal))
+
+check <- analyseset_rugstreeppad %>%
+  filter(visit_id == "55056")
 ```
 
 ## Analyseset habitatkenmerken
 
 ```{r}
 habitatkenmerken_boomkikker_kamsalamander <- analyseset_larven %>%
-  distinct(meetnet, cluster, locatie, poel, visit_id, datum, bezoek_status, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, notes) %>%
+  distinct(meetnet, cluster, locatie, poel, visit_id, datum, bezoek_status, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, opmerking) %>%
   left_join(covar, by = c("visit_id", "meetnet")) %>%
   filter(!bezoekvariabele %in% c("aantal keer geschept", "zoekinspanning")) %>%
   mutate(waarde = ifelse(waarde == "3" & bezoekvariabele == "waterkwaliteit", "goed (helder water, typische oever en/of waterplanten, weinig verlanding, niet zichtbaar vervuild)", waarde)) %>% 
@@ -1482,9 +1500,9 @@ write_vc(analyseset_roepkoren_knoflookpad, file = "analyseset_roepkoren_knoflook
 
 write_vc(analyseset_vuursalamander, file = "analyseset_vuursalamander", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_nl", "visit_id"), strict = FALSE)
 
-write_vc(analyseset_heikikker, file = "analyseset_heikikker", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_nl", "visit_id", "bezoekvariabele"), strict = FALSE)
+write_vc(analyseset_heikikker_wide_correct, file = "analyseset_heikikker", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_nl", "visit_id"), strict = FALSE)
 
-write_vc(analyseset_poelkikker, file = "analyseset_poelkikker", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_wet", "visit_id"), strict = FALSE)
+write_vc(analyseset_poelkikker_wide, file = "analyseset_poelkikker", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_wet", "visit_id"), strict = FALSE)
 
 write_vc(analyseset_rugstreeppad, file = "analyseset_rugstreeppad", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_nl", "visit_id", "levensstadium", "activiteit"), strict = FALSE)
 

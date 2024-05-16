@@ -39,7 +39,8 @@ We stellen voorlopig de ontbrekende waarden voor aandeel doelsoort gelijk aan he
 overzicht_heikikker <- analyseset_heikikker %>%
   mutate(aandeel_doelsoort_gemiddeld = mean(aandeel_doelsoort, na.rm = TRUE),
          aandeel_doelsoort = ifelse(is.na(aandeel_doelsoort), aandeel_doelsoort_gemiddeld, aandeel_doelsoort),
-         aantal_doelsoort_calc = ifelse(staalname, aantal_totaal * aandeel_doelsoort/100, aantal_doelsoort)) 
+         aantal_doelsoort_calc = ifelse(staalname, aantal_totaal * aandeel_doelsoort/100, aantal_doelsoort)) %>%
+  filter(!is.na(aantal_doelsoort_calc))
 
 overzicht_heikikker_locatie <- overzicht_heikikker %>%
   mutate(jaar = year(datum)) %>%

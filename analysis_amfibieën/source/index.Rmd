@@ -19,7 +19,6 @@ output:
       smooth_scroll: FALSE
 ---
 
-
 ```{r setup, include = FALSE}
 library(knitr)
 options(knitr.kable.NA = '')
@@ -27,7 +26,7 @@ options(knitr.kable.NA = '')
 opts_chunk$set(
   echo = FALSE, 
   eval = TRUE,
-  cache = TRUE,
+  cache = FALSE,
   warning = FALSE,
   message = FALSE,
   fig.width = 180 / 25.4,
@@ -61,6 +60,6 @@ conflicts_prefer(dplyr::lag)
 ```
 
 ```{r}
-source(here("src", "functions_smp.R"))
+source(file.path(fileman_up("soortenmeetnetten-analysis"), "source/functions_smp.R"))
 ```
 

@@ -1,0 +1,165 @@
+
+# Dataverkenning Poelkikker
+
+
+```{r}
+
+analyseset_poelkikker <- read_vc(file = "analyseset_poelkikker", root = "../output/analyseset")
+
+analyseset_poelkikker <- analyseset_poelkikker %>%
+  mutate(aanwezig = aantal > 0) 
+
+```
+
+## Roepkoren
+
+```{r}
+analyseset_poelkikker %>%
+  filter(protocol == "Padden en kikkers - Roepkoren") %>%
+  ggplot(aes(y = aantal, x = factor(jaar), colour = aanwezig)) +
+  geom_point(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red", size = 1, alpha = 0.4) +
+  facet_wrap(~soort_nl, scales = "free_y") +
+  labs(x = "jaar")
+```
+
+```{r}
+analyseset_poelkikker %>%
+  filter(protocol == "Padden en kikkers - Roepkoren") %>%
+  mutate(aantal_klasse = ifelse(aantal == 0, "0",
+                                ifelse(aantal <= 10, "1-10", 
+                                       ifelse(aantal <= 50, "11-50", ">50"))),
+         aantal_klasse = factor(aantal_klasse, levels = c("0", "1-10", "11-50", ">50"))) %>%
+  ggplot(aes(x = aantal_klasse)) +
+  geom_bar() +
+  facet_wrap(~soort_nl, scales = "free_y")
+```
+```{r}
+wnm_poelkikker <- analyseset_poelkikker %>%
+  filter(soort_nl == "Poelkikker", 
+         aantal > 0, 
+         protocol == "Padden en kikkers - Roepkoren")
+
+bezoeken_poelkikker <- analyseset_poelkikker %>%
+  semi_join(wnm_poelkikker, by = c("locatie")) %>%
+  filter(soort_nl != "Meerkikker") %>%
+  mutate(link = str_c("<a href=https://www.meetnetten.be/fieldwork/visits/", visit_id, ">", visit_id,"</a")) %>%
+  select(locatie, datum, link, protocol, soort_nl, aantal, aantal_bemonsterd, aandeel_doelsoort) 
+```
+
+Locaties waar roepkoren van poelkikker konden onderscheiden worden. 
+Kan je in één bezoek zowel een aantal raoepkoren van poelkikker en een antal roepkoren van poelkikker/bastaardkikker hebben?
+
+```{r}
+bezoeken_poelkikker %>%
+  datatable(rownames = FALSE,
+            filter = "top",
+            escape = FALSE)
+```
+
+
+
+## Larven 
+
+```{r}
+analyseset_poelkikker %>%
+  filter(protocol == "Poelkikker - DNA larven") %>%
+  pivot_longer(cols = c("aantal", "aantal_bemonsterd", "aandeel_doelsoort"),
+               names_to = "variabele", values_to = "waarde") %>%
+  ggplot(aes(x = waarde, fill = waarde > 0)) +
+  geom_histogram(binwidth = 10) +
+  facet_wrap(~variabele, scales = "free")
+```
+
+## Roepkoren en larven
+
+### Ruwe gegevens
+
+```{r}
+
+overzicht_locatie_poel_bastaard <- analyseset_poelkikker %>%
+  filter(soort_nl != "Meerkikker") %>%
+  group_by(meetnet, protocol, locatie, levensstadium, soort_nl) %>%
+  summarise(aanwezig = sum(aantal) > 0,
+            aantal_loc = sum(aantal),
+            bezoeken_loc = n_distinct(visit_id)) %>%
+  ungroup()
+
+overzicht_poel_bastaard <- overzicht_locatie_poel_bastaard %>%
+  group_by(meetnet, protocol, levensstadium, soort_nl) %>%
+  summarise(prop_locatie_aanwezig = round(mean(aanwezig), 2),
+            aantal_gem = round(sum(aantal_loc) / sum(bezoeken_loc), 1)) %>%
+  ungroup() 
+
+overzicht_poel_bastaard %>%
+  kable() %>%
+  kable_styling()
+```
+
+### Geschatte aantallen
+
+```{r}
+aandeel_doelsoort <- analyseset_poelkikker %>%
+  filter(soort_nl == "Poelkikker") %>%
+  filter(protocol == "Poelkikker - DNA larven") %>%
+  select(locatie, aantal_larven_bemonsterd = aantal_bemonsterd, aandeel_larven_doelsoort = aandeel_doelsoort)
+
+roepkoren_poelkikker_geschat <- analyseset_poelkikker %>%
+  filter(soort_nl != "Meerkikker") %>%
+  filter(!(soort_nl == "Poelkikker" & aantal == 0)) %>%
+  filter(protocol == "Padden en kikkers - Roepkoren") %>%
+  select(meetnet, locatie, jaar,  datum, visit_id, soort_nl, aantal,) %>%
+  left_join(aandeel_doelsoort, by = "locatie") %>%
+  mutate(aantal_poelkikker_geschat = ifelse(aantal == 0, aantal,
+                                            ifelse(soort_nl == "Poelkikker", aantal,
+                                                   ifelse(soort_nl == "Poelkikker/bastaardkikker", aantal * aandeel_larven_doelsoort / 100, NA)))) %>%
+  rename(aantal_roepkoren = aantal)
+
+write_csv2(roepkoren_poelkikker_geschat, "../output/overzicht_poelkikker.csv", na = "")
+```
+
+#### Roepkoren
+
+```{r}
+overzicht_locatie_poel_geschat <- roepkoren_poelkikker_geschat %>%
+  filter(!is.na(aantal_poelkikker_geschat)) %>%
+  group_by(meetnet, locatie) %>%
+  summarise(aanwezig = sum(aantal_poelkikker_geschat) > 0,
+            aantal_loc = sum(aantal_poelkikker_geschat),
+            aantal_max = max(aantal_poelkikker_geschat),
+            bezoeken_loc = n_distinct(visit_id)) %>%
+  ungroup()
+
+overzicht_poel_geschat <- overzicht_locatie_poel_geschat %>%
+  group_by(meetnet) %>%
+  summarise(prop_locatie_aanwezig = round(mean(aanwezig), 2),
+            n_locaties = n_distinct(locatie),
+            aantal_bezoeken = sum(bezoeken_loc),
+            aantal_telling_gem = round(sum(aantal_loc) / sum(bezoeken_loc), 3),
+            aantal_max_gem = round(sum(aantal_max) / n_distinct(locatie), 3)) %>%
+  ungroup() 
+
+overzicht_poel_geschat %>%
+  kable() %>%
+  kable_styling()
+```
+
+#### Larven
+
+```{r}
+overzicht_locatie_poel_larve <- roepkoren_poelkikker_geschat %>%
+  distinct(meetnet, locatie, jaar, aantal_larven_bemonsterd, aandeel_larven_doelsoort) %>%
+  mutate(aantal_larven_bemonsterd = ifelse(is.na(aantal_larven_bemonsterd), 0, aantal_larven_bemonsterd),
+         aantal_larven_poelkikker = ifelse(aantal_larven_bemonsterd > 0,
+                                           aantal_larven_bemonsterd * aandeel_larven_doelsoort/100,
+                                           0)) %>%
+  group_by(meetnet) %>%
+  summarise(aanwezig_larve = mean(aantal_larven_bemonsterd > 0),
+            aanwezig_larve_poelkikker = mean(aantal_larven_poelkikker > 0)) %>%
+  ungroup()
+
+overzicht_poel_geschat %>%
+  kable() %>%
+  kable_styling()
+```
+

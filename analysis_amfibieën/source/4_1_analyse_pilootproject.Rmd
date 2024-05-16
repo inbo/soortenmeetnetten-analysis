@@ -1,0 +1,426 @@
+# Poelkikker
+
+```{r}
+
+analyseset_poelkikker <- read_vc(file = "analyseset_poelkikker", root = "../output/analyseset")
+```
+
+## Larven
+
+```{r}
+
+roepkoren_poelkikker_locatie <- analyseset_poelkikker %>%
+  filter(protocol == "Padden en kikkers - Roepkoren") %>%
+  group_by(meetnet, cluster, locatie) %>%
+  summarise(aanwezig_poel_bastaard = sum(aantal) > 0,
+            roepkoor_tot = sum(aantal)) %>%
+  ungroup()
+
+larven_poelkikker <- analyseset_poelkikker %>%
+  filter(protocol == "Poelkikker - DNA larven")
+
+larven_poelkikker <- roepkoren_poelkikker_locatie %>%
+  full_join(larven_poelkikker, by = c("meetnet", "cluster", "locatie"))
+
+larven_poelkikker_analyse <- larven_poelkikker %>%
+  filter(!is.na(aantal_bemonsterd)) %>%
+  select(meetnet, cluster, locatie, datum, jaar, aantal_bemonsterd, aandeel_doelsoort) %>%
+  mutate(aanwezig_larve_poel_bastaard = ifelse(aantal_bemonsterd > 0, 1, 0),
+         aantal_larve_poel = ifelse(aantal_bemonsterd == 0, 0, aantal_bemonsterd * aandeel_doelsoort / 100),
+         aanwezig_larve_poel = ifelse(aantal_larve_poel > 0, 1, 0)) %>%
+  mutate(locatie = factor(locatie),
+         cluster = factor(cluster))
+
+mean(larven_poelkikker_analyse$aanwezig_larve_poel_bastaard)
+mean(larven_poelkikker_analyse$aanwezig_larve_poel)
+
+mean_prop <- larven_poelkikker_analyse %>%
+  filter(!is.na(aandeel_doelsoort)) %>%
+  group_by(meetnet) %>%
+  summarise(weighted_mean = sum(aandeel_doelsoort * aantal_bemonsterd) / sum(aantal_bemonsterd)) %>%
+  ungroup()
+```
+
+## Larven poelkikker + bastaardkikker
+
+```{r}
+model_occurence_larve <- inla(formula = aanwezig_larve_poel_bastaard ~ 1,
+                       family = "binomial",
+                       data = larven_poelkikker_analyse,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_occurence_poel_bastaard_larve <- model_occurence_larve$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = plogis(mean),
+         lcl_0.90 = plogis(lcl_0.90),
+         lcl_0.95 = plogis(lcl_0.95),
+         ucl_0.90 = plogis(ucl_0.90),
+         ucl_0.95 = plogis(ucl_0.95),
+         soort_nl = "poelkikker/bastaardkikker",
+         levensstadium = "larve",
+         parameter = "occurence") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+```
+
+## Larven poelkikker
+
+```{r}
+
+model_occurence_larve <- inla(formula = aanwezig_larve_poel ~ 1,
+                       family = "binomial",
+                       data = larven_poelkikker_analyse,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_occurence_poel_larve <- model_occurence_larve$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = plogis(mean),
+         lcl_0.90 = plogis(lcl_0.90),
+         lcl_0.95 = plogis(lcl_0.95),
+         ucl_0.90 = plogis(ucl_0.90),
+         ucl_0.95 = plogis(ucl_0.95),
+         soort_nl = "poelkikker",
+         levensstadium = "larve",
+         parameter = "occurence") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+```
+
+## Aandeel larven poelkikker
+
+```{r}
+
+larven_poelkikker_analyse_bemonsterd <- larven_poelkikker_analyse %>%
+  filter(!is.na(aandeel_doelsoort)) %>%
+  mutate(aandeel_doelsoort = aandeel_doelsoort/100,
+         aantal_larve_poel = round(aantal_larve_poel))
+
+model_prop_larve <- inla(formula = aantal_larve_poel ~ 1,
+                       family = "binomial",
+                       Ntrials = aantal_bemonsterd,
+                       data = larven_poelkikker_analyse_bemonsterd,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_aandeel_poel <- model_prop_larve$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = plogis(mean),
+         lcl_0.90 = plogis(lcl_0.90),
+         lcl_0.95 = plogis(lcl_0.95),
+         ucl_0.90 = plogis(ucl_0.90),
+         ucl_0.95 = plogis(ucl_0.95),
+         soort_nl = "poelkikker",
+         levensstadium = "larve",
+         parameter = "prop_poel") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+
+
+```
+
+
+## roepkoren
+
+```{r}
+larven_poelkikker <- analyseset_poelkikker %>%
+  filter(protocol == "Poelkikker - DNA larven") %>%
+  select(locatie, aandeel_doelsoort)
+
+roepkoren_poelkikker_geschat <- analyseset_poelkikker %>%
+  filter(str_detect(protocol, "Roepkoren")) %>%
+  filter(soort_nl != "Meerkikker") %>%
+  select(locatie, cluster, jaar, datum, soort_nl, aantal) %>%
+  left_join(larven_poelkikker, by = "locatie") %>%
+  mutate(aantal_poel_geschat = ifelse(soort_nl == "Poelkikker" | aantal == 0, aantal,
+                                      ifelse(soort_nl == "Poelkikker/bastaardkikker", round(aantal * aandeel_doelsoort / 100), NA))) %>%
+  group_by(locatie, cluster, jaar, datum) %>%
+  summarise(aantal_poel_geschat = sum(aantal_poel_geschat)) %>%
+  ungroup() %>%
+  filter(!is.na(aantal_poel_geschat))
+
+roepkoren_poelkikker_geschat_max <- roepkoren_poelkikker_geschat %>%
+  group_by(locatie) %>%
+  summarise(aantal_poel_geschat_max = max(aantal_poel_geschat),
+            aantal_poel_geschat_tot = sum(aantal_poel_geschat),
+            n_bezoeken = n()) %>%
+  ungroup()
+
+mean(roepkoren_poelkikker_geschat$aantal_poel_geschat)
+
+model_roepkoren_iid <- inla(formula = aantal_poel_geschat ~ f(locatie,
+                                  model = "iid",
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "gaussian",
+                       data = roepkoren_poelkikker_geschat,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+model_roepkoren <- inla(formula = aantal_poel_geschat ~ 1,
+                       family = "nbinomial",
+                       data = roepkoren_poelkikker_geschat,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_roepkoren <- model_roepkoren$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = exp(mean),
+         lcl_0.90 = exp(lcl_0.90),
+         lcl_0.95 = exp(lcl_0.95),
+         ucl_0.90 = exp(ucl_0.90),
+         ucl_0.95 = exp(ucl_0.95),
+         soort_nl = "poelkikker",
+         levensstadium = "adult",
+         parameter = "aantal") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+
+results_roepkoren_iid <- model_roepkoren_iid$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant")
+
+model_roepkoren_max <- inla(formula = aantal_poel_geschat_max ~ 1,
+                       family = "nbinomial",
+                       data = roepkoren_poelkikker_geschat_max,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_roepkoren_max <- model_roepkoren_max$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = exp(mean),
+         lcl_0.90 = exp(lcl_0.90),
+         lcl_0.95 = exp(lcl_0.95),
+         ucl_0.90 = exp(ucl_0.90),
+         ucl_0.95 = exp(ucl_0.95),
+         soort_nl = "poelkikker",
+         levensstadium = "adult",
+         parameter = "aantal_max") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+
+model_roepkoren_tot <- inla(formula = aantal_poel_geschat_tot ~ 1,
+                       family = "nbinomial",
+                       offset = n_bezoeken,
+                       data = roepkoren_poelkikker_geschat_max,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_roepkoren_tot <- model_roepkoren_tot$summary.fixed %>%
+  rownames_to_column("meetcyclus") %>%
+  select(meetcyclus, mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = exp(mean),
+         lcl_0.90 = exp(lcl_0.90),
+         lcl_0.95 = exp(lcl_0.95),
+         ucl_0.90 = exp(ucl_0.90),
+         ucl_0.95 = exp(ucl_0.95),
+         soort_nl = "poelkikker",
+         levensstadium = "adult",
+         parameter = "aantal_tot") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+```
+
+
+# Heikikker
+
+```{r}
+
+analyseset_heikikker <- read_vc(file = "analyseset_heikikker", root = "../output/analyseset")
+
+```
+
+```{r}
+eitjes_heikikker_occurence <- analyseset_heikikker %>%
+  mutate(aanwezig = aantal_doelsoort > 0 | (aandeel_doelsoort > 0 & !is.na(aandeel_doelsoort))) %>%
+  group_by(meetnet, protocol, cluster, locatie, jaar, bezoek_status, soort_nl, soort_wet) %>%
+  summarise(aantal_tot = sum(aantal_doelsoort),
+            aanwezig = ifelse(any(aanwezig), 1, 0),
+            aantal_max = max(aantal_doelsoort),
+            n_bezoeken = n()) %>%
+  ungroup()
+
+mean(eitjes_heikikker_occurence$aanwezig)
+mean(analyseset_heikikker$aantal_doelsoort, na.rm = TRUE)
+mean(eitjes_heikikker_occurence$aantal_tot, na.rm = TRUE)
+
+eitjes_aandeel_doelsoort <- analyseset_heikikker %>%
+  filter(!is.na(aandeel_doelsoort),
+         !is.na(aantal_bemonsterd)) %>%
+  mutate(aantal_bemonsterd_hei = round(aantal_bemonsterd * aandeel_doelsoort/100))
+
+mean(eitjes_aandeel_doelsoort$aandeel_doelsoort)
+
+mean_prop <- eitjes_aandeel_doelsoort %>%
+  group_by(meetnet) %>%
+  summarise(weighted_mean = sum(aandeel_doelsoort * aantal_bemonsterd) / sum(aantal_bemonsterd)) %>%
+  ungroup()
+```
+
+## Voorkomen eitjes heikikker
+
+```{r}
+model_occurence_ei <- inla(formula = aanwezig ~ 1,
+                       family = "binomial",
+                       data = eitjes_heikikker_occurence,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_occurence_ei <- model_occurence_ei$summary.fixed %>%
+  rownames_to_column("meetcyclus") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = plogis(mean),
+         lcl_0.90 = plogis(lcl_0.90),
+         lcl_0.95 = plogis(lcl_0.95),
+         ucl_0.90 = plogis(ucl_0.90),
+         ucl_0.95 = plogis(ucl_0.95),
+         soort_nl = "heikikker",
+         levensstadium = "eitjes",
+         parameter = "occurence") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+```
+
+## Aandeel eitjes heikikker
+
+```{r}
+model_prop_ei_iid <- inla(formula = aantal_bemonsterd_hei ~ f(locatie,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "binomial",
+                       Ntrials = aantal_bemonsterd,
+                       data = eitjes_aandeel_doelsoort,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_prop_ei_iid <- model_prop_ei_iid$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = plogis(mean),
+         lcl_0.90 = plogis(lcl_0.90),
+         lcl_0.95 = plogis(lcl_0.95),
+         ucl_0.90 = plogis(ucl_0.90),
+         ucl_0.95 = plogis(ucl_0.95),
+         soort_nl = "heikikker",
+         levensstadium = "eitjes",
+         parameter = "prop_hei") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+
+model_prop_ei <- inla(formula = aantal_bemonsterd_hei ~ 1,
+                       family = "binomial",
+                       Ntrials = aantal_bemonsterd,
+                       data = eitjes_aandeel_doelsoort,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_prop_ei <- model_prop_ei$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = plogis(mean),
+         lcl_0.90 = plogis(lcl_0.90),
+         lcl_0.95 = plogis(lcl_0.95),
+         ucl_0.90 = plogis(ucl_0.90),
+         ucl_0.95 = plogis(ucl_0.95),
+         soort_nl = "heikikker",
+         levensstadium = "eitjes",
+         parameter = "prop_hei") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+```
+
+## Totaal geschat eitjes heikikker
+
+```{r}
+
+eitjes_heikikker_aantal_tot <- eitjes_heikikker_occurence %>%
+  filter(!is.na(aantal_tot))
+
+model_aantal_tot_ei <- inla(formula = aantal_tot ~ 1,
+                       family = "nbinomial",
+                       data = eitjes_heikikker_aantal_tot,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_aantal_tot_ei <- model_aantal_tot_ei$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = exp(mean),
+         lcl_0.90 = exp(lcl_0.90),
+         lcl_0.95 = exp(lcl_0.95),
+         ucl_0.90 = exp(ucl_0.90),
+         ucl_0.95 = exp(ucl_0.95),
+         soort_nl = "heikikker",
+         levensstadium = "eitjes",
+         parameter = "aantal_tot") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+
+model_aantal_ei <- inla(formula = aantal_doelsoort ~ 1,
+                       family = "nbinomial",
+                       data = analyseset_heikikker %>%
+                         filter(!is.na(aantal_doelsoort)),
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_aantal_ei <- model_aantal_ei$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = exp(mean),
+         lcl_0.90 = exp(lcl_0.90),
+         lcl_0.95 = exp(lcl_0.95),
+         ucl_0.90 = exp(ucl_0.90),
+         ucl_0.95 = exp(ucl_0.95),
+         soort_nl = "heikikker",
+         levensstadium = "eitjes",
+         parameter = "aantal") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+
+model_aantal_ei_iid <- inla(formula = aantal ~ f(locatie,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_heikikker,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+results_aantal_ei_iid <- model_aantal_ei_iid$summary.fixed %>%
+  rownames_to_column("intercept") %>%
+  select(mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = exp(mean),
+         lcl_0.90 = exp(lcl_0.90),
+         lcl_0.95 = exp(lcl_0.95),
+         ucl_0.90 = exp(ucl_0.90),
+         ucl_0.95 = exp(ucl_0.95),
+         soort_nl = "heikikker",
+         levensstadium = "eitjes",
+         parameter = "aantal") %>%
+  select(parameter, soort_nl, levensstadium, everything())
+
+
+```
+
+
+```{r}
+results_pilootproject <- bind_rows(
+  results_occurence_poel_larve,
+  results_aandeel_poel,
+  results_roepkoren,
+  results_roepkoren_max,
+  results_occurence_ei,
+  results_prop_ei,
+  results_aantal_ei,
+  results_aantal_tot_ei
+)
+
+write_vc(results_pilootproject, file = "results_pilootproject", root = "../output/results", sorting = c("soort_nl", "levensstadium", "parameter"))
+```
+

@@ -1395,7 +1395,7 @@ overzicht_trend_tabel %>%
 
 De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in Figuur \@ref(fig:figtrend). De x-as van deze figuur heeft een logaritmische schaal. Een halvering (-50 %) is immers een even sterk effect als een verdubbeling (+100 %). Opnieuw maken we gebruik van de [classificatie](#h:classtrend) zoals besproken in paragraaf \@ref(h:classtrend) met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over de meetperiode. Voor een periode van zes jaar (2016 - 2021) komt de ondergrens overeen met een gemiddelde jaarlijkse trend van -5,6 % en de bovengrens met een gemiddelde jaarlijkse trend van +5,9 %. 
 
-```{r figtrend, fig.cap= str_c("Gemiddelde jaarlijkse trend met 90 \\% betrouwbaarheidsinterval ", legend_klasses, ". De stippellijnen tonen de referentiewaarde (0 \\%), de ondergrens (-6.7 \\%) en de bovengrens (+7.4 \\%) waarop de classificatie gebaseerd is.")}
+```{r figtrend}
 
 trend <- trend %>%
   mutate(mean_log = log(mean/100 + 1),
@@ -1468,9 +1468,9 @@ results_waic <- bind_rows(
   results_waic_boomkikker,
   results_waic_kamsalamander,
   results_waic_knoflookpad,
-  results_waic_vuursalamander_2016_2022 %>%
+  results_waic_vuursalamander_2016_2023 %>%
     mutate(trend_start = 2016),
-  results_waic_vuursalamander_2018_2022 %>%
+  results_waic_vuursalamander_2018_2023 %>%
     mutate(trend_start = 2018)
 ) %>% pivot_wider(names_from = "model", values_from = "waic") %>%
   mutate(diff_waic = trendmodel - indexmodel,

@@ -10,4 +10,6 @@ _bookdown_files/
 css/
 *.png
 *.md
-
+*html
+*_cache/
+/cache/

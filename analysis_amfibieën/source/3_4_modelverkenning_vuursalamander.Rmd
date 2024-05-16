@@ -23,13 +23,14 @@ analyseset_vuursalamander <- analyseset_vuursalamander %>%
   mutate(aantal_totaal = sum(aantal)) %>%
   ungroup() %>%
   filter(aantal_totaal > 0) %>%
-  filter(jaar <= 2022)
+  filter(jaar <= 2023)
 
 data_sim_add <- analyseset_vuursalamander %>%
   as_tibble() %>%
   tidyr::expand(jaar) %>%
   mutate(jaar_scaled = jaar - min(jaar) + 1,
-         fjaar = factor(jaar)) %>%
+         fjaar = factor(jaar),
+         n_100m = 10) %>%
   mutate(data_type = "simulated")
 
 data_combine <- analyseset_vuursalamander %>%
@@ -89,13 +90,14 @@ data_predict <- data_combine %>%
          fitted_0.975quant = exp(indexmodel_iid_rw1year$summary.fitted.values$`0.975quant`)) %>%
   filter(data_type == "simulated") %>%
   select(jaar, fitted_mean, fitted_0.025quant, fitted_0.975quant) %>%
-  left_join(select(analyseset_vuursalamander, jaar, aantal_obs = aantal_100m), by = c("jaar")) 
+  left_join(select(analyseset_vuursalamander, jaar, n_100m, aantal_obs = aantal), by = c("jaar")) %>%
+  mutate(aantal_100m_obs = aantal_obs / n_100m)
 
 data_predict %>%
   ggplot(aes(y = fitted_mean, x = jaar,  ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
   geom_line() +
   geom_ribbon(alpha = 0.3) +
-  geom_point(aes(y = aantal_obs, x = jaar), alpha = 0.4)
+  geom_point(aes(y = aantal_100m_obs, x = jaar), alpha = 0.4)
 ```
 
 + jaar als factor
@@ -107,7 +109,7 @@ data_predict <- data_combine %>%
          fitted_0.975quant = exp(indexmodel_iid$summary.fitted.values$`0.975quant`)) %>%
   filter(data_type == "simulated") %>%
   select(jaar, fitted_mean, fitted_0.025quant, fitted_0.975quant) %>%
-  left_join(select(analyseset_vuursalamander, jaar, aantal_obs = aantal_100m), by = c("jaar")) 
+  left_join(select(analyseset_vuursalamander, jaar, aantal_obs = aantal), by = c("jaar")) 
 
 data_predict %>%
   ggplot(aes(y = fitted_mean, x = jaar,  ymin = fitted_0.025quant, ymax = fitted_0.975quant)) +
@@ -166,8 +168,8 @@ overzicht_modellen %>%
 
 ```{r}
 
-fun_2016_2022 <-  function(...) {
-        c(exp(fjaar2017), exp(fjaar2018), exp(fjaar2019), exp(fjaar2020), exp(fjaar2021), exp(fjaar2022))
+fun_2016_2023 <-  function(...) {
+        c(exp(fjaar2017), exp(fjaar2018), exp(fjaar2019), exp(fjaar2020), exp(fjaar2021), exp(fjaar2022), exp(fjaar2023))
       }
 
 compare_index <- bind_rows(
@@ -183,7 +185,7 @@ compare_index <- bind_rows(
            randomeffect_teller = "ja"),
   derive_index_inla(analyseset_species = analyseset_vuursalamander, 
                   indexmodel_nbinom_inla = indexmodel_iid,
-                  fun = fun_2016_2022) %>%
+                  fun = fun_2016_2023) %>%
     mutate(jaareffect = "factor jaar",
            randomeffect_teller = "nee")
 ) %>%
