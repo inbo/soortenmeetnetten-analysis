@@ -1,0 +1,68 @@
+---
+title: "Analyse overige soorten"
+author: 
+  -
+    name: "Toon Westra, Sam Van De Poel,  Frederic Piesschaert, Thierry Onkelinx"
+    email: "Toon.Westra@inbo.be"
+subtitle: "Technisch rapport"
+link-citations: TRUE
+always_allow_html: yes
+site: bookdown::bookdown_site
+output:
+  bookdown::html_document2:
+    keep_md: TRUE
+    toc: TRUE
+    code_folding: hide
+    toc_depth: 2
+    toc_float:
+      collapsed: FALSE
+      smooth_scroll: FALSE
+---
+
+```{r setup, include = FALSE}
+library(knitr)
+options(knitr.kable.NA = '')
+
+opts_chunk$set(
+  echo = FALSE, 
+  eval = TRUE,
+  cache = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 180 / 25.4,
+  fig.height = 120 / 25.4,
+  fig.align = "center"
+)
+
+```
+
+
+```{r, cache = FALSE}
+
+library(tidyverse)
+library(INBOtheme)
+library(INBOmd)
+library(sf)
+library(DT)
+library(effectclass)
+library(kableExtra)
+library(INLA)
+library(git2rdata)
+library(here)
+library(n2khab)
+library(inlatools)
+library(openssl)
+library(units)
+
+library(conflicted)
+conflicts_prefer(dplyr::filter())
+conflicts_prefer(dplyr::lag)
+```
+
+```{r}
+source(file.path(fileman_up("soortenmeetnetten-analysis"), "source/functions_smp.R"))
+
+data_path <- fileman_up("soortenmeetnetten-queries")
+
+```
+
