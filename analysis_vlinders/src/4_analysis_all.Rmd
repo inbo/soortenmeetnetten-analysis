@@ -117,6 +117,8 @@ indexmodel_1 <- models_inla$indexmodel
 
 ```{r}
 
+seed <- 15486
+
 analyseset_locations_by_species <- analyseset_transecten_locations %>%
   group_by(meetnet) %>%
   nest() %>%
@@ -248,6 +250,7 @@ index_meetcyclus_oz <- derive_index_meetcyclus_inla(analyseset_meetcyclus_oz,
 result_indexmodel_meetcyclus <- index_meetcyclus_av %>%
   bind_rows(index_meetcyclus_hv) %>%
   bind_rows(index_meetcyclus_oz)
+
 ```
 
 ```{r}
@@ -293,6 +296,82 @@ results_waic %>%
          sorting = c("parameter", "soort_nl"),
          strict = FALSE)
 
+```
+```{r}
+provinces <- read_admin_areas(dsn = "provinces") %>%
+  select(name)
+
+locaties_argus <- get_locations_smp() %>%
+  filter(meetnet == "Argusvlinder") %>%
+  filter(locatie_type == "locatie") %>%
+  st_transform(31370) %>%
+  st_join(provinces) %>%
+  select(meetnet, locatie, provincie = name) %>%
+  st_drop_geometry()
+
+analyseset_meetcyclus_argusvlinder_regio <- analyseset_meetcyclus_argusvlinder %>%
+  left_join(locaties_argus, by = c("meetnet", "locatie")) %>%
+  # filter(provincie %in% c("Oost-Vlaanderen", "Antwerpen", "West-Vlaanderen")) %>%
+  mutate(regio = ifelse(provincie == "West-Vlaanderen", "Kustduinen en polders", 
+                        ifelse(provincie == "Limburg", "Limburg", "Antwerpse haven")))
+
+seed <- 15486
+
+analyseset_locations_by_regio <- analyseset_meetcyclus_argusvlinder_regio %>%
+  group_by(meetnet, regio) %>%
+  nest() %>%
+  mutate(offset_var = "log_section_100",
+         use_seed = seed)
+
+models_inla <- analyseset_locations_by_regio %>%
+  mutate(indexmodel = pmap(list(data, offset_var), fit_indexmodel_rw_nbinom_inla),
+         trendmodel = map2(data, offset_var, fit_trendmodel_rw_nbinom_inla))
+
+results_indexmodel_argusvlinder_regio <- models_inla %>%
+  transmute(index = pmap(list(data, indexmodel, use_seed), derive_index_rw_inla)) %>%
+  unnest(cols = c(meetnet, index))
+
+results_trendmodel_argusvlinder_regio  <- models_inla %>%
+  transmute(trend = map2(data, trendmodel, derive_trend)) %>%
+  select(meetnet, regio, trend) %>%
+  unnest()
+
+indexmodel_doyrw2_iid_meetcyclus_AH <- inla(aantal ~ meetcyclus  + 
+                                f(doy_scaled2, model = "rw2", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = "iid", 
+                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                              family = "nbinomial",
+                              data = analyseset_meetcyclus_argusvlinder_regio %>%
+                                filter(regio == "Antwerpse haven"),
+                              offset = log_section_100,
+                              control.compute = list(config = TRUE, waic = TRUE),
+                              control.predictor = list(compute = TRUE))
+
+indexmodel_doyrw2_iid_meetcyclus_KP <- inla(aantal ~ meetcyclus  + 
+                                f(doy_scaled2, model = "rw2", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = "iid", 
+                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                              family = "nbinomial",
+                              data = analyseset_meetcyclus_argusvlinder_regio %>%
+                                filter(regio != "Antwerpse haven"),
+                              offset = log_section_100,
+                              control.compute = list(config = TRUE, waic = TRUE),
+                              control.predictor = list(compute = TRUE))
+
+index_meetcyclus_av_ah <- derive_index_meetcyclus_inla(analyseset_meetcyclus_argusvlinder_regio, 
+                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
+                             indexmodel_doyrw2_iid_meetcyclus_AH, set_seed = seed) %>%
+  mutate(regio = "Antwerpse haven")
+
+index_meetcyclus_av_kp <- derive_index_meetcyclus_inla(analyseset_meetcyclus_argusvlinder_regio, 
+                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
+                             indexmodel_doyrw2_iid_meetcyclus_KP, set_seed = seed) %>%
+  mutate(regio = "Kustduinen en polders")
+
+results_index_meetcyclus_av_regio <- index_meetcyclus_av_ah %>%
+  bind_rows(index_meetcyclus_av_kp)
 ```
 
 
@@ -757,7 +836,7 @@ results_trendmodel_all <- bind_rows(results_trendmodel,
 
 ```{r}
 
-verschillen_refjaar <- results_indexmodel_all %>%
+verschillen_refjaar_table <- results_indexmodel_all %>%
   filter(parameter == "index") %>%
   filter(!is.na(mean)) %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
@@ -770,7 +849,7 @@ verschillen_refjaar <- results_indexmodel_all %>%
 ```
 
 ```{r}
-verschillen_refjaar %>%
+verschillen_refjaar_table %>%
   select(-soort_wet) %>%
   rename("Nederlandse naam" = soort_nl,  Referentiejaar = ref_jaar) %>%
   kbl(caption = "Verschil in aantallen t.o.v. referentiejaar",
@@ -782,22 +861,140 @@ add_header_above(c(" " = 3, "Verschil t.o.v. referentiejaar" = 7))
 ```
 
 ```{r}
-verschillen_vorigjaar <- results_indexmodel_all %>%
+verschil_jaren_ref <- results_indexmodel_all %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown"))
+  
+verschil_jaren_ref_add <- verschil_jaren_ref %>%
+  distinct(soort_nl, soort_wet, ref_jaar) %>%
+  mutate(jaar = ref_jaar,
+        mean = 1,
+         klasse = "R") 
+
+verschil_jaren_ref <- verschil_jaren_ref %>%
+  bind_rows(verschil_jaren_ref_add) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+  
+```
+
+
+```{r, fig.height= 11}
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+verschil_jaren_ref %>%
+  filter(is.na(model_description) | model_description == "without offset") %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiejaar", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~soort_nl, scales = "free_y")
+```
+
+
+```{r, fig.width= 5, fig.height= 4}
+verschil_jaren_ref %>%
+  filter(meetnet == "Argusvlinder") %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiejaar", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~soort_nl, scales = "free_y")
+
+ggsave("../output/figures/2024/verschil_jaar_argusvlinder.jpg",
+       width = 5, height = 4)
+```
+
+```{r}
+verschil_jaren_ref_regio <- results_indexmodel_argusvlinder_regio %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown"))
+  
+verschil_jaren_ref_add <- verschil_jaren_ref_regio %>%
+  distinct(soort_nl, soort_wet, regio, ref_jaar) %>%
+  mutate(jaar = ref_jaar,
+        mean = 1,
+         klasse = "R") 
+
+verschil_jaren_ref_regio <- verschil_jaren_ref_regio %>%
+  bind_rows(verschil_jaren_ref_add) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+  
+```
+
+```{r, fig.width= 7, fig.height= 4}
+verschil_jaren_ref_regio %>%
+  filter(meetnet == "Argusvlinder") %>%
+  filter(regio != "Limburg") %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiejaar", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~regio)
+
+ggsave("../output/figures/2024/verschil_jaar_argusvlinder_regio.jpg",
+       width = 7, height = 4)
+```
+
+
+
+```{r}
+verschil_vorigjaar <- results_indexmodel_all %>%
   filter(parameter == "diff_previous_year") %>%
   mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
   filter(!is.na(mean)) %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
          klasse = format(klasse, type = "markdown")) %>%
-  select(model_description, soort_nl, soort_wet, periode, klasse) %>%
-  spread(key = "periode", value = "klasse") %>%
-  ungroup() %>%
-  select(-meetnet)
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
   
 ```
 
-
 ```{r}
-verschillen_vorigjaar %>%
+verschil_vorigjaar %>%
+  select(model_description, soort_nl, soort_wet, periode, klasse) %>%
+  spread(key = "periode", value = "klasse") %>%
+  ungroup() %>%
+  select(-meetnet) %>%
   select(-soort_wet) %>%
   rename("Nederlandse naam" = soort_nl) %>%
   kbl(caption = "Verschil in aantallen voor opeenvolgende jaren",
@@ -807,6 +1004,201 @@ verschillen_vorigjaar %>%
 kable_styling()
 ```
 
+```{r, fig.height=11}
+verschil_vorigjaar %>%
+  filter(is.na(model_description) | model_description == "without offset") %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = periode, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil opeenvolgende jarenr", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide",
+        axis.text.x = element_text(angle = 45)) +
+  facet_wrap(~soort_nl, scales = "free_y")
+```
+
+```{r, fig.width= 5, fig.height= 4}
+verschil_vorigjaar %>%
+  filter(meetnet == "Argusvlinder") %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = periode, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil opeenvolgende jarenr", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide",
+        axis.text.x = element_text(angle = 45)) +
+  facet_wrap(~soort_nl, scales = "free_y")
+
+ggsave("../output/figures/2024/verschil_jaren_opeenvolgend_argusvlinder.jpg",
+       width = 5, height = 4)
+```
+
+```{r}
+verschil_vorigjaar_regio <- results_indexmodel_argusvlinder_regio %>%
+  filter(parameter == "diff_previous_year") %>%
+  mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+  
+```
+
+```{r, fig.width= 7, fig.height= 4}
+verschil_vorigjaar_regio %>%
+  filter(meetnet == "Argusvlinder") %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = periode, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil opeenvolgende jarenr", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide",
+        axis.text.x = element_text(angle = 45)) +
+  facet_wrap(~regio)
+
+ggsave("../output/figures/2024/verschil_jaren_opeenvolgend_argusvlinder.jpg",
+       width = 5, height = 4)
+```
+
+### Vergelijking tussen de meetcycli
+
+```{r}
+verschil_meetcyclus <- result_indexmodel_meetcyclus %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown"),
+         meetcyclus = str_remove(meetcyclus, "meetcyclus"),
+         meetcyclus = str_replace(meetcyclus, "_", "-")) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+verschil_meetcyclus_add <- verschil_meetcyclus %>%
+  distinct(soort_nl, soort_wet) %>%
+  mutate(klasse = "R",
+         meetcyclus = ifelse(soort_nl == "Oranje zandoogje", "2017-2019", "2016-2018"),
+         mean = 0,
+         mean_log = 1)
+  
+```
+
+```{r}
+verschil_meetcyclus %>%
+  select(soort_nl, soort_wet, meetcyclus, klasse) %>%
+  spread(key = "meetcyclus", value = "klasse") %>%
+  rename("Nederlandse naam" = soort_nl) %>%
+  kbl(caption = "Verschil in aantallen per meetcyclus",
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "lcccccc") %>%
+kable_styling()
+```
+
+```{r, fig.width= 8}
+
+verschil_meetcyclus <- verschil_meetcyclus %>%
+  bind_rows(verschil_meetcyclus_add)
+
+verschil_meetcyclus %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = meetcyclus, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiemeetcyclus", x = "Meetcyclus") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide", 
+        axis.text.x = element_text(angle = 45)) +
+  facet_wrap(~soort_nl, scales = "free")
+```
+
+```{r, fig.width= 5, fig.height= 4}
+verschil_meetcyclus %>%
+  filter(soort_nl == "Argusvlinder") %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = meetcyclus, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiemeetcyclus", x = "Meetcyclus") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~soort_nl, scales = "free")
+
+ggsave("../output/figures/2024/verschil_meetcyclus_argusvlinder.jpg",
+       width = 5, height = 4)
+```
+```{r}
+verschil_meetcyclus_regio <- results_index_meetcyclus_av_regio %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown"),
+         meetcyclus = str_remove(meetcyclus, "meetcyclus"),
+         meetcyclus = str_replace(meetcyclus, "_", "-")) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+verschil_meetcyclus_add <- verschil_meetcyclus_regio %>%
+  distinct(soort_nl, soort_wet, regio) %>%
+  mutate(klasse = "R",
+         meetcyclus = ifelse(soort_nl == "Oranje zandoogje", "2017-2019", "2016-2018"),
+         mean = 0,
+         mean_log = 1)
+  
+```
+
+
+
+```{r, fig.width= 8}
+
+verschil_meetcyclus_regio <- verschil_meetcyclus_regio %>%
+  bind_rows(verschil_meetcyclus_add)
+
+verschil_meetcyclus_regio %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = meetcyclus, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiemeetcyclus", x = "Meetcyclus") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~regio)
+
+ggsave("../output/figures/2024/verschil_meetcyclus_argusvlinder_regio.jpg",
+       width = 7, height = 4)
+```
 
 ### Trends
 

@@ -303,7 +303,11 @@ secties_select <- check_secties %>%
                              sublocatie)
          ) %>%
    inner_join(secties_select, by = c("meetnet", "locatie", "protocol", "sublocatie" ))
-
+ 
+ write_csv2(transect_missing, "../output/transect_missing.csv")
+ write_csv2(secties_add, "../output/secties_add.csv")
+  write_csv2(secties_deactiveer, "../output/secties_deactiveer.csv")
+   write_csv2(secties_deactiveer2, "../output/secties_deactiveer2.csv")
 ```
 
 Voor een deel van de transecten werden de (ruimtelijke ligging van de) secties die geteld worden al toegevoegd in meetnetten.be. Indien deze transecten secties bevatten met enkel nulwaarnemingen en waarvoor de ruimtelijke ligging niet werd toegevoegd, kunnen we er vanuit gaan dat deze niet werd geteld en dat deze gedeactiveerd moeten worden. Zie tabel hieronder. 

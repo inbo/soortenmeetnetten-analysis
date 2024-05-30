@@ -57,7 +57,7 @@ conflicted::conflicts_prefer(dplyr::lag)
 
 path_functions <- fileman_up("soortenmeetnetten-analysis")
 
-source(file.path(path_functions, "src/functions_smp.R"))
+source(file.path(path_functions, "source/functions_smp.R"))
 
 ```
 
