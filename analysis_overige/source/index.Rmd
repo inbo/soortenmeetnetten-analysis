@@ -1,8 +1,8 @@
 ---
-title: "Analyse overige soorten"
+title: "Analyse nestbuizen hazelmuis"
 author: 
   -
-    name: "Toon Westra, Sam Van De Poel,  Frederic Piesschaert, Thierry Onkelinx"
+    name: "Toon Westra"
     email: "Toon.Westra@inbo.be"
 subtitle: "Technisch rapport"
 link-citations: TRUE

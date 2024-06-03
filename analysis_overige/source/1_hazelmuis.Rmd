@@ -1,8 +1,6 @@
-# Hazelmuis
+# Data
 
-## Nestbuizen
-
-### Dataset
+We maken gebruik van de data ingezameld via [meetnetten.be](www.meetnetten.be).
 
 ```{r}
 
@@ -19,7 +17,7 @@ hazelmuis_nestbuis_bezoek <- visits_hazelmuis %>%
 
 ```
 
-### Dataverkenning
+## Dataverkenning
 
 ```{r}
 n_species_nestbuis <- hazelmuis_nestbuis_bezoek %>%
@@ -40,6 +38,20 @@ hazelmuis_nestbuis_bezoek %>%
   coord_flip() +
   theme(legend.position = "bottom")
 ```
+
+```{r, fig.width= 10, fig.cap= "Voorkomen per bezoek"}
+hazelmuis_nestbuis_bezoek %>%
+  mutate(description = ifelse(observation_type == "versheid muizensporen", description,
+                              ifelse(aantal  > 0, "aanwezig", "afwezig")),
+         type = ifelse(observation_type == "versheid muizensporen", activiteit, levensstadium)) %>%
+  filter(description != "afwezig") %>%
+  ggplot(aes(x = type, fill = description)) +
+  geom_bar() +
+  facet_wrap(~soort_nl, scales = "free" ) +
+  coord_flip() +
+  theme(legend.position = "bottom")
+```
+
 
 ```{r, fig.height= 11}
 
@@ -515,7 +527,7 @@ breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6))
 labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
 
 results_index_diff_ref %>%
-  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
   geom_errorbar(width = 0, size = 10, alpha = 0.3) +
   geom_point(size = 7, alpha = 0.6) +
   geom_hline(yintercept = 0, linetype = 2) +
@@ -541,7 +553,7 @@ results_index_diff_prevyear <- results_index %>%
 ```{r}
 
 results_index_diff_prevyear %>%
-  ggplot(aes(x = diff, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
+  ggplot(aes(x = diff, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
   geom_errorbar(width = 0, size = 10, alpha = 0.3) +
   geom_point(size = 7, alpha = 0.6) +
   geom_hline(yintercept = 0, linetype = 2) +
@@ -651,7 +663,7 @@ results_index_geb %>%
 ```
 
 ```{r}
-results_index_diff_ref <- results_index_geb %>%
+results_index_diff_ref_geb <- results_index_geb %>%
   filter(jaar_ref == 2020) %>%
   add_row(tibble(jaar = 2020,
                  jaar_ref = 2020,
@@ -669,8 +681,8 @@ results_index_diff_ref <- results_index_geb %>%
 
 ```{r, fig.height= 6, fig.width = 6}
 
-results_index_diff_ref %>%
-  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
+results_index_diff_ref_geb %>%
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
   geom_errorbar(width = 0, size = 10, alpha = 0.3) +
   geom_point(size = 7, alpha = 0.6) +
   geom_hline(yintercept = 0, linetype = 2) +
@@ -698,7 +710,7 @@ results_index_diff_prevyear_geb <- results_index_geb %>%
 ```{r, fig.height= 6, fig.width = 6}
 
 results_index_diff_prevyear_geb %>%
-  ggplot(aes(x = diff, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
+  ggplot(aes(x = diff, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
   geom_errorbar(width = 0, size = 10, alpha = 0.3) +
   geom_point(size = 7, alpha = 0.6) +
   geom_hline(yintercept = 0, linetype = 2) +
@@ -710,4 +722,379 @@ results_index_diff_prevyear_geb %>%
   scale_color_manual(values = klasse_color) +
   theme(legend.position = "hide") +
   facet_wrap(~geb)
+```
+#### Individuen
+
+```{r}
+analyseset_individuen_jaar <- hazelmuis_nestbuis_occurence %>%
+  filter(n_bezoeken > 2) %>%
+  filter(soort_nl == "Hazelmuis") %>%
+  filter(activiteit == "in nestbuis") %>%
+  mutate(gebied = ifelse(!is.na(str_locate(locatie, "-")[, "start"]), 
+                         str_sub(locatie, 1, end = str_locate(locatie, "-")[, "start"] - 2),
+                         locatie),
+         gebied = ifelse(gebied %in% c("Broekbos", "Konenbos"), "Broekbos - Konenbos",
+                         ifelse(gebied %in% c("Teuvenerberg", "Obsinnich"), "Teuvenerberg - Obsinnisch", gebied)), 
+         sublocatie = str_c(locatie, ": ", sublocatie),
+         year_scaled = jaar - min(jaar) + 1,
+         fjaar = factor(jaar),
+         aanwezig = ifelse(aanwezig, 1, 0),
+         geb = str_sub(gebied, 1, 2))
+
+```
+
+```{r}
+indexmodel_individu_iid_0 <- inla(formula = aanwezig ~ 0 + fjaar +
+                                f(sublocatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(locatie,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "binomial",
+                       data = analyseset_individuen_jaar,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_individu_gebied_iid_0 <- inla(formula = aanwezig ~ 0 + fjaar*geb +
+                                f(sublocatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(locatie,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "binomial",
+                       data = analyseset_individuen_jaar,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+```
+
+```{r}
+  model_inla.samples <- inla.posterior.sample(1000, indexmodel_individu_iid_0)
+  
+  quantile_values <- c(0.025, 0.05, 0.20, 0.35,  0.65, 0.80, 0.95, 0.975)
+  
+  results_index_individu <- inla.posterior.sample.eval(fun, model_inla.samples) %>%
+    as.data.frame() %>%
+    mutate(jaar = c(2020:2023, 2021:2023, 2022, 2023),
+           jaar_ref = c(NA, NA, NA, NA, 2020, 2020, 2020:2022)) %>%
+    gather(starts_with("sample"), key = "sample", value = "waarde") %>%
+    group_by(jaar, jaar_ref) %>%
+    mutate(mean = mean(waarde),
+           sd = sd(waarde)) %>%
+    ungroup() %>%
+    group_by(jaar, jaar_ref, mean, sd) %>%
+    summarise(qs = quantile(waarde, quantile_values), prob = quantile_values) %>%
+    ungroup() %>%
+    mutate(l_u = ifelse(prob < 0.5, "lcl", "ucl"),
+           ci = ifelse(prob %in% c(0.025, 0.975), "0.95",
+                       ifelse(prob %in% c(0.05, 0.95), "0.90",
+                              ifelse(prob %in% c(0.20, 0.80), "0.60",
+                                     ifelse(prob %in% c(0.35, 0.65), "0.30", NA)))),
+           type = str_c(l_u, "_", ci)) %>%
+    select(-prob, -l_u, -ci) %>%
+    spread(key = type, value = qs) %>%
+    mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(-0.25, 0.33), reference = 0),
+           klasse = ifelse(is.na(jaar_ref), NA, 
+                           format(klasse, type = "markdown"))) %>%
+    select(jaar, jaar_ref, mean, lcl_0.90, ucl_0.90, klasse)
+  
+  
+    model_inla.samples <- inla.posterior.sample(1000, indexmodel_individu_gebied_iid_0)
+  
+  quantile_values <- c(0.05, 0.95)
+  
+  results_index_individu_geb <- inla.posterior.sample.eval(fun2, model_inla.samples) %>%
+    as.data.frame() %>%
+    mutate(geb = c(rep("Broekbos - Konenbos", 9), 
+                   rep("Teuvenerberg - Obsinnisch", 9), 
+                   rep("Veursbos", 9), 
+                   rep("Vrouwenbos", 9)),
+           jaar = rep(c(2020:2023, 2021:2023, 2022, 2023), 4),
+           jaar_ref = rep(c(NA, NA, NA, NA, 2020, 2020, 2020:2022), 4)) %>%
+    gather(starts_with("sample"), key = "sample", value = "waarde") %>%
+    group_by(geb, jaar, jaar_ref) %>%
+    mutate(mean = mean(waarde),
+           sd = sd(waarde)) %>%
+    ungroup() %>%
+    group_by(geb, jaar, jaar_ref, mean, sd) %>%
+    summarise(qs = quantile(waarde, quantile_values), prob = quantile_values) %>%
+    ungroup() %>%
+    mutate(l_u = ifelse(prob < 0.5, "lcl", "ucl"),
+           ci = ifelse(prob %in% c(0.025, 0.975), "0.95",
+                       ifelse(prob %in% c(0.05, 0.95), "0.90",
+                              ifelse(prob %in% c(0.20, 0.80), "0.60",
+                                     ifelse(prob %in% c(0.35, 0.65), "0.30", NA)))),
+           type = str_c(l_u, "_", ci)) %>%
+    select(-prob, -l_u, -ci) %>%
+    spread(key = type, value = qs) %>%
+    mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(-0.25, 0.33), reference = 0),
+           klasse = ifelse(is.na(jaar_ref), NA, 
+                           format(klasse, type = "markdown"))) %>%
+    select(geb, jaar, jaar_ref, mean, lcl_0.90, ucl_0.90, klasse)
+```
+```{r}
+results_index_individu %>%
+  filter(is.na(jaar_ref)) %>%
+  ggplot(aes(x = jaar, y = mean, ymin = lcl_0.90, ymax = ucl_0.90)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 3, alpha = 0.6) +
+  labs(x = "Jaar", y = "Proportie individuen hazelmuis") +
+  lims(y = c(0, NA))
+```
+
+```{r}
+results_index_individu_diff_ref <- results_index_individu %>%
+  filter(jaar_ref == 2020) %>%
+  add_row(tibble(jaar = 2020,
+                 jaar_ref = 2020,
+                 mean = 0,
+                 klasse = "R")) %>%
+  mutate(klasse = as.character(klasse),
+         klasse = str_remove_all(klasse, "`")) %>%
+  mutate(mean_log = log(mean + 1),
+          lcl_0.90_log = log(lcl_0.90 +1),
+         ucl_0.90_log = log(ucl_0.90 +1) )
+
+```
+
+
+```{r}
+
+results_index_individu_diff_ref %>%
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_hline(yintercept = log(0.75), linetype = 3) +
+  geom_hline(yintercept = log(1.33), linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiejaar", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+```
+
+```{r}
+results_index_individu_diff_prevyear <- results_index_individu %>%
+  filter(jaar - jaar_ref == 1 ) %>%
+  mutate(klasse = as.character(klasse),
+         klasse = str_remove_all(klasse, "`")) %>%
+  mutate(mean_log = log(mean + 1),
+          lcl_0.90_log = log(lcl_0.90 +1),
+         ucl_0.90_log = log(ucl_0.90 +1) ) %>%
+  mutate(diff = str_c(jaar_ref, "-", jaar))
+```
+
+```{r}
+
+results_index_individu_diff_prevyear %>%
+  ggplot(aes(x = diff, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_hline(yintercept = log(0.75), linetype = 3) +
+  geom_hline(yintercept = log(1.33), linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil opeenvolgende jaren", x = "Periode") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+```
+```{r, fig.height= 6, fig.width = 6}
+results_index_individu_geb %>%
+  filter(is.na(jaar_ref)) %>%
+  ggplot(aes(x = jaar, y = mean, ymin = lcl_0.90, ymax = ucl_0.90)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 3, alpha = 0.6) +
+  labs(x = "Jaar", y = "Proportie individuen hazelmuis") +
+  lims(y = c(0, NA)) +
+  facet_wrap(~geb)
+```
+
+```{r, fig.height= 6, fig.width = 6}
+results_index_individu_geb %>%
+  filter(is.na(jaar_ref)) %>%
+  ggplot(aes(x = str_sub(geb, 1, 2), y = mean, ymin = lcl_0.90, ymax = ucl_0.90)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 3, alpha = 0.6) +
+  labs(x = "Gebied", y = "Proportie individuen hazelmuis") +
+  lims(y = c(0, NA)) +
+  facet_wrap(~jaar)
+```
+
+```{r}
+results_index_individu_diff_ref_geb <- results_index_individu_geb %>%
+  filter(jaar_ref == 2020) %>%
+  add_row(tibble(jaar = 2020,
+                 jaar_ref = 2020,
+                 geb = unique(results_index_geb$geb),
+                 mean = 0,
+                 klasse = "R")) %>%
+  mutate(klasse = as.character(klasse),
+         klasse = str_remove_all(klasse, "`")) %>%
+  mutate(mean_log = log(mean + 1),
+          lcl_0.90_log = log(lcl_0.90 +1),
+         ucl_0.90_log = log(ucl_0.90 +1) )
+
+```
+
+
+```{r, fig.height= 6, fig.width = 6}
+
+results_index_individu_diff_ref_geb %>%
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_hline(yintercept = log(0.75), linetype = 3) +
+  geom_hline(yintercept = log(1.33), linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiejaar", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~geb)
+```
+
+```{r}
+results_index_individu_diff_prevyear_geb <- results_index_individu_geb %>%
+  filter(jaar - jaar_ref == 1 ) %>%
+  mutate(klasse = as.character(klasse),
+         klasse = str_remove_all(klasse, "`")) %>%
+  mutate(mean_log = log(mean + 1),
+          lcl_0.90_log = log(lcl_0.90 +1),
+         ucl_0.90_log = log(ucl_0.90 +1) ) %>%
+  mutate(diff = str_c(jaar_ref, "-", jaar))
+```
+
+```{r, fig.height= 6, fig.width = 6}
+
+results_index_individu_diff_prevyear_geb %>%
+  ggplot(aes(x = diff, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_hline(yintercept = log(0.75), linetype = 3) +
+  geom_hline(yintercept = log(1.33), linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil opeenvolgende jaren", x = "Periode") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~geb)
+```
+
+```{r}
+bind_rows(
+  results_index %>%
+    mutate(type = "nesten"),
+  results_index_individu %>%
+    mutate(type = "individuen")
+) %>% 
+  filter(is.na(jaar_ref)) %>%
+  ggplot(aes(x = jaar, y = mean, ymin = lcl_0.90, ymax = ucl_0.90)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 3, alpha = 0.6) +
+  labs(x = "Jaar", y = "Proportie bezette nestbuizen") +
+  lims(y = c(0, NA)) +
+  facet_wrap(~type)
+```
+```{r}
+bind_rows(
+  results_index_diff_ref %>%
+    mutate(type = "nesten"),
+  results_index_individu_diff_ref %>%
+    mutate(type = "individuen")
+) %>% 
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_hline(yintercept = log(0.75), linetype = 3) +
+  geom_hline(yintercept = log(1.33), linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiejaar", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~type)
+```
+```{r}
+bind_rows(
+  results_index_diff_prevyear %>%
+    mutate(type = "nesten"),
+  results_index_individu_diff_prevyear %>%
+    mutate(type = "individuen")
+) %>% 
+  mutate(periode = str_c(jaar_ref, "-", jaar)) %>%
+  ggplot(aes(x = periode, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_hline(yintercept = log(0.75), linetype = 3) +
+  geom_hline(yintercept = log(1.33), linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil opeenvolgende jaren", x = "Periode") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~type)
+```
+```{r, fig.height= 8, fig.width= 7}
+bind_rows(
+  results_index_geb %>%
+    mutate(type = "nesten"),
+  results_index_individu_geb %>%
+    mutate(type = "individuen")
+) %>% 
+  filter(is.na(jaar_ref)) %>%
+  ggplot(aes(x = jaar, y = mean, ymin = lcl_0.90, ymax = ucl_0.90)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 3, alpha = 0.6) +
+  labs(x = "Jaar", y = "Proportie bezette nestbuizen") +
+  lims(y = c(0, NA)) +
+  facet_grid(geb~type)
+```
+```{r, fig.height= 8, fig.width= 7}
+bind_rows(
+  results_index_diff_ref_geb %>%
+    mutate(type = "nesten"),
+  results_index_individu_diff_ref_geb %>%
+    mutate(type = "individuen")
+) %>% 
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_hline(yintercept = log(0.75), linetype = 3) +
+  geom_hline(yintercept = log(1.33), linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiejaar", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_grid(geb~type)
+```
+```{r, fig.height= 8, fig.width= 7}
+bind_rows(
+  results_index_diff_prevyear_geb %>%
+    mutate(type = "nesten"),
+  results_index_individu_diff_prevyear_geb %>%
+    mutate(type = "individuen")
+) %>% 
+  mutate(periode = str_c(jaar_ref, "-", jaar)) %>%
+  ggplot(aes(x = periode, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_hline(yintercept = log(0.75), linetype = 3) +
+  geom_hline(yintercept = log(1.33), linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil opeenvolgende jaren", x = "Periode") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_grid(geb~type)
 ```
