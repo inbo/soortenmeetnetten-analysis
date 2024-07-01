@@ -1,0 +1,129 @@
+# Lentevuurspin
+
+## Data
+
+```{r}
+visits_lentevuurspin <- get_visits_smp() %>%
+  filter(meetnet == "Lentevuurspin")
+
+aantal_lentevuurspin <- get_counts_smp() %>%
+  filter(meetnet == "Lentevuurspin")
+```
+
+## Dataverkenning
+
+```{r}
+aantal_lentevuurspin_locatie <- aantal_lentevuurspin %>%
+  group_by(protocol, locatie, jaar) %>%
+  summarise(aantal =sum(aantal)) %>%
+  ungroup()
+
+write_csv2(aantal_lentevuurspin_locatie, "../output/lentevuurspin/aantal_lentevuurspin_locatie.csv")
+```
+
+
+```{r, fig.width= 8}
+aantal_lentevuurspin_locatie %>%
+  mutate(locatie = ifelse(locatie == "Stort", "Lommel 1",
+                          ifelse(locatie == "Blekerheide", "Lommel 2",
+                                 ifelse(locatie == "Heuvelse heide", "Lommel 3", locatie)))) %>%
+  ggplot(aes(y = aantal, x = jaar, colour = locatie, group = locatie)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~protocol)
+
+ggsave("../output/lentevuurspin/lentevuurspin_ruwe_data.png", height = 4, width = 8)
+```
+
+
+## Analyse
+
+```{r}
+
+analyseset_lentevuurspin_locatie <- aantal_lentevuurspin %>%
+  filter(protocol == "Lentevuurspin - Transect" ) %>%
+  mutate(jaar_scaled = jaar - min(jaar) +1)
+
+indexmodel_jaar_rw1_iid <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) +
+                                f(sublocatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(locatie,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_lentevuurspin_locatie,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trendmodel_jaar_rw1_iid <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) +
+                                f(sublocatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(locatie,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_lentevuurspin_locatie,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+
+```
+
+
+```{r}
+results_index_jaar_lentevuurspin <- derive_index_rw_inla(analyseset_lentevuurspin_locatie, indexmodel_jaar_rw1_iid, set_seed = 1231)
+
+verschil_jaren <- results_index_jaar_lentevuurspin %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  select( soort_nl, soort_wet, ref_jaar, jaar, klasse, mean, lcl_0.90, ucl_0.90) 
+
+verschil_jaren_refvalue <- verschil_jaren %>%
+  distinct(soort_nl, soort_wet,  ref_jaar) %>%
+  mutate(jaar = ref_jaar,
+        mean = 1,
+         klasse = "R") 
+
+verschil_jaren_table <- verschil_jaren %>%
+  bind_rows(verschil_jaren_refvalue) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1,
+         klasse = str_remove_all(klasse, "`"))
+```
+
+```{r}
+
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+verschil_jaren_table %>%
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiejaar", x = "jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~soort_nl, scales = "free")
+
+ggsave("../output/lentevuurspin/lentevuurspin_verschil_refjaar.png", height = 4, width = 5)
+```
