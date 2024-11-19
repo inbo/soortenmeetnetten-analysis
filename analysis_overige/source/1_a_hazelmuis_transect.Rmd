@@ -1,0 +1,367 @@
+# Hazelmuis transect
+
+## Data
+
+### Data meetnetten
+
+```{r}
+visits_hazelmuis_transect <- get_visits_smp() %>%
+  filter(meetnet == "Hazelmuis")
+
+aantallen_hazelmuis_transect <- get_counts_smp() %>%
+  filter(meetnet == "Hazelmuis")
+
+covariabelen_hazelmuis <- get_covariates_smp() %>%
+  filter(meetnet == "Hazelmuis")
+
+hazelmuis_transect <- visits_hazelmuis_transect %>%
+  select(visit_id, bezoek_status, voor_analyse) %>%
+  left_join(aantallen_hazelmuis_transect, by = c("visit_id")) %>%
+  select(meetnet, locatie, datum, voor_analyse, visit_id, soort_nl, soort_wet, activiteit, aantal) %>%
+  mutate(activiteit = ifelse(visit_id == 640 & aantal == 0, "nest (hervondst)", activiteit)) %>%
+  mutate(activiteit = ifelse(activiteit == "nest", "nest_totaal", "nest_hervondst")) %>%
+  pivot_wider(names_from = "activiteit", values_from = "aantal") %>%
+  mutate(nest_nieuw = nest_totaal - nest_hervondst,
+         jaar = year(datum))
+```
+
+### Metadata
+
+```{r}
+transectlengte_locatie <- covariabelen_hazelmuis %>%
+  left_join(hazelmuis_transect, by = "visit_id") %>%
+  filter(bezoekvariabele == "lengte transect") %>%
+  select(visit_id, locatie, datum, bezoekvariabele, waarde) %>%
+  mutate(waarde = as.numeric(waarde)) 
+
+#bij ontbrekende waarden voor transectlengte veronderstellen we meest recent ingevoerde waarde voor die locatie 
+transectlengte_locatie_recent <- transectlengte_locatie %>%
+  filter(!is.na(waarde)) %>%
+  group_by(locatie) %>%
+  filter(datum == max(datum)) %>%
+  ungroup() %>%
+  select(locatie, waarde_recent = waarde)
+
+transectlengte_locatie <- transectlengte_locatie %>%
+  left_join(transectlengte_locatie_recent, by = "locatie") %>%
+  mutate(waarde = ifelse(is.na(waarde), waarde_recent, waarde))
+
+covar_transectlengte <- transectlengte_locatie  %>%
+  filter(bezoekvariabele == "lengte transect") %>%
+  mutate(lengte_transect_km = as.numeric(waarde)/1000) %>%
+  select(visit_id, lengte_transect_km)
+
+```
+
+### Data extern
+
+Zie [dit rapport](https://www.researchgate.net/profile/Goedele-Verbeylen/publication/340845193_Hazelmuizen_in_Vlaanderen_2014-2015_-_monitoring_onderzoek_sensibilisatie_advies_en_overleg/links/5ea06e4b458515ec3afc5782/Hazelmuizen-in-Vlaanderen-2014-2015-monitoring-onderzoek-sensibilisatie-advies-en-overleg.pdf).
+
+```{r}
+hazelmuis_transect_extern <- read_csv2("../data/hazelmuis_transecten_2007_2015.csv")
+
+check_locaties <- hazelmuis_transect_extern %>%
+  anti_join(hazelmuis_transect, by = "locatie")
+#Malensbos niet verder opgevolgd
+
+hazelmuis_transect_extern <- hazelmuis_transect_extern %>%
+  semi_join(hazelmuis_transect, by = "locatie") %>%
+  mutate(lengte_transect_km = transectlengte / 1000,
+         soort_nl = "Hazelmuis", 
+         soort_wet = "Muscardinus avellanarius",
+         meetnet = "Hazelmuis") %>%
+  select(meetnet, soort_nl, soort_wet, locatie, jaar, aantal = aantal_nesten, lengte_transect_km)
+  
+```
+
+## Analyseset
+
+```{r}
+analyseset_hazelmuis_transect <- hazelmuis_transect %>%
+  left_join(covar_transectlengte, by = "visit_id") %>%
+  group_by(meetnet, soort_nl, soort_wet,jaar, locatie) %>%
+  summarise(aantal = sum(nest_nieuw),
+            lengte_transect_km = mean(lengte_transect_km)) %>%
+  ungroup()
+
+analyseset_2011_2018 <- analyseset_hazelmuis_transect%>%
+  bind_rows(hazelmuis_transect_extern) %>%
+  filter(jaar <= 2018) %>%
+  filter(jaar >= 2011)  %>%
+  mutate(year_min = min(jaar),
+         fjaar = factor(jaar),
+         jaar_scaled = jaar - year_min + 1,
+         year_scaled = jaar_scaled,
+         aantal_km = aantal/ lengte_transect_km) %>%
+  group_by(jaar) %>%
+  mutate(aantal_totaal = sum(aantal),
+         aantal_km_totaal = sum(aantal_km)) %>%
+  ungroup()
+
+analyseset_2007_2018 <- analyseset_hazelmuis_transect%>%
+  bind_rows(hazelmuis_transect_extern) %>%
+  filter(jaar <= 2018) %>%
+  mutate(year_min = min(jaar),
+         fjaar = factor(jaar),
+         jaar_scaled = jaar - year_min + 1,
+         year_scaled = jaar_scaled,
+         aantal_km = aantal/ lengte_transect_km) %>%
+  group_by(jaar) %>%
+  mutate(aantal_totaal = sum(aantal),
+         aantal_km_totaal = sum(aantal_km)) %>%
+  ungroup()
+
+analyseset_vanaf2019 <- analyseset_hazelmuis_transect %>%
+  filter(jaar > 2018) %>%
+  mutate(year_min = min(jaar),
+         fjaar = factor(jaar),
+         jaar_scaled = jaar - year_min + 1,
+         year_scaled = jaar_scaled,
+         aantal_km = aantal/ lengte_transect_km)
+```
+
+```{r}
+analyseset_2011_2018 %>%
+  ggplot(aes(x = jaar, y = aantal_km)) +
+  geom_point(alpha = 0.5) +
+  stat_summary(fun.data = "mean_cl_boot", colour = inbo_rood, size = 1, alpha = 0.8)
+```
+```{r}
+analyseset_vanaf2019 %>%
+  ggplot(aes(x = jaar, y = aantal_km)) +
+  geom_point(alpha = 0.5) +
+  stat_summary(fun.data = "mean_cl_boot", colour = inbo_rood, size = 1, alpha = 0.8)
+```
+
+
+## Model
+
++ vergelijking jaren
+  + 1ste orde random walk voor jaar (herschaald)
+  + random effect voor locatie
+  
+```{r}
+calc_index <- function(analyseset, select_seed = 5846){
+  
+  indexmodel_iid <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       data = analyseset,
+                       offset = lengte_transect_km,
+                       family = "nbinomial",
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+  
+  set.seed(select_seed)
+  results_index <- derive_index_rw_inla(analyseset_species = analyseset,
+                                     inlamodel_rw = indexmodel_iid, set_seed = select_seed)
+  
+  return(results_index)
+  
+}
+```
+
+  
++ jaarlijkse trend
+  + jaar (herschaald) als continue variabele
+  + random effect voor locatie
+
+```{r}
+calc_trend <- function(analyseset, select_seed = 5846){
+  
+  trendmodel_iid <- inla(formula = aantal ~ year_scaled +  
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset,
+                       offset = lengte_transect_km,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+  
+  set.seed(select_seed)
+  results_trend <- derive_trend(analyseset_species = analyseset, 
+                              trendmodel_nbinom = trendmodel_iid)
+  
+  return(results_trend)
+}
+```
+
+
+```{r}
+
+trend_2011_2018 <- calc_trend(analyseset = analyseset_2011_2018, select_seed = 54687)
+index_2011_2018 <- calc_index(analyseset = analyseset_2011_2018, select_seed = 54687)
+
+trend_2007_2018 <- calc_trend(analyseset = analyseset_2007_2018, select_seed = 54687)
+index_2007_2018 <- calc_index(analyseset = analyseset_2007_2018, select_seed = 54687)
+
+trend_vanaf2019 <- calc_trend(analyseset = analyseset_vanaf2019, select_seed = 54687)
+index_vanaf2019 <- calc_index(analyseset = analyseset_vanaf2019, select_seed = 54687)
+```
+
+## Resultaten
+
+### Vergelijking tussen jaren
+
+```{r}
+
+verschil_jaren <- index_2011_2018 %>%
+  mutate(periode = "2011 - 2018") %>%
+  bind_rows(index_vanaf2019 %>%
+              mutate(periode = "2019 - 2024")) %>%
+  bind_rows(index_2007_2018 %>%
+              mutate(periode = "2007 - 2018")) %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  select( periode, soort_nl, soort_wet,  ref_jaar, jaar, klasse, mean, lcl_0.90, ucl_0.90) 
+
+verschil_jaren_refvalue <- verschil_jaren %>%
+  distinct(periode, soort_nl, soort_wet,  ref_jaar) %>%
+  mutate(jaar = ref_jaar,
+        mean = 1,
+         klasse = "R") 
+
+verschil_jaren_table <- verschil_jaren %>%
+  bind_rows(verschil_jaren_refvalue) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+```
+
+
+```{r, fig.height= 7}
+
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+verschil_jaren_table %>%
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiejaar", x = "jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~periode, scales = "free")
+```
+
+### Trend
+
+```{r}
+
+trend <- trend_2011_2018 %>%
+  mutate(periode = "2011 - 2018") %>%
+  bind_rows(trend_vanaf2019 %>%
+              mutate(periode = "2019 - 2024")) %>%
+  bind_rows(trend_2007_2018 %>%
+              mutate(periode = "2007 - 2018")) %>%
+  group_by(soort_nl) %>%
+  mutate( n_jaar = jaar_max - jaar_min + 1,
+         treshold_low = ifelse(parameter == "trend_average", 
+                               round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
+                               -25),
+         treshold_high = ifelse(parameter == "trend_average", 
+                                round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1),
+                                33)) %>%
+  ungroup() %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
+
+```
+
+In Tabel \@ref(tab:tabtrendresultaat) geven we een overzicht van de gemiddelde jaarlijkse trend en de totale trend over de meetnetperiode.
+
+```{r }
+
+overzicht_trend_tabel_transect <- trend %>%
+  mutate(trend = round(mean, 1),
+         trend_lcl = round(lcl_0.90, 1),
+         trend_ucl = round(ucl_0.90, 1),
+         trend_tbl = str_c(ifelse(trend > 0, "+", ""),
+                           trend, "% (",
+                           ifelse(trend_lcl > 0, "+", ""),
+                           trend_lcl, "%; ",
+                           ifelse(trend_ucl > 0, "+", ""),
+                           trend_ucl, "%)")
+         ) %>%
+  select(parameter, soort_nl, soort_wet, periode, klasse, trend_tbl) %>%
+  spread(key = "parameter", value = "trend_tbl") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  select("Nederlandse naam" = soort_nl,  Periode = periode, Klasse = klasse,  "Jaarlijkse wijziging" = trend_average, "Wijziging over de looptijd" = trend_total)
+
+```
+
+
+```{r tabtrendresultaat, eval = TRUE}
+
+overzicht_trend_tabel_transect %>%
+  kable(align = "lcclcc",
+        caption = "Jaarlijkse wijziging en wijziging over de looptijd",
+      booktabs = TRUE)  %>%
+  kable_styling()
+```
+\needspace{50mm}
+
+De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in Figuur \@ref(fig:figtrend). De x-as van deze figuur heeft een logaritmische schaal. Een halvering (-50 %) is immers een even sterk effect als een verdubbeling (+100 %). Opnieuw maken we gebruik van de [classificatie](#h:classtrend) zoals besproken in paragraaf \@ref(h:classtrend) met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over de meetperiode. Voor een periode van zes jaar (2016 - 2021) komt de ondergrens overeen met een gemiddelde jaarlijkse trend van -5,6 % en de bovengrens met een gemiddelde jaarlijkse trend van +5,9 %. 
+
+```{r figtrend}
+
+trend <- trend %>%
+  mutate(mean_log = log(mean/100 + 1),
+          lcl_0.90_log = log(lcl_0.90/100 + 1),
+         ucl_0.90_log = log(ucl_0.90/100 + 1),
+         soort_periode = str_c(soort_nl, jaar_min, jaar_max, sep = "_"))
+
+order_trend <- (trend %>%
+  filter(parameter == "trend_average") %>%
+  arrange(mean))$soort_periode
+
+breaks_log <- log(c( -50, -25, 0, 33, 50)/100 + 1)
+labels_show <- str_c(c( -50, -25, 0, 33, 50), " %")
+
+plot <- trend %>%
+  filter(parameter == "trend_average") %>%
+  mutate(soort_periode = factor(soort_periode, levels = order_trend)) %>%
+  #ggplot( aes(x = soort_nl, y = mean/100, ymin = lcl_0.90/100, ymax = ucl_0.90/100, label = klasse, colour = klasse)) +
+  ggplot( aes(x = soort_periode, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  # geom_hline(aes(yintercept = max(log(treshold_low/100 + 1))), linetype = 3) +
+  # geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3) +
+  # geom_hline(aes(yintercept = max(treshold_low/100)), linetype = 3) +
+  # geom_hline(aes(yintercept = min(treshold_high/100)), linetype = 3) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  # geom_errorbar(aes(ymin = lcl_0.60/100, ymax = ucl_0.60/100), width = 0, size = 10, alpha = 0.3) +
+  # geom_errorbar(aes(ymin = lcl_0.30/100, ymax = ucl_0.30/100), width = 0, size = 10, alpha = 0.3) +
+  # stat_effect(threshold = c(treshold_low/100, treshold_high/100), reference = 0, size = 3) +
+  # scale_effect() +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Gemiddelde jaarlijkse trend (%)", x = "Soort") +
+  #scale_y_continuous(breaks = c(-50, -25, 0, 33, 100)/100, labels = scales::percent, limits = c(-0.6, 1)) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show, limits = c(min(breaks_log), max(breaks_log))) +
+  coord_flip() +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+# trend -> (exp(x) - 1) * 100
+# x -> log(trend/100 + 1)
+
+
+plot
+
+
+```
