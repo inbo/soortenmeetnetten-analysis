@@ -1067,14 +1067,6 @@ bind_rows(
 ### Aantallen
 
 ```{r}
-analyseset_aantal_nesten_jaar %>%
-  ggplot(aes(x = jaar, y = aantal, group = locatie)) +
-  geom_point() +
-  geom_line()
-```
-
-
-```{r}
 
 analyseset_aantal_nesten_jaar <- analyseset_nesten_jaar %>%
   group_by(meetnet, locatie, gebied, jaar,, year_scaled, fjaar, soort_nl) %>%
@@ -1082,6 +1074,16 @@ analyseset_aantal_nesten_jaar <- analyseset_nesten_jaar %>%
             n_nestkasten = n_distinct(sublocatie)) %>%
   ungroup() %>%
   mutate(soort_wet = "Muscardinus avellanarius")
+
+analyseset_aantal_nesten_jaar %>%
+  ggplot(aes(x = jaar, y = aantal, group = locatie)) +
+  geom_point() +
+  geom_line()
+
+```
+
+
+```{r}
 
 calc_trend_nestkasten <- function(analyseset, select_seed = 5846){
   
@@ -1201,10 +1203,10 @@ derive_trend_prop <- function(sample) {
                                 round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1),
                                 33)) %>%
   ungroup() %>%
-  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) %>%
+  mutate(klasse = classification_tw(lcl_0.95, ucl_0.95, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) %>%
     mutate(trend = round(mean, 1),
-         trend_lcl = round(lcl_0.90, 1),
-         trend_ucl = round(ucl_0.90, 1),
+         trend_lcl = round(lcl_0.95, 1),
+         trend_ucl = round(ucl_0.95, 1),
          trend_tbl = str_c(ifelse(trend > 0, "+", ""),
                            trend, "% (",
                            ifelse(trend_lcl > 0, "+", ""),
@@ -1229,6 +1231,6 @@ overzicht_trend <- overzicht_trend_tabel_nestbuizen %>%
   select(Meetnet = meetnet, Periode,"Jaarlijkse wijziging", "Wijziging over de looptijd", Klasse)
 
 overzicht_trend %>%
-  write.csv2("../output/trend_hazelmuis.csv")
+  write.csv2("../output/trend_hazelmuis_0_95.csv")
 ```
 

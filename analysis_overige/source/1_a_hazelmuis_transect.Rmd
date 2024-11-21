@@ -280,7 +280,7 @@ trend <- trend_2011_2018 %>%
                                 round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1),
                                 33)) %>%
   ungroup() %>%
-  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
+  mutate(klasse = classification_tw(lcl_0.95, ucl_0.95, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
 
 ```
 
@@ -290,8 +290,8 @@ In Tabel \@ref(tab:tabtrendresultaat) geven we een overzicht van de gemiddelde j
 
 overzicht_trend_tabel_transect <- trend %>%
   mutate(trend = round(mean, 1),
-         trend_lcl = round(lcl_0.90, 1),
-         trend_ucl = round(ucl_0.90, 1),
+         trend_lcl = round(lcl_0.95, 1),
+         trend_ucl = round(ucl_0.95, 1),
          trend_tbl = str_c(ifelse(trend > 0, "+", ""),
                            trend, "% (",
                            ifelse(trend_lcl > 0, "+", ""),
