@@ -1,5 +1,5 @@
 ---
-title: "Meetnetevaluatie 2023"
+title: "Meetnetevaluatie 2024"
 author: 
   -
     name: "Toon Westra"
@@ -57,7 +57,7 @@ library(effectclass)
 library(conflicted)
 conflicts_prefer(dplyr::filter())
 
-source("../../src/functions_smp.R")
+source("../../source/functions_smp.R")
 ```
 
 

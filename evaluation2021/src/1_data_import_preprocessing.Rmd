@@ -1,6 +1,6 @@
 
 ```{r}
-year_evaluation <- 2023
+year_evaluation <- 2024
 
 data_path <- fileman_up("soortenmeetnetten-queries")
 
@@ -34,13 +34,12 @@ bezoeken <- bezoeken_orig %>%
                          ifelse(bezoek_status %in% c("Geen veldwerk mogelijk - locatie ontoegankelijk", "Geen veldwerk mogelijk - locatie ongeschikt"), "telling_gvm", 
                          ifelse(bezoek_status %in% c("Telmethode niet gevolgd"), "telling_nvcp",NA)))) %>%
   filter(jaar >= 2016) %>%
-  mutate(locatie = ifelse(visit_id %in% c("53149", "53150", "53151"), "Dheide - Poel 4", locatie)) %>%
   filter(protocol != "Poelkikker - DNA larven") %>%
   mutate(bezoek_status = ifelse(meetnet == "Heikikker" & locatie %in% c("Winkelsbroek 1", "Het Goorken 1", "De Liereman west 1"), "telling_gvm", bezoek_status))
 
 taken <- get_tasks_smp()
 
-aantallen <- get_counts_smp(file = "raw/aantallen_20240125")
+aantallen <- get_counts_smp()
 
 tellers <- get_observers_smp() %>%
   filter(meetnet != "Algemene Vlindermonitoring")
@@ -67,9 +66,6 @@ locaties_metadata <- locaties %>%
   st_drop_geometry() %>%
   filter(locatie_type == "locatie") %>%
   distinct(meetnet, locatie, is_active, is_sample) %>%
-  mutate(is_active = ifelse(meetnet == "Kamsalamander" & locatie == "Dheide - Poel 2", FALSE, is_active),
-         is_sample = ifelse(meetnet == "Kamsalamander" & locatie == "Dheide - Poel 2", FALSE, is_sample),
-         is_sample = ifelse(meetnet == "Kamsalamander" & locatie %in% c("Dheide - Poel 3", "Schuddebeurze - Poel 1"), TRUE, is_sample)) %>% 
   group_by(meetnet, locatie) %>%
   summarise(is_active = any(is_active),
             is_sample = any(is_sample)) %>% #soms locatie actief en incatief met zelfde naam
@@ -108,8 +104,6 @@ taken_nu <- read.csv2(paste("../data/taken_niet_uitvoerbaar_2016_2017.csv", sep 
 
 # overzicht uitgevoerde bezoeken
 overzicht_taken_uitgevoerd <- bezoeken %>%
-  # mutate(jaardoel = ifelse(meetnet == "Bosbeekjuffer" & locatie %in% c("Rosdel", "Afwateringskanaal", "Kindernouwbeek", "Prinsenpark"), TRUE, jaardoel)) %>% 
-  # mutate(jaardoel = ifelse(meetnet == "Roestbruine kniptor" & locatie %in% c("Kartuizerduinen"), TRUE, jaardoel)) %>%
   mutate(jaardoel = ifelse(meetnet == "Kamsalamander" & locatie %in% c("Schuddebeurze - Poel 1", "Dheide - Poel 3"), TRUE, jaardoel)) %>%
   filter(voor_analyse | jaardoel) %>%
   mutate(winterseizoen = meetnet %in% c("Otter", "Vleermuizen - Wintertellingen"),
@@ -142,9 +136,6 @@ overzicht_locaties <- overzicht_taken_uitgevoerd_wide %>%
             aantal_tellingen_nvcp = sum(telling_nvcp),
             aantal_tellingen_jaardoel = sum(jaardoel * telling_cp + jaardoel * telling_gvm + jaardoel * telling_nvcp)) %>%
   ungroup() %>%
-  # full_join(taken_nu, by = c("soortgroep", "meetnet", "protocol","locatie", "jaar", "is_sample", "is_sample_history", "is_active")) %>%
-  # mutate(aantal_taken_nu = ifelse(is.na(aantal_taken_nu ),0, aantal_taken_nu)) %>%
-  # mutate(aantal_taken_nu = ifelse(jaar >= 2018, aantal_tellingen_gvm, aantal_taken_nu)) %>%
   left_join(metadata_overzicht, by = c("meetnet","protocol")) %>% #vanaf 2018 rekenen we het aantal tellingen 'geen veldwerk mogelijk' mee 
   mutate(meetcyclus = ifelse(meetnet == "Kamsalamander", 
                              ifelse(jaar == opstartjaar, 1, ceiling((jaar - opstartjaar )/duur_meetcyclus)),
@@ -154,10 +145,6 @@ overzicht_locaties <- overzicht_taken_uitgevoerd_wide %>%
          is_sample = ifelse(is.na(is_sample), FALSE, is_sample),
          is_sample_history = ifelse(is.na(is_sample_history), TRUE, is_sample_history), #enkele bezoeken voor gedelete locaties
          is_active = ifelse(is.na(is_active), FALSE, is_active))
-         # aantal_tellingen_cp = ifelse(is.na(aantal_tellingen_cp), 0, aantal_tellingen_cp),
-         # aantal_tellingen_jaardoel = ifelse(is.na(aantal_tellingen_jaardoel), 0, aantal_tellingen_jaardoel))
-
-#overzicht_locaties[is.na(overzicht_locaties)] <- 0
 
 # strikte evaluatie: aantal taken conform aantal bezoeken
 #minder strikte evaluatie: aantal tellingenCP conform aantal bezoeken
