@@ -13,9 +13,12 @@ datasetset_kamsalamander <- analyseset_larven %>%
   group_by(cluster) %>%
   mutate(n_poelen = n_distinct(poel)) %>%
   ungroup() %>%
-  mutate(meetcyclus = ifelse(jaar <= 2020, 1 , 2),
-         meetcyclus_start = ifelse(meetcyclus == 1, 2017, 2021),
-         meetcyclus_end = ifelse(meetcyclus == 1, 2020, 2023),
+  mutate(meetcyclus = ifelse(jaar <= 2020, 1 , 
+                             ifelse(jaar <= 2023, 2, 3)),
+         meetcyclus_start = ifelse(meetcyclus == 1, 2017,
+                                   ifelse(meetcyclus == 2, 2021, 2024)),
+         meetcyclus_end = ifelse(meetcyclus == 1, 2020,
+                                   ifelse(meetcyclus == 2, 2023, 2026)),
          periode = str_c(meetcyclus_start, " - ", meetcyclus_end),
          aantal_orig = aantal,
          aantal = ifelse(!is.na(n_fuiken), aantal/n_fuiken, aantal),
@@ -64,7 +67,7 @@ overzicht_larven <- overzicht %>%
   pivot_wider(names_from = "periode", values_from = n_tellingen, values_fill = 0)
 
 overzicht_fuiken %>%
-  select(cluster, poel, "2017 - 2020", "2021 - 2023", gepaard = paired) %>%
+  select(cluster, poel, "2017 - 2020", "2021 - 2023", "2024 - 2026", gepaard = paired) %>%
   arrange(cluster, poel) %>%
   kable(caption = "Aantal fuiktellingen per cyclus") %>%
   kable_styling() %>%
@@ -79,7 +82,7 @@ overzicht_paired <- overzicht %>%
 
 ```{r}
 overzicht_larven %>%
-  select(cluster, poel, "2017 - 2020", "2021 - 2023", gepaard = paired) %>%
+  select(cluster, poel, "2017 - 2020", "2021 - 2023", "2024 - 2026", gepaard = paired) %>%
   arrange(cluster, poel) %>%
   kable(caption = "Aantal fuiktellingen per cyclus") %>%
   kable_styling() %>%
@@ -263,7 +266,7 @@ datasetset_kamsalamander %>%
 
 ```{r}
 datasetset_kamsalamander %>%
-  filter(levensstadium == "larve") %>%
+  filter(levensstadium == "Larva") %>%
   filter(is_sample) %>%
     filter(n_poelen >= 3) %>%
   ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
@@ -283,7 +286,7 @@ datasetset_kamsalamander %>%
 
 check_catcheffort <- datasetset_kamsalamander %>%
   filter(larvetelling) %>%
-  filter(levensstadium == "larve") %>%
+  filter(levensstadium == "Larva") %>%
   group_by(cluster, poel, meetcyclus) %>%
   mutate(n_visits = n()) %>%
   ungroup() %>%
@@ -338,7 +341,7 @@ datasetset_kamsalamander <- datasetset_kamsalamander %>%
         aantal_10catch = aantal / n_catch * 10)
 
 datasetset_kamsalamander %>%
-  filter(levensstadium == "larve") %>%
+  filter(levensstadium == "Larva") %>%
   filter(is_sample) %>%
   filter(!is.na(n_catch)) %>%
   ggplot(aes(x = periode, y = aantal_10catch, colour = is_sample)) +
@@ -348,7 +351,7 @@ datasetset_kamsalamander %>%
 
 ```{r}
 datasetset_kamsalamander %>%
-  filter(levensstadium == "larve") %>%
+  filter(levensstadium == "Larva") %>%
   filter(is_sample) %>%
   filter(!is.na(n_catch)) %>%
   filter(n_poelen >= 3) %>%
@@ -377,7 +380,7 @@ mean_sample <- datasetset_kamsalamander %>%
 mean_larve_10schep <- datasetset_kamsalamander %>%
   filter(primaire_soort) %>%
   filter(is_sample) %>%
-  filter(levensstadium == "larve") %>%
+  filter(levensstadium == "Larva") %>%
   filter(!is.na(n_catch)) %>%
   group_by(cluster, locatie) %>%
   ungroup() %>%

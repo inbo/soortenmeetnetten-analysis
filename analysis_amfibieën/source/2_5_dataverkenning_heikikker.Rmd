@@ -5,21 +5,21 @@
 
 analyseset_heikikker <- read_vc(file = "analyseset_heikikker", root = "../output/analyseset")
 
-analyseset_heikikker <- analyseset_heikikker %>%
-  select(meetnet, protocol, locatie, cluster, meetcyclus, datum, visit_id, hoofdteller, bezoekvariabele, waarde, aantal) %>%
-  pivot_wider(names_from = bezoekvariabele,
-              values_from = waarde) %>%
-  rename(aantal_totaal = "Aantal eiklompen totaal", aantal_bemonsterd = "Aantal eiklompen bemonsterd", aandeel_doelsoort = "Procentueel aandeel doelsoort", staalcode = Staalcode, aantal_doelsoort = aantal) %>%
-  mutate(jaar = year(datum),
-         aantal_bemonsterd = as.numeric(aantal_bemonsterd),
-         aantal_totaal = as.numeric(aantal_totaal),
-         aantal_doelsoort = as.numeric(aantal_doelsoort),
-         aandeel_doelsoort = as.numeric(aandeel_doelsoort),
-         staalcode = ifelse(staalcode == "", NA, staalcode),
-         aantal_doelsoort = ifelse(!is.na(staalcode) & is.na(aandeel_doelsoort), NA, aantal_doelsoort),
-         staalname = !is.na(staalcode),
-         resultaat_ingevoerd = ifelse(staalname, !is.na(aandeel_doelsoort), NA)) %>%
-  arrange(datum)
+# analyseset_heikikker <- analyseset_heikikker %>%
+#   select(meetnet, protocol, locatie, cluster, meetcyclus, datum, visit_id, hoofdteller, bezoekvariabele, waarde, aantal) %>%
+#   pivot_wider(names_from = bezoekvariabele,
+#               values_from = waarde) %>%
+#   rename(aantal_totaal = "Aantal eiklompen totaal", aantal_bemonsterd = "Aantal eiklompen bemonsterd", aandeel_doelsoort = "Procentueel aandeel doelsoort", staalcode = Staalcode, aantal_doelsoort = aantal) %>%
+#   mutate(jaar = year(datum),
+#          aantal_bemonsterd = as.numeric(aantal_bemonsterd),
+#          aantal_totaal = as.numeric(aantal_totaal),
+#          aantal_doelsoort = as.numeric(aantal_doelsoort),
+#          aandeel_doelsoort = as.numeric(aandeel_doelsoort),
+#          staalcode = ifelse(staalcode == "", NA, staalcode),
+#          aantal_doelsoort = ifelse(!is.na(staalcode) & is.na(aandeel_doelsoort), NA, aantal_doelsoort),
+#          staalname = !is.na(staalcode),
+#          resultaat_ingevoerd = ifelse(staalname, !is.na(aandeel_doelsoort), NA)) %>%
+#   arrange(datum)
 
 analyseset_heikikker_check <- analyseset_heikikker %>%
   mutate(opmerking = ifelse(staalcode %in% c("2021HK016", "2021HK020", "2021HK057"), "Aandeel doelsoort = 0 invullen in meetnetten.be", NA),

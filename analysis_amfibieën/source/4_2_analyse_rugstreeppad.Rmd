@@ -17,13 +17,11 @@ analyseset_rugstreeppad_est <- analyseset_rugstreeppad %>%
                                ifelse(any(aantal > 0 & levensstadium == "ei"), "dagtelling", "avondtelling"),
                                 type_telling))
 
-check <- analyseset_rugstreeppad_adult %>%
-  distinct(type_telling, type_telling_est)
 ```
 
 ```{r}
 analyseset_rugstreeppad_adult <- analyseset_rugstreeppad_est %>%
-  filter(jaar < 2024) %>%
+  filter(jaar <= 2024) %>%
   filter(type_telling_est == "avondtelling") %>%
   filter(levensstadium == "adult") %>%
   group_by(locatie) %>%
@@ -33,9 +31,8 @@ analyseset_rugstreeppad_adult <- analyseset_rugstreeppad_est %>%
   mutate(meetcyclus = ifelse(meetcyclus == 1, "2019_2021", "2022_2024")) %>%
   select(meetnet, locatie, paired, aanwezig, visit_id, datum, jaar, meetcyclus, periode, type_telling, n_samples, activiteit, aantal, soort_nl, soort_wet) %>%
   pivot_wider(values_from = "aantal", names_from = "activiteit") %>%
-  rename(ter_plaatse = "ter plaatse") %>%
-  mutate(aantal_adult_roepend = roepend,
-         aantal_adult_tot = roepend + ter_plaatse)
+  mutate(aantal_adult_roepend = calling,
+         aantal_adult_tot = calling + present)
   
 ```
 
@@ -44,10 +41,10 @@ analyseset_rugstreeppad_adult %>%
   filter(aanwezig) %>%
   group_by(periode) %>%
   summarise(mean_puntlocaties = mean(n_samples),
-            mean_roepend = mean(roepend),
-            mean_roepend_per_punt = mean(roepend/n_samples),
-            mean_terplaatse = mean(ter_plaatse),
-            mean_terplaatse_punt = mean(ter_plaatse/n_samples)) %>%
+            mean_roepend = mean(calling),
+            mean_roepend_per_punt = mean(calling/n_samples),
+            mean_terplaatse = mean(present),
+            mean_terplaatse_punt = mean(present/n_samples)) %>%
   ungroup() %>%
   kable(caption = "Gemiddelde per periode voor alle avondtellingen",
         digits = 2) %>%
@@ -60,30 +57,16 @@ analyseset_rugstreeppad_adult %>%
   filter(paired) %>%
   group_by(periode) %>%
   summarise(mean_puntlocaties = mean(n_samples),
-            mean_roepend = mean(roepend),
-            mean_roepend_per_punt = mean(roepend/n_samples),
-            mean_terplaatse = mean(ter_plaatse),
-            mean_terplaatse_punt = mean(ter_plaatse/n_samples)) %>%
+            mean_roepend = mean(calling),
+            mean_roepend_per_punt = mean(calling/n_samples),
+            mean_terplaatse = mean(present),
+            mean_terplaatse_punt = mean(present/n_samples)) %>%
   ungroup() %>% 
   kable(caption = "Gemiddelde per periode voor de avondtellingen van gepaarde locaties", digits = 2) %>%
   kable_styling()
 ```
 
-```{r}
-analyseset_rugstreeppad_adult %>%
-  filter(aanwezig) %>%
-  filter(paired) %>%
-  group_by(periode, locatie) %>%
-  summarise(mean_puntlocaties = mean(n_samples),
-            mean_roepend = mean(roepend),
-            mean_roepend_per_punt = mean(roepend/n_samples),
-            mean_terplaatse = mean(ter_plaatse),
-            mean_terplaatse_punt = mean(ter_plaatse/n_samples)) %>%
-  ungroup() %>% 
-  arrange(locatie) %>%
-  kable(caption = "Gemiddelde per periode voor de avondtellingen van gepaarde locaties", digits = 2) %>%
-  kable_styling()
-```
+
 
 ```{r}
 indexmodel_meetcyclus_iid <- inla(formula = aantal_adult_roepend ~ meetcyclus + 

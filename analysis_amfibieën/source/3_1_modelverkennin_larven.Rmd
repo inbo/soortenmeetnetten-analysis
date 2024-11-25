@@ -7,7 +7,7 @@ analyseset_larven <- analyseset_larven %>%
   filter(primaire_soort) %>%
   filter(larvetelling) %>%
   filter(is_sample) %>%
-  filter(levensstadium == "larve") %>%
+  filter(levensstadium == "Larva") %>%
   mutate(meetcyclus = str_c(meetcyclus_start, meetcyclus_end, sep = "_"),
          jaar_scaled = jaar - min(jaar) + 1) %>%
   mutate(n_catch = ifelse(is.na(n_catch) | n_catch == 0, 1, n_catch),
@@ -15,8 +15,7 @@ analyseset_larven <- analyseset_larven %>%
 
 analyseset_larven_boomkikker <- analyseset_larven %>%
   filter(meetnet == "Boomkikker") %>%
-  mutate(occurence = ifelse(aantal > 0, 1, 0)) %>%
-  filter(jaar <= 2021)
+  mutate(occurence = ifelse(aantal > 0, 1, 0))
 
 analyseset_larven_boomkikker_all <- analyseset_larven %>%
   filter(meetnet == "Boomkikker") %>%
@@ -81,8 +80,9 @@ indexmodel_larven_iid_offset_jaar <- inla(formula = aantal ~ f(jaar_scaled,
 
 summary(indexmodel_larven_iid_offset_jaar)
 
-result_boomkikker_meetcyclus_offset <- derive_index_meetcyclus_inla(analyseset_larven_boomkikker, indexmodel_larven_iid_offset)
-result_boomkikker_meetcyclus <- derive_index_meetcyclus_inla(analyseset_larven_boomkikker, indexmodel_larven_iid)
+result_boomkikker_meetcyclus_offset <- derive_index_meetcyclus_inla(analyseset_larven_boomkikker, 
+                                                                    indexmodel_larven_iid_offset, function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))})
+result_boomkikker_meetcyclus <- derive_index_meetcyclus_inla(analyseset_larven_boomkikker, indexmodel_larven_iid_offset, function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))})
 result_boomkikker_jaar_offset <- derive_index_rw_inla(analyseset_larven_boomkikker_all, indexmodel_larven_iid_offset_jaar)
 ```
 

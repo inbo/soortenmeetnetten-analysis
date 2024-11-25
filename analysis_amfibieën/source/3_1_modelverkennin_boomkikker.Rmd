@@ -62,15 +62,6 @@ analyseset_roepkoren_boomkikker %>%
   labs("aantal roepende adulten")
 ```
 
-```{r, eval = FALSE}
-analyseset_roepkoren_boomkikker %>%
-  mutate(datum = as.Date(doy, origin = "2018-01-01")) %>%
-  ggplot(aes(x = datum, y = aantal, group = periode, colour = periode)) +
-  geom_point(alpha = 0.4) +
-  geom_smooth() +
-  labs("aantal roepende adulten")
-```
-
 ## Modelvarianten
 
 ```{r}
@@ -180,8 +171,6 @@ indexmodel_iid <- inla(formula = aantal ~ periode  +
 ```
 
 
-
-
 ### Modelering seizonaliteit via random walk
 
 ```{r}
@@ -249,7 +238,8 @@ indexmodel_iid_doyrw2_bis$summary.random$doy_scaled %>%
   select(doy_scaled = ID, mean, lcl = `0.025quant`, ucl = `0.975quant`) %>%
    mutate(doy = doy_scaled - 1 + doy_min,
          datum = as.Date(doy, origin = "2018-01-01")) %>%
-  mutate(jaar = c(rep(2016, 47), rep(2017, 47), rep(2018, 47), rep(2019, 47), rep(2020, 47), rep(2021, 47))) %>%
+  mutate(jaar = c(rep(2016, 56), rep(2017, 56), rep(2018, 56), rep(2019, 56), rep(2020, 56), rep(2021, 56),
+                  rep(2022, 56), rep(2023, 56), rep(2024, 56))) %>%
   mutate_at(c("mean", "lcl", "ucl"), exp) %>%
   ggplot(aes(x = datum, y = mean, ymin = lcl, ymax = ucl)) +
   geom_ribbon(alpha = 0.2) + 
@@ -408,8 +398,8 @@ trend <- trend_cluster_quantiles %>%
          treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1)) %>%
   mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
 
-breaks_log <- log(c( -50, -25, 0, 33, 100)/100 + 1)
-labels_show <- str_c(c( -50, -25, 0, 33, 100), " %")
+breaks_log <- log(c(-90, -50, -25, 0, 33, 100, 200)/100 + 1)
+labels_show <- str_c(c(-90,  -50, -25, 0, 33, 100, 200), " %")
 
 volgorde_clusters <- (trend %>%
   arrange(mean))$cluster

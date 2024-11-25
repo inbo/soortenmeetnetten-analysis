@@ -67,11 +67,9 @@ datasetset_boomkikker %>%
   + confounding tussen cluster en jaar
   + jaar niet meenemen in model, enkel meetcyclus
 
-+ Er zijn ook al tellingen van de 3de meetcyclus, maar 3de meetcyclus is nog niet afgerond dus die tellingen nemen we niet mee
 
 ```{r}
-analyseset_boomkikker <- datasetset_boomkikker %>%
-  filter(jaar <= 2021)
+analyseset_boomkikker <- datasetset_boomkikker 
 ```
 
 
@@ -183,7 +181,7 @@ analyseset_boomkikker %>%
 
 ```{r}
 analyseset_boomkikker %>%
-  filter(levensstadium == "larve") %>%
+  filter(levensstadium == "Larva") %>%
   filter(is_sample) %>%
   ggplot(aes(x = periode, y = aantal, colour = is_sample)) +
  # geom_jitter(alpha = 0.3) +
@@ -202,7 +200,7 @@ analyseset_boomkikker %>%
 
 check_catcheffort <- datasetset_boomkikker %>%
   filter(larvetelling) %>%
-  filter(levensstadium == "larve") %>%
+  filter(levensstadium == "Larva") %>%
   group_by(cluster, poel, meetcyclus) %>%
   mutate(n_visits = n()) %>%
   ungroup() %>%
@@ -256,7 +254,7 @@ In onderstaande figuur houden we rekening met de zoekinspanning: aantal larven p
 ```{r}
 
 analyseset_boomkikker %>%
-  filter(levensstadium == "larve") %>%
+  filter(levensstadium == "Larva") %>%
   filter(is_sample) %>%
   filter(!is.na(n_catch)) %>%
   mutate(aantal_10catch = aantal / n_catch * 10) %>%
@@ -268,7 +266,7 @@ analyseset_boomkikker %>%
 
 ```{r}
 analyseset_boomkikker %>%
-  filter(levensstadium == "larve") %>%
+  filter(levensstadium == "Larva") %>%
   filter(is_sample) %>%
   filter(!is.na(n_catch)) %>%
   mutate(aantal_10catch = aantal / n_catch * 10) %>%
@@ -296,7 +294,7 @@ mean_sample <- analyseset_boomkikker %>%
 mean_larve_10schep <- analyseset_boomkikker %>%
   filter(primaire_soort) %>%
   filter(is_sample) %>%
-  filter(levensstadium == "larve") %>%
+  filter(levensstadium == "Larva") %>%
   filter(!is.na(n_catch)) %>%
   mutate(aantal = aantal/n_catch * 10) %>%
   group_by(cluster, locatie) %>%
@@ -314,7 +312,7 @@ mean_larve_10schep <- analyseset_boomkikker %>%
 mean_sample %>%
   bind_rows(mean_larve_10schep) %>%
   arrange(levensstadium) %>%
-  mutate(mean_n_catch = ifelse(levensstadium == "larve", mean_n_catch, NA)) %>%
+  mutate(mean_n_catch = ifelse(levensstadium == "Larva", mean_n_catch, NA)) %>%
   select(-se) %>%
   kable %>%
   kable_styling() %>%

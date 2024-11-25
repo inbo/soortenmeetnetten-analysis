@@ -82,9 +82,9 @@ counts_larven <- counts %>%
             n_records = n()) %>%
   ungroup() %>%
   left_join(catch_effort, by = "visit_id") %>%
-  mutate(larvetelling = zoekinspanning %in% c("alleen larven geschept", "larven geschept en metamorfen op land geteld") | (is.na(zoekinspanning) & levensstadium == "larve"),
+  mutate(larvetelling = zoekinspanning %in% c("alleen larven geschept", "larven geschept en metamorfen op land geteld") | (is.na(zoekinspanning) & levensstadium == "Larva"),
          metamorftelling = zoekinspanning %in% c("alleen metamorfen op land geteld", "larven geschept en metamorfen op land geteld")) %>%
-  mutate(aantal = ifelse(levensstadium == "larve" & larvetelling, aantal, 
+  mutate(aantal = ifelse(levensstadium == "Larva" & larvetelling, aantal, 
                          ifelse(levensstadium == "metamorf" & metamorftelling, aantal,
                                 ifelse(levensstadium == "adult", aantal, NA)))) %>%
   filter(!((protocol == "Amfibieën - Larven en metamorfen") & (levensstadium == "adult")))
@@ -142,7 +142,7 @@ locaties_niet_actief %>%
 
 check_gvm <- dataset_larven_actief %>%
   filter(bezoek_status == "Geen veldwerk mogelijk - locatie ongeschikt") %>%
-  filter(levensstadium == "larve") %>%
+  filter(levensstadium == "Larva") %>%
   distinct(meetnet, locatie, datum, visit_id, bezoek_status, is_sample, voor_analyse, aantal, opmerking) 
 
 check_gvm %>%
@@ -362,7 +362,7 @@ dataset_roepkoren <-  visits %>%
   filter(meetnet == "Vroedmeesterpad") %>%
   filter(protocol == "Vroedmeesterpad - Roepkoren") %>%
   left_join(locaties, by = c("meetnet", "locatie")) %>%
-  left_join(select(counts, visit_id, sample_id,  soort_nl, soort_wet, primaire_soort, levensstadium, aantal), by = "visit_id") 
+  left_join(select(counts, visit_id, sample_id,  soort_nl, soort_wet, primaire_soort, activiteit, levensstadium, aantal), by = "visit_id") 
 ```
 
 ### Overzicht tellingen per type locatie (actief of niet-actief) en al dan niet geschikt voor analyse
@@ -388,6 +388,37 @@ dataset_check %>%
             filter = "top")
 ```
 
+### Overzicht van de type tellingen: primaire soort, activiteit, levensstadium
+
+Onderstaande tabel geeft een overzicht van het aantal records, bezoeken en locaties en de totale aantallen voor de verschillende combinaties van:
+
++ primaire soort
++ activiteit
++ levensstadium
+
+```{r}
+
+dataset_check2 <- dataset_roepkoren %>%
+  group_by(meetnet, protocol,  primaire_soort, activiteit, levensstadium) %>%
+  summarise(n_records = n(),
+            n_visits = n_distinct(visit_id),
+            n_locaties = n_distinct(locatie),
+            aantal_tot = sum(aantal)) %>%
+  ungroup()
+
+dataset_check2 %>%
+  datatable(rownames = FALSE,
+            filter = "top")
+```
+
+We selecteren enkel de roepkoortellingen (niet de zichtwaarnemingen).
+
+```{r}
+dataset_roepkoren <- dataset_roepkoren %>%
+  filter(activiteit == "calling")
+```
+
+
 ### We someren de aantallen per locatie
 
 ```{r}
@@ -396,11 +427,11 @@ analyseset_roepkoren_vroedmeesterpad <-  dataset_roepkoren %>%
   group_by(soortgroep, meetnet, protocol, locatie, is_sample, jaar, datum, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium, opmerking, hoofdteller) %>%
   summarise(aantal = sum(aantal),
             n_points = n()) %>%
-  ungroup() %>%
-  filter(levensstadium != "onbekend")
+  ungroup()
 
 analyseset_roepkoren_vroedmeesterpad %>%
-  select(meetnet, protocol, locatie, jaar, datum, aantal, opmerking) %>%
+  filter(primaire_soort) %>%
+  select(meetnet, protocol, locatie, jaar, datum, primaire_soort, soort_nl, soort_wet, levensstadium, aantal, n_points, opmerking) %>%
   arrange(locatie, datum) %>%
   write_csv2("../output/aantallen_vroedmeesterpad.csv")
 ```
@@ -1357,7 +1388,7 @@ analyseset_rugstreeppad <- analyseset_rugstreeppad %>%
 
 # TE CORRIGEREN BEZOEK
 analyseset_rugstreeppad <- analyseset_rugstreeppad %>%
-  mutate(aantal = ifelse((visit_id == 55056) & (levensstadium == "larve"), 120, aantal),
+  mutate(aantal = ifelse((visit_id == 55056) & (levensstadium == "Larva"), 120, aantal),
          aantal = ifelse(visit_id == 55056 & activiteit == "roepend", 0, aantal))
 
 check <- analyseset_rugstreeppad %>%

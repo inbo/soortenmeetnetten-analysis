@@ -5,35 +5,24 @@
 ### Analyseset
 
 + enkel meetnetlocaties met totaal aantal waargenomen individuen > 0
-+ vergelijking meetcycli: enkel gegevens t.e.m. 2021 (meetcyclus 2016-2018 en 2019-2021)
 
 ```{r}
 analyseset_roepkoren_boomkikker <- read_vc("analyseset_roepkoren_boomkikker", "../output/analyseset")
 
-analyseset_roepkoren_boomkikker_meetcyclus <-  analyseset_roepkoren_boomkikker %>%
+analyseset_roepkoren_boomkikker <-  analyseset_roepkoren_boomkikker %>%
   filter(is_sample) %>%
   filter(primaire_soort) %>%
   group_by(meetnet, locatie) %>%
   filter(sum(aantal) > 0) %>%
   ungroup() %>%
-  filter(jaar <= 2021) %>%
+  #filter(jaar <= 2021) %>%
   mutate(meetcyclus_scaled = meetcyclus - 1,
-         meetcyclus = ifelse(meetcyclus == 1, "2016_2018", "2019_2021"),
+         meetcyclus = str_c(meetcyclus_start, "_", meetcyclus_end),
          year_scaled = jaar - min(jaar) + 1,
          jaar_scaled = year_scaled,
          cluster2 = cluster,
          fjaar = factor(jaar))
 
-analyseset_roepkoren_boomkikker_jaar <-  analyseset_roepkoren_boomkikker %>%
-  filter(is_sample) %>%
-  filter(primaire_soort) %>%
-  group_by(meetnet, locatie) %>%
-  filter(sum(aantal) > 0) %>%
-  ungroup() %>%
-  mutate(year_scaled = jaar - min(jaar) + 1,
-         jaar_scaled = year_scaled,
-         cluster2 = cluster,
-         fjaar = factor(jaar))
 ```
 
 ### Model
@@ -64,7 +53,7 @@ indexmodel_meetcyclus_iid <- inla(formula = aantal ~ meetcyclus  +
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
-                       data = analyseset_roepkoren_boomkikker_meetcyclus,
+                       data = analyseset_roepkoren_boomkikker,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
@@ -78,21 +67,7 @@ indexmodel_jaar_rw1_iid <- inla(formula = aantal ~ f(jaar_scaled,
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
-                       data = analyseset_roepkoren_boomkikker_jaar,
-                       control.compute = list(config = TRUE, waic = TRUE),
-                       control.predictor = list(compute = TRUE))
-
-indexmodel_jaar_rw1_iid_pertrend <- inla(formula = aantal ~ f(jaar_scaled, 
-                                  model = "rw1", 
-                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) +
-                                f(locatie, 
-                                  model = "iid", 
-                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
-                                f(cluster,
-                                  model = "iid", 
-                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
-                       family = "nbinomial",
-                       data = analyseset_roepkoren_boomkikker_meetcyclus,
+                       data = analyseset_roepkoren_boomkikker,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
@@ -108,7 +83,7 @@ trendmodel_iid2 <- inla(formula = aantal ~ year_scaled  +
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
-                       data = analyseset_roepkoren_boomkikker_meetcyclus,
+                       data = analyseset_roepkoren_boomkikker,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
@@ -119,20 +94,21 @@ trendmodel_iid2 <- inla(formula = aantal ~ year_scaled  +
 ```{r}
 
 set.seed(54654)
-results_index_jaar_boomkikker <- derive_index_rw_inla(analyseset_roepkoren_boomkikker_jaar, indexmodel_jaar_rw1_iid, set_seed = 1231)
+results_index_jaar_boomkikker <- derive_index_rw_inla(analyseset_roepkoren_boomkikker, 
+                                                      indexmodel_jaar_rw1_iid, set_seed = 1231)
 
 set.seed(6821)
 results_index_meetcyclus_boomkikker <- derive_index_meetcyclus_inla(indexmodel_nbinom_inla = indexmodel_meetcyclus_iid, 
-                                                                    function_eval = function(...) {exp(meetcyclus2019_2021)}, 
+                                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))}, 
                                                                     set_seed =  21354)
 
 set.seed(6778)
-results_trend_boomkikker <- derive_trend(analyseset_roepkoren_boomkikker_meetcyclus, trendmodel_iid2)
+results_trend_boomkikker <- derive_trend(analyseset_roepkoren_boomkikker, trendmodel_iid2)
 
 results_waic_boomkikker <- bind_rows(
-  get_waic(analyseset_roepkoren_boomkikker_meetcyclus, trendmodel_iid2) %>%
+  get_waic(analyseset_roepkoren_boomkikker, trendmodel_iid2) %>%
     mutate(model = "trendmodel"),
-  get_waic(analyseset_roepkoren_boomkikker_meetcyclus, indexmodel_jaar_rw1_iid_pertrend) %>%
+  get_waic(analyseset_roepkoren_boomkikker, indexmodel_jaar_rw1_iid) %>%
     mutate(model = "indexmodel"))
   
 ```
@@ -260,15 +236,13 @@ iid_checked_plot %>%
 
 ### Analyseset
 
-+ vergelijking meetcycli: enkel gegevens t.e.m. 2021 (meetcyclus 2016-2018 en 2019-2021)
-
 ```{r}
 analyseset_larven <- read_vc("analyseset_larven", "../output/analyseset")
 
 analyseset_larven <- analyseset_larven %>%
   filter(is_sample) %>%
   filter(primaire_soort) %>%
-  filter(levensstadium == "larve") %>%
+  filter(levensstadium == "Larva") %>%
   mutate(meetcyclus = str_c(meetcyclus_start, "_", meetcyclus_end),
          occurence = ifelse(aantal > 0, 1, 0),
          year_scaled = jaar - min(jaar) + 1,
@@ -277,8 +251,7 @@ analyseset_larven <- analyseset_larven %>%
          n_10catch = n_catch/10)
 
 analyseset_larven_boomkikker_meetcyclus <-  analyseset_larven %>%
-  filter(meetnet == "Boomkikker") %>%
-  filter(jaar <= 2021)
+  filter(meetnet == "Boomkikker") 
 
 analyseset_larven_boomkikker_jaar <-  analyseset_larven %>%
   filter(meetnet == "Boomkikker")
@@ -380,7 +353,10 @@ results_index_jaar_boomkikker_larve <- derive_index_rw_inla(analyseset_larven_bo
 
 set.seed(3297)
 
-results_index_meetcyclus_boomkikker_larve <- derive_index_meetcyclus_inla(analyseset_larven_boomkikker_jaar, indexmodel_meetcyclus_iid, set_seed = 55469)
+results_index_meetcyclus_boomkikker_larve <- derive_index_meetcyclus_inla(analyseset_larven_boomkikker_jaar,
+                                                                          indexmodel_meetcyclus_iid, 
+                                                                          function_eval  = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
+                                                                            set_seed = 55469)
 
 results_occurence_boomkikker_larve <- model_occurence_iid_0$summary.fixed %>%
   rownames_to_column("meetcyclus") %>%
@@ -468,6 +444,10 @@ iid_checked_plot %>%
 analyseset_fuiken_totaal <- read_vc(file = "analyseset_fuiken_totaal", root = "../output/analyseset")
 
 analyseset_fuiken_totaal <- analyseset_fuiken_totaal %>%
+  filter(jaar < 2024) %>%
+  group_by(locatie) %>%
+  mutate(paired = n_distinct(meetcyclus) > 1) %>%
+  ungroup() %>%
   filter(primaire_soort) %>%
     filter(is_sample) %>%
   group_by(meetnet, locatie) %>%
@@ -628,8 +608,10 @@ iid_checked_plot %>%
 ```{r}
 
 analyseset_larven_kamsalamander <-  analyseset_larven %>%
+  filter(jaar < 2024) %>%
   filter(meetnet == "Kamsalamander") %>%
-  filter(levensstadium == "larve") %>%
+  filter(primaire_soort) %>%
+  filter(levensstadium == "Larva") %>%
   mutate(meetcyclus = ifelse(jaar <= 2020, "2017_2020", "2021_2023"))
   
 ```
@@ -820,20 +802,6 @@ analyseset_knoflookpad_hydrofoon <- analyseset_roepkoren_knoflookpad %>%
   + random effect voor locatie
 
 ```{r}
-
-analyseset_roepkoren_knoflookpad <- read_vc(file = "analyseset_roepkoren_knoflookpad", root = "../output/analyseset")
-
-analyseset_knoflookpad_hydrofoon <- analyseset_roepkoren_knoflookpad %>%
-  filter(primaire_soort) %>%
-  filter(type_aantal == "aantal met hydrofoon") %>%
-  mutate(year_min = min(jaar),
-         fjaar = factor(jaar),
-        jaar_scaled = jaar - year_min + 1,
-        year_scaled = jaar_scaled) %>%
-  group_by(locatie) %>%
-  mutate(aantal_totaal = sum(aantal)) %>%
-  ungroup() %>%
-  filter(aantal_totaal > 0)
 
 indexmodel_iid_rw1year_hydrofoon <- inla(formula = aantal ~ f(jaar_scaled, 
                                   model = "rw1", 
@@ -1103,31 +1071,6 @@ trendmodel_iid2 <- inla(formula = aantal ~ year_scaled +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
-trendmodel_iid2_2018_2023 <- inla(formula = aantal ~ year_scaled +
-                                f(locatie,
-                                  model = "iid",
-                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) +
-                                f(locatie2,
-                                  year_scaled,
-                                  model = "iid",
-                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
-                       family = "nbinomial",
-                       offset = n_100m,
-                       data = analyseset_vuursalamander_2018_2023,
-                       control.compute = list(config = TRUE, waic = TRUE),
-                       control.predictor = list(compute = TRUE))
-
-indexmodel_iid_rw1year_2018_2023 <- inla(formula = aantal ~  f(jaar_scaled, 
-                                  model = "rw1", 
-                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
-                                f(locatie, 
-                                  model = "iid", 
-                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
-                       data = analyseset_vuursalamander_2018_2023,
-                       family = "nbinomial",
-                       offset = n_100m,
-                       control.compute = list(config = TRUE, waic = TRUE),
-                       control.predictor = list(compute = TRUE))
 
 ```
 ### Modeloutput
@@ -1142,22 +1085,12 @@ set.seed(845)
 
 results_trend_vuursalamander <- derive_trend(analyseset_species = analyseset_vuursalamander, trendmodel_nbinom = trendmodel_iid2)
 
-set.seed(23784845)
-
-results_trend_vuursalamander_2018_2023 <- derive_trend(analyseset_species = analyseset_vuursalamander_2018_2023, trendmodel_nbinom = trendmodel_iid2_2018_2023)
-
-results_waic_vuursalamander_2016_2023<- bind_rows(
+results_waic_vuursalamander <- bind_rows(
   get_waic(analyseset_vuursalamander, trendmodel_iid2) %>%
     mutate(model = "trendmodel"),
   get_waic(analyseset_vuursalamander, indexmodel_iid_rw1year) %>%
     mutate(model = "indexmodel"))
 
-results_waic_vuursalamander_2018_2023 <- bind_rows(
-  get_waic(analyseset_vuursalamander_2018_2023, trendmodel_iid2_2018_2023) %>%
-    mutate(model = "trendmodel"),
-  get_waic(analyseset_vuursalamander_2018_2023, indexmodel_iid_rw1year_2018_2023) %>%
-    mutate(model = "indexmodel")
-  )
 ```
 
 
@@ -1342,8 +1275,7 @@ results_trend <- results_trend_kamsalamander %>%
   bind_rows(results_trend_boomkikker) %>%
   bind_rows(results_trend_knoflookpad) %>%
   bind_rows(results_trend_vroedmeesterpad) %>%
-  bind_rows(results_trend_vuursalamander) %>%
-  bind_rows(results_trend_vuursalamander_2018_2023) 
+  bind_rows(results_trend_vuursalamander)
 
 trend <- results_trend %>%
   group_by(soort_nl) %>%
@@ -1468,11 +1400,8 @@ results_waic <- bind_rows(
   results_waic_boomkikker,
   results_waic_kamsalamander,
   results_waic_knoflookpad,
-  results_waic_vuursalamander_2016_2023 %>%
-    mutate(trend_start = 2016),
-  results_waic_vuursalamander_2018_2023 %>%
-    mutate(trend_start = 2018)
-) %>% pivot_wider(names_from = "model", values_from = "waic") %>%
+  results_waic_vuursalamander) %>% 
+  pivot_wider(names_from = "model", values_from = "waic") %>%
   mutate(diff_waic = trendmodel - indexmodel,
          type_trend = ifelse(diff_waic > 0,
                                "Niet lineair",
