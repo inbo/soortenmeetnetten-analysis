@@ -13,37 +13,46 @@ analyseset_aggr <- analyseset_all %>%
   mutate(soort_nl = ifelse(str_detect(soort_wet, "Pelophylax lessonae"), "Poelkikker/ Bastaardkikker", soort_nl),
          soort_wet = ifelse(soort_wet == "Pelophylax lessonae", "Pelophylax lessonae/ kl. esculentus", soort_wet)) %>%
   mutate(type = ifelse(meetnet %in% c("Boomkikker", "Vroedmeestpad", "Knoflookpad", "Poelkikker") & levensstadium == "adult", "roepende mannetjes", levensstadium),
-         type = ifelse(meetnet == "Rugstreeppad" & activiteit == "roepend", "roepende mannetjes", type),
-         type = ifelse(meetnet %in% c("Boomkikker", "Kamsalamander", "Rugstreeppad") & levensstadium %in% c("larve", "metamorf"), "larven (en metamorfen)", type),
+         type = ifelse(meetnet == "Rugstreeppad" & activiteit == "calling", "roepende mannetjes", type),
+         type = ifelse(meetnet %in% c("Boomkikker", "Kamsalamander", "Rugstreeppad") & levensstadium %in% c("Larva", "metamorf"), "larven (en metamorfen)", type),
          type = ifelse(meetnet == "Kamsalamander" & levensstadium %in% c("adult", "juveniel"), "adulten en juvenielen", type),
-         type = ifelse(meetnet == "Rugstreeppad" & type %in% c("adult", "juveniel (>2cm)", "juveniel (<2cm)"), "adulten en juvenielen", type),
+         type = ifelse(meetnet == "Rugstreeppad" & type %in% c("adult", "juvenile (>2cm)", "juvenile (<2cm)"), "adulten en juvenielen", type),
          type = ifelse(type == "adult", "adulten",
-                       ifelse(type == "ei", "eiklompen",
-                              ifelse(type == "larve", "larven",
-                                     ifelse(type == "post-metamorf", "post-metamorfen", type)))))
+                       ifelse(type == "egg", "eiklompen",
+                              ifelse(type == "Larva", "larven",
+                                     ifelse(type == "post-metamorf", "post-metamorfen", type))))) %>%
+  select(meetnet, protocol, locatie, visit_id, datum, jaar, meetcyclus, meetcyclus_start, meetcyclus_end, is_sample, primaire_soort, soort_nl, soort_wet, levensstadium, activiteit, geslacht, type, aantal) %>%
+  mutate(periode = ifelse(is.na(meetcyclus_start) | (!primaire_soort), jaar, str_c(meetcyclus_start, " - ", meetcyclus_end)))
 
-summary_counts_year <- analyseset_aggr %>%
-  group_by(is_sample, primaire_soort, meetnet, soort_nl, soort_wet, type, locatie, jaar, visit_id) %>%
+check <- analyseset_aggr %>%
+  filter(is_sample) %>%
+  distinct(meetnet, protocol, locatie) %>%
+  group_by(meetnet, protocol) %>%
+  mutate(n_locaties = n_distinct(locatie)) %>%
+  ungroup()
+
+summary_counts_periode <- analyseset_aggr %>%
+  group_by(is_sample, primaire_soort, meetnet, soort_nl, soort_wet, type, locatie, jaar, periode, visit_id) %>%
   summarise(aantal_bezoek = sum(aantal)) %>%
   ungroup() %>%
-  group_by(is_sample, primaire_soort, soort_nl, soort_wet, type, jaar) %>%
+  group_by(is_sample, primaire_soort, soort_nl, soort_wet, type, periode) %>%
   summarise(aantal_tot = sum(aantal_bezoek),
             aantal_mean = round(mean(aantal_bezoek), 1)) %>%
   ungroup()
 
-summary_verspreiding_year <- analyseset_aggr %>%
-  group_by(is_sample, primaire_soort, meetnet, soort_nl, soort_wet, type, locatie, jaar) %>%
+summary_verspreiding_periode <- analyseset_aggr %>%
+  group_by(is_sample, primaire_soort, meetnet, soort_nl, soort_wet, type, locatie, periode) %>%
   summarise(aanwezig = sum(aantal) > 0) %>%
   ungroup() %>%
-  group_by(is_sample, primaire_soort, soort_nl, soort_wet, type, jaar) %>%
+  group_by(is_sample, primaire_soort, soort_nl, soort_wet, type, periode) %>%
   summarise(n_aanwezig = sum(aanwezig),
             n_locaties = n_distinct(locatie)) %>%
   ungroup() %>%
   mutate(prop_aanwezig = round(n_aanwezig/n_locaties * 100, 1))
 
-summary_table <- summary_counts_year %>%
-  left_join(summary_verspreiding_year, by = c("is_sample", "primaire_soort", "jaar", "soort_nl", "soort_wet", "type")) %>%
-  arrange(soort_nl, type, jaar)
+summary_table <- summary_counts_periode %>%
+  left_join(summary_verspreiding_periode, by = c("is_sample", "primaire_soort", "periode", "soort_nl", "soort_wet", "type")) %>%
+  arrange(soort_nl, type, periode)
   
 summary_year_sec <- analyseset_aggr %>%
   mutate(protocol = ifelse(protocol == "Amfibieën - Larven", "Amfibieën - Larven en metamorfen", protocol)) %>%
@@ -79,9 +88,9 @@ Tabel \@ref(tab:tabaantaltot) toont per soort, levensstadium en per jaar:
 ```{r tabaantaltot, eval=TRUE}
 
 summary_table %>% 
-  filter(primaire_soort, soort_nl != "Meerkikker") %>%
+  filter(primaire_soort, !soort_nl %in% c("Meerkikker", "Bastaardkikker", "Groene kikker-complex")) %>%
   filter(is_sample) %>%
-  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Levensstadium" = type,  Jaar = jaar, "Totaal" = aantal_tot, "Gemiddeld" = aantal_mean, "Locaties" = n_locaties, "Proportie (%)" = prop_aanwezig) %>%
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Levensstadium" = type,  Jaar = periode, "Totaal" = aantal_tot, "Gemiddeld" = aantal_mean, "Locaties" = n_locaties, "Proportie (%)" = prop_aanwezig) %>%
   kable(caption = "Overzicht getelde aantallen voor de prioritaire soorten (Totaal = totaal aantal, Gemiddeld = gemiddeld aantal per bezoek, Locaties = aantal getelde meetnetlocaties, Proportie = proportie van de bezochte meetnetlocaties waar de soort en het levensstadium werd waargenomen)",
       booktabs = TRUE,
       longtable = TRUE,
@@ -117,6 +126,8 @@ summary_counts_locatie <- analyseset_aggr %>%
   mutate(aantal_tot_overall = sum(aantal_tot),
          aantal_mean_overall = round(sum(aantal_tot) / sum(n_bezoeken), 1)) %>%
   ungroup()
+
+check <- distinct(summary_counts_locatie, meetnet, type)
 
 details_locatie_m <- locaties_utm %>%
   select(meetnet, locatie, tag_utm) %>%

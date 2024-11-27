@@ -1,6 +1,6 @@
 ---
 title: "Resultaten van de amfibieënmeetnetten in Vlaanderen"
-subtitle: Periode 2016 - 2023
+subtitle: Periode 2016 - 2024
 author:
   - name:
       given: "Toon"
@@ -35,10 +35,10 @@ author:
     affiliation: "Instituut voor Natuur- en Bosonderzoek (INBO)"
 reviewer:
   - name:
-      given: "Marc"
-      family: "Pollet"
-    email: "marc.pollet@inbo.be"
-    orcid: "0000-0001-5198-5928"
+      given: "Dirk"
+      family: "Maes"
+    email: "dirk.maes@inbo.be"
+    orcid: "0000-0002-7947-3788"
     affiliation: "Instituut voor Natuur- en Bosonderzoek (INBO)"
 lang: nl
 style: INBO

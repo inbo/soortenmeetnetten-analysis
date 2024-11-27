@@ -327,11 +327,10 @@ Sinds de start van de meetnetten in 2016 tot en met 2023 hebben `r n_tellers` te
 In Figuur \@ref(fig:figinspanning) zien we de monitoringinspanning in de tijd voor alle amfibieënmeetnetten samen.
 We drukken de monitoringinspanning uit als het aantal uitgevoerde tellingen, het aantal tellocaties en het aantal tellers.
 
-```{r figinspanning,  fig.cap = "Monitoringinspanning voor de meetnetlocaties van alle amfibieënmeetnetten samen", warning=TRUE}
+```{r figinspanning,  fig.cap = "Monitoringinspanning voor de meetnetlocaties van alle amfibieënmeetnetten samen"}
 
 plot1 <- monitoring_effort_soortgroep_jaar %>%
   filter(is_sample) %>%
-  filter(jaar < 2024) %>%
   ggplot(aes(x = jaar, y = aantal, colour = monitoringsinspanning)) +
   geom_point() +
   geom_line() +
@@ -365,7 +364,6 @@ Het gaat vooral om tellingen van de wijder verspreide kamsalamander.
 ```{r figinspanningopt,  fig.cap = "Monitoringinspanning voor de optionele locaties van alle amfibieënmeetnetten samen", warning=TRUE, eval = FALSE}
 
 plot1 <- monitoring_effort_soortgroep_jaar %>%
-  filter(jaar < 2024) %>%
   filter(!is_sample) %>%
   ggplot(aes(x = jaar, y = aantal, colour = monitoringsinspanning)) +
   geom_point() +

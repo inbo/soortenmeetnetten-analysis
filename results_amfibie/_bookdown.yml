@@ -1,4 +1,4 @@
-book_filename: "westra_et_al_rslttnvndamfbnmtntiv.Rmd"
+book_filename: "rapport_amfibieen.Rmd"
 output_dir: "../output/results_amfibie"
 delete_merged_file: TRUE
 language:

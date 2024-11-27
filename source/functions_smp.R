@@ -1177,9 +1177,7 @@ derive_prob_rw_inla <- function(analyseset_species, inlamodel_rw, set_seed = 0) 
            jaar = ref_jaar + jaar_centered -1) %>%
     select(parameter, soort_nl, soort_wet, jaar, ref_jaar, everything())
   
-  
 }
-
 
 derive_prob_rw_sample <- function(sample) {
   
@@ -1202,6 +1200,42 @@ derive_prob_rw_sample <- function(sample) {
   
   return(s)
 }
+
+derive_prob_inla <- function(analyseset_species, inlamodel, set_seed = 0) {
+  
+  set.seed(set_seed)
+  
+  samples <- inla.posterior.sample(1000, inlamodel , seed = set_seed,num.threads = "1:1")
+  
+  quantile_values <- c(0.025, 0.05, 0.20, 0.35,  0.65, 0.80, 0.95, 0.975)
+  
+  estimates_jaar <- map_df(samples, derive_prob_rw_sample, .id = "sample") %>%
+    group_by(parameter, jaar_centered) %>%
+    mutate(mean = mean(value),
+           sd = sd(value)) %>%
+    ungroup() %>%
+    group_by(parameter, jaar_centered, mean, sd) %>%
+    summarise(qs = quantile(value, quantile_values, na.rm =TRUE), prob = quantile_values) %>%
+    ungroup() %>%
+    mutate(l_u = ifelse(prob < 0.5, "lcl", "ucl"),
+           ci = ifelse(prob %in% c(0.025, 0.975), "0.95",
+                       ifelse(prob %in% c(0.05, 0.95), "0.90",
+                              ifelse(prob %in% c(0.20, 0.80), "0.60",
+                                     ifelse(prob %in% c(0.35, 0.65), "0.30", NA)))),
+           type = str_c(l_u, "_", ci)) %>%
+    select(-prob, -l_u, -ci) %>%
+    spread(key = type, value = qs)  %>%
+    mutate(soort_nl = unique(analyseset_species$soort_nl),
+           soort_wet = unique(analyseset_species$soort_wet),
+           ref_jaar = min(analyseset_species$jaar),
+           jaar = ref_jaar + jaar_centered -1) %>%
+    select(parameter, soort_nl, soort_wet, jaar, ref_jaar, everything())
+  
+}
+
+
+
+
 
 derive_diff_years_inla <- function(analyseset_species) {
   
@@ -1530,6 +1564,64 @@ derive_trend <- function(analyseset_species, trendmodel_nbinom) {
   return(trend)
   
 }  
+
+derive_trend_meetcyclus <- function(analyseset_species, trendmodel_nbinom) {
+  
+  #gemiddelde meetcyclus trend
+  
+  trend_average <- trendmodel_nbinom$marginals.fixed$meetcyclus_scaled %>%
+    inla.tmarginal(fun = function(x) (exp(x) - 1) * 100) %>%
+    inla.zmarginal(silent = TRUE) %>%
+    data.frame() %>%
+    mutate(parameter = "trend_meetcyclus",
+           soort_nl = unique(analyseset_species$soort_nl),
+           soort_wet = unique(analyseset_species$soort_wet),
+           jaar_min = min(analyseset_species$jaar),
+           jaar_max = max(analyseset_species$jaar)) %>%
+    select(parameter, soort_nl, soort_wet, jaar_min, jaar_max, mean, sd, lcl_0.95 = quant0.025, ucl_0.95 = quant0.975)
+  
+  trend_quantiles <- trendmodel_nbinom$marginals.fixed$meetcyclus_scaled %>%
+    inla.tmarginal(fun = function(x) (exp(x) - 1) * 100) %>%
+    inla.qmarginal(p = c(0.05, 0.20, 0.35, 0.65, 0.80, 0.95)) %>%
+    data.frame() %>%
+    mutate(type = c("lcl_0.90", "lcl_0.60", "lcl_0.30", "ucl_0.30", "ucl_0.60", "ucl_0.90")) %>%
+    spread(key = "type", value = ".")
+  
+  trend_average <- trend_average %>%
+    bind_cols(trend_quantiles)
+  
+  #totale trend over volledige periode 
+  
+  periode <- n_distinct(analyseset_species$meetcyclus_scaled)
+  
+  trend_totaal <- trendmodel_nbinom$marginals.fixed$meetcyclus_scaled %>%
+    inla.tmarginal(fun = function(x) (exp(x * (periode - 1)) - 1) * 100) %>%
+    inla.zmarginal(silent = TRUE) %>%
+    data.frame() %>%
+    mutate(parameter = "trend_total",
+           soort_nl = unique(analyseset_species$soort_nl),
+           soort_wet = unique(analyseset_species$soort_wet),
+           jaar_min = min(analyseset_species$jaar),
+           jaar_max = max(analyseset_species$jaar)) %>%
+    select(parameter, soort_nl, soort_wet, jaar_min, jaar_max, mean, sd, lcl_0.95 = quant0.025, ucl_0.95 = quant0.975)
+  
+  trend_totaal_quantiles <- trendmodel_nbinom$marginals.fixed$meetcyclus_scaled %>%
+    inla.tmarginal(fun = function(x) (exp(x * (periode - 1)) - 1) * 100) %>%
+    inla.qmarginal(p = c(0.05, 0.20, 0.35, 0.65, 0.80, 0.95)) %>%
+    data.frame() %>%
+    mutate(type = c("lcl_0.90", "lcl_0.60", "lcl_0.30", "ucl_0.30", "ucl_0.60", "ucl_0.90")) %>%
+    spread(key = "type", value = ".")
+  
+  trend_totaal <- trend_totaal %>%
+    bind_cols(trend_totaal_quantiles)
+  
+  trend <- bind_rows(trend_average,
+                     trend_totaal)
+  
+  return(trend)
+  
+}  
+
 
 derive_trend_inlabru <- derive_trend 
 

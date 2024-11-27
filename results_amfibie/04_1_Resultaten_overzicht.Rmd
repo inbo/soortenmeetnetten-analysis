@@ -73,7 +73,7 @@ verschillen_jaren %>%
       escape = FALSE,
       align = "lccccc") %>%
   kable_styling() %>%
-  add_header_above(c(" " = 3, "Verschil t.o.v. referentiejaar" = 7)) %>%
+  add_header_above(c(" " = 3, "Verschil t.o.v. referentiejaar" = 8)) %>%
   collapse_rows(1) %>%
   scroll_box(width = "700px", height = "100%")
   
@@ -152,7 +152,7 @@ if (html_output) {
 verschillen_cyclus %>%
   select(-soort_wet) %>%
   mutate(meetcyclus = str_remove(meetcyclus, "meetcyclus")) %>%
-  rename("Nederlandse naam" = soort_nl, "Levensstadium" = levensstadium, "Meetcyclus 1" = meetcyclus_ref, "Meetcyclus 2" = meetcyclus, "Klasse" = klasse_output, "Verschil" = verschil_tbl) %>%
+  rename("Nederlandse naam" = soort_nl, "Levensstadium" = levensstadium, "Referentie meetcyclus" = meetcyclus_ref, "Meetcyclus" = meetcyclus, "Klasse" = klasse_output, "Verschil" = verschil_tbl) %>%
   kable(caption = "Verschil in aantallen t.o.v. referentie meetcyclus",
       booktabs = TRUE,
       escape = FALSE,
@@ -190,13 +190,12 @@ trend_klasses_ch <- trend_klasses %>%
   mutate(klasse = as.character(klasse)) %>%
   select(klasse, klasse_output)
 
-overzicht_trend_tabel <- trend_all %>%
-  filter(soort_periode != "Vuursalamander_2018_2023") %>%
+overzicht_trend_tabel_long <- trend_all %>%
   left_join(waic, by = "soort_nl") %>%
   arrange(desc(mean)) %>%
-  mutate(trend = round(mean, 0),
-         trend_lcl = round(lcl_0.90, 0),
-         trend_ucl = round(ucl_0.90, 0),
+  mutate(trend = round(mean, 1),
+         trend_lcl = round(lcl_0.90, 1),
+         trend_ucl = round(ucl_0.90, 1),
          trend_tbl = str_c(ifelse(trend > 0, "+", ""),
                            trend, "% (",
                            ifelse(trend_lcl > 0, "+", ""),
@@ -204,11 +203,19 @@ overzicht_trend_tabel <- trend_all %>%
                            ifelse(trend_ucl > 0, "+", ""),
                            trend_ucl, "%)")
          ) %>%
-  select(parameter, soort_nl, soort_wet, periode_tekst, type_trend, klasse, trend_tbl) %>%
-  spread(key = "parameter", value = "trend_tbl") %>%
+  select(parameter, soort_nl, soort_wet, periode_tekst, type_trend, klasse, trend_tbl) 
+
+overzicht_trend_looptijd <- overzicht_trend_tabel_long %>%
+  filter(parameter == "trend_total") %>%
+  select(soort_nl, trend_total = trend_tbl)
+
+overzicht_trend_tabel <- overzicht_trend_tabel_long %>%
+  filter(parameter == "trend_average") %>%
   mutate(klasse = as.character(klasse)) %>%
   left_join(trend_klasses_ch, by = "klasse") %>%
-  select("Nederlandse naam" = soort_nl, Periode = periode_tekst, Klasse = klasse_output,"Type trend" = type_trend, "Jaarlijkse wijziging" = trend_average, "Wijziging over de looptijd" = trend_total)
+  left_join(overzicht_trend_looptijd, by = "soort_nl") %>%
+  arrange(soort_nl) %>%
+  select("Nederlandse naam" = soort_nl, Periode = periode_tekst, Klasse = klasse_output,"Type trend" = type_trend, "Jaarlijkse wijziging" = trend_tbl, "Wijziging over de looptijd" = trend_total)
 
 if (html_output) {
   overzicht_trend_tabel <- overzicht_trend_tabel %>%
@@ -236,8 +243,8 @@ overzicht_trend_tabel %>%
 De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in Figuur \@ref(fig:figtrend).
 De x-as van deze figuur heeft een logaritmische schaal.
 Een halvering (-50 %) is immers een even sterk effect als een verdubbeling (+100 %).
-Opnieuw maken we gebruik van de [classificatie](#h:classtrend) zoals besproken in paragraaf \@ref(h:classtrend) met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over de meetperiode.
-Voor een periode van zes jaar (2016 - 2021) komt de ondergrens overeen met een gemiddelde jaarlijkse trend van -5,6 % en de bovengrens met een gemiddelde jaarlijkse trend van +5,9 %.
+Opnieuw maken we gebruik van de [classificatie](#h:classtrend) zoals besproken in paragraaf \@ref(h:classtrend) met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over een periode van 6 jaar.
+Voor de gemiddelde jaarlijkse trend komt dit overeen met een ondergens van -5,6 % en een bovengrens van +5,9 %.
 
 ```{r figtrend, fig.cap= str_c("Gemiddelde jaarlijkse trend met 90 \\% betrouwbaarheidsinterval ", legend_klasses)}
 
