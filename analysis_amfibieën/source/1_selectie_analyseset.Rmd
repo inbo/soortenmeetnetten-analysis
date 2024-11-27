@@ -207,7 +207,11 @@ duur_cyclus <- 3
 analyseset_larven <- dataset_larven %>%
   filter(!is.na(aantal)) %>%
   mutate(start_cyclus = ifelse(meetnet == "Kamsalamander", 2017, 2016),
-    meetcyclus = ceiling((jaar - start_cyclus + 1) / duur_cyclus)) %>%
+    meetcyclus = ceiling((jaar - start_cyclus + 1) / duur_cyclus),
+    meetcyclus = ifelse(meetnet == "Kamsalamander", 
+                        ifelse(jaar <= 2020, 1,
+                               ifelse(jaar <= 2023, 2, 3)),
+                        meetcyclus)) %>%
   group_by(meetcyclus, meetnet) %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus - 1) %>%
@@ -589,10 +593,11 @@ start_cyclus <- 2017
 
 analyseset_fuiken_detail <- dataset_fuiken %>%
   filter(!is.na(aantal)) %>%
-  mutate(meetcyclus = ifelse(jaar <= 2020, 1, 2)) %>%
+  mutate(meetcyclus = ifelse(jaar <= 2020, 1, 
+                             ifelse(jaar <= 2023, 2, 3))) %>%
   group_by(meetcyclus) %>%
   mutate(meetcyclus_start = min(jaar),
-         meetcyclus_end = ifelse(meetcyclus == 1, 2020, 2023)) %>%
+         meetcyclus_end = ifelse(meetcyclus == 1, 2020, meetcyclus_start + 2)) %>%
   ungroup() %>%
   select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, visit_id, doy, bezoek_status, n_fuiken, primaire_soort, soort_nl, soort_wet, levensstadium, geslacht, aantal, opmerking, hoofdteller)
 

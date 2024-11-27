@@ -16,7 +16,7 @@ analyseset_roepkoren_boomkikker <-  analyseset_roepkoren_boomkikker %>%
   filter(sum(aantal) > 0) %>%
   ungroup() %>%
   #filter(jaar <= 2021) %>%
-  mutate(meetcyclus_scaled = meetcyclus - 1,
+  mutate(meetcyclus_scaled = meetcyclus,
          meetcyclus = str_c(meetcyclus_start, "_", meetcyclus_end),
          year_scaled = jaar - min(jaar) + 1,
          jaar_scaled = year_scaled,
@@ -87,6 +87,34 @@ trendmodel_iid2 <- inla(formula = aantal ~ year_scaled  +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
+trendmodel_iid <- inla(formula = aantal ~ year_scaled  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_boomkikker,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trendmodel_meetcyclus_iid2 <- inla(formula = aantal ~ meetcyclus_scaled  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) + 
+                                f(cluster2,
+                                  year_scaled,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_boomkikker,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
 ```
 
 ### Modeloutput
@@ -103,13 +131,20 @@ results_index_meetcyclus_boomkikker <- derive_index_meetcyclus_inla(indexmodel_n
                                                                     set_seed =  21354)
 
 set.seed(6778)
-results_trend_boomkikker <- derive_trend(analyseset_roepkoren_boomkikker, trendmodel_iid2)
+results_trend_boomkikker_iid2 <- derive_trend(analyseset_roepkoren_boomkikker, trendmodel_iid2)
+
+results_trend_boomkikker <- derive_trend(analyseset_roepkoren_boomkikker, trendmodel_iid)
 
 results_waic_boomkikker <- bind_rows(
-  get_waic(analyseset_roepkoren_boomkikker, trendmodel_iid2) %>%
+  get_waic(analyseset_roepkoren_boomkikker, trendmodel_iid) %>%
     mutate(model = "trendmodel"),
+  get_waic(analyseset_roepkoren_boomkikker, trendmodel_iid2) %>%
+    mutate(model = "trendmodel_iid2"),
   get_waic(analyseset_roepkoren_boomkikker, indexmodel_jaar_rw1_iid) %>%
     mutate(model = "indexmodel"))
+
+
+trend_meetcyclus <- derive_trend_meetcyclus(analyseset_roepkoren_boomkikker, trendmodel_nbinom =  trendmodel_meetcyclus_iid2)
   
 ```
 
@@ -517,6 +552,19 @@ trendmodel_iid2 <- inla(formula = aantal ~ year_scaled  +
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
+trendmodel_iid <- inla(formula = aantal ~ year_scaled  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_fuiken_totaal,
+                       offset = n_fuiken,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
 
 
 ```
@@ -534,7 +582,8 @@ set.seed(9865)
 results_index_jaar_kamsalamander <- derive_index_rw_inla(analyseset_fuiken_totaal, indexmodel_jaar_iid, set_seed =  123466)
 
 set.seed(556644)
-results_trend_kamsalamander <- derive_trend(analyseset_fuiken_totaal, trendmodel_iid2)
+results_trend_kamsalamander_iid2 <- derive_trend(analyseset_fuiken_totaal, trendmodel_iid2)
+results_trend_kamsalamander <- derive_trend(analyseset_fuiken_totaal, trendmodel_iid)
 
 results_waic_kamsalamander <- bind_rows(
   get_waic(analyseset_fuiken_totaal, trendmodel_iid2) %>%
@@ -1282,10 +1331,10 @@ trend <- results_trend %>%
   mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
          n_jaar = jaar_max - jaar_min + 1,
          treshold_low = ifelse(parameter == "trend_average", 
-                               round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
+                               round((exp(log(0.75)/(6 - 1)) - 1) * 100, 1),
                                -25),
          treshold_high = ifelse(parameter == "trend_average", 
-                                round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1),
+                                round((exp(log(1.33)/(6 - 1)) - 1) * 100, 1),
                                 33)) %>%
   ungroup() %>%
   mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
@@ -1400,7 +1449,8 @@ results_waic <- bind_rows(
   results_waic_boomkikker,
   results_waic_kamsalamander,
   results_waic_knoflookpad,
-  results_waic_vuursalamander) %>% 
+  results_waic_vuursalamander,
+  results_waic_vroedmeesterpad) %>% 
   pivot_wider(names_from = "model", values_from = "waic") %>%
   mutate(diff_waic = trendmodel - indexmodel,
          type_trend = ifelse(diff_waic > 0,
@@ -1409,6 +1459,6 @@ results_waic <- bind_rows(
                                       "Quasi lineair", "Lineair")))
 
 results_waic %>%
-  write_vc(root = "../output/results", file = "results_waic_amfibieën", sorting = c("soort_nl", "trend_start"), strict = FALSE)
+  write_vc(root = "../output/results", file = "results_waic_amfibieën", sorting = c("soort_nl"), strict = FALSE)
 ```
 

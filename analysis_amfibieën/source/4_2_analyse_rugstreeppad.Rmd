@@ -38,6 +38,14 @@ analyseset_rugstreeppad_adult <- analyseset_rugstreeppad_est %>%
 
 ```{r}
 analyseset_rugstreeppad_adult %>%
+  ggplot(aes(x = meetcyclus, y = aantal_adult_roepend, group = locatie)) +
+  geom_point() +
+  geom_line()
+```
+
+
+```{r}
+analyseset_rugstreeppad_adult %>%
   filter(aanwezig) %>%
   group_by(periode) %>%
   summarise(mean_puntlocaties = mean(n_samples),
