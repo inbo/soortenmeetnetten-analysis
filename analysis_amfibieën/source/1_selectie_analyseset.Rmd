@@ -1195,7 +1195,7 @@ analyseset_poelkikker_wide <- analyseset_poelkikker%>%
 
 counts_rugstreeppad_sample <- counts %>%
   filter(meetnet == "Rugstreeppad") %>%
-  group_by(visit_id, sample_id,  soort_nl, soort_wet, primaire_soort, levensstadium,  activiteit) %>%
+  group_by(visit_id, sample_id,  soort_nl, soort_wet, primaire_soort, levensstadium,  activiteit, x, y) %>%
   summarise(aantal = sum(aantal)) %>%
   ungroup()
 
@@ -1208,6 +1208,10 @@ counts_rugstreeppad_visit <- counts %>%
 
 covar_rugstreeppad <- covar_sample %>%
   filter(meetnet == "Rugstreeppad")
+
+zoekinspanning_rugstreeppad <- covar %>%
+  filter(meetnet == "Rugstreeppad") %>%
+  select(visit_id, zoekinspanning = waarde)
 
 type_habitat <- covar_rugstreeppad %>%
   filter(bezoekvariabele == "type habitat") %>%
@@ -1226,12 +1230,14 @@ covar_rugstreeppad <- covar_rugstreeppad %>%
 
 dataset_rugstreeppad_sample <-  visits %>%
   filter(meetnet == "Rugstreeppad") %>%
+  left_join(zoekinspanning_rugstreeppad, by = "visit_id") %>%
   left_join(locaties, by = c("meetnet", "locatie")) %>%
   left_join(counts_rugstreeppad_sample, by = "visit_id") %>%
-  left_join(type_habitat, by = c("visit_id", "sample_id")) 
+  left_join(type_habitat, by = c("visit_id", "sample_id"))  
 
 dataset_rugstreeppad <-  visits %>%
   filter(meetnet == "Rugstreeppad") %>%
+  left_join(zoekinspanning_rugstreeppad, by = "visit_id") %>%
   left_join(locaties, by = c("meetnet", "locatie")) %>%
   left_join(counts_rugstreeppad_visit, by = "visit_id")
 
@@ -1277,6 +1283,19 @@ check_na %>%
   datatable(rownames = FALSE,
             filter = "top")
   
+dataset_rugstreeppad_nul %>%
+  filter(jaar == 2024) %>%
+  distinct(meetnet, locatie, datum, visit_id, zoekinspanning, opmerking) %>%
+  write_csv2("../output/rugstreeppad_aantal_missing.csv")
+
+check_tijdstip <- dataset_rugstreeppad %>%
+  filter(jaar == 2024) %>%
+  filter(is.na(start_time)) %>%
+  filter(bezoek_status %in% c("Conform protocol", "Weersomstandigheden ongunstig")) %>%
+  distinct(meetnet, locatie, bezoek_status, datum, start_time, visit_id, hoofdteller, zoekinspanning, opmerking)
+
+check_tijdstip %>%
+  write_csv2("../output/rugstreeppad_tijdstip_missing.csv")
 ```
 
 
