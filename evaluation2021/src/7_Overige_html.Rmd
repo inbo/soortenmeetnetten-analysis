@@ -15,7 +15,8 @@ bezoeken_soortgroep <- filter(bezoeken, soortgroep %in% soortgroep_sel)
 species_list <- unique(bezoeken_soortgroep$meetnet)
 
 tabel_meetnetkarakteristieken %>%
-  mutate(telperiode = str_c(start_telperiode, " - ", einde_telperiode)) %>%
+  mutate(telperiode = str_c(start_telperiode, " - ", einde_telperiode),
+         protocol = ifelse(meetnet == "Nauwe korfslak", protocol_naam, protocol)) %>%
   filter(soortgroep %in% soortgroep_sel,
          is_sample) %>%
   arrange(soortgroep, meetnet) %>%

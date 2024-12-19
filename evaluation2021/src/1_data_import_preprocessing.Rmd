@@ -6,7 +6,7 @@ data_path <- fileman_up("soortenmeetnetten-queries")
 
 #versie <- get_date_export_smp()
 
-versie <- "2024-01-30"
+versie <- "2024-12-16"
 ```
 
 ```{r data import}
@@ -51,6 +51,7 @@ covariabelen <- get_covariates_smp()
 
 metadata <- get_characteristics_smp() %>%
   filter(protocol != "Lentevuurspin - Gebiedstelling") %>%
+  filter(actief == 1) %>%
   mutate(protocol = ifelse(meetnet == "Lentevuurspin", "Lentevuurspin - Transect + Gebiedstelling", protocol))
 
 metadata_overzicht <- metadata %>%
@@ -222,7 +223,7 @@ aantallen_planten_bezoek <- get_counts_smp(species_group = "planten") %>%
   ungroup() %>%
   mutate(bron = "meetnetten.be")
 
-aantallen_planten_extern <- read_csv2("C:/Rprojecten/soortenmeetnetten-queries/output/controle_plantendata/plantenmeetnetten_migratie_2023.csv") %>%
+aantallen_planten_extern <- read_csv2("C:/Rprojecten/soortenmeetnetten-queries/output/controle_plantendata/plantenmeetnetten_migratie_2024.csv") %>%
   mutate(datum = as.Date(datum, format = "%d/%m/%Y")) %>%
   filter(!is.na(visit_id)) %>%
   filter(! visit_id %in% aantallen_planten_bezoek$visit_id) %>%

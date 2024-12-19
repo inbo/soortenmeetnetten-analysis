@@ -387,6 +387,7 @@ covariabelen_vlinders <- covariabelen %>%
 covariabelen_vlinders_wide <- covariabelen_vlinders %>%
   select(-eenheid)%>%
   spread(key = bezoekvariabele, value = waarde) %>%
+  rename(temperatuur = temperature) %>%
   mutate(bewolking = factor(bewolking, levels = c("heldere hemel (0/8)", "lichtbewolkt (1 tot 2/8)", "halfbewolkt (3 tot 5/8)", "zwaarbewolkt (6 tot 7/8)", "betrokken (8/8)", "onbekend", "unclouded" , "partially clouded", "half clouded", "heavily clouded", "unknown", "" )),
          windkracht = factor(windkracht, levels = c("windstil (0 Bft)", "zeer zwakke wind (1 Bft)", "zwakke wind (2 Bft)", "vrij matige wind (3 Bft)", "matige wind (4 Bft)", "vrij krachtige wind (5 Bft)", "krachtige wind (6 Bft)", "stormachtig (8 Bft)", "onbekend", "unknown", "")),
          temperatuur = as.numeric(temperatuur),
