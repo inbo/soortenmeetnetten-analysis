@@ -109,7 +109,7 @@ overzicht_planten %>%
          "nieuw in meetcyclus" = voldoende_geteld_totaal_nieuw,
          "met track" = voldoende_geteld_track) %>%
   kable(align = "c",
-        caption = "Tellingen voor alle plantenmeetnetten samen in 2022 en 2023") %>%
+        caption = "Tellingen voor alle plantenmeetnetten samen in 2022, 2023 en 2024") %>%
    kable_styling() %>%
   add_header_above(c(" " = 3, "aantal tellingen" = 2, "aantal getelde locaties" = 3))
 
@@ -389,14 +389,14 @@ aantallen_mn <- st_read(dsn = file.path(fileman_up("soortenmeetnetten-queries"),
          show_color = "yellow") %>%
   rename(geometry = geom)
 
-aantallen_planten_extern <- read_csv2("C:/Rprojecten/soortenmeetnetten-queries/output/controle_plantendata/plantenmeetnetten_migratie_2023.csv") %>%
+aantallen_planten_extern <- read_csv2("C:/Rprojecten/soortenmeetnetten-queries/output/controle_plantendata/plantenmeetnetten_migratie_2024.csv") %>%
   st_as_sf(coords = c("x", "y"), crs = 31370) %>%
   st_transform(4326) %>%
   mutate(label = str_c(meetnet, ";", datum, ";",  code),
           data_type = "meetnettelling ingevoerd in waarnemingen.be",
          show_color = "blue")
 
-aantallen_planten_extra <- read_csv2("C:/Rprojecten/soortenmeetnetten-queries/output/controle_plantendata/plantenmeetnetten_extra_2023.csv") %>%
+aantallen_planten_extra <- read_csv2("C:/Rprojecten/soortenmeetnetten-queries/output/controle_plantendata/plantenmeetnetten_extra_2024.csv") %>%
   st_as_sf(coords = c("x", "y"), crs = 31370) %>%
   st_transform(4326) %>%
   mutate(label = str_c(meetnet, ";", datum, ";aantal=",  aantal),
@@ -414,7 +414,7 @@ tracks <- st_read(dsn = file.path(fileman_up("soortenmeetnetten-queries"), "raw/
   filter(year(datum) == year_evaluation)
 ```
 
-Onderstaande kaart geeft de tellingen voor 2022. We onderscheiden:
+Onderstaande kaart geeft de tellingen voor 2024. We onderscheiden:
 
 + de meetnettellingen ingevoerd in meetnetten.be (gele cirkels)
 + de meetnettellingen ingevoerd in waarnemingen.be (blauwe cirkels); deze moeten nog gemigreerd worden naar meetnetten.ne

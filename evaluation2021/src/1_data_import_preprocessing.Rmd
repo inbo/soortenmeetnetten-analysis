@@ -6,7 +6,7 @@ data_path <- fileman_up("soortenmeetnetten-queries")
 
 #versie <- get_date_export_smp()
 
-versie <- "2024-12-16"
+versie <- "2025-01-15"
 ```
 
 ```{r data import}
