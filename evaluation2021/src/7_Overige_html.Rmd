@@ -23,7 +23,8 @@ tabel_meetnetkarakteristieken %>%
   select(meetnet, protocol, type, opstartjaar, 'duur meetcyclus'= duur_meetcyclus,  'bezoeken (/jaar)' = bezoeken, telperiode) %>%
   unique() %>%
   kable(caption = "Overzicht van de karakteristieken van de overigemeetnetten: veldprotocol, type meetnet (integraal of steekproef), aantal meetnetlocaties en de meetcyclus in jaren",
-        align = c("l", "l", "l", "c", "c", "c", "c")) %>%
+        align = c("l", "l", "l", "c", "c", "c", "c"),
+        label = NA) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
                 font_size = 11) %>%
   column_spec(5, width = "2cm")
@@ -55,7 +56,8 @@ tabel_rapport %>%
   filter(type_locatie == "Meetnetlocatie") %>%
   select(meetnet,  protocol, "aantal locaties", jaardoel, "doelbereik jaar (%)", "tellingen conform protocol", "tellingen niet uitvoerbaar",  "locaties geteld",  "locaties voldoende geteld - totaal", "locaties voldoende geteld - nieuw") %>%
   kable(caption = "Evaluatie van de jaardoelen", 
-        align = c("l", "l", "l","c","c", "c", "c", "c", "c", "c", "c")) %>%
+        align = c("l", "l", "l","c","c", "c", "c", "c", "c", "c", "c"),
+        label = NA) %>%
  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
                font_size = 11) %>%
   collapse_rows(columns = c(1))
@@ -86,7 +88,8 @@ if (n_extra > 0) {
     select(meetnet,  protocol,  "tellingen conform protocol",  "locaties voldoende geteld - totaal") %>%
     kable(booktabs = TRUE, 
         caption = "Overzicht van tellingen in extra locaties", 
-        align = c("l", "l", "l","c","c", "c", "c", "c", "c", "c", "c")) %>%
+        align = c("l", "l", "l","c","c", "c", "c", "c", "c", "c", "c"),
+        label = NA) %>%
     kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
                font_size = 11) %>%
     collapse_rows(columns = c(1))
@@ -289,13 +292,15 @@ overzicht_herbezoek <- locaties_herbezoek %>%
 
 ```{r}
 overzicht_prioritair %>%
-  kable(caption = "Overzicht prioritair te bezoeken locaties (waarvoor aanwezigheid nog niet met zekerheid werd vastgesteld)") %>%
+  kable(caption = "Overzicht prioritair te bezoeken locaties (waarvoor aanwezigheid nog niet met zekerheid werd vastgesteld)",
+        label = NA) %>%
   kable_styling()
 ```
 
 ```{r}
 overzicht_herbezoek %>%
-  kable(caption = "Overzicht te herbezoeken locaties (waarvoor de laatste aanwezigheid meer dan 12 jaar geleden werd vastgesteld)") %>%
+  kable(caption = "Overzicht te herbezoeken locaties (waarvoor de laatste aanwezigheid meer dan 12 jaar geleden werd vastgesteld)",
+        label = NA) %>%
   kable_styling()
 ```
 
@@ -339,7 +344,8 @@ overzicht_overige <- locaties_overige %>%
 
 ```{r}
 overzicht_prioritair %>%
-  kable(caption = "Overzicht prioritair te bezoeken locaties (waarvoor aanwezigheid nog niet met zekerheid werd vastgesteld)") %>%
+  kable(caption = "Overzicht prioritair te bezoeken locaties (waarvoor aanwezigheid nog niet met zekerheid werd vastgesteld)",
+        label = NA) %>%
   kable_styling()
 ```
 

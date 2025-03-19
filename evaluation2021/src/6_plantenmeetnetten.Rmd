@@ -26,7 +26,8 @@ tabel_meetnetkarakteristieken %>%
   unique() %>%
   arrange(meetnet) %>%
   kable(caption = "Overzicht van de karakteristieken van de plantenmeetnetten: veldprotocol, type meetnet (integraal of steekproef), aantal meetnetlocaties en de meetcyclus in jaren",
-        align = c("l", "l", "l", "c", "c", "c", "c")) %>%
+        align = c("l", "l", "l", "c", "c", "c", "c"),
+        label = NA) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
                 font_size = 11) %>%
   column_spec(5, width = "2cm")
@@ -55,7 +56,8 @@ overzicht_meetnetten_planten %>%
          "nieuw in meetcyclus" = voldoende_geteld_totaal_nieuw,
          "met track" = voldoende_geteld_track) %>%
   kable(align = c("l", "c", "c", "c", "c", "c", "c"),
-        caption = str_c("Tellingen plantenmeetnetten in ", year_evaluation)) %>%
+        caption = str_c("Tellingen plantenmeetnetten in ", year_evaluation),
+        label = NA) %>%
   kable_styling() %>%
   add_header_above(c(" " = 2, "aantal tellingen" = 2, "aantal getelde locaties" = 3))
   
@@ -78,7 +80,8 @@ overzicht_meetnetten_planten %>%
          "totaal in meetcyclus" = voldoende_geteld_totaal_cyclus,
          "totaal in meetcyclus met track" = voldoende_geteld_track_cyclus) %>%
   kable(align = c("l", "c", "c", "c"),
-        caption = "Tellingen plantenmeetnetten voor de meetcyclus") %>%
+        caption = "Tellingen plantenmeetnetten voor de meetcyclus",
+        label = NA) %>%
   kable_styling() %>%
   add_header_above(c(" " = 2, "aantal getelde locaties" = 2))
 ```
@@ -109,7 +112,8 @@ overzicht_planten %>%
          "nieuw in meetcyclus" = voldoende_geteld_totaal_nieuw,
          "met track" = voldoende_geteld_track) %>%
   kable(align = "c",
-        caption = "Tellingen voor alle plantenmeetnetten samen in 2022, 2023 en 2024") %>%
+        caption = "Tellingen voor alle plantenmeetnetten samen in 2022, 2023 en 2024",
+        label = NA) %>%
    kable_styling() %>%
   add_header_above(c(" " = 3, "aantal tellingen" = 2, "aantal getelde locaties" = 3))
 
@@ -127,7 +131,8 @@ overzicht_planten %>%
          "totaal in meetcyclus" = voldoende_geteld_totaal_cyclus,
          "totaal in meetcyclus met track" = voldoende_geteld_track_cyclus) %>%
   kable(align = "c",
-        caption = "Tellingen voor alle plantenmeetnetten voor de volledige meetcyclus") %>%
+        caption = "Tellingen voor alle plantenmeetnetten voor de volledige meetcyclus",
+        label = NA) %>%
   kable_styling() %>%
   add_header_above(c(" " = 2, "aantal getelde locaties" = 2))
 ```
