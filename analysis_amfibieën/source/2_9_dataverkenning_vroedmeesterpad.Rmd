@@ -3,11 +3,11 @@
 
 ## Overzicht aantallen
 
-### Meetnet
+### Adulten
 
 ```{r}
 
-analyseset_roepkoren_vroedmeesterpad <- read_vc(file = "analyseset_vroedmeesterpad", root = "../output/analyseset")
+analyseset_roepkoren_vroedmeesterpad <- read_vc(file = "analyseset_vroedmeesterpad_roepkoren", root = "../output/analyseset")
 
 ```
 
@@ -41,8 +41,47 @@ overzicht_wide %>%
   kable_styling()
 ```
 
+ 
+### Larven
 
+```{r}
 
-Wanneer bij een bezoek wordt aangegeven dat er met hydrofoon werd geteld, kunnen zowel aantallen ingevuld worden zowel met hydrofoon als zonder hydrofoon. 
-De aantallen zonder hydrofoon zijn op één telling na allemaal nulwaarnemingen.Gaat hier effectief om nulwaarnemingen of zijn het ontbrekende waarden?  
+analyseset_larven_vroedmeesterpad <- read_vc(file = "analyseset_vroedmeesterpad_larven", root = "../output/analyseset")
 
+larven_totaal <- analyseset_larven_vroedmeesterpad %>%
+  group_by(meetnet, locatie, datum, jaar, soort_nl, primaire_soort) %>%
+  summarise(aantal = sum(aantal),
+            aantal_geschept = sum(n_catch),
+            n_subloc = n()) %>%
+  ungroup()
+```
+
+```{r}
+larven_totaal %>%
+  filter(primaire_soort) %>%
+  ggplot(aes(x = jaar, y = aantal)) +
+  geom_point(alpha = 0.3) +
+  stat_summary(fun.data = "mean_cl_boot", colour = "red", size = 1, alpha = 0.5) 
+```
+
+### Per locatie
+
+```{r}
+overzicht_locatie <- larven_totaal %>%
+  filter(primaire_soort) %>%
+  group_by(locatie, jaar) %>%
+  summarise(aantal_gemiddeld = round(mean(aantal), 1)) %>%
+  ungroup()
+
+overzicht_wide <- overzicht_locatie %>%
+  arrange(jaar) %>%
+  pivot_wider(names_from = "jaar", values_from = aantal_gemiddeld)
+
+```
+
+```{r}
+overzicht_wide %>%
+  arrange(locatie) %>%
+  kable(caption = "gemiddeld aantal geteld per jaar en per locatie") %>%
+  kable_styling()
+```

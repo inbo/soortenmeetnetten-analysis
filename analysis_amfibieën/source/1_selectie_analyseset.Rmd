@@ -29,8 +29,7 @@ counts <- get_counts_smp()
 
 locations <- get_locations_smp(only_active = FALSE) %>%
   st_drop_geometry() %>%
-  filter(locatie_type == "locatie") %>%
-  mutate(is_sample = ifelse(locatie %in% c("Merkske - Poel B45", "Merkske - Poel B48", "Merkske - Poel B43"), TRUE, is_sample)) #aanpassen in meetnetten.be
+  filter(locatie_type == "locatie")
 
 ```
 
@@ -93,6 +92,30 @@ dataset_larven <-  visits %>%
   left_join(locatie_clusters, by = c("meetnet", "locatie")) %>%
   inner_join(select(counts_larven, visit_id,  soort_nl, soort_wet, aantal, levensstadium, primaire_soort, n_catch, zoekinspanning, larvetelling, metamorftelling), by = "visit_id") 
   
+```
++ Bij vroedmeesterpad gebeurt er een telling per sublocatie. Per telling noteren we hoeveel keer er is geschept.
+
+```{r select data, warning = FALSE}
+
+catch_effort_sample <- covar_sample %>%
+  filter(bezoekvariabele %in% c("aantal keer geschept")) %>%
+  select(visit_id, sample_id, bezoekvariabele, waarde) %>%
+  pivot_wider(names_from = bezoekvariabele, values_from = waarde) %>%
+  rename(n_catch = "aantal keer geschept") %>%
+  mutate(n_catch = as.numeric(n_catch))
+
+counts_larven_vroedmeesterpad <- counts %>%
+  filter(protocol %in% c("Vroedmeesterpad - Larven")) %>%
+  group_by(meetnet, protocol, visit_id, sample_id, soort_nl, soort_wet, primaire_soort, levensstadium) %>%
+  summarise(aantal = sum(aantal),
+            n_records = n()) %>%
+  ungroup() %>%
+  left_join(catch_effort_sample, by = c("visit_id", "sample_id")) %>%
+  filter(levensstadium == "Larva")
+
+dataset_larven_vroedmeesterpad <-  visits %>%
+  left_join(locaties, by = c("meetnet", "locatie")) %>%
+  inner_join(select(counts_larven_vroedmeesterpad, visit_id, sample_id,  soort_nl, soort_wet, aantal, levensstadium, primaire_soort, n_catch), by = c("visit_id")) 
   
 ```
 
@@ -1561,7 +1584,9 @@ write_vc(analyseset_poelkikker_wide, file = "analyseset_poelkikker", root = "../
 
 write_vc(analyseset_rugstreeppad, file = "analyseset_rugstreeppad", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_nl", "visit_id", "levensstadium", "activiteit"), strict = FALSE)
 
-write_vc(analyseset_roepkoren_vroedmeesterpad, file = "analyseset_vroedmeesterpad", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_nl", "visit_id"), strict = FALSE)
+write_vc(analyseset_roepkoren_vroedmeesterpad, file = "analyseset_vroedmeesterpad_roepkoren", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_nl", "visit_id"), strict = FALSE)
+
+write_vc(dataset_larven_vroedmeesterpad, file = "analyseset_vroedmeesterpad_larven", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "soort_nl", "visit_id", "sample_id"), strict = FALSE)
 
 write_vc(habitatkenmerken_boomkikker_kamsalamander_wide, file = "habitatkenmerken_boomkikker_kamsalamander_wide", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "visit_id"), strict = FALSE)
 

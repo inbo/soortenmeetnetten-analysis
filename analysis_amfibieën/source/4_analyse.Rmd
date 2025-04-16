@@ -9,19 +9,20 @@
 ```{r}
 analyseset_roepkoren_boomkikker <- read_vc("analyseset_roepkoren_boomkikker", "../output/analyseset")
 
-analyseset_roepkoren_boomkikker <-  analyseset_roepkoren_boomkikker %>%
+check <-  analyseset_roepkoren_boomkikker %>%
   filter(is_sample) %>%
   filter(primaire_soort) %>%
   group_by(meetnet, locatie) %>%
   filter(sum(aantal) > 0) %>%
   ungroup() %>%
-  #filter(jaar <= 2021) %>%
+  filter(jaar <= 2024) %>%
   mutate(meetcyclus_scaled = meetcyclus,
          meetcyclus = str_c(meetcyclus_start, "_", meetcyclus_end),
          year_scaled = jaar - min(jaar) + 1,
          jaar_scaled = year_scaled,
          cluster2 = cluster,
-         fjaar = factor(jaar))
+         fjaar = factor(jaar)) %>%
+  select(aantal, fjaar)
 
 ```
 
@@ -44,6 +45,9 @@ analyseset_roepkoren_boomkikker <-  analyseset_roepkoren_boomkikker %>%
   + random slope voor cluster
 
 ```{r}
+
+test <- inla(formula = aantal ~ fjaar,
+             data = check)
 
 indexmodel_meetcyclus_iid <- inla(formula = aantal ~ meetcyclus  + 
                                 f(locatie, 

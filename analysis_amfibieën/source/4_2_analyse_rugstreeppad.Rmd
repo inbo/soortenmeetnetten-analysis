@@ -21,9 +21,9 @@ analyseset_rugstreeppad_est <- analyseset_rugstreeppad %>%
 
 ```{r}
 analyseset_rugstreeppad_adult <- analyseset_rugstreeppad_est %>%
-  filter(jaar <= 2024) %>%
-  filter(type_telling_est == "avondtelling") %>%
-  filter(levensstadium == "adult") %>%
+  dplyr::filter(jaar <= 2024) %>%
+  dplyr::filter(type_telling_est == "avondtelling") %>%
+  dplyr::filter(levensstadium == "adult") %>%
   group_by(locatie) %>%
   mutate(paired = n_distinct(meetcyclus) > 1) %>%
   mutate(aanwezig = sum(aantal) > 0) %>%
@@ -36,17 +36,22 @@ analyseset_rugstreeppad_adult <- analyseset_rugstreeppad_est %>%
   
 ```
 
-```{r}
+```{r, fig.height= 11}
 analyseset_rugstreeppad_adult %>%
-  ggplot(aes(x = meetcyclus, y = aantal_adult_roepend, group = locatie)) +
+  group_by(locatie, meetcyclus) %>%
+  summarise(mean_aantal_adult_roepend = mean(aantal_adult_roepend)) %>%
+  ungroup() %>%
+  ggplot(aes(x = meetcyclus, y = mean_aantal_adult_roepend, group = locatie)) +
   geom_point() +
-  geom_line()
+  lims(y = c(0, NA)) +
+  geom_line(alpha = 0.3) +
+  facet_wrap(~locatie, scales = "free_y")
 ```
 
 
 ```{r}
 analyseset_rugstreeppad_adult %>%
-  filter(aanwezig) %>%
+  dplyr::filter(aanwezig) %>%
   group_by(periode) %>%
   summarise(mean_puntlocaties = mean(n_samples),
             mean_roepend = mean(calling),
@@ -61,8 +66,8 @@ analyseset_rugstreeppad_adult %>%
 
 ```{r}
 analyseset_rugstreeppad_adult %>%
-  filter(aanwezig) %>%
-  filter(paired) %>%
+  dplyr::filter(aanwezig) %>%
+  dplyr::filter(paired) %>%
   group_by(periode) %>%
   summarise(mean_puntlocaties = mean(n_samples),
             mean_roepend = mean(calling),
@@ -74,6 +79,15 @@ analyseset_rugstreeppad_adult %>%
   kable_styling()
 ```
 
+```{r}
+
+library(INLA)
+test <- data.frame(aantal = c(5, 6, 9, 12, 46, 15, 26),
+                   jaar = factor(2020:2026))
+
+model_inla <- inla(formula = aantal ~ jaar,
+                   data = test)
+```
 
 
 ```{r}
@@ -83,7 +97,8 @@ indexmodel_meetcyclus_iid <- inla(formula = aantal_adult_roepend ~ meetcyclus +
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "nbinomial",
                        data = analyseset_rugstreeppad_adult %>%
-                         filter(aanwezig),
+                         dplyr::filter(aanwezig) %>%
+                         as.data.frame(),
                        offset = n_samples,
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE),
