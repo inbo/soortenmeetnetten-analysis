@@ -2,7 +2,7 @@
 
 ```{r}
 
-year_planning <- 2024
+year_planning <- 2025
 
 werkpakketten_locaties <- read_vc(root = fileman_up("soortenmeetnetten-queries"),
                                file =  "raw/werkpakketten_locaties")
@@ -16,8 +16,15 @@ evaluatie_locaties_cyclus <- evaluatie_locaties %>%
   summarise(voldoende_geteld_cyclus = sum(voldoende_geteld) > 0,
          voldoende_data_cyclus = sum(voldoende_data) > 0,
          max_n_tellingen = max(aantal_tellingen_jaardoel),
-         jaar = str_c(jaar, collapse = "; ")) %>%
+         jaar = str_c(jaar, collapse = "; "),
+         min_jaar = min(jaar)) %>%
   ungroup()
+
+werkpakketten_locaties_cyclus <- werkpakketten_locaties %>%
+  mutate(jaar_werkpakket = as.numeric(str_sub(werkpakket, start = -4))) %>%
+  left_join(distinct(evaluatie_locaties_cyclus, meetnet, min_jaar), by = c("meetnet")) %>%
+  filter(jaar_werkpakket >= min_jaar) %>%
+  select(-min_jaar)
 
 meetnet_protocol <- evaluatie_locaties_cyclus %>%
   distinct(meetnet, protocol, meetcyclus)
@@ -26,111 +33,12 @@ overzicht_locaties_cyclus <- locaties_metadata %>%
   inner_join(meetnet_protocol, by = c("meetnet")) %>%
   left_join(evaluatie_locaties_cyclus, by = c("meetnet", "protocol", "locatie", "meetcyclus")) %>%
   mutate(voldoende_geteld_cyclus = ifelse(is.na(voldoende_geteld_cyclus), FALSE, voldoende_geteld_cyclus),
-         voldoende_data_cyclus = ifelse(is.na(voldoende_data_cyclus), FALSE, voldoende_data_cyclus))
-
-detail_cyclus <- evaluatie_locaties %>%
-  filter(duur_meetcyclus == 3) %>%
-  group_by(meetnet) %>%
-  filter(meetcyclus == max(meetcyclus)) %>%
-  ungroup() %>%
-  group_by(meetnet,  meetcyclus, duur_meetcyclus) %>%
-  summarise(jaar_min = min(jaar)) %>%
-  ungroup() %>%
-  mutate(jaar_max = jaar_min+ duur_meetcyclus - 1)
-```
-
-## Amfibieën
-
-
-```{r}
-
-meetnet_select <- c("Boomkikker", "Rugstreeppad")
-
-
-werkpakket_soort <- werkpakketten_locaties %>%
-  filter(meetnet %in% meetnet_select) %>%
-  mutate(jaar = as.numeric(str_sub(werkpakket, start = -4))) %>%
-  left_join(evaluatie_locaties_cyclus, by = c("meetnet", "locatie")) %>%
-  left_join(detail_cyclus, by = c("meetnet")) %>%
-  filter(jaar >= jaar_min) %>%
-  mutate(voldoende_geteld_cyclus = ifelse(is.na(voldoende_geteld_cyclus), FALSE, voldoende_geteld_cyclus),
-         voldoende_data_cyclus = ifelse(is.na(voldoende_data_cyclus), FALSE, voldoende_data_cyclus))
-
-update_wp <- werkpakket_soort %>%
-  mutate(add_to_wp = (jaar < year_planning) & (!voldoende_geteld_cyclus),
-         remove_from_wp = (jaar >= year_planning) & (voldoende_geteld_cyclus)) %>%
-  filter(add_to_wp | remove_from_wp)
+         voldoende_data_cyclus = ifelse(is.na(voldoende_data_cyclus), FALSE, voldoende_data_cyclus)) %>%
+  left_join(werkpakketten_locaties_cyclus, by = c("meetnet", "locatie"))
+  
+overzicht_locaties_cyclus_unique <- overzicht_locaties_cyclus %>%
+  group_by(meetnet, protocol, locatie, is_active, is_sample, meetcyclus, voldoende_geteld_cyclus, voldoende_data_cyclus, jaar, min_jaar) %>%
+  summarise(jaar_werkpakket = str_c(unique(jaar_werkpakket), collapse = ";"))
 
 ```
-
-## Libellen
-
-```{r}
-
-meetnet_select <- c("Bosbeekjuffer")
-
-
-werkpakket_soort <- werkpakketten_locaties %>%
-  filter(meetnet %in% meetnet_select) %>%
-  mutate(jaar = as.numeric(str_sub(werkpakket, start = -4))) %>%
-  left_join(evaluatie_locaties_cyclus, by = c("meetnet", "locatie")) %>%
-  left_join(detail_cyclus, by = c("meetnet")) %>%
-  filter(jaar >= jaar_min) %>%
-  mutate(voldoende_geteld_cyclus = ifelse(is.na(voldoende_geteld_cyclus), FALSE, voldoende_geteld_cyclus),
-         voldoende_data_cyclus = ifelse(is.na(voldoende_data_cyclus), FALSE, voldoende_data_cyclus),
-         bezocht = !is.na(protocol)) %>%
-  filter(jaar < 2023)
-
-niet_geteld <- werkpakket_soort %>%
-  filter(jaar == 2022) %>%
-  filter(!voldoende_geteld_cyclus)
-
-update_wp <- werkpakket_soort %>%
-  mutate(add_to_wp = (jaar < year_planning) & (!voldoende_data_cyclus),
-         remove_from_wp = (jaar >= year_planning) & (voldoende_data_cyclus)) %>%
-  filter(add_to_wp | remove_from_wp) %>%
-  select(-jaar, -werkpakket) %>%
-  unique()
-
-nieuwe_cyclus <- werkpakket_soort %>%
-  mutate(jaar = jaar + 3) %>%
-  group_by(meetnet, locatie) %>%
-  summarise(jaar = min(jaar),
-            status_vorige_cyclus = ifelse(any(voldoende_geteld_cyclus), "voldoende geteld",
-                                          ifelse(any(bezocht), "bezocht/ niet voldoende geteld", "niet geteld/ niet bezocht"))) %>%
-  ungroup() %>%
-  arrange(meetnet, jaar)
-
-write_csv2(nieuwe_cyclus, "../output/overzicht_libellen_2023_2025.csv")
-```
-
-## Dagvlidners
-
-```{r}
-
-meetnet_select <- c("Heivlinder", "Oranje zandoogje", "Argusvlinder")
-
-
-werkpakket_soort <- werkpakketten_locaties %>%
-  filter(meetnet %in% meetnet_select) %>%
-  mutate(jaar = as.numeric(str_sub(werkpakket, start = -4))) %>%
-  left_join(evaluatie_locaties_cyclus, by = c("meetnet", "locatie")) %>%
-  left_join(detail_cyclus, by = c("meetnet")) %>%
-  filter(jaar >= jaar_min) %>%
-  mutate(voldoende_geteld_cyclus = ifelse(is.na(voldoende_geteld_cyclus), FALSE, voldoende_geteld_cyclus),
-         voldoende_data_cyclus = ifelse(is.na(voldoende_data_cyclus), FALSE, voldoende_data_cyclus))
-
-update_wp <- werkpakket_soort %>%
-  mutate(add_to_wp = (jaar < year_planning) & (!voldoende_data_cyclus),
-         remove_from_wp = (jaar >= year_planning) & (voldoende_data_cyclus)) %>%
-  filter(add_to_wp | remove_from_wp) %>%
-  select(-jaar, -werkpakket) %>%
-  unique()
-
-nieuwe_cyclus <- werkpakket_soort %>%
-  mutate(jaar = jaar + 3) %>%
-  group_by(meetnet, locatie) %>%
-  summarise(jaar = min(jaar)) %>%
-  ungroup()
-
 ```

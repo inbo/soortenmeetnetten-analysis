@@ -43,7 +43,7 @@ visits <- get_visits_smp(species_group = species_group) %>%
 counts_all <- get_counts_smp(species_group = species_group)
 
 counts_all <- counts_all %>%
-  group_by(soortgroep, meetnet, protocol, jaar, datum, doy, locatie, sublocatie, visit_id, niet_geteld, checklist, species_id, soort_nl, soort_wet, primaire_soort, sample_id, type_aantal) %>%
+  group_by(soortgroep, meetnet, protocol, jaar, datum, doy, locatie, sublocatie, visit_id, niet_geteld, checklist, soort_nl, soort_wet, primaire_soort, sample_id, type_aantal) %>%
   summarise(aantal = sum(aantal)) %>%
   ungroup() %>%
   filter(meetnet != "Gentiaanblauwtje") %>%
@@ -73,6 +73,7 @@ covars <- get_covariates_smp(species_group = species_group) %>%
   filter(meetnet != "Gentiaanblauwtje") %>%
   select(-eenheid) %>%
   pivot_wider(names_from = "bezoekvariabele", values_from = "waarde") %>%
+  rename(temperatuur = temperature) %>%
   mutate(bewolking = factor(bewolking, levels = c("heldere hemel (0/8)", "lichtbewolkt (1 tot 2/8)", "halfbewolkt (3 tot 5/8)", "zwaarbewolkt (6 tot 7/8)", "betrokken (8/8)")),
          temperatuur = as.numeric(temperatuur),
          windkracht = factor(windkracht, levels = c("windstil (0 Bft)", "zeer zwakke wind (1 Bft)", "zwakke wind (2 Bft)" , "vrij matige wind (3 Bft)", "matige wind (4 Bft)", "vrij krachtige wind (5 Bft)", "krachtige wind (6 Bft)", "stormachtig (8 Bft)"))) %>%
@@ -560,4 +561,13 @@ if (new_analysis) {
 ```
 
 
+```{r}
+check <- analyseset_transecten_locations %>%
+  filter(meetnet == "Klaverblauwtje") %>%
+  summarise(aantal_tot = sum(aantal),
+            n_bezoeken = n_distinct(visit_id),
+            .by = c(locatie, jaar)) 
+
+
+```
 

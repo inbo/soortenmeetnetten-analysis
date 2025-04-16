@@ -48,7 +48,7 @@ library(n2khab)
 
 
 ```{r, cache=FALSE}
-source(here("src", "functions_smp.R"))
+source(here("source", "functions_smp.R"))
 
 ```
 
@@ -62,11 +62,11 @@ Figuur \@ref(fig:nesten) toont het aantal getelde (nieuwe) nesten per transect p
 
 ```{r }
 
-visits_hazelmuis <- get_visits_smp(file = "raw/bezoeken_20231213") %>%
+visits_hazelmuis <- get_visits_smp() %>%
   filter(protocol == "Hazelmuis - Transect") %>%
   select(visit_id, bezoek_status, validatie)
 
-aantal_nesten <- get_counts_smp(file = "raw/aantallen_20231213") %>%
+aantal_nesten <- get_counts_smp() %>%
   filter(protocol == "Hazelmuis - Transect") %>%
   select(meetnet, locatie, visit_id, datum, jaar, activiteit, aantal) %>%
   mutate(activiteit = ifelse(visit_id == 640 & aantal == 0, "nest (hervondst)", activiteit)) %>%
@@ -132,14 +132,27 @@ Figuur \@ref(fig:occurencebuis) toont per jaar de proportie van de nesbuizen met
 
 ```{r}
 
-visits_nestbuizen <- get_visits_smp(file = "raw/bezoeken_20231213") %>%
+visits_nestbuizen <- get_visits_smp() %>%
   filter(protocol == "Hazelmuis - Nestbuizen") %>%
   select(visit_id, bezoek_status, validatie) %>%
   mutate(visit_id = as.character(visit_id))
 
-aantal_nestenbuizen <- read_vc(root = fileman_up("soortenmeetnetten-queries"), file = "raw/aantal_hazelmuis_nestbuizen_20231218") %>%
+aantal_nestenbuizen <- read_vc(root = fileman_up("soortenmeetnetten-queries"), file = "raw/aantal_hazelmuis_nestbuizen") %>%
   mutate(sublocatie = str_c(locatie, "-", sublocatie)) %>%
   left_join(visits_nestbuizen, by = "visit_id")
+
+aantal_nestenbuizen_detail <- aantal_nestenbuizen  %>%
+  mutate(jaar = year(datum),
+         nestbuis = str_extract(sublocatie, str_c(1:50, collapse = "|"))) %>%
+  filter(!(!primaire_soort & aantal == 0)) %>%
+  mutate(primaire_soort = ifelse(primaire_soort, "ja", "nee"),
+         versheid_sporen = ifelse(code == "O", "oud",
+                                   ifelse(code == "F", "vers",
+                                           ifelse(code == "U", "onzeker", NA))),
+         type_waarneming = ifelse(observation_type == "exact count", "individu", activiteit),
+         levensstadium = ifelse(type_waarneming == "individu", levensstadium, NA)) %>%
+  select(meetnet, locatie, nestbuis, jaar, datum, primaire_soort, soort_nl, type_waarneming, levensstadium, aantal, versheid_sporen) %>%
+  arrange(locatie, datum, nestbuis) 
 
 occurence_nestbuizen <- aantal_nestenbuizen %>%
   mutate(jaar = year(datum)) %>%
@@ -172,7 +185,7 @@ overzicht_nestbuizen <- occurence_locatie %>%
   select(-prop_aanwezig_oud)
 
 write_csv2(overzicht_nestbuizen, "../output/hazelmuis_nestbuizen.csv") 
-
+write_csv2(aantal_nestenbuizen_detail, "../output/aantallen_nestbuizen_detail.csv") 
 ```
 
 ```{r}

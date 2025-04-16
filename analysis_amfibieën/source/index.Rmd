@@ -2,7 +2,7 @@
 title: "Analyse Amfibiënmeetnetten"
 author: 
   -
-    name: "Toon Westra, Jeroen Speybroeck, Loïc van Doorn, Sam Van De Poel,  Frederic Piesschaert, Thierry Onkelinx"
+    name: "Toon Westra, Jeroen Speybroeck, Loïc van Doorn, Sam Van De Poel, Frederic Piesschaert, Thierry Onkelinx"
     email: "Toon.Westra@inbo.be"
 subtitle: "Technisch rapport"
 link-citations: TRUE
@@ -48,15 +48,14 @@ library(effectclass)
 library(kableExtra)
 library(INLA)
 library(git2rdata)
-library(here)
 library(n2khab)
 library(inlatools)
 library(openssl)
 library(units)
 
-library(conflicted)
-conflicts_prefer(dplyr::filter())
-conflicts_prefer(dplyr::lag)
+# library(conflicted)
+# conflicts_prefer(dplyr::filter())
+# conflicts_prefer(dplyr::lag)
 ```
 
 ```{r}

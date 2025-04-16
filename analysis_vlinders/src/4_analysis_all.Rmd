@@ -117,6 +117,9 @@ indexmodel_1 <- models_inla$indexmodel
 
 ```{r}
 
+analyseset_transecten_locations <- analyseset_transecten_locations %>%
+  filter(!((meetnet == "Klaverblauwtje") & (jaar <= 2020))) # pas vanaf 2021 meerdere locaties geteld
+
 seed <- 15486
 
 analyseset_locations_by_species <- analyseset_transecten_locations %>%
@@ -224,6 +227,7 @@ index_meetcyclus_av <- derive_index_meetcyclus_inla(analyseset_meetcyclus_argusv
 
 analyseset_meetcyclus_oz <- analyseset_meetcyclus %>%
   filter(meetnet == "Oranje zandoogje") %>%
+  filter(jaar <= 2022) %>%
   mutate( jaar_scaled = jaar - min(jaar),
          locatie = as.character(locatie),
          locatie = as.factor(locatie),
@@ -244,7 +248,7 @@ indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ meetcyclus  +
 
 set.seed(54545)
 index_meetcyclus_oz <- derive_index_meetcyclus_inla(analyseset_meetcyclus_oz, 
-                                                    function_eval = function(...) {c(exp(meetcyclus2020_2022), exp(meetcyclus2023_2025))},
+                                                    function_eval = function(...) {c(exp(meetcyclus2020_2022))},
                              indexmodel_doyrw2_iid_meetcyclus, set_seed = seed)
 
 result_indexmodel_meetcyclus <- index_meetcyclus_av %>%
@@ -857,7 +861,7 @@ verschillen_refjaar_table %>%
       escape = FALSE,
       align = "lcccccc") %>%
 kable_styling() %>%
-add_header_above(c(" " = 3, "Verschil t.o.v. referentiejaar" = 7))
+add_header_above(c(" " = 3, "Verschil t.o.v. referentiejaar" = 8))
 ```
 
 ```{r}
@@ -907,6 +911,10 @@ verschil_jaren_ref %>%
   scale_color_manual(values = klasse_color) +
   theme(legend.position = "hide") +
   facet_wrap(~soort_nl, scales = "free_y")
+
+ggsave("../output/dagvlinders_index.png",
+       width = 14,
+       height = 10)
 ```
 
 
@@ -931,7 +939,7 @@ ggsave("../output/figures/2024/verschil_jaar_argusvlinder.jpg",
        width = 5, height = 4)
 ```
 
-```{r}
+```{r, eval = FALSE}
 verschil_jaren_ref_regio <- results_indexmodel_argusvlinder_regio %>%
   filter(parameter == "index") %>%
   filter(!is.na(mean)) %>%
@@ -952,7 +960,7 @@ verschil_jaren_ref_regio <- verschil_jaren_ref_regio %>%
   
 ```
 
-```{r, fig.width= 7, fig.height= 4}
+```{r, fig.width= 7, fig.height= 4, eval = FALSE}
 verschil_jaren_ref_regio %>%
   filter(meetnet == "Argusvlinder") %>%
   filter(regio != "Limburg") %>%
@@ -1045,7 +1053,7 @@ ggsave("../output/figures/2024/verschil_jaren_opeenvolgend_argusvlinder.jpg",
        width = 5, height = 4)
 ```
 
-```{r}
+```{r, eval = FALSE}
 verschil_vorigjaar_regio <- results_indexmodel_argusvlinder_regio %>%
   filter(parameter == "diff_previous_year") %>%
   mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
@@ -1058,7 +1066,7 @@ verschil_vorigjaar_regio <- results_indexmodel_argusvlinder_regio %>%
   
 ```
 
-```{r, fig.width= 7, fig.height= 4}
+```{r, fig.width= 7, fig.height= 4, eval = FALSE}
 verschil_vorigjaar_regio %>%
   filter(meetnet == "Argusvlinder") %>%
   mutate(klasse = str_remove_all(klasse, "`")) %>%
@@ -1176,7 +1184,7 @@ verschil_meetcyclus_add <- verschil_meetcyclus_regio %>%
 
 
 
-```{r, fig.width= 8}
+```{r, fig.width= 8, eval = FALSE}
 
 verschil_meetcyclus_regio <- verschil_meetcyclus_regio %>%
   bind_rows(verschil_meetcyclus_add)
@@ -1229,9 +1237,9 @@ labels_show <- str_c(c(-75, -50, -25, 0, 33, 100), " %")
 trend %>%
   mutate(meetnet = factor(meetnet, levels = volgorde_soorten)) %>%
   ggplot( aes(x = meetnet, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
-  geom_hline(aes(yintercept = max(log(treshold_low/100 +1))), linetype = 3) +
-  geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3) +
-  geom_hline(yintercept = 0, linetype = 2) +
+  geom_hline(aes(yintercept = max(log(treshold_low/100 +1))), linetype = 3, alpha = 0.8) +
+  geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3, alpha = 0.8) +
+  geom_hline(yintercept = 0, linetype = 2, alpha = 0.8) +
   geom_errorbar(width = 0, size = 10, alpha = 0.3) +
   geom_point(size = 7, alpha = 0.6) +
   geom_text(size = 4, colour = "black") +
@@ -1240,6 +1248,8 @@ trend %>%
   coord_flip() +
   scale_color_manual(values = klasse_color) +
   theme(legend.position = "hide")
+
+ggsave("../output/dagvlinders_trend.png")
 ```
 
 

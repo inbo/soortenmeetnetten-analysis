@@ -26,6 +26,9 @@ visits <- get_visits_smp("libellen")
 counts <- get_counts_smp(species_group = "libellen", count_aggregation = "individuals") %>%
   filter(primaire_soort)
 
+unique(counts$activiteit)
+unique(counts$levensstadium)
+
 count_period <- get_characteristics_smp(species_group = "libellen") %>%
   mutate(doy_min = as.numeric(format(start_telperiode, "%j")),
          doy_max = as.numeric(format(einde_telperiode, "%j")),
@@ -51,10 +54,13 @@ visits_selection <- visits %>%
   ungroup()
 
 counts_selection <- visits_selection %>%
-  select(soortgroep, meetnet, protocol, locatie, jaar, datum, doy, doy_scaled, doy_min, doy_max, doy_mid, visit_id, n_obs, voor_analyse, is_active, is_sample, bezoek_status, bezoek_status_oud) %>%
+  select(soortgroep, meetnet, protocol, locatie, jaar, datum, doy, doy_scaled, doy_min, doy_max, doy_mid, visit_id, n_obs, voor_analyse, is_active, is_sample, bezoek_status) %>%
   left_join(select(counts, visit_id, soort_nl, soort_wet, aantal), by = "visit_id")
 
 ```
+
+
+
 
 
 ```{r}
@@ -81,74 +87,133 @@ analyseset_by_species <- counts_analysis %>%
 
 write_vc(counts_analysis, 
          file = str_c("analyseset_", name_analysis), 
-         root = here(str_c("analysis_", species_group, "/output/temp")), 
+         root = "../output/temp", 
          sorting = c("meetnet", "locatie", "visit_id"), 
          strict = FALSE)
   
+```
+## Verkenning
+
+```{r}
+analysest_speerwaterjuffer <- counts_analysis %>%
+  filter(soort_nl == "Speerwaterjuffer") %>% 
+  mutate(locatie = as.character(locatie),
+           locatie = as.factor(locatie),
+           jaar_centered = jaar - min(jaar),
+           doy_centered = doy - min(doy))
+
+overzicht_speer <- analysest_speerwaterjuffer %>%
+  group_by(soort_wet, jaar, locatie) %>%
+  summarise(n_visits = n_distinct(visit_id),
+            mean_aantal = sum(aantal)/n_visits) %>%
+  ungroup() 
+
+overzicht_speer %>%
+  ggplot(aes(x = jaar, y = mean_aantal, group = locatie, colour = locatie, shape = factor(n_visits))) +
+  geom_point(alpha = 0.6, size = 3) +
+  geom_line(size = 0.5, alpha = 0.8, linetype = 2) +
+  facet_wrap(~soort_wet) +
+  labs(shape = "Number of visits", x = "Year", y = "Average count per visit", colour = "Location") +
+  theme(strip.text = element_text(face = "italic"))
+
+ggsave("../output/speerwaterjuffer_locaties.png", height = 5)
 ```
 
 
 ## Modelering
 
-```{r test, eval = FALSE}
+```{r}
 
-analyseset_species <- counts_analysis %>%
-  filter(meetnet == "Gevlekte witsnuitlibel")
+formula_indexmodel <- as.formula("aantal ~ f(jaar_centered, model = \"rw1\", 
+                                  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.3, 0.05)))) + 
+                                f(doy_centered, model = \"rw2\", 
+                                  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = \"iid\", 
+                                   hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.05))))")
+  
+inlamodel_index <- inla(formula_indexmodel,
+              family = "nbinomial",
+              data = analysest_speerwaterjuffer,
+              control.compute = list(config = TRUE, waic = TRUE),
+              control.predictor = list(compute = TRUE))
 
-set.seed(536382)
-indexmodel_nbinom_inla <- fit_indexmodel_nbinom_inla(analyseset_species = analyseset_species)
-indexmodel_nbinom_inla$summary.fixed
-indexmodel_nbinom_inla$summary.hyperpar
-#0.3935573
+result_index <- derive_index_rw_inla(analysest_speerwaterjuffer, inlamodel_rw = inlamodel_index)
+  
+inlamodel_trend <- fit_trendmodel_rw_nbinom_inla(analysest_speerwaterjuffer)
+  
+result_trend <- derive_trend(analyseset_species = analysest_speerwaterjuffer, trendmodel_nbinom = inlamodel_trend)
 
-set.seed(383735)
-indexmodel_nbinom_inlabru <- fit_indexmodel_nbinom_inlabru(analyseset_species)
-indexmodel_nbinom_inla$summary.fixed
-indexmodel_nbinom_inla$summary.hyperpar
+# vanaf 2020 2 extra locaties
 
-set.seed(65243)
-trendmodel_nbinom_inlabru <- fit_trendmodel_nbinom_inlabru(analyseset_species = analyseset_species)
-summary(trendmodel_nbinom_inlabru)
+analysest_speerwaterjuffer_2020 <- counts_analysis %>%
+  filter(soort_nl == "Speerwaterjuffer",
+         jaar >= 2020) %>% 
+  mutate(locatie = as.character(locatie),
+           locatie = as.factor(locatie),
+           jaar_centered = jaar - min(jaar),
+           doy_centered = doy - min(doy))
 
-set.seed(98363)
-index <- derive_index_inla(analyseset_species, indexmodel_nbinom_inla)
-#0.4271696
+inlamodel_index_2020 <- inla(formula_indexmodel,
+              family = "nbinomial",
+              data = analysest_speerwaterjuffer_2020,
+              control.compute = list(config = TRUE, waic = TRUE),
+              control.predictor = list(compute = TRUE))
 
-
-set.seed(35367)
-max_count <- derive_max_count_inla(analyseset_species, indexmodel_nbinom_inla)
-
-set.seed(353637)
-trend <- derive_trend_inlabru(analyseset_species, trendmodel_nbinom_inlabru)
-
-plot(dispersion_check(indexmodel_nbinom_inla))
-
-plot(distribution_check(indexmodel_nbinom_inla))
-
-
+result_index_2020 <- derive_index_rw_inla(analysest_speerwaterjuffer_2020, inlamodel_rw = inlamodel_index_2020)
+  
+inlamodel_trend_2020 <- fit_trendmodel_rw_nbinom_inla(analysest_speerwaterjuffer_2020)
+  
+result_trend_2020 <- derive_trend(analyseset_species = analysest_speerwaterjuffer_2020, trendmodel_nbinom = inlamodel_trend_2020)
 
 ```
+
 
 
 
 ```{r}
-models_inlabru <- analyseset_by_species %>% 
-  mutate(indexmodel = map(data, fit_indexmodel_nbinom_inlabru),
-         trendmodel = map(data, fit_trendmodel_nbinom_inlabru))
+
+seed <- 20211124
+
+set.seed(seed)
 
 models_inla <- analyseset_by_species %>%
-  mutate(indexmodel = map(data, fit_indexmodel_nbinom_inla))
+  mutate(use_seed = TRUE) %>%
+  mutate(indexmodel = map(data, fit_indexmodel_rw_nbinom_inla),
+         trendmodel = map(data, fit_trendmodel_rw_nbinom_inla))
 
-results_indexmodel <- models_inla %>%
-  transmute(index = map2(data, indexmodel, derive_index_inla),
-            max_count = map2(data, indexmodel, derive_max_count_inla))
+results_indexmodel_gebied <- models_inla %>%
+  transmute(index = pmap(list(data, indexmodel, use_seed), derive_index_rw_inla)) %>%
+  unnest(cols = c(meetnet, index))
 
-results_trendmodel <- models_inlabru %>%
-  transmute(trend = map2(data, trendmodel, derive_trend_inlabru),
-            waic_index =  map2(data, indexmodel, get_waic_inlabru),
-            waic_trend = map2(data, trendmodel, get_waic_inlabru))
+results_trendmodel_gebied  <- models_inla %>%
+  transmute(trend = map2(data, trendmodel, derive_trend)) %>%
+  select(meetnet, trend) %>%
+  unnest()
 
+waic_index_gebied  <- models_inla %>%
+  transmute(waic_index =  map2(data, indexmodel, get_waic)) %>%
+  select(meetnet, waic_index) %>%
+  unnest() %>%
+  mutate(model = "indexmodel")
+
+waic_trend_gebied  <- models_inla %>%
+  transmute(waic_trend =  map2(data, trendmodel, get_waic)) %>%
+  select(meetnet, waic_trend) %>%
+  unnest() %>%
+  mutate(model = "trendmodel")
+
+results_waic_gebied <- bind_rows(waic_index_gebied, 
+                         waic_trend_gebied) %>%
+  spread(key = "model", value = "waic") %>%
+  mutate(diff_waic = trendmodel - indexmodel,
+         type_trend = ifelse(diff_waic > 0,
+                               "Niet lineair",
+                               ifelse(diff_waic > -2,
+                                      "Quasi lineair", "Lineair")))
 ```
+
+
+
 
 ```{r}
 results_index <- results_indexmodel %>%
@@ -369,6 +434,149 @@ counts_analysis %>%
 ```
 
 
+### Vergelijking tussen de jaren
+
+
+```{r}
+
+verschil_jaren_ref <- result_index_2020 %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown"))
+  
+verschil_jaren_ref_add <- verschil_jaren_ref %>%
+  distinct(soort_nl, soort_wet, ref_jaar) %>%
+  mutate(jaar = ref_jaar,
+        mean = 1,
+         klasse = "R") 
+
+verschil_jaren_ref <- verschil_jaren_ref %>%
+  bind_rows(verschil_jaren_ref_add) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+verschil_jaren_ref %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Difference compared to reference year", x = "Year") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide",strip.text = element_text(face = "italic")) +
+  facet_wrap(~soort_wet, scales = "free_y")
+
+ggsave("../output/speerwaterjuffer_index_ref2020.png", width = 5, height = 5)
+```
+
+
+```{r}
+
+verschil_jaren_ref <- result_index %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown"))
+  
+verschil_jaren_ref_add <- verschil_jaren_ref %>%
+  distinct(soort_nl, soort_wet, ref_jaar) %>%
+  mutate(jaar = ref_jaar,
+        mean = 1,
+         klasse = "R") 
+
+verschil_jaren_ref <- verschil_jaren_ref %>%
+  bind_rows(verschil_jaren_ref_add) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+verschil_jaren_ref %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Difference compared to reference year", x = "Year") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide",strip.text = element_text(face = "italic")) +
+  facet_wrap(~soort_wet, scales = "free_y")
+
+ggsave("../output/speerwaterjuffer_index_ref2017.png", width = 7, height = 5)
+```
+
+
+```{r}
+verschil_vorigjaar <- result_index %>%
+  filter(parameter == "diff_previous_year") %>%
+  mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+  
+```
+
+```{r}
+verschil_vorigjaar %>%
+  select( soort_nl, soort_wet, periode, klasse) %>%
+  spread(key = "periode", value = "klasse") %>%
+  ungroup() %>%
+  select(-soort_wet) %>%
+  rename("Nederlandse naam" = soort_nl) %>%
+  kbl(caption = "Verschil in aantallen voor opeenvolgende jaren",
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "lcccccc") %>%
+kable_styling()
+```
+
+```{r}
+verschil_vorigjaar %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = periode, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil opeenvolgende jarenr", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide",
+        axis.text.x = element_text(angle = 45)) +
+  facet_wrap(~soort_nl, scales = "free_y")
+```
 
 ## Documenteer analyse
 

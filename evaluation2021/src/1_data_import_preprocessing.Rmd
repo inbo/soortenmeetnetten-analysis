@@ -382,11 +382,16 @@ burchten_das <- data_extern %>%
                        locatie = "burcht_dummy",
                        gebied = c("Haspengouw", "Voeren"),
                        aantal_tellingen_cp = 0)) %>%
+  bind_rows(data.frame(jaar = 2024,
+                       locatie = "burcht_dummy",
+                       gebied = c("Voeren"),
+                       aantal_tellingen_cp = 0)) %>%
   mutate(soortgroep = "zoogdieren",
          meetnet = "Das",
          protocol = "Inhaalslag",
          voldoende_geteld = ifelse(locatie == "burcht_dummy", 0, 1),
-         meetcyclus = ifelse(jaar <= 2018, 1, 2),
+         meetcyclus = ifelse(jaar <= 2018, 1, 
+                             ifelse(jaar <= 2021, 2, 3)),
          jaar_in_meetcyclus = (jaar + 1 - min(jaar)) - 3 * (meetcyclus- 1)) %>%
   group_by(locatie, gebied, meetcyclus) %>%
   mutate(voldoende_geteld_cyclus = ifelse(locatie == "burcht_dummy", 0, 1),
@@ -403,7 +408,7 @@ overzicht_meetnet_das <- burchten_das %>%
   mutate(aantal_voldoende_geteld_cyclus = sum(aantal_voldoende_geteld_nieuw)) %>%
   ungroup() %>%
   mutate(is_sample_history = 1,
-        cyclusdoel = ifelse(gebied == "Haspengouw", 360, 102),
+        cyclusdoel = ifelse(gebied == "Haspengouw", 350, 100),
         duur_meetcyclus = 3) %>%
   arrange(gebied)
  
@@ -474,6 +479,15 @@ doelbereik_cyclus_totaal <- overzicht_meetnetten_all_doel %>%
   ungroup()
   
 write.csv2(doelbereik_cyclus_totaal, "../output/doelbereik_cyclus_totaal.csv")
+
+doelbereik_cyclus_totaal_zdv <- overzicht_meetnetten_all_doel %>%
+  filter(jaar_in_meetcyclus == duur_meetcyclus) %>%
+  filter(!is.na(doelbereik_cyclus)) %>%
+  filter(gebied != "Voeren" | is.na(gebied)) %>%
+  group_by(jaar) %>%
+  summarise(doelbereik_totaal = sum(cyclusdoel * doelbereik_cyclus_m) / sum(cyclusdoel),
+            meetnetten_evaluatie = str_c(meetnet, collapse = "; ")) %>%
+  ungroup()
 
 ```
 

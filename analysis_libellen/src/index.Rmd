@@ -56,7 +56,7 @@ conflicted::conflicts_prefer(dplyr::lag)
 
 
 ```{r}
-source(here("src", "functions_smp.R"))
+source(file.path(fileman_up("soortenmeetnetten-analysis"), "source/functions_smp.R"))
 ```
 
 # Dankwoord {-}
