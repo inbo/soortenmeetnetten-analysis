@@ -16,7 +16,6 @@ Voor de planning van de tellingen en het invoeren van gegevens werd het webporta
 In dit rapport stellen we de eerste resultaten voor van de verschillende amfibieënmeetnetten [@speybroeck_2020].
 We geven eerst wat achtergrond over het [ontwerp van de soortenmeetnetten] en de [analyse van de telgegevens].
 Daarna doen we een [verkenning van de aantallen] en geven we een [overzicht van de resultaten] van de statistische analyses.
-Ten slotte bespreken we de resultaten voor elk meetnet ([Boomkikker](#boomkikker), ...).
-Voor de tussentijdse resultaten van de monitoring van de gladde slang verwijzen we naar het rapport van @jacobs_2022.
+Ten slotte bespreken we de resultaten voor elk meetnet ([Boomkikker](#boomkikker), [Knoflookpad](#knoflookpad), [Vroedmeesterpad](#vroedmeesterpad), [Kamsalamander](#kamsalamander), [Vuursalamander](#vuursalamander)).
 
-`r ifelse(!html_output, "Dit rapport bevat enkele interactieve figuren die alleen kunnen bekeken worden op de [website versie](https://inbo.github.io/soortenmeetnetten-amfibieënrapport-2023/) van dit rapport.", "")`
+`r ifelse(!html_output, "Dit rapport bevat enkele interactieve figuren die alleen kunnen bekeken worden via de [website versie](https://inbo.github.io/soortenmeetnetten-amfibieënrapport-2023/) van dit rapport.", "")`

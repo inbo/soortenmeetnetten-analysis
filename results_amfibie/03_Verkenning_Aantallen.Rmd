@@ -88,9 +88,10 @@ Tabel \@ref(tab:tabaantaltot) toont per soort, levensstadium en per jaar:
 ```{r tabaantaltot, eval=TRUE}
 
 summary_table %>% 
+  filter(periode != "2024 - 2026") %>%
   filter(primaire_soort, !soort_nl %in% c("Meerkikker", "Bastaardkikker", "Groene kikker-complex")) %>%
   filter(is_sample) %>%
-  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Levensstadium" = type,  Jaar = periode, "Totaal" = aantal_tot, "Gemiddeld" = aantal_mean, "Locaties" = n_locaties, "Proportie (%)" = prop_aanwezig) %>%
+  select("Nederlandse naam" = soort_nl,  "Levensstadium" = type,  Jaar = periode, "Totaal" = aantal_tot, "Gemiddeld" = aantal_mean, "Locaties" = n_locaties, "Proportie (%)" = prop_aanwezig) %>%
   kable(caption = "Overzicht getelde aantallen voor de prioritaire soorten (Totaal = totaal aantal, Gemiddeld = gemiddeld aantal per bezoek, Locaties = aantal getelde meetnetlocaties, Proportie = proportie van de bezochte meetnetlocaties waar de soort en het levensstadium werd waargenomen)",
       booktabs = TRUE,
       longtable = TRUE,
@@ -101,7 +102,7 @@ summary_table %>%
                 font_size = 8) %>%
   column_spec(c(1,3), width = "6em") %>%
   column_spec(2, italic = TRUE, width = "7em") %>%
-  collapse_rows(c(1,2, 3), target = 1, valign = "top", latex_hline = "major") %>%
+  collapse_rows(c(1,2), target = 2,  latex_hline = "major") %>%
   scroll_box(width = "100%", height = "600px", fixed_thead = TRUE) 
   
 
@@ -225,7 +226,7 @@ summary_table_all_years <- summary_table %>%
 
 ```{r tabaantaltotoverige, eval=TRUE}
 summary_table_all_years %>% 
-  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Levensstadium" = type, "Totaal" = aantal_totaal_ls) %>%
+  select("Nederlandse naam" = soort_nl,  "Levensstadium" = type, "Totaal" = aantal_totaal_ls) %>%
   kable(caption = "Totaal aantal getelde overige soorten voor alle amfibieënmeetnetten samen",
      longtable = TRUE,
       booktabs = TRUE) %>%
@@ -234,7 +235,7 @@ summary_table_all_years %>%
                 repeat_header_text = "(vervolg)",
                 font_size = 8) %>%
   column_spec(2, italic = TRUE) %>%
-  collapse_rows(c(1,2)) %>%
+  collapse_rows(c(1,2), target = 1) %>%
   scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
 ```
 
@@ -243,15 +244,16 @@ Dit doen we op basis van zowel tellingen op meetnetlocaties als tellingen op opt
 Voor de secundaire soorten worden nulwaarnemingen meestal niet ingevoerd.
 Daarom veronderstellen we dat wanneer er aantallen worden ingevoerd voor één of meerdere secundaire soorten, de niet genoteerde secundaire soorten afwezig zijn.
 
-De in Tabel \@ref(tab:tabaantalsec) getoonde aantallen voor adulten en juvenielen komen van de fuiktellingen van het meetnet kamsalamander.
+De in Tabel \@ref(tab:tabaantaltotoverige) getoonde aantallen voor adulten en juvenielen komen van de fuiktellingen van het meetnet kamsalamander.
 De aantallen van larven en metamorfen komen van de larvetellingen van het meetnet boomkikker en het meetnet kamsalamander.
 
 ```{r tabaantalsec, eval=TRUE}
 
 summary_year_sec %>% 
+  arrange(soort_nl) %>%
   filter(!primaire_soort, soort_nl %in% c("Vinpootsalamander", "Alpenwatersalamander", "Kleine watersalamander")) %>%
   filter(protocol %in% c("Amfibieën - Fuiken", "Amfibieën - Larven en metamorfen")) %>%
-  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Levensstadium" = type,  Jaar = jaar, "Totaal" = aantal_tot, "Gemiddeld" = aantal_mean, "Locaties" = n_locaties_secundair, "Proportie (%)" = prop_aanwezig) %>%
+  select("Nederlandse naam" = soort_nl, "Levensstadium" = type,  Jaar = jaar, "Totaal" = aantal_tot, "Gemiddeld" = aantal_mean, "Locaties" = n_locaties_secundair, "Proportie (%)" = prop_aanwezig) %>%
   kable(caption = "Overzicht getelde aantallen voor de secundaire soorten (Totaal = totaal aantal, Gemiddeld = gemiddeld aantal per bezoek, Locaties = aantal getelde locaties met secundaire soorten, Proportie = proportie van de locaties waar de soort en het levensstadium werd waargenomen)",
       booktabs = TRUE,
       longtable = TRUE,
@@ -263,7 +265,7 @@ summary_year_sec %>%
   column_spec(1, width = "9em") %>%
   column_spec(2, italic = TRUE, width = "7em") %>%
   column_spec(3, italic = TRUE, width = "6em") %>%
-  collapse_rows(c(1,2, 3), target = 1, valign = "top", latex_hline = "major") %>%
+  collapse_rows(c(1,2), target = 2, latex_hline = "major") %>%
   scroll_box(width = "100%", height = "600px", fixed_thead = TRUE) 
   
 
@@ -276,6 +278,5 @@ tabel_overzicht <- summary_table_all_years %>%
   pivot_wider(names_from = "type", values_from = "aantal_totaal_ls") %>%
   select(soort_nl,"adulten en juvenielen", "larven (en metamorfen)", "roepende mannetjes")
   
-  
-  
+
 ```

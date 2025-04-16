@@ -13,7 +13,7 @@ names_sc <- names_sc %>%
                    soort_wet = c("Coronella austriaca", "Rana arvalis")))
 
 meetnetcharacteristics <- get_characteristics_smp() %>%
-  filter(soortgroep %in% c("amfibieën", "reptielen")) %>%
+  filter(soortgroep %in% c("amfibieën")) %>%
   mutate(opstartjaar = ifelse(meetnet == "Vroedmeesterpad", 2019, opstartjaar))
 ```
 
@@ -24,7 +24,7 @@ Een dergelijke gestructureerde monitoring biedt de beste garantie op betrouwbare
 Het ontwerp van de meetnetten voor amfibieën en reptielen wordt in detail beschreven in het monitoringsprotocol [@speybroeck_2020].
 Dit is een tweede versie van het monitoringsprotocol waarin enkele aanpassingen zijn gebeurd ten opzichte van de eerste versie [@de_bruyn_amphibia_2015; @de_bruyn_vuursalamander_2015; @de_bruyn_kamsalamander_2015].
 
-We vatten de belangrijkste onderdelen van de meetnetten voor amfibieën en reptielen nog eens kort samen.
+We vatten de belangrijkste onderdelen van de meetnetten voor amfibieën kort samen.
 
 ### Selectie van de soorten
 
@@ -35,9 +35,9 @@ Voor twee groepen van soorten streven we naar een monitoring op basis van meetne
 -   De **Vlaams prioritaire soorten** (VPS) staan niet op een bijlage van de HRL (het zijn dus geen Natura 2000 - soorten), maar ze worden wel als prioritair beschouwd voor het Vlaamse natuurbeleid, vaak omwille van het feit dat ze in Vlaanderen en/of Europa op de Rode Lijst staan.
 
 Voor een aantal soorten doorlopen we eerst een pilootproject om de haalbaarheid van een meetnet te evalueren.
-Het gaat om de moeilijkere telbare soorten gladde slang, heikikker en poelkikker.
+Het gaat om de moeilijkere telbare soorten heikikker en poelkikker.
 
-In Tabel \@ref(tab:tabsoorten) tonen we de geselecteerde amfibieën en reptielen, de beleidsrelevantie van de soorten, het type monitoring en het jaar waarin de monitoring voor die soort van start ging.
+In Tabel \@ref(tab:tabsoorten) tonen we de geselecteerde amfibieën, de beleidsrelevantie van de soorten, het type monitoring en het jaar waarin de monitoring voor die soort van start ging.
 
 ```{r tabsoorten}
 
@@ -47,7 +47,7 @@ meetnetcharacteristics %>%
   mutate(type = ifelse(type != "Pilootproject", "Meetnet", type)) %>%
   select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, Beleidsrelevantie = type_soort, "Type monitoring" = type, "Start monitoring" = opstartjaar) %>%
     unique() %>%
-  kable(caption = "Overzicht van de amfibieën en reptielen waarvoor een meetnet bestaat met onderscheid tussen Europees prioritaire (EPS) en Vlaams prioritaire soorten (VPS), en met het jaar waarin de monitoring werd opgestart",
+  kable(caption = "Overzicht van de amfibieën waarvoor een meetnet bestaat met onderscheid tussen Europees prioritaire (EPS) en Vlaams prioritaire soorten (VPS), en met het jaar waarin de monitoring werd opgestart",
         booktabs = TRUE,
         align = c("l", "l", "c", "l", "c"),
       row.names = FALSE) %>%
@@ -68,15 +68,15 @@ De amfibieën en reptielen worden geteld op basis van één of meerdere van volg
 -   **Fuikentelling kamsalamander**: Per waterpartij worden 2 amfibieënfuiken geplaatst die na 24 uren leeg gemaakt worden.
     Alle adulte kamsalamanders worden geteld per fuik.
 
--   \*\*Roepkorentelling\*: Het aantal roepende mannetjes wordt geteld.
+-   **Roepkorentelling**: Het aantal roepende mannetjes wordt geteld.
     Daarbij zijn er een aantal varianten:
 
     -   Voor boomkikker, poelkikker en knoflookpad tellen we het aantal roepende mannetjes per poel. Voor vroedmeesterpad tellen we het aantal roepende dieren per gebied omdat deze soort vanop het land roept.
-    -   Knoflookpad mannetjes roepen vanop de bodem van een poel en worden daarom met behulp van een hydrofoon geteld.
-    -   Voor poelkikker tellen we het totaal van de roepende poelkikkers en bastaardkikkers samen, omdat de roep van beide soorten moeilijk te onderscheiden is. Via DNA analyse van een 50-tal larven per poel maken we vervolgens een inschatting van de verhouding tussen beide soorten.
+    -   Knoflookpadmannetjes roepen vanop de bodem van een poel en worden daarom met behulp van een hydrofoon geteld.
+    -   Voor poelkikker tellen we het totaal van de roepende poelkikkers en bastaardkikkers samen, omdat de roep van beide soorten moeilijk te onderscheiden is. Via DNA-analyse van een 50-tal larven per poel maken we vervolgens een inschatting van de verhouding tussen beide soorten.
 
 -   **Telling larven en metamorfen** Larven van kamsalamander, boomkikker, poelkikker en vroedmeesterpad worden geteld met een schepnet.
-    Per 2 meter oevertraject voert men een schepbeweging uit met een maximum van 30 schepbewegingen per poel.
+    Per 2 meter oevertraject voeren we een schepbeweging uit met een maximum van 30 schepbewegingen per poel.
     We noteren het aantal larven en metamorfen per soort en ook het aantal uitgevoerde schepbewegingen.
     Om poelkikker en bastaardkikker te onderscheiden voeren we ook een genetische bemonstering uit door het staartpuntje te knippen van ongeveer 50 larven per poel.
 
@@ -88,9 +88,6 @@ De amfibieën en reptielen worden geteld op basis van één of meerdere van volg
     Daarom tellen we de soort langsheen een vast transect dat verschillende waterpartijen verbindt.
     Tijdens een avondbezoek worden langsheen het transect roepende mannetjes, eisnoeren en larven geteld.
     Ook zichtwaarnemingen van adulten en juvenielen worden genoteerd.
-
--   **Telling van gladde slang onder platen** In elk gebied worden er een vooropgesteld aantal artificiële platen gelegd waaronder gladde slangen zich gaan ophouden.
-    Per plaat tellen we het aantal adulte en juveniele dieren tijdens geschikte weersomstandigheden, bij temperaturen tussen 17 en 22°C
 
 Een overzicht van de gebruikte veldprotocollen vind je in Tabel \@ref(tab:tabkarakteristiekentelperiode).
 Voor elke soort vermelden we de telperiode(s) waarin de tellingen gebeuren en het aantal bezoeken per telperiode.
@@ -123,7 +120,7 @@ Bij de meetnetten boomkikker, heikikker, kamsalamander, knoflookpad en poelkikke
 De telling gebeurt hier dus voor elke poel afzonderlijk.
 Bij de meetnetten van rugstreeppad en vroedmeesterpad beschouwen we een (ruimtelijk aaneengesloten) gebied met verschillende poelen als locatie.
 De reden hiervoor is, zoals eerder vermeld, dat de vroedmeesterpad vanop land roept en dat de rugstreeppad vaak voorkomt in tijdelijke poelen waarvan de locatie varieert jaar tot jaar.
-Ook voor vuursalamander en gladde slang gebruiken we een gebied als locatie.
+Ook voor vuursalamander gebruiken we een gebied als locatie.
 
 Wanneer een soort voorkomt op minder dan 60 locaties in Vlaanderen, nemen we alle locaties op in het meetnet.
 We spreken dan van een integrale monitoring.
@@ -136,7 +133,7 @@ Een meetcyclus van drie jaar betekent dus dat elke meetnetlocatie om de drie jaa
 
 We moeten er uiteraard ook rekening mee houden dat het aantal locaties kan veranderen in de tijd.
 Bij de integrale monitoring voegen we nieuwe locaties toe aan het meetnet, zolang de grens van 60 locaties niet wordt overschreden.
-In het geval van een steekproef, zullen we een nieuwe steekproef trekken wanneer de verspreiding van de soort sterk wijzigt.
+In het geval van een steekproef, zullen we een nieuwe steekproef trekken wanneer de verspreiding van de soort wijzigt.
 Daarbij gebruiken we een methode die garandeert dat een zo groot mogelijk aandeel van de oorspronkelijk geselecteerde locaties behouden blijft.
 
 ```{r tabkarakteristiekenselectie}

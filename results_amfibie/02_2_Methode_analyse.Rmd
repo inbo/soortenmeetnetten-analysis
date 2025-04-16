@@ -6,7 +6,7 @@ Gezien de amfibieënmeetnetten nog niet zo lang lopen, zit er nog heel wat onzek
 Toch kunnen we al sterke veranderingen oppikken of kunnen we al een indicatie krijgen in welke richting de aantallen veranderen in de tijd.
 
 Naast trends willen we ook inzicht krijgen hoe de aantallen verschillen van jaar tot jaar.
-Op basis hiervan kunnen we dus slechte of goede jaren identificeren ten opzichte van een referentiejaar (hiervoor kiezen we meestal het eerste jaar in het meetnet).
+Op basis hiervan kunnen we dus slechte of goede jaren identificeren ten opzichte van een referentiejaar.
 
 Voor soorten met een meetcyclus van drie jaar, worden alle locaties om de drie jaar geteld.
 In dat geval vergelijken we best de aantallen per periode van drie jaar.

@@ -46,7 +46,7 @@ De resultaten van de pilootprojecten voor heilikker en poelkikker bespreken we i
 We tonen de verschillen tussen de jaren enkel voor de meetnetten waarvan de meetnetlocaties jaarlijks geteld worden.
 Voor meetnetten met een driejarige meetcyclus (boomkikker en kamsalamander) tonen we enkel de de verschillen tussen de meetcycli.
 
-Tabel \@ref(tab:tabelverschil) geeft de verschillen in aantallen t.o.v. het referentiejaar.
+Tabel \@ref(tab:tabelverschil) geeft de verschillen in aantal adulten t.o.v. het referentiejaar.
 Als referentiejaar kiezen we hier het jaar waarin het meetnet van start ging.
 We geven de verschillen weer aan de hand van de [classificatie](#h:classtrend) zoals besproken in paragraaf \@ref(h:classtrend), waarbij we -25 % als ondergrens en +33 % als bovengrens nemen.
 
@@ -66,14 +66,14 @@ verschillen_jaren <- result_indexmodel %>%
 ```{r tabelverschil,eval=TRUE}
 
 verschillen_jaren %>%
-  select(-soort_wet) %>%
-  rename("Soort" = soort_nl, Levensstadium = levensstadium,  Referentiejaar = ref_jaar) %>%
+  select(-soort_wet, -levensstadium) %>%
+  rename("Soort" = soort_nl,  Referentiejaar = ref_jaar) %>%
   kable(caption = str_c("Verschil in aantallen t.o.v. referentiejaar", legend_klasses),
       booktabs = TRUE,
       escape = FALSE,
       align = "lccccc") %>%
-  kable_styling() %>%
-  add_header_above(c(" " = 3, "Verschil t.o.v. referentiejaar" = 8)) %>%
+  kable_styling(font_size = 8) %>%
+  add_header_above(c(" " = 2, "Verschil t.o.v. referentiejaar" = 8)) %>%
   collapse_rows(1) %>%
   scroll_box(width = "700px", height = "100%")
   
@@ -99,14 +99,14 @@ verschillen_vorigjaar <- result_indexmodel %>%
 
 ```{r tabelverschil2}
 verschillen_vorigjaar %>%
-  select(-soort_wet) %>%
-  rename("Soort" = soort_nl, Levensstadium = levensstadium) %>%
-  kable(caption = "Verschil in aantallen voor opeenvolgende jaren",
+  select(-soort_wet, -levensstadium) %>%
+  rename("Soort" = soort_nl) %>%
+  kable(caption = "Verschil in aantal adulten voor opeenvolgende jaren",
       booktabs = TRUE,
       escape = FALSE,
       align = "lcccccccc") %>%
-  kable_styling() %>%
-  column_spec(c(3:9), width = "1cm") %>%
+  kable_styling(font_size = 8) %>%
+  column_spec(c(2:9), width = "1.5cm") %>%
   collapse_rows(1) %>%
   scroll_box(width = "700px", height = "100%")
 ```
@@ -157,7 +157,7 @@ verschillen_cyclus %>%
       booktabs = TRUE,
       escape = FALSE,
       align = "lccccc") %>%
-kable_styling() 
+kable_styling(font_size = 8) 
 ```
 
 ## Trends
@@ -554,16 +554,16 @@ vegetatie <- habitatkenmerken  %>%
   mutate(prop_locatie = round(n / n_locaties_meting, 2))
 ```
 
-```{r fighk4, fig.cap= "Proportie van de plassen en totaal aantal plassen voor de verschillende categorieën van de habitatkenmerken m.b.t. de vegetatie"}
+```{r fighk4, fig.cap= "Proportie van de plassen en totaal aantal plassen voor de verschillende categorieën van de habitatkenmerken m.b.t. de vegetatie (meetnet rugstreeppad)"}
 
 vegetatie %>%
   mutate(variabele = str_to_sentence(variabele),
          variabele = str_replace(variabele, "_", " ")) %>%
-  ggplot(aes(x = meetnet, y = prop_locatie, fill = waarde)) + 
+  ggplot(aes(x = variabele, y = prop_locatie, fill = waarde)) + 
   geom_col() +
   geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
   labs(x = "Soort", y = "Proportie van de plassen", fill = "Bedekking") +
   scale_y_continuous(labels = scales::percent) +
-  facet_wrap(~variabele) +
+  facet_wrap(~meetnet) +
   theme(axis.title.x = element_blank())
 ```

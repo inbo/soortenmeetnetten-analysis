@@ -58,7 +58,6 @@ Bij een ander deel van de nulwaarnemingen werden er initieel wel kikkereitjes ge
 
 In Figuur \@ref(fig:fighei2) zie je ook dat voor twee bezoeken het aantal heikikkereiklompen kon ingeschat worden zonder staalname.
 Dit komt omdat een expert de eitjes visueel kon onderscheiden en er dus geen staalname nodig was.
-**In beide bezoeken werden 122 eitjes geteld. Klopt dat??**
 
 ```{r fighei2, fig.cap= "Verdeling van het geschatte aantal eiklompen afkomtig van heikikker"}
 analyseset_heikikker %>%
@@ -96,6 +95,11 @@ resultaten_piloot_table %>%
         booktabs = TRUE) %>%
   kable_styling()
 ```
+
+De sinds 2021 gevolgde workflow voor deze moeilijk te monitoren soort wordt door de uitvoerende professionele medewerkers van INBO en Natuurpunt Studie als adequaat geëvalueerd en zal dan ook verder gezet worden.
+Toenemend grote variatie in waterstanden in het vroege voorjaar bemoeilijken weliswaar het afbakenen van de te onderzoeken waterpartijen.
+Bovendien leggen heikikkers vaak eieren in ondiepe plassen die niet zichtbaar zijn in de watervlakkenlaag die voor de steekproeftrekking werd gebruikt.
+De steekproef vereist dan ook enige verdere aanpassing.
 
 ## Poelkikker
 
@@ -202,5 +206,13 @@ resultaten_piloot_table %>%
         booktabs = TRUE) %>%
   kable_styling()
 ```
+
+Het pilootproject inzake de monitoring van deze soort vereist grondige aanpassingen.
+Een te groot aandeel van de onderzochte poelen leverde geen roepers en/of larven op.
+Dit dient deels te worden opgelost door bijsturen van de steekproef.
+Omdat larven te vaak niet adequaat werden gevangen, zal vanaf 2025 het protocol worden aangepast en zal de verhouding tussen poelkikker en bastaardkikker niet langer bepaald worden via genetisch onderzoek van larven maar via morfologisch onderzoek van adulte kikkers.
+In die zin starten we in 2025 dus met een tweede, nieuw pilootproject voor de monitoring van deze soort.
+De locaties van de (aangepaste) steekproef zullen ’s nachts worden bezocht en in elke poellocatie zullen 50 volwassen kikkers worden gevangen en gedetermineerd.
+De roepkoortellingen gaan verder zoals voordien.
 
 \pagebreak

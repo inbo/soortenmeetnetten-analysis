@@ -243,7 +243,7 @@ result_indexmodel_cyclus_table %>%
   filter(soort_nl == m) %>%
   mutate(soort_show = str_c(soort_nl, " ", levensstadium)) %>%
   ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = meetcyclus, label = klasse, colour = klasse)) +
-  geom_errorbar(width = 0, size = 20 * 2.58 / 2, alpha = 0.3) +
+  geom_errorbar(width = 0, size = 20 * 2.58 / 3, alpha = 0.3) +
   geom_hline(yintercept = 1, linetype = 2) +
   geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
   geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
@@ -261,7 +261,7 @@ result_indexmodel_cyclus_table %>%
 
 result_occurence %>%
   filter(soort_nl == m) %>%
-  mutate(soort_show = str_c(soort_nl, " ", levensstadium),
+  mutate(soort_show = "Boomkikker larve",
          meetcyclus = str_remove(meetcyclus, "meetcyclus")) %>%
   ggplot(aes(y = mean, ymin = lcl_0.90, ymax = ucl_0.90, x = meetcyclus)) +
   geom_errorbar(width = 0, size = 20 * 2.58 / 2, alpha = 0.3) +
@@ -289,8 +289,13 @@ trend_total_meetnet <- result_trendmodel %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))`.
+Over de periode `r trend_average_meetnet$periode_tekst` vertonen de adulten van `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))`
+
+De opmars van deze soort is goed gedocumenteerd (REF).
+De weliswaar onduidelijke minder positieve trend in de larventellingen hangt mogelijk samen met gebrek aan beheer van de poelen waarin de soort zich voortplant.
+Boomkikkers bereiken namelijk hun grootste voortplantingssucces in poelen die niet te ver staan in successie.
+Rijpere systemen met rijkere vegetatie huisvesten ook een complexer voedselweb aan allerhande predatoren.
 
 \pagebreak
 
@@ -364,8 +369,8 @@ ref_jaar <- (meetnetcharacteristics %>%
   filter(meetnet == m))$opstartjaar %>%
   unique()
   
-size_bar <- 50 * 2 / (2023 - ref_jaar + 1)
-size_bar2 <- 50 * 2 / (2023 - ref_jaar)
+size_bar <- 50 * 2 / (2024 - ref_jaar + 1)
+size_bar2 <- 50 * 2 / (2024 - ref_jaar)
 
 result_indexmodel_table %>%
   mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar),
@@ -426,6 +431,9 @@ trend_total_meetnet <- result_trendmodel %>%
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))`.
+
+De knoflookpad doet het nog steeds zeer slecht in Vlaanderen.
+Door de lage aantallen, is er een grote onzekerheid op de trend.
 
 ## Vroedmeesterpad (*Alytes obstetricans*) {#vroedmeesterpad}
 
@@ -497,8 +505,8 @@ ref_jaar <- (meetnetcharacteristics %>%
   filter(meetnet == m))$opstartjaar %>%
   unique()
   
-size_bar <- 50 * 2 / (2023 - ref_jaar + 1)
-size_bar2 <- 50 * 2 / (2023 - ref_jaar)
+size_bar <- 50 * 2 / (2024 - ref_jaar + 1)
+size_bar2 <- 50 * 2 / (2024 - ref_jaar)
 
 result_indexmodel_table %>%
   mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar),
@@ -558,7 +566,7 @@ trend_total_meetnet <- result_trendmodel %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))` Deze opwaartse trend hangt ongetwijfeld nauw samen met de inspanningen van het kweekprogramma voor deze soort. Hoewel de daarbij nieuw gestichte populaties pas deel zullen uitmaken van het meetnet wanneer ze zelfstandig (dus zonder verdere bijplaatsing van kweekdieren) geacht zijn, zijn er in tal van bestaande (en hier wel beschouwde) populaties dieren bijgeplaatst. De effecten laten zich dan ook opmerken. Ook hier zal echter pas op langere termijn blijken of dit duurzaam tot grotere populaties heeft geleid. De toename als geconsolideerd beschouwen is dan ook voorbarig.
 
 \pagebreak
 
@@ -747,8 +755,8 @@ ref_jaar <- (meetnetcharacteristics %>%
   filter(meetnet == m))$opstartjaar %>%
   unique()
   
-size_bar <- 50 * 2 / (2023 - ref_jaar + 1)
-size_bar2 <- 50 * 2 / (2023 - ref_jaar)
+size_bar <- 50 * 2 / (2024 - ref_jaar + 1)
+size_bar2 <- 50 * 2 / (2024 - ref_jaar)
 
 result_indexmodel_table %>%
   mutate(ref_jaar_tekst = str_c("Referentiejaar = ", ref_jaar),
@@ -810,6 +818,6 @@ trend_total_meetnet <- result_trendmodel %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))` Het relatief lager niveau van 2016 is wellicht deels toe te schrijven aan de onervarenheid van de tellende vrijwilligers. Natte zomers geven echter aanleiding tot groter reproductiesucces en aanwas van de populatieze. De toename van 2021 naar 2022 is ook in die zin te begrijpen. In de daaropvolgende jaren blijven de aantallen van deze langlevende soort verhoogt.
 
 \pagebreak
