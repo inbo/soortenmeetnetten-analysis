@@ -1,0 +1,1467 @@
+# Analyse
+
+## Boomkikker roepkoren
+
+### Analyseset
+
++ enkel meetnetlocaties met totaal aantal waargenomen individuen > 0
+
+```{r}
+analyseset_roepkoren_boomkikker <- read_vc("analyseset_roepkoren_boomkikker", "../output/analyseset")
+
+analyseset_roepkoren_boomkikker <-  analyseset_roepkoren_boomkikker %>%
+  filter(is_sample) %>%
+  filter(primaire_soort) %>%
+  group_by(meetnet, locatie) %>%
+  filter(sum(aantal) > 0) %>%
+  ungroup() %>%
+  filter(jaar <= 2024) %>%
+  mutate(meetcyclus_scaled = meetcyclus,
+         meetcyclus = str_c(meetcyclus_start, "_", meetcyclus_end),
+         year_scaled = jaar - min(jaar) + 1,
+         jaar_scaled = year_scaled,
+         cluster2 = cluster,
+         fjaar = factor(jaar))
+
+```
+
+### Model
+
++ vergelijking meetcycli
+  + meetcyclus als factor
+  + random effect voor locatie
+  + random effect voor cluster
+  
++ vergelijking jaren
+  + 1ste orde random walk voor jaar (herschaald)
+  + random effect voor locatie
+  + random effect voor cluster
+  
++ jaarlijkse trend
+  + jaar (herschaald) als continue variabele
+  + random effect voor locatie
+  + random effect voor cluster
+  + random slope voor cluster
+
+
+
+
+```{r}
+
+indexmodel_meetcyclus_iid <- inla(formula = aantal ~ meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_boomkikker,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_jaar_rw1_iid <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) +
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_boomkikker,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trendmodel_iid2 <- inla(formula = aantal ~ year_scaled  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) + 
+                                f(cluster2,
+                                  year_scaled,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_boomkikker,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trendmodel_iid <- inla(formula = aantal ~ year_scaled  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_boomkikker,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trendmodel_meetcyclus_iid2 <- inla(formula = aantal ~ meetcyclus_scaled  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) + 
+                                f(cluster2,
+                                  year_scaled,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_boomkikker,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+```
+
+### Modeloutput
+
+```{r}
+
+set.seed(54654)
+results_index_jaar_boomkikker <- derive_index_rw_inla(analyseset_roepkoren_boomkikker, 
+                                                      indexmodel_jaar_rw1_iid, set_seed = 1231)
+
+set.seed(6821)
+results_index_meetcyclus_boomkikker <- derive_index_meetcyclus_inla(indexmodel_nbinom_inla = indexmodel_meetcyclus_iid, 
+                                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))}, 
+                                                                    set_seed =  21354)
+
+set.seed(6778)
+results_trend_boomkikker_iid2 <- derive_trend(analyseset_roepkoren_boomkikker, trendmodel_iid2)
+
+results_trend_boomkikker <- derive_trend(analyseset_roepkoren_boomkikker, trendmodel_iid)
+
+results_waic_boomkikker <- bind_rows(
+  get_waic(analyseset_roepkoren_boomkikker, trendmodel_iid) %>%
+    mutate(model = "trendmodel"),
+  get_waic(analyseset_roepkoren_boomkikker, trendmodel_iid2) %>%
+    mutate(model = "trendmodel_iid2"),
+  get_waic(analyseset_roepkoren_boomkikker, indexmodel_jaar_rw1_iid) %>%
+    mutate(model = "indexmodel"))
+
+
+trend_meetcyclus <- derive_trend_meetcyclus(analyseset_roepkoren_boomkikker, trendmodel_nbinom =  trendmodel_meetcyclus_iid2)
+  
+```
+
+```{r checkreproducible, eval = FALSE}
+
+indexmodel_meetcyclus_iid <- inla(formula = aantal ~ meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_boomkikker_meetcyclus,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_jaar_rw1_iid <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_boomkikker_jaar,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trendmodel_iid2 <- inla(formula = aantal ~ year_scaled  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) + 
+                                f(cluster2,
+                                  year_scaled,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_boomkikker_meetcyclus,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+set.seed(54654)
+results_index_jaar_boomkikker_2 <- derive_index_rw_inla(analyseset_roepkoren_boomkikker_jaar, indexmodel_jaar_rw1_iid, set_seed = 1231)
+
+set.seed(6821)
+results_index_meetcyclus_boomkikker_2 <- derive_index_meetcyclus_inla(indexmodel_nbinom_inla = indexmodel_meetcyclus_iid, 
+                                                                    function_eval = function(...) {exp(meetcyclus2019_2021)}, 
+                                                                    set_seed =  21354)
+
+set.seed(6778)
+results_trend_boomkikker_2 <- derive_trend(analyseset_roepkoren_boomkikker_meetcyclus, trendmodel_iid2)
+
+check1 <- all.equal(results_index_jaar_boomkikker, results_index_jaar_boomkikker_2)
+
+check2 <- all.equal(results_index_meetcyclus_boomkikker, results_index_meetcyclus_boomkikker_2)
+
+check3 <- all.equal(results_trend_boomkikker, results_trend_boomkikker_2)
+```
+
+### Validatie
+
+#### Dispersion
+
+```{r}
+plot(dispersion_check(indexmodel_meetcyclus_iid))
+```
+
+#### Distribution
+
+```{r}
+plot(fast_distribution_check(indexmodel_meetcyclus_iid))
+```
+
+#### Random effect
+
++ Location
+
+```{r}
+
+ precision_location <- indexmodel_meetcyclus_iid$summary.hyperpar$mean[2]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_location),
+                  precision = precision_location,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_location))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_location), 3))))
+    
+```
++ cluster
+
+```{r}
+
+ precision_cluster <- indexmodel_meetcyclus_iid$summary.hyperpar$mean[3]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_cluster),
+                  precision = precision_cluster,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_cluster))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_cluster), 3))))
+    
+```
+
+## Boomkikker larven
+
+### Analyseset
+
+```{r}
+analyseset_larven <- read_vc("analyseset_larven", "../output/analyseset")
+
+analyseset_larven <- analyseset_larven %>%
+  filter(is_sample) %>%
+  filter(primaire_soort) %>%
+  filter(levensstadium == "Larva") %>%
+  mutate(meetcyclus = str_c(meetcyclus_start, "_", meetcyclus_end),
+         occurence = ifelse(aantal > 0, 1, 0),
+         year_scaled = jaar - min(jaar) + 1,
+         jaar_scaled = year_scaled,
+         cluster2 = cluster,
+         n_10catch = n_catch/10)
+
+analyseset_larven_boomkikker_meetcyclus <-  analyseset_larven %>%
+  filter(meetnet == "Boomkikker") 
+
+analyseset_larven_boomkikker_jaar <-  analyseset_larven %>%
+  filter(meetnet == "Boomkikker")
+  
+overzicht <- analyseset_larven_boomkikker_meetcyclus %>%
+  group_by(meetnet, meetcyclus, levensstadium) %>%
+  summarise(occurence_mean = mean(occurence)) %>%
+  ungroup()
+```
+
+### Model
+
++ vergelijking aantallen meetcycli
+  + meetcyclus als factor
+  + random effect voor locatie
+  + random effect voor cluster
+  + aantal 10 scheppen als offset
+  
++ vergelijking aantallen jaren
+  + 1ste orde random walk voor jaar (herschaald)
+  + random effect voor locatie
+  + random effect voor cluster
+  + aantal 10 scheppen als offset
+  
++ vergelijking occurence meetcycli
+  + meetcyclus als factor
+  + random effect voor locatie
+  + random effect voor cluster
+  + aantal 10 scheppen als offset?
+  
+
+```{r}
+
+indexmodel_meetcyclus_iid <- inla(formula = aantal ~ meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_larven_boomkikker_meetcyclus,
+                       offset = n_10catch,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_jaar_rw1_iid <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_larven_boomkikker_jaar,
+                       offset = n_10catch,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+model_occurence_iid_0 <- inla(formula = occurence ~ 0 + meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "binomial",
+                       data = analyseset_larven_boomkikker_meetcyclus,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+model_occurence_iid <- inla(formula = occurence ~ meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "binomial",
+                       data = analyseset_larven_boomkikker_meetcyclus,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+model_occurence_iid$summary.fixed
+
+```
+
+### Modeloutput
+
+```{r}
+
+set.seed(953)
+
+results_index_jaar_boomkikker_larve <- derive_index_rw_inla(analyseset_larven_boomkikker_jaar, indexmodel_jaar_rw1_iid, set_seed = 84562)
+
+set.seed(3297)
+
+results_index_meetcyclus_boomkikker_larve <- derive_index_meetcyclus_inla(analyseset_larven_boomkikker_jaar,
+                                                                          indexmodel_meetcyclus_iid, 
+                                                                          function_eval  = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
+                                                                            set_seed = 55469)
+
+results_occurence_boomkikker_larve <- model_occurence_iid_0$summary.fixed %>%
+  rownames_to_column("meetcyclus") %>%
+  select(meetcyclus, mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = plogis(mean),
+         lcl_0.90 = plogis(lcl_0.90),
+         lcl_0.95 = plogis(lcl_0.95),
+         ucl_0.90 = plogis(ucl_0.90),
+         ucl_0.95 = plogis(ucl_0.95),
+         soort_nl = unique(analyseset_larven_boomkikker_meetcyclus$soort_nl),
+         soort_wet = unique(analyseset_larven_boomkikker_meetcyclus$soort_nl),
+         levensstadium = unique(analyseset_larven_boomkikker_meetcyclus$levensstadium),
+         parameter = "occurence") %>%
+  select(parameter, soort_nl, soort_wet, levensstadium, everything())
+
+```
+
+### Validatie
+
+#### Dispersion
+
+```{r}
+plot(dispersion_check(indexmodel_meetcyclus_iid))
+```
+
+#### Distribution
+
+```{r}
+plot(fast_distribution_check(indexmodel_meetcyclus_iid))
+```
+
+#### Random effect
+
++ Location
+
+```{r}
+
+ precision_location <- indexmodel_meetcyclus_iid$summary.hyperpar$mean[2]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_location),
+                  precision = precision_location,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_location))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_location), 3))))
+    
+```
++ cluster
+
+```{r}
+
+ precision_cluster <- indexmodel_meetcyclus_iid$summary.hyperpar$mean[3]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_cluster),
+                  precision = precision_cluster,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_cluster))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_cluster), 3))))
+    
+```
+
+
+## Kamsalamander fuiken
+
+### Analyseset
+
++ enkel meetnetlocaties met totaal aantal waargenomen individuen > 0
++ vergelijking meetcycli 2017-2020 en 2021-2023
++ minstens in twee jaar geteld
+
+```{r}
+analyseset_fuiken_totaal <- read_vc(file = "analyseset_fuiken_totaal", root = "../output/analyseset")
+
+analyseset_fuiken_totaal <- analyseset_fuiken_totaal %>%
+  filter(jaar < 2024) %>%
+  group_by(locatie) %>%
+  mutate(paired = n_distinct(meetcyclus) > 1) %>%
+  ungroup() %>%
+  filter(primaire_soort) %>%
+    filter(is_sample) %>%
+  group_by(meetnet, locatie) %>%
+  mutate(aantal_tot = sum(aantal),
+         n_years = n_distinct(jaar)) %>%
+  ungroup() %>%
+  mutate(meetcyclus_scaled = meetcyclus,
+         meetcyclus = ifelse(meetcyclus == 1, "2017_2020", "2021_2023"),
+         meetcyclus = ifelse(n_years > 1 & !paired & meetcyclus == "2017_2020" & jaar == 2020, "2021_2023", meetcyclus),
+        year_scaled = jaar - min(jaar) + 1,
+        jaar_scaled = year_scaled) %>%
+  filter(aantal_tot > 0,
+         n_years > 1) %>%
+  mutate(cluster2 = cluster) 
+  
+```
+
+
+### Model
+
+Idem als bij Boomkikker, maar met het aantal fuiken als offset.
+
+```{r}
+
+indexmodel_meetcyclus_iid <- inla(formula = aantal ~ meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_fuiken_totaal,
+                       offset = n_fuiken,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_jaar_iid <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_fuiken_totaal,
+                       offset = n_fuiken,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trendmodel_iid2 <- inla(formula = aantal ~ year_scaled  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) +
+                                f(cluster2,
+                                  year_scaled,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_fuiken_totaal,
+                       offset = n_fuiken,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trendmodel_iid <- inla(formula = aantal ~ year_scaled  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_fuiken_totaal,
+                       offset = n_fuiken,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+
+
+```
+
+### Model output
+
+```{r}
+
+set.seed(56487)
+
+results_index_meetcyclus_kamsalamander <- derive_index_meetcyclus_inla(indexmodel_nbinom_inla = indexmodel_meetcyclus_iid, 
+                                                                    function_eval = function(...) {exp(meetcyclus2021_2023)}, set_seed = 9332)
+
+set.seed(9865)
+results_index_jaar_kamsalamander <- derive_index_rw_inla(analyseset_fuiken_totaal, indexmodel_jaar_iid, set_seed =  123466)
+
+set.seed(556644)
+results_trend_kamsalamander_iid2 <- derive_trend(analyseset_fuiken_totaal, trendmodel_iid2)
+results_trend_kamsalamander <- derive_trend(analyseset_fuiken_totaal, trendmodel_iid)
+
+results_waic_kamsalamander <- bind_rows(
+  get_waic(analyseset_fuiken_totaal, trendmodel_iid2) %>%
+    mutate(model = "trendmodel"),
+  get_waic(analyseset_fuiken_totaal, indexmodel_jaar_iid) %>%
+    mutate(model = "indexmodel"))
+```
+### Validatie
+
+#### Dispersion
+
+```{r}
+plot(dispersion_check(indexmodel_meetcyclus_iid))
+```
+
+#### Distribution
+
+```{r}
+plot(fast_distribution_check(indexmodel_meetcyclus_iid))
+```
+
+#### Random effect
+
++ Location
+
+```{r}
+
+ precision_location <- indexmodel_meetcyclus_iid$summary.hyperpar$mean[2]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_location),
+                  precision = precision_location,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_location))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_location), 3))))
+    
+```
++ cluster
+
+```{r}
+
+ precision_cluster <- indexmodel_meetcyclus_iid$summary.hyperpar$mean[3]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_cluster),
+                  precision = precision_cluster,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_cluster))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_cluster), 3))))
+    
+```
+
+
+## Kamsalamander larven
+
+### Analyseset
+
+
+```{r}
+
+analyseset_larven_kamsalamander <-  analyseset_larven %>%
+  filter(jaar < 2024) %>%
+  filter(meetnet == "Kamsalamander") %>%
+  filter(primaire_soort) %>%
+  filter(levensstadium == "Larva") %>%
+  mutate(meetcyclus = ifelse(jaar <= 2020, "2017_2020", "2021_2023"))
+  
+```
+
+### Model
+
+Idem larven boomkikker
+  
+```{r}
+
+indexmodel_meetcyclus_iid <- inla(formula = aantal ~ meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_larven_kamsalamander,
+                       offset = n_10catch,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_jaar_rw1_iid <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_larven_kamsalamander,
+                       offset = n_10catch,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+model_occurence_iid_0 <- inla(formula = occurence ~ 0 + meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "binomial",
+                       data = analyseset_larven_kamsalamander,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+model_occurence_iid <- inla(formula = occurence ~ meetcyclus  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05))))  + 
+                                f(cluster,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "binomial",
+                       data = analyseset_larven_kamsalamander,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+model_occurence_iid$summary.fixed
+
+```
+
+### Modeloutput
+
+```{r}
+
+set.seed(74564)
+
+results_index_jaar_kamsalamander_larve <- derive_index_rw_inla(analyseset_larven_kamsalamander, indexmodel_jaar_rw1_iid, set_seed = 33254)
+  
+set.seed(9856)
+
+results_index_meetcyclus_kamsalamander_larve <- derive_index_meetcyclus_inla(indexmodel_nbinom_inla = indexmodel_meetcyclus_iid, 
+                                                                    function_eval = function(...) {exp(meetcyclus2021_2023)}, set_seed = 545464)
+
+set.seed(78787)
+
+results_occurence_kamsalamander_larve <- model_occurence_iid_0$summary.fixed %>%
+  rownames_to_column("meetcyclus") %>%
+  select(meetcyclus, mean, lcl_0.95 = "0.025quant", lcl_0.90 = "0.05quant", ucl_0.95 = "0.975quant", ucl_0.90 = "0.95quant") %>%
+  mutate(mean = plogis(mean),
+         lcl_0.90 = plogis(lcl_0.90),
+         lcl_0.95 = plogis(lcl_0.95),
+         ucl_0.90 = plogis(ucl_0.90),
+         ucl_0.95 = plogis(ucl_0.95),
+         soort_nl = unique(analyseset_larven_kamsalamander$soort_nl),
+         soort_wet = unique(analyseset_larven_kamsalamander$soort_nl),
+         levensstadium = unique(analyseset_larven_kamsalamander$levensstadium),
+         parameter = "occurence") %>%
+  select(parameter, soort_nl, soort_wet, levensstadium, everything())
+
+```
+### Validatie
+
+#### Dispersion
+
+```{r}
+plot(dispersion_check(indexmodel_meetcyclus_iid))
+```
+
+#### Distribution
+
+```{r}
+plot(fast_distribution_check(indexmodel_meetcyclus_iid))
+```
+
+#### Random effect
+
++ Location
+
+```{r}
+
+ precision_location <- indexmodel_meetcyclus_iid$summary.hyperpar$mean[2]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_location),
+                  precision = precision_location,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_location))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_location), 3))))
+    
+```
++ cluster
+
+```{r}
+
+ precision_cluster <- indexmodel_meetcyclus_iid$summary.hyperpar$mean[3]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_cluster),
+                  precision = precision_cluster,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_cluster))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_cluster), 3))))
+    
+```
+
+
+## Knoflookpad
+
+### Analyseset
+
++ enkel tellingen met hydrofoon
++ locaties met totaal aantal waargenomen individuen > 0
+
+```{r}
+analyseset_roepkoren_knoflookpad <- read_vc(file = "analyseset_roepkoren_knoflookpad", root = "../output/analyseset")
+
+analyseset_knoflookpad_hydrofoon <- analyseset_roepkoren_knoflookpad %>%
+  filter(primaire_soort) %>%
+  filter(type_aantal == "aantal met hydrofoon") %>%
+  mutate(year_min = min(jaar),
+         fjaar = factor(jaar),
+        jaar_scaled = jaar - year_min + 1,
+        year_scaled = jaar_scaled) %>%
+  group_by(locatie) %>%
+  mutate(aantal_totaal = sum(aantal)) %>%
+  ungroup() %>%
+  filter(aantal_totaal > 0)
+```
+
+### Model
+
++ vergelijking jaren
+  + 1ste orde random walk voor jaar (herschaald)
+  + random effect voor locatie
+  
++ jaarlijkse trend
+  + jaar (herschaald) als continue variabele
+  + random effect voor locatie
+
+```{r}
+
+indexmodel_iid_rw1year_hydrofoon <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       data = analyseset_knoflookpad_hydrofoon,
+                       family = "nbinomial",
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trendmodel_iid_hydrofoon <- inla(formula = aantal ~ year_scaled +  
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_knoflookpad_hydrofoon,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+```
+
+### Modeloutput
+
+```{r}
+
+set.seed(45688)
+
+results_index_knoflookpad <- derive_index_rw_inla(analyseset_species = analyseset_knoflookpad_hydrofoon, 
+                       inlamodel_rw = indexmodel_iid_rw1year_hydrofoon, set_seed = 8254)
+
+set.seed(2645)
+
+results_trend_knoflookpad <- derive_trend(analyseset_species = analyseset_knoflookpad_hydrofoon, trendmodel_nbinom = trendmodel_iid_hydrofoon)
+
+results_waic_knoflookpad <- bind_rows(
+  get_waic(analyseset_knoflookpad_hydrofoon, trendmodel_iid_hydrofoon) %>%
+    mutate(model = "trendmodel"),
+  get_waic(analyseset_knoflookpad_hydrofoon, indexmodel_iid_rw1year_hydrofoon) %>%
+    mutate(model = "indexmodel"))
+```
+
+### Validatie
+
+#### Dispersion
+
+```{r}
+plot(dispersion_check(indexmodel_iid_rw1year_hydrofoon))
+```
+
+#### Distribution
+
+```{r}
+plot(fast_distribution_check(indexmodel_iid_rw1year_hydrofoon))
+```
+
+#### Random effect
+
++ Location
+
+```{r}
+
+ precision_location <- indexmodel_iid_rw1year_hydrofoon$summary.hyperpar$mean[2]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_location),
+                  precision = precision_location,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_location))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_location), 3))))
+    
+```
+
+
+## Vroedmeesterpad
+
+### Analyseset
+
+
++ locaties met totaal aantal waargenomen individuen > 0
+
+```{r}
+analyseset_roepkoren_vroedmeesterpad <- read_vc(file = "analyseset_vroedmeesterpad", root = "../output/analyseset")
+
+analyseset_roepkoren_vroedmeesterpad <- analyseset_roepkoren_vroedmeesterpad %>%
+  filter(primaire_soort) %>%
+  mutate(year_min = min(jaar),
+         fjaar = factor(jaar),
+        jaar_scaled = jaar - year_min + 1,
+        year_scaled = jaar_scaled) %>%
+  group_by(locatie) %>%
+  mutate(aantal_totaal = sum(aantal)) %>%
+  ungroup() %>%
+  filter(aantal_totaal > 0)
+```
+
+### Model
+
++ vergelijking jaren
+  + 1ste orde random walk voor jaar (herschaald)
+  + random effect voor locatie
+  
++ jaarlijkse trend
+  + jaar (herschaald) als continue variabele
+  + random effect voor locatie
+
+```{r}
+
+indexmodel_iid_rw1year_vroedmeesterpad <- inla(formula = aantal ~ f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       data = analyseset_roepkoren_vroedmeesterpad,
+                       family = "nbinomial",
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trendmodel_iid_vroedmeesterpad <- inla(formula = aantal ~ year_scaled +  
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_roepkoren_vroedmeesterpad,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+```
+
+### Modeloutput
+
+```{r}
+
+set.seed(45688)
+
+results_index_vroedmeesterpad <- derive_index_rw_inla(analyseset_species = analyseset_roepkoren_vroedmeesterpad, 
+                       inlamodel_rw = indexmodel_iid_rw1year_vroedmeesterpad, set_seed = 8254)
+
+set.seed(2645)
+
+results_trend_vroedmeesterpad <- derive_trend(analyseset_species = analyseset_roepkoren_vroedmeesterpad, trendmodel_nbinom = trendmodel_iid_vroedmeesterpad)
+
+results_waic_vroedmeesterpad  <- bind_rows(
+  get_waic(analyseset_roepkoren_vroedmeesterpad, trendmodel_iid_vroedmeesterpad) %>%
+    mutate(model = "trendmodel"),
+  get_waic(analyseset_roepkoren_vroedmeesterpad, indexmodel_iid_rw1year_vroedmeesterpad) %>%
+    mutate(model = "indexmodel"))
+
+```
+
+### Validatie
+
+#### Dispersion
+
+```{r}
+plot(dispersion_check(indexmodel_iid_rw1year_vroedmeesterpad))
+```
+
+#### Distribution
+
+```{r}
+plot(fast_distribution_check(indexmodel_iid_rw1year_vroedmeesterpad))
+```
+
+#### Random effect
+
++ Location
+
+```{r}
+
+ precision_location <- indexmodel_iid_rw1year_vroedmeesterpad$summary.hyperpar$mean[2]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_location),
+                  precision = precision_location,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_location))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_location), 3))))
+    
+```
+
+
+
+## Vuursalamander
+
+### Analyseset
+
++ locaties met totaal aantal waargenomen individuen > 0
++ verplichte locaties (is_sample = TRUE) + regelmatig getelde optionele locaties (Heilig-Geestgoed, Trimpont, Buggenhoutbos zuid)
+
+```{r}
+
+analyseset_vuursalamander <- read_vc(file = "analyseset_vuursalamander", root = "../output/analyseset")
+
+analyseset_vuursalamander <- analyseset_vuursalamander %>%
+  filter(is_sample | locatie %in% c("Heilig-Geestgoed", "Trimpont", "Buggenhoutbos zuid")) %>%
+  filter(primaire_soort) %>%
+  mutate(year_min = min(jaar),
+         fjaar = factor(jaar),
+        jaar_scaled = jaar - year_min + 1,
+        year_scaled = jaar_scaled,
+        n_100m = round(lengte_transect / 100),
+        locatie2 = locatie) %>%
+  group_by(locatie) %>%
+  mutate(aantal_totaal = sum(aantal)) %>%
+  ungroup() %>%
+  filter(aantal_totaal > 0)
+
+analyseset_vuursalamander_2018_2023 <- analyseset_vuursalamander %>%
+  filter(jaar >= 2018) %>%
+  mutate(year_min = min(jaar),
+         fjaar = factor(jaar),
+        jaar_scaled = jaar - year_min + 1,
+        year_scaled = jaar_scaled)
+```
+
+### Model
+
++ vergelijking jaren
+  + 1ste orde random walk voor jaar (herschaald)
+  + random effect voor locatie
+  
++ jaarlijkse trend
+  + jaar (herschaald) als continue variabele
+  + random effect voor locatie
+  + random slope voor locatie
+
+```{r}
+
+indexmodel_iid_rw1year <- inla(formula = aantal ~  f(jaar_scaled, 
+                                  model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       data = analyseset_vuursalamander,
+                       family = "nbinomial",
+                       offset = n_100m,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trendmodel_iid2 <- inla(formula = aantal ~ year_scaled + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))) +
+                                f(locatie2,
+                                  year_scaled,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       offset = n_100m,
+                       data = analyseset_vuursalamander,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+
+```
+### Modeloutput
+
+```{r}
+set.seed(4646422)
+
+results_index_vuursalamander <- derive_index_rw_inla(analyseset_species = analyseset_vuursalamander, 
+                       inlamodel_rw = indexmodel_iid_rw1year, set_seed = 7122)
+
+set.seed(845)
+
+results_trend_vuursalamander <- derive_trend(analyseset_species = analyseset_vuursalamander, trendmodel_nbinom = trendmodel_iid2)
+
+results_waic_vuursalamander <- bind_rows(
+  get_waic(analyseset_vuursalamander, trendmodel_iid2) %>%
+    mutate(model = "trendmodel"),
+  get_waic(analyseset_vuursalamander, indexmodel_iid_rw1year) %>%
+    mutate(model = "indexmodel"))
+
+```
+
+
+### Validatie
+
+#### Dispersion
+
+```{r}
+plot(dispersion_check(indexmodel_iid_rw1year))
+```
+
+#### Distribution
+
+```{r}
+plot(fast_distribution_check(indexmodel_iid_rw1year))
+```
+
+#### Random effect
+
++ Location
+
+```{r}
+
+ precision_location <- indexmodel_iid_rw1year$summary.hyperpar$mean[2]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_location),
+                  precision = precision_location,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_location))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_location), 3))))
+    
+```
+
+
+# Resultaten
+
+### Vergelijking aantallen tussen meetcycli
+
+```{r}
+
+results_index_meetcyclus <- results_index_meetcyclus_boomkikker %>%
+  mutate(levensstadium = "adult") %>%
+  bind_rows(results_index_meetcyclus_kamsalamander %>%
+              mutate(levensstadium = "adult"),
+            results_index_meetcyclus_boomkikker_larve %>%
+               mutate(levensstadium = "larve"),
+            results_index_meetcyclus_kamsalamander_larve %>%
+               mutate(levensstadium = "larve")) 
+
+verschil_meetcycli <- results_index_meetcyclus %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  select( soort_nl, soort_wet, levensstadium, meetcyclus_ref, meetcyclus, klasse, mean, lcl_0.90, ucl_0.90) 
+  
+```
+
+```{r}
+verschil_meetcycli_refvalue <- verschil_meetcycli %>%
+  distinct(soort_nl, soort_wet, levensstadium, meetcyclus_ref) %>%
+  mutate(meetcyclus = meetcyclus_ref,
+        mean = 1,
+         klasse = "R") 
+
+verschil_meetcycli_table <- verschil_meetcycli %>%
+  bind_rows(verschil_meetcycli_refvalue) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+```
+
+
+```{r, fig.height = 6}
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+verschil_meetcycli_table %>%
+  ggplot(aes(x = meetcyclus, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiemeetcyclus", x = "meetcyclus") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~soort_nl + levensstadium, scales = "free_x")
+```
+
+### Vergelijking proportie aanwezig tussen meetcycli
+
+```{r}
+results_occurence <- results_occurence_boomkikker_larve %>%
+  bind_rows(results_occurence_kamsalamander_larve)
+
+results_occurence %>%
+  ggplot(aes(x = meetcyclus, y = mean, ymin = lcl_0.90, ymax = ucl_0.90)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  facet_wrap(~soort_nl + levensstadium, scales = "free_x") +
+  ylim(0,1) +
+  scale_y_continuous(labels = scales::percent)
+```
+
+
+## Vergelijking tussen jaren
+
+```{r}
+results_index_jaar <- results_index_knoflookpad %>%
+  bind_rows(results_index_vuursalamander) %>%
+  bind_rows(results_index_jaar_kamsalamander) %>%
+  bind_rows(results_index_jaar_boomkikker) %>%
+  bind_rows(results_index_vroedmeesterpad) %>%
+  mutate(levensstadium = "adult") %>%
+  bind_rows(results_index_jaar_kamsalamander_larve %>%
+              mutate(levensstadium = "larve"),
+            results_index_jaar_boomkikker_larve %>%
+              mutate(levensstadium = "larve")) 
+
+verschil_jaren <- results_index_jaar %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  select( soort_nl, soort_wet, levensstadium, ref_jaar, jaar, klasse, mean, lcl_0.90, ucl_0.90) 
+
+verschil_jaren_refvalue <- verschil_jaren %>%
+  distinct(soort_nl, soort_wet, levensstadium, ref_jaar) %>%
+  mutate(jaar = ref_jaar,
+        mean = 1,
+         klasse = "R") 
+
+verschil_jaren_table <- verschil_jaren %>%
+  bind_rows(verschil_jaren_refvalue) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+```
+
+
+```{r, fig.height= 7}
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+verschil_jaren_table %>%
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiejaar", x = "jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~soort_nl + levensstadium, scales = "free")
+```
+
+
+
+### Trend
+
+```{r}
+
+results_trend <- results_trend_kamsalamander %>%
+  bind_rows(results_trend_boomkikker) %>%
+  bind_rows(results_trend_knoflookpad) %>%
+  bind_rows(results_trend_vroedmeesterpad) %>%
+  bind_rows(results_trend_vuursalamander)
+
+trend <- results_trend %>%
+  group_by(soort_nl) %>%
+  mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
+         n_jaar = jaar_max - jaar_min + 1,
+         treshold_low = ifelse(parameter == "trend_average", 
+                               round((exp(log(0.75)/(6 - 1)) - 1) * 100, 1),
+                               -25),
+         treshold_high = ifelse(parameter == "trend_average", 
+                                round((exp(log(1.33)/(6 - 1)) - 1) * 100, 1),
+                                33)) %>%
+  ungroup() %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
+
+```
+
+In Tabel \@ref(tab:tabtrendresultaat) geven we een overzicht van de gemiddelde jaarlijkse trend en de totale trend over de meetnetperiode. We duiden ook aan of de trend al dan niet lineair is. Een lineaire trend betekent dat de jaarlijkse daling of stijging relatief constant is. Bij een niet-lineaire trend fluctueren de aantallen sterk van jaar tot jaar, maar hebben we gemiddeld gezien over de hele tijdsperiode wel een stijging of een daling.
+
+```{r }
+
+overzicht_trend_tabel <- trend %>%
+  mutate(trend = round(mean, 0),
+         trend_lcl = round(lcl_0.90, 0),
+         trend_ucl = round(ucl_0.90, 0),
+         trend_tbl = str_c(ifelse(trend > 0, "+", ""),
+                           trend, "% (",
+                           ifelse(trend_lcl > 0, "+", ""),
+                           trend_lcl, "%; ",
+                           ifelse(trend_ucl > 0, "+", ""),
+                           trend_ucl, "%)")
+         ) %>%
+  select(parameter, soort_nl, soort_wet, periode_tekst, klasse, trend_tbl) %>%
+  spread(key = "parameter", value = "trend_tbl") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  select("Nederlandse naam" = soort_nl,  Periode = periode_tekst, Klasse = klasse,  "Jaarlijkse wijziging" = trend_average, "Wijziging over de looptijd" = trend_total)
+
+```
+
+
+```{r tabtrendresultaat, eval = TRUE}
+
+overzicht_trend_tabel %>%
+  kable(align = "lcclcc",
+        caption = "Jaarlijkse wijziging en wijziging over de looptijd",
+      booktabs = TRUE)  %>%
+  kable_styling()
+```
+\needspace{50mm}
+
+De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in Figuur \@ref(fig:figtrend). De x-as van deze figuur heeft een logaritmische schaal. Een halvering (-50 %) is immers een even sterk effect als een verdubbeling (+100 %). Opnieuw maken we gebruik van de [classificatie](#h:classtrend) zoals besproken in paragraaf \@ref(h:classtrend) met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over de meetperiode. Voor een periode van zes jaar (2016 - 2021) komt de ondergrens overeen met een gemiddelde jaarlijkse trend van -5,6 % en de bovengrens met een gemiddelde jaarlijkse trend van +5,9 %. 
+
+```{r figtrend}
+
+trend <- trend %>%
+  mutate(mean_log = log(mean/100 + 1),
+          lcl_0.90_log = log(lcl_0.90/100 + 1),
+         ucl_0.90_log = log(ucl_0.90/100 + 1),
+         soort_periode = str_c(soort_nl, jaar_min, jaar_max, sep = "_"))
+
+order_trend <- (trend %>%
+  filter(parameter == "trend_average") %>%
+  arrange(mean))$soort_periode
+
+breaks_log <- log(c( -50, -25, 0, 33, 50)/100 + 1)
+labels_show <- str_c(c( -50, -25, 0, 33, 50), " %")
+
+plot <- trend %>%
+  filter(parameter == "trend_average") %>%
+  mutate(soort_periode = factor(soort_periode, levels = order_trend)) %>%
+  #ggplot( aes(x = soort_nl, y = mean/100, ymin = lcl_0.90/100, ymax = ucl_0.90/100, label = klasse, colour = klasse)) +
+  ggplot( aes(x = soort_periode, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  # geom_hline(aes(yintercept = max(log(treshold_low/100 + 1))), linetype = 3) +
+  # geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3) +
+  # geom_hline(aes(yintercept = max(treshold_low/100)), linetype = 3) +
+  # geom_hline(aes(yintercept = min(treshold_high/100)), linetype = 3) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  # geom_errorbar(aes(ymin = lcl_0.60/100, ymax = ucl_0.60/100), width = 0, size = 10, alpha = 0.3) +
+  # geom_errorbar(aes(ymin = lcl_0.30/100, ymax = ucl_0.30/100), width = 0, size = 10, alpha = 0.3) +
+  # stat_effect(threshold = c(treshold_low/100, treshold_high/100), reference = 0, size = 3) +
+  # scale_effect() +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Gemiddelde jaarlijkse trend (%)", x = "Soort") +
+  #scale_y_continuous(breaks = c(-50, -25, 0, 33, 100)/100, labels = scales::percent, limits = c(-0.6, 1)) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show, limits = c(min(breaks_log), max(breaks_log))) +
+  coord_flip() +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+# trend -> (exp(x) - 1) * 100
+# x -> log(trend/100 + 1)
+
+
+plot
+
+
+```
+
+# Resultaten wegschrijven
+
+```{r}
+trend %>%
+  write_vc(root = "../output/results", file = "results_trendmodel_amfibieën", sorting = c("parameter", "soort_nl", "jaar_min"), strict = FALSE)
+```
+```{r}
+ results_index_jaar %>%
+  write_vc(root = "../output/results", file = "results_indexmodel_amfibieën", sorting = c("soort_nl", "levensstadium", "jaar", "parameter"), strict = FALSE)
+```
+```{r}
+ results_index_meetcyclus %>%
+  write_vc(root = "../output/results", file = "results_indexmodel_meetcyclus_amfibieën", sorting = c("soort_nl", "levensstadium", "meetcyclus"), strict = FALSE)
+```
+
+
+```{r}
+ results_occurence %>%
+  write_vc(root = "../output/results", file = "results_occurence_meetcyclus_amfibieën", sorting = c("soort_nl", "levensstadium", "meetcyclus"))
+```
+
+```{r}
+results_waic <- bind_rows(
+  results_waic_boomkikker,
+  results_waic_kamsalamander,
+  results_waic_knoflookpad,
+  results_waic_vuursalamander,
+  results_waic_vroedmeesterpad) %>% 
+  pivot_wider(names_from = "model", values_from = "waic") %>%
+  mutate(diff_waic = trendmodel - indexmodel,
+         type_trend = ifelse(diff_waic > 0,
+                               "Niet lineair",
+                               ifelse(diff_waic > -2,
+                                      "Quasi lineair", "Lineair")))
+
+results_waic %>%
+  write_vc(root = "../output/results", file = "results_waic_amfibieën", sorting = c("soort_nl"), strict = FALSE)
+```
+

@@ -1,5 +1,5 @@
 Version: 1.0
-ProjectId: 10b864eb-6e65-459b-b748-6f0a64a6726c
+ProjectId: da5a71fa-f3fb-4a60-adf0-e425d713d456
 
 RestoreWorkspace: Default
 SaveWorkspace: Default
@@ -13,8 +13,5 @@ Encoding: UTF-8
 RnwWeave: knitr
 LaTeX: XeLaTeX
 
-AutoAppendNewline: Yes
-StripTrailingWhitespace: Yes
-
 BuildType: Website
-WebsitePath: source
+WebsitePath: analysis_amfibieën/source

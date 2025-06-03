@@ -9,7 +9,7 @@
 ```{r}
 analyseset_roepkoren_boomkikker <- read_vc("analyseset_roepkoren_boomkikker", "../output/analyseset")
 
-check <-  analyseset_roepkoren_boomkikker %>%
+analyseset_roepkoren_boomkikker <-  analyseset_roepkoren_boomkikker %>%
   filter(is_sample) %>%
   filter(primaire_soort) %>%
   group_by(meetnet, locatie) %>%
@@ -21,8 +21,7 @@ check <-  analyseset_roepkoren_boomkikker %>%
          year_scaled = jaar - min(jaar) + 1,
          jaar_scaled = year_scaled,
          cluster2 = cluster,
-         fjaar = factor(jaar)) %>%
-  select(aantal, fjaar)
+         fjaar = factor(jaar))
 
 ```
 
@@ -44,10 +43,10 @@ check <-  analyseset_roepkoren_boomkikker %>%
   + random effect voor cluster
   + random slope voor cluster
 
-```{r}
 
-test <- inla(formula = aantal ~ fjaar,
-             data = check)
+
+
+```{r}
 
 indexmodel_meetcyclus_iid <- inla(formula = aantal ~ meetcyclus  + 
                                 f(locatie, 
@@ -1184,6 +1183,181 @@ iid_checked_plot %>%
     
 ```
 
+## Analyse rugstreeppad adulten
+
+### Analyseset
+
+```{r}
+
+analyseset_rugstreeppad <- read_vc(file = "analyseset_rugstreeppad", root = "../output/analyseset")
+
+```
+
+
+### Model
+
+Indien het type telling onbekend is, veronderstellen we een avondbezoek, behalve als er enkel eitjes werden geteld.
+
+```{r}
+analyseset_rugstreeppad_est <- analyseset_rugstreeppad %>%
+  group_by(visit_id) %>%
+  mutate(type_telling_est = ifelse(type_telling == "onbekend",
+                               ifelse(any(aantal > 0 & levensstadium == "egg"), "dagtelling", "avondtelling"),
+                                type_telling))
+
+```
+
+```{r}
+analyseset_rugstreeppad_adult <- analyseset_rugstreeppad_est %>%
+  filter(jaar <= 2024) %>%
+  filter(type_telling_est == "avondtelling") %>%
+  filter(levensstadium == "adult") %>%
+  group_by(locatie) %>%
+  mutate(paired = n_distinct(meetcyclus) > 1) %>%
+  mutate(aanwezig = sum(aantal) > 0) %>%
+  ungroup() %>%
+  mutate(meetcyclus = ifelse(meetcyclus == 1, "2019_2021", "2022_2024")) %>%
+  select(meetnet, locatie, paired, aanwezig, visit_id, datum, jaar, meetcyclus, periode, type_telling, n_samples, activiteit, aantal, soort_nl, soort_wet) %>%
+  pivot_wider(values_from = "aantal", names_from = "activiteit") %>%
+  mutate(aantal_adult_roepend = calling,
+         aantal_adult_tot = calling + present)
+  
+```
+
+```{r}
+
+analyseset_rugstreeppad_adult <- analyseset_rugstreeppad_adult %>%
+  filter(!(present & aantal_adult_roepend == 0)) %>%
+    mutate(year_min = min(jaar),
+        jaar_scaled = jaar - year_min + 1,
+        year_scaled = jaar_scaled)
+
+
+indexmodel_meetcyclus_iid <- inla(formula = aantal_adult_roepend ~ meetcyclus + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_rugstreeppad_adult %>%
+                         dplyr::filter(aanwezig) %>%
+                         as.data.frame(),
+                       offset = n_samples,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+indexmodel_paired_meetcyclus_iid <- inla(formula = aantal_adult_roepend ~ meetcyclus + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_rugstreeppad_adult %>%
+                         filter(paired) %>%
+                         filter(aanwezig),
+                       offset = n_samples,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+indexmodel_paired_meetcyclus_iid_nooffset <- inla(formula = aantal_adult_roepend ~ meetcyclus + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_rugstreeppad_adult %>%
+                         filter(paired) %>%
+                         filter(aanwezig),
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE),
+                       quantiles = c(0.025, 0.05, 0.5, 0.95, 0.975))
+
+trendmodel_iid <- inla(formula = aantal_adult_roepend ~ year_scaled  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_rugstreeppad_adult %>%
+                         filter(paired) %>%
+                         filter(aanwezig),
+                       offset = n_samples,
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+trendmodel_iid_no_offset <- inla(formula = aantal_adult_roepend ~ year_scaled  + 
+                                f(locatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                       family = "nbinomial",
+                       data = analyseset_rugstreeppad_adult %>%
+                         filter(paired) %>%
+                         filter(aanwezig),
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+
+results_index_meetcyclus_rugstreeppad <- derive_index_meetcyclus_inla(indexmodel_nbinom_inla = indexmodel_meetcyclus_iid, 
+                                                                    function_eval = function(...) {exp(meetcyclus2022_2024)}, 
+                                                                    set_seed =  21354)
+
+results_index_meetcyclus_paired_rugstreeppad <- derive_index_meetcyclus_inla(indexmodel_nbinom_inla = indexmodel_paired_meetcyclus_iid, 
+                                                                    function_eval = function(...) {exp(meetcyclus2022_2024)}, 
+                                                                    set_seed =  21354)
+
+results_index_meetcyclus_paired_rugstreeppad_nooffset <- derive_index_meetcyclus_inla(indexmodel_nbinom_inla = indexmodel_paired_meetcyclus_iid_nooffset, 
+                                                                    function_eval = function(...) {exp(meetcyclus2022_2024)}, 
+                                                                    set_seed =  21354)
+
+results_index_meetcyclus_rugstreeppad  <- bind_rows(results_index_meetcyclus_rugstreeppad %>% 
+                                        mutate(model_type = "all locations + offset"),
+                                      results_index_meetcyclus_paired_rugstreeppad %>% 
+                                        mutate(model_type = "paired locations + offset"),
+                                      results_index_meetcyclus_paired_rugstreeppad_nooffset %>% 
+                                        mutate(model_type = "paired locations, no offset")) %>%
+  mutate(levensstadium = "adult roepend")
+
+results_trend_rugstreeppad <- derive_trend(analyseset_species = analyseset_rugstreeppad_adult, trendmodel_nbinom = trendmodel_iid)
+
+results_trend_rugstreeppad_no_offset <- derive_trend(analyseset_species = analyseset_rugstreeppad_adult, trendmodel_nbinom = trendmodel_iid_no_offset)
+```
+
+
+### Validatie
+
+#### Dispersion
+
+```{r}
+plot(dispersion_check(indexmodel_paired_meetcyclus_iid))
+```
+
+#### Distribution
+
+```{r}
+plot(fast_distribution_check(indexmodel_paired_meetcyclus_iid))
+```
+
+#### Random effect
+
++ Location
+
+```{r}
+
+ precision_location <- indexmodel_paired_meetcyclus_iid$summary.hyperpar$mean[2]
+  
+  iid_checked_plot <- data.frame(sigma = 1/sqrt(precision_location),
+                  precision = precision_location,
+                  sim_iid = as.numeric(simulate_iid(tau = precision_location))) %>%
+    mutate(x_c = sim_iid - mean(sim_iid),
+           y = exp(x_c + log(1))) 
+  
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      labs(title = bquote(sigma ~ " = " ~ .(round(1/sqrt(precision_location), 3))))
+    
+```
+
 
 # Resultaten
 
@@ -1191,7 +1365,11 @@ iid_checked_plot %>%
 
 ```{r}
 
-results_index_meetcyclus <- results_index_meetcyclus_boomkikker %>%
+results_index_meetcyclus <- results_index_meetcyclus_boomkikker %>% 
+  bind_rows(results_index_meetcyclus_paired_rugstreeppad %>%
+              mutate(type_model = "offset")) %>%
+  bind_rows(results_index_meetcyclus_paired_rugstreeppad_nooffset %>%
+              mutate(type_model = "no offset")) %>%
   mutate(levensstadium = "adult") %>%
   bind_rows(results_index_meetcyclus_kamsalamander %>%
               mutate(levensstadium = "adult"),
@@ -1203,7 +1381,7 @@ results_index_meetcyclus <- results_index_meetcyclus_boomkikker %>%
 verschil_meetcycli <- results_index_meetcyclus %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
          klasse = format(klasse, type = "markdown")) %>%
-  select( soort_nl, soort_wet, levensstadium, meetcyclus_ref, meetcyclus, klasse, mean, lcl_0.90, ucl_0.90) 
+  select(type_model, soort_nl, soort_wet, levensstadium, meetcyclus_ref, meetcyclus, klasse, mean, lcl_0.90, ucl_0.90) 
   
 ```
 
@@ -1234,6 +1412,7 @@ breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
 labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
 
 verschil_meetcycli_table %>%
+  filter(type_model == "offset" | is.na(type_model)) %>%
   ggplot(aes(x = meetcyclus, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse)) +
   geom_errorbar(width = 0, size = 10, alpha = 0.3) +
   geom_point(size = 7, alpha = 0.6) +
@@ -1328,7 +1507,8 @@ results_trend <- results_trend_kamsalamander %>%
   bind_rows(results_trend_boomkikker) %>%
   bind_rows(results_trend_knoflookpad) %>%
   bind_rows(results_trend_vroedmeesterpad) %>%
-  bind_rows(results_trend_vuursalamander)
+  bind_rows(results_trend_vuursalamander) %>%
+  bind_rows(results_trend_rugstreeppad)
 
 trend <- results_trend %>%
   group_by(soort_nl) %>%

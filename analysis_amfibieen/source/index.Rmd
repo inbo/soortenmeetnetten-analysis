@@ -53,9 +53,9 @@ library(inlatools)
 library(openssl)
 library(units)
 
-# library(conflicted)
-# conflicts_prefer(dplyr::filter())
-# conflicts_prefer(dplyr::lag)
+library(conflicted)
+conflicts_prefer(dplyr::filter())
+conflicts_prefer(dplyr::lag)
 ```
 
 ```{r}

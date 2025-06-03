@@ -14,16 +14,16 @@ Indien het type telling onbekend is, veronderstellen we een avondbezoek, behalve
 analyseset_rugstreeppad_est <- analyseset_rugstreeppad %>%
   group_by(visit_id) %>%
   mutate(type_telling_est = ifelse(type_telling == "onbekend",
-                               ifelse(any(aantal > 0 & levensstadium == "ei"), "dagtelling", "avondtelling"),
+                               ifelse(any(aantal > 0 & levensstadium == "egg"), "dagtelling", "avondtelling"),
                                 type_telling))
 
 ```
 
 ```{r}
 analyseset_rugstreeppad_adult <- analyseset_rugstreeppad_est %>%
-  dplyr::filter(jaar <= 2024) %>%
-  dplyr::filter(type_telling_est == "avondtelling") %>%
-  dplyr::filter(levensstadium == "adult") %>%
+  filter(jaar <= 2024) %>%
+  filter(type_telling_est == "avondtelling") %>%
+  filter(levensstadium == "adult") %>%
   group_by(locatie) %>%
   mutate(paired = n_distinct(meetcyclus) > 1) %>%
   mutate(aanwezig = sum(aantal) > 0) %>%
@@ -44,7 +44,7 @@ analyseset_rugstreeppad_adult %>%
   ggplot(aes(x = meetcyclus, y = mean_aantal_adult_roepend, group = locatie)) +
   geom_point() +
   lims(y = c(0, NA)) +
-  geom_line(alpha = 0.3) +
+  # geom_line(alpha = 0.3) +
   facet_wrap(~locatie, scales = "free_y")
 ```
 
@@ -79,18 +79,13 @@ analyseset_rugstreeppad_adult %>%
   kable_styling()
 ```
 
-```{r}
-
-library(INLA)
-test <- data.frame(aantal = c(5, 6, 9, 12, 46, 15, 26),
-                   jaar = factor(2020:2026))
-
-model_inla <- inla(formula = aantal ~ jaar,
-                   data = test)
-```
-
 
 ```{r}
+
+analyseset_rugstreeppad_adult <- analyseset_rugstreeppad_adult %>%
+  filter(!(present & aantal_adult_roepend == 0))
+
+
 indexmodel_meetcyclus_iid <- inla(formula = aantal_adult_roepend ~ meetcyclus + 
                                 f(locatie, 
                                   model = "iid", 
@@ -145,19 +140,24 @@ results_index_meetcyclus_paired_rugstreeppad_nooffset <- derive_index_meetcyclus
 
 ```{r}
 
-results_index_meetcyclus <- results_index_meetcyclus_paired_rugstreeppad %>%
+results_index_meetcyclus <- bind_rows(results_index_meetcyclus_rugstreeppad %>% 
+                                        mutate(model_type = "all locations + offset"),
+                                      results_index_meetcyclus_paired_rugstreeppad %>% 
+                                        mutate(model_type = "paired locations + offset"),
+                                      results_index_meetcyclus_paired_rugstreeppad_nooffset %>% 
+                                        mutate(model_type = "paired locations, no offset")) %>%
   mutate(levensstadium = "adult roepend")
 
 verschil_meetcycli <- results_index_meetcyclus %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
          klasse = format(klasse, type = "markdown")) %>%
-  select( soort_nl, soort_wet, levensstadium, meetcyclus_ref, meetcyclus, klasse, mean, lcl_0.90, ucl_0.90) 
+  select( model_type, soort_nl, soort_wet, levensstadium, meetcyclus_ref, meetcyclus, klasse, mean, lcl_0.90, ucl_0.90) 
   
 ```
 
 ```{r}
 verschil_meetcycli_refvalue <- verschil_meetcycli %>%
-  distinct(soort_nl, soort_wet, levensstadium, meetcyclus_ref) %>%
+  distinct(model_type, soort_nl, soort_wet, levensstadium, meetcyclus_ref) %>%
   mutate(meetcyclus = meetcyclus_ref,
         mean = 1,
          klasse = "R") 
@@ -193,5 +193,5 @@ verschil_meetcycli_table %>%
   scale_y_continuous(breaks = breaks_log, labels = labels_show) +
   scale_color_manual(values = klasse_color) +
   theme(legend.position = "hide") +
-  facet_wrap(~soort_nl + levensstadium, scales = "free_x")
+  facet_wrap(~soort_nl + model_type, scales = "free_x")
 ```

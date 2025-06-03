@@ -4,6 +4,11 @@
 
 analyseset_rugstreeppad <- read_vc(file = "analyseset_rugstreeppad", root = "../output/analyseset")
 
+# bezoeken uit 2024 zonder tijdstip zijn avondbezoeken
+
+analyseset_rugstreeppad <- analyseset_rugstreeppad %>%
+  mutate(type_telling = ifelse(type_telling == "onbekend" & jaar == 2024, "avondtelling", type_telling))
+
 ```
 
 ## Overzicht tellingen
@@ -228,12 +233,34 @@ analyseset_rugstreeppad %>%
   facet_wrap( ~ show, scales = "free") +
   labs(title = "Dagtellingen")
 ```
+## Aantal ei per locatie
+
+```{r}
+aantal_ei <- analyseset_rugstreeppad %>%
+   group_by(visit_id) %>%
+   mutate(type_telling_est = ifelse(type_telling == "onbekend",
+                               ifelse(any(aantal > 0 & levensstadium == "egg"), "dagtelling", "avondtelling"),
+                                type_telling)) %>%
+  ungroup() %>%
+  filter(type_telling_est == "dagtelling") %>%
+  filter(levensstadium == "egg") %>%
+  group_by(meetnet, locatie, jaar, meetcyclus, periode, type_telling_est, levensstadium) %>%
+  summarise(aantal_ei_jaar = sum(aantal),
+            n_bezoeken = n_distinct(visit_id),
+            n_samples = sum(n_samples)) %>%
+  ungroup()
+  
+```
+
+
 
 ## Overzicht aanwezigheid
 
+### Globaal
+
 ```{r}
 overzicht_aanwezig_locatie <- analyseset_rugstreeppad %>%
-  group_by(locatie) %>%
+  group_by(locatie, meetcyclus, periode) %>%
   summarise(aanwezig = sum(aantal) > 0,
             aanwezig_adult = sum(aantal * (levensstadium == "adult")) > 0,
             aanwezig_voortplanting = sum(aantal * (levensstadium != "adult")) > 0) %>%
@@ -266,10 +293,85 @@ overzicht_aanwezig_locatie %>%
             filter = "top")
 ```
 
-
-
 ```{r}
 overzicht_aanwezig_type %>%
   kable(caption = "Overzicht aanwezigheid per locatie") %>%
   kable_styling()
 ```
+
+### Per meetcyclus
+
+```{r}
+
+all_locaties <- analyseset_rugstreeppad %>%
+  tidyr::expand(meetnet, locatie, periode)
+
+status_rugstreeppad_bezoek <- analyseset_rugstreeppad %>%
+  filter(primaire_soort) %>%
+  mutate(telling_adult = telling_adult_andere | telling_adult_roepend) %>%
+  group_by(meetnet, locatie, periode, jaar, visit_id, type_telling, zoekinspanning, telling_eisnoer, telling_adult) %>%
+  summarise(aanwezig = sum(aantal) > 0,
+            aanwezig_adult = sum(aantal * (levensstadium == "adult")) > 0,
+            aanwezig_ei = sum(aantal * (levensstadium == "egg")) > 0) %>%
+  ungroup() %>%
+  mutate(aanwezig_adult = ifelse(is.na(zoekinspanning) | telling_adult,
+                                    aanwezig_adult,
+                                    NA),
+         aanwezig_ei = ifelse(is.na(zoekinspanning) | telling_eisnoer,
+                                    aanwezig_ei,
+                                    NA))
+
+status_rugstreeppad_locatie <- all_locaties %>%
+  left_join(status_rugstreeppad_bezoek, by = c("meetnet", "locatie", "periode")) %>%
+  group_by(meetnet, locatie, periode) %>%
+  summarise(dagbezoeken = sum(type_telling == "dagtelling", na.rm = TRUE),
+            avondbezoeken = sum(type_telling == "avondtelling", na.rm = TRUE),
+            bezoeken_onbekend = sum(type_telling == "onbekend", na.rm = TRUE),
+            bezoeken_totaal = n_distinct(visit_id, na.rm = TRUE),
+            n_telling_eisnoer = sum(telling_eisnoer),
+            n_telling_adult = sum(telling_adult),
+            jaar = str_c(unique(jaar), collapse = ", "),
+            zoekinspanning = str_c(unique(zoekinspanning), collapse = ", "),
+            aanwezig = any(aanwezig),
+            aanwezig_adult = any(aanwezig_adult),
+            aanwezig_ei = any(aanwezig_ei)) %>%
+  ungroup() %>%
+  mutate(conclusie_adult = ifelse(aanwezig_adult | aanwezig_ei, "aanwezig",
+                                  ifelse((avondbezoeken >= 3), "afwezig", "aanwezigheid onbekend")),
+         conclusie_ei = ifelse(aanwezig_ei, "aanwezig",
+                               ifelse(n_telling_eisnoer >= 3 & !is.na(n_telling_eisnoer), "afwezig",
+                                         ifelse((dagbezoeken >= 1) & (bezoeken_totaal >= 3), "afwezig", "aanwezigheid onbekend"))),
+         conclusie_adult = ifelse(is.na(conclusie_adult), "aanwezigheid onbekend", conclusie_adult),
+         conclusie_ei = ifelse(is.na(conclusie_ei), "aanwezigheid onbekend", conclusie_ei),
+         conclusie_ei = ifelse(conclusie_adult == "afwezig", "afwezig", conclusie_ei))
+
+status_rugstreeppad_adult <- status_rugstreeppad_locatie %>%
+  group_by(meetnet, periode, conclusie_adult) %>% 
+  summarise(n_locaties = n()) %>%
+  ungroup()
+
+status_rugstreeppad_adult_wide <- status_rugstreeppad_locatie %>%
+  select(meetnet, locatie, periode, conclusie_adult) %>%
+  pivot_wider(names_from = periode, values_from = conclusie_adult) %>%
+  group_by(meetnet, `2019 - 2021`, `2022 - 2024`) %>%
+  summarise(n_locaties = n(),
+            locaties = str_c(locatie, collapse = ", ")) %>%
+  ungroup()
+
+status_rugstreeppad_ei <- status_rugstreeppad_locatie %>%
+  group_by(meetnet, periode, conclusie_ei) %>% 
+  summarise(n_locaties = n()) %>%
+  ungroup()
+  
+status_rugstreeppad_ei_wide <- status_rugstreeppad_locatie %>%
+  select(meetnet, locatie, periode, conclusie_ei) %>%
+  pivot_wider(names_from = periode, values_from = conclusie_ei) %>%
+  group_by(meetnet, `2019 - 2021`, `2022 - 2024`) %>%
+  summarise(n_locaties = n(),
+            locaties = str_c(locatie, collapse = ", ")) %>%
+  ungroup()
+
+ status_rugstreeppad_locatie %>%
+  write_vc(root = "../output/results", file = "status_rugstreeppad_locatie", sorting = c("locatie", "periode"))
+```
+

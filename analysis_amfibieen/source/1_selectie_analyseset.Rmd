@@ -1053,7 +1053,7 @@ analyseset_heikikker_wide <- analyseset_heikikker_long %>%
   select(soortgroep, meetnet, protocol, locatie, cluster, poel, is_sample, is_active, meetcyclus, meetcyclus_start, meetcyclus_end, datum, visit_id, hoofdteller,  doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium, bezoekvariabele, waarde, aantal) %>%
   pivot_wider(names_from = bezoekvariabele,
               values_from = waarde) %>%
-  rename(aantal_totaal = "Aantal eiklompen totaal", aantal_bemonsterd = "Aantal eiklompen bemonsterd", aandeel_doelsoort = "Procentueel aandeel doelsoort", staalcode = Staalcode, aantal_doelsoort = aantal) %>%
+  rename(aantal_totaal = "aantal eiklompen totaal", aantal_bemonsterd = "Aantal eiklompen bemonsterd", aandeel_doelsoort = "Procentueel aandeel doelsoort", staalcode = Staalcode, aantal_doelsoort = aantal) %>%
   mutate(jaar = year(datum),
          aantal_bemonsterd = as.numeric(aantal_bemonsterd),
          aantal_totaal = as.numeric(aantal_totaal),
@@ -1229,27 +1229,9 @@ counts_rugstreeppad_visit <- counts %>%
             n_samples = n_distinct(sample_id)) %>%
   ungroup()
 
-covar_rugstreeppad <- covar_sample %>%
-  filter(meetnet == "Rugstreeppad")
-
 zoekinspanning_rugstreeppad <- covar %>%
   filter(meetnet == "Rugstreeppad") %>%
   select(visit_id, zoekinspanning = waarde)
-
-type_habitat <- covar_rugstreeppad %>%
-  filter(bezoekvariabele == "type habitat") %>%
-  select(visit_id, sample_id, type_habitat = waarde)
-
-habitatkenmerken_bepaald <- covar_rugstreeppad %>%
-  filter(bezoekvariabele == "habitatkenmerken werden bepaald?") %>%
-  select(visit_id, sample_id, habitatkenmerken = waarde) %>%
-  mutate(habitatkenmerken = ifelse(habitatkenmerken == "ja", TRUE,
-                                   ifelse(habitatkenmerken == "nee", FALSE, NA)))
-
-covar_rugstreeppad <- covar_rugstreeppad %>%
-  filter(!bezoekvariabele %in% c("type habitat", "habitatkenmerken werden bepaald?", "sample type amfibieën")) %>%
-  left_join(habitatkenmerken_bepaald, by = c("visit_id", "sample_id")) %>%
-  left_join(type_habitat, by = c("visit_id", "sample_id"))
 
 dataset_rugstreeppad_sample <-  visits %>%
   filter(meetnet == "Rugstreeppad") %>%
@@ -1286,8 +1268,8 @@ dataset_rugstreeppad_nul <- dataset_rugstreeppad %>%
 
 nulwaarneming <- dataset_rugstreeppad %>%
   tidyr::expand(visit_id, nesting(levensstadium, activiteit)) %>%
-  filter(levensstadium != "juveniel") %>%
   filter(!is.na(levensstadium)) %>% 
+  filter(levensstadium %in% c("egg", "adult")) %>%
   semi_join(dataset_rugstreeppad_nul, by = "visit_id") %>%
   mutate(aantal = 0,
          n_samples = 1,
@@ -1321,6 +1303,34 @@ check_tijdstip %>%
   write_csv2("../output/rugstreeppad_tijdstip_missing.csv")
 ```
 
+### Controle zoekinspanning
+
+Sinds 2024 kan de zoekinspanning ingegeven worden.
+
+```{r}
+dataset_rugstreeppad %>%
+  filter(!is.na(zoekinspanning)) %>%
+  group_by(zoekinspanning) %>%
+  summarise(n_bezoeken = n_distinct(visit_id)) %>%
+  ungroup()
+``` 
+
+Indien niet alle levensstadia worden geteld, bevat de databanken toch nullen.
+Dit moet gewijzigd worden naar ontbrekende waarden.
+
+```{r}
+dataset_rugstreeppad_corr <- dataset_rugstreeppad %>%
+  mutate(telling_eisnoer = str_detect(zoekinspanning, "eisnoer"),
+         telling_adult_roepend = str_detect(zoekinspanning, "roepen"),
+         telling_adult_andere = str_detect(zoekinspanning, "andere")) %>%
+  mutate(aantal_na = (!telling_eisnoer & levensstadium == "egg") |
+           (!telling_adult_roepend & levensstadium == "adult" & activiteit == "calling") |
+           (!telling_adult_andere & levensstadium == "adult" & activiteit == "present")) %>%
+  mutate(aantal = ifelse(!is.na(zoekinspanning) & aantal_na, NA, aantal))
+              
+```
+
+
 
 ### Overzicht tellingen per type locatie (actief of niet-actief) en al dan niet geschikt voor analyse
 
@@ -1332,7 +1342,7 @@ Onderstaande tabel geeft een overzicht van het aantal records, bezoeken en locat
 + voor_analyse
 
 ```{r}
-dataset_check <- dataset_rugstreeppad %>%
+dataset_check <- dataset_rugstreeppad_corr %>%
   filter(primaire_soort) %>%
   group_by(meetnet, protocol, bezoek_status, is_active,  voor_analyse) %>%
   summarise(n_records = n(),
@@ -1348,10 +1358,10 @@ dataset_check %>%
 + **We selecteren enkel tellingen op actieve locaties**
 
 ```{r}
-dataset_rugstreeppad_actief <- dataset_rugstreeppad %>%
+dataset_rugstreeppad_actief <- dataset_rugstreeppad_corr %>%
   filter(is_active | is.na(is_active))
 
-locaties_niet_actief <- dataset_rugstreeppad %>%
+locaties_niet_actief <- dataset_rugstreeppad_corr %>%
   distinct(meetnet, locatie) %>%
   anti_join(dataset_rugstreeppad_actief, by = c("meetnet", "locatie"))
 
@@ -1364,7 +1374,7 @@ locaties_niet_actief %>%
 
 ```{r}
 
-dataset_rugstreeppad <- dataset_rugstreeppad %>%
+dataset_rugstreeppad <- dataset_rugstreeppad_actief %>%
   filter(voor_analyse) 
 ```
 
@@ -1420,7 +1430,7 @@ analyseset_rugstreeppad <- dataset_rugstreeppad %>%
   mutate(meetcyclus_start = min(jaar),
          meetcyclus_end = min(jaar) + duur_cyclus - 1) %>%
   ungroup() %>%
-  select(soortgroep, meetnet, protocol, locatie, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, start_time, end_time, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, levensstadium, activiteit, aantal, n_samples, opmerking, hoofdteller)
+  select(soortgroep, meetnet, protocol, locatie, is_sample, meetcyclus, meetcyclus_start, meetcyclus_end, jaar, datum, start_time, end_time, visit_id, doy, bezoek_status, primaire_soort, soort_nl, soort_wet, zoekinspanning, telling_eisnoer, telling_adult_roepend, telling_adult_andere, levensstadium, activiteit, aantal, n_samples, opmerking, hoofdteller)
 
 analyseset_rugstreeppad <- analyseset_rugstreeppad %>%
   filter(primaire_soort) %>%
@@ -1431,15 +1441,11 @@ analyseset_rugstreeppad <- analyseset_rugstreeppad %>%
   mutate(periode = str_c(meetcyclus_start, " - ", meetcyclus_end)) %>%
   mutate(start_hour = as.numeric(str_sub(start_time, 1, 2)),
          type_telling = ifelse(is.na(start_hour), "onbekend",
-                               ifelse(start_hour > 5 & start_hour < 17, "dagtelling", "avondtelling"))) 
+                               ifelse(start_hour > 5 & start_hour < 17, "dagtelling", "avondtelling")),
+         type_telling = ifelse(zoekinspanning == "enkel eisnoeren" & !is.na(zoekinspanning), "dagtelling", type_telling)) 
 
-# TE CORRIGEREN BEZOEK
-analyseset_rugstreeppad <- analyseset_rugstreeppad %>%
-  mutate(aantal = ifelse((visit_id == 55056) & (levensstadium == "Larva"), 120, aantal),
-         aantal = ifelse(visit_id == 55056 & activiteit == "roepend", 0, aantal))
 
-check <- analyseset_rugstreeppad %>%
-  filter(visit_id == "55056")
+
 ```
 
 ## Analyseset habitatkenmerken
@@ -1483,9 +1489,33 @@ habitatkenmerken_boomkikker_kamsalamander_wide <- habitatkenmerken_boomkikker_ka
                                       ifelse(str_detect(waterkwaliteit, "slecht"), "slecht", waterkwaliteit))),
          waterkwaliteit = factor(waterkwaliteit, levels = c("onbekend", "niet bekeken/niet van toepassing", "plas verdwenen of volledig verland", "slecht", "middelmatig", "goed")))
 
-habitatkenmerken_rugstreeppad <- dataset_rugstreeppad_sample %>%
+
+covar_rugstreeppad_vroedmeesterpad <- covar_sample %>%
+  filter(meetnet %in% c("Rugstreeppad", "Vroedmeesterpad"))
+
+type_habitat <- covar_rugstreeppad_vroedmeesterpad %>%
+  filter(bezoekvariabele == "type habitat") %>%
+  select(visit_id, sample_id, type_habitat = waarde)
+
+habitatkenmerken_bepaald <- covar_rugstreeppad_vroedmeesterpad %>%
+  filter(bezoekvariabele == "habitatkenmerken werden bepaald?") %>%
+  select(visit_id, sample_id, habitatkenmerken = waarde) %>%
+  mutate(habitatkenmerken = ifelse(habitatkenmerken == "ja", TRUE,
+                                   ifelse(habitatkenmerken == "nee", FALSE, NA)))
+
+covar_rugstreeppad_vroedmeesterpad <- covar_rugstreeppad_vroedmeesterpad %>%
+  filter(bezoekvariabele %in% c("aanwezigheid vis", "beschaduwing", "drijvende vegetatie",
+                                "maximale diepte", "onderwatervegetatie", "pH (zuurtegraad)",
+                                "verticale vegetatie", "waterkwaliteit", "oppervlakte waterpartij",
+                                "permanente waterkolom")) %>%
+  left_join(habitatkenmerken_bepaald, by = c("visit_id", "sample_id")) %>%
+  left_join(type_habitat, by = c("visit_id", "sample_id"))
+
+
+habitatkenmerken_rugstreeppad_vroedmeesterpad <- dataset_rugstreeppad_sample %>%
+  bind_rows(dataset_larven_vroedmeesterpad) %>%
   distinct(meetnet, protocol, locatie, visit_id, sample_id, datum, bezoek_status, voor_analyse, is_sample, is_active) %>%
-  left_join(covar_rugstreeppad, by = c("meetnet", "protocol","visit_id", "sample_id")) %>%
+  left_join(covar_rugstreeppad_vroedmeesterpad, by = c("meetnet", "protocol","visit_id", "sample_id")) %>%
   mutate(waarde = ifelse(waarde == "3" & bezoekvariabele == "waterkwaliteit", "goed (helder water, typische oever en/of waterplanten, weinig verlanding, niet zichtbaar vervuild)", waarde),
          waarde = ifelse(waarde == "0" & bezoekvariabele == "waterkwaliteit", "plas verdwenen of volledig verland", waarde),
          waarde = ifelse(waarde == "bad" & bezoekvariabele == "waterkwaliteit", "slecht (verwaarloosde poel met eutroof water (algen, kroos), anders vervuild of verregaand verland", waarde),
@@ -1501,19 +1531,19 @@ habitatkenmerken_rugstreeppad <- dataset_rugstreeppad_sample %>%
   filter(voor_analyse)
   
 
-check_ontbrekend_type <- habitatkenmerken_rugstreeppad %>%
+check_ontbrekend_type <- habitatkenmerken_rugstreeppad_vroedmeesterpad %>%
   filter(is.na(type_habitat)) %>%
   filter(bezoekvariabele == "oppervlakte waterpartij") %>%
   filter(habitatkenmerken_bepaald != "niet")
 
-check_wrong_category <- habitatkenmerken_rugstreeppad %>%
+check_wrong_category <- habitatkenmerken_rugstreeppad_vroedmeesterpad %>%
   filter(waarde %in% c("no shade", "unknown", "bad", "average", "0", "3")) %>%
   select(datum, visit_id, sample_id, bezoekvariabele, waarde)
 
-check_wrong_category %>%
-  write_csv2("../output/bezoekvariabele_rugstreeppad_anomalie.csv")
+# check_wrong_category %>%
+#   write_csv2("../output/bezoekvariabele_rugstreeppad_anomalie.csv")
 
-habitatkenmerken_rugstreeppad_wide <- habitatkenmerken_rugstreeppad %>%
+habitatkenmerken_rugstreeppad_vroedmeesterpad_wide <- habitatkenmerken_rugstreeppad_vroedmeesterpad %>%
   select(-eenheid) %>%
   pivot_wider(names_from = bezoekvariabele, values_from = waarde) %>%
   rename(oppervlakte_waterpartij = "oppervlakte waterpartij", maximale_diepte = "maximale diepte", aanwezigheid_vis = "aanwezigheid vis", permanente_waterkolom = "permanente waterkolom", drijvende_vegetatie = "drijvende vegetatie", verticale_vegetatie = "verticale vegetatie") %>%
@@ -1544,7 +1574,7 @@ habitatkenmerken_boomkikker_kamsalamander_wide %>%
 ### Rugstreeppad
 
 ```{r}
-habitatkenmerken_rugstreeppad_wide %>%
+habitatkenmerken_rugstreeppad_vroedmeesterpad_wide %>%
   group_by(meetnet,  bezoek_status, voor_analyse, type_habitat, habitatkenmerken_bepaald) %>%
   summarise(n_samples = n_distinct(sample_id),
             n_habitatkenmerken = round(mean(n_habitatkenmerken), 1)) %>%
@@ -1558,7 +1588,7 @@ habitatkenmerken_rugstreeppad_wide %>%
 + Geen habitatkenmerken bepaald bij eitellingen in havengebied ('Telmethode niet gevolgd')
 
 ```{r}
-habitatkenmerken_rugstreeppad_wide <- habitatkenmerken_rugstreeppad_wide %>%
+habitatkenmerken_rugstreeppad_vroedmeesterpad_wide <- habitatkenmerken_rugstreeppad_vroedmeesterpad_wide %>%
   filter(type_habitat != "land" | is.na(type_habitat)) %>%
   filter(bezoek_status != "Telmethode niet gevolgd")
 ```
@@ -1590,7 +1620,7 @@ write_vc(dataset_larven_vroedmeesterpad, file = "analyseset_vroedmeesterpad_larv
 
 write_vc(habitatkenmerken_boomkikker_kamsalamander_wide, file = "habitatkenmerken_boomkikker_kamsalamander_wide", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "visit_id"), strict = FALSE)
 
-write_vc(habitatkenmerken_rugstreeppad_wide, file = "habitatkenmerken_rugstreeppad_wide", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "visit_id"), strict = FALSE)
+write_vc(habitatkenmerken_rugstreeppad_vroedmeesterpad_wide, file = "habitatkenmerken_rugstreeppad_vroedmeesterpad_wide", root = "../output/analyseset", sorting = c("meetnet", "locatie", "datum", "visit_id", "sample_id"), strict = FALSE)
 
 check <- analyseset_roepkoren_knoflookpad %>%
   group_by(meetnet, locatie, datum, soort_nl) %>%
