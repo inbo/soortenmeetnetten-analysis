@@ -23,10 +23,11 @@ We geven hier enkel de belangrijkste elementen van de gebruikte modellen.
 
 -   In sommige gevallen verschilt de zoekinspanning per locatie, wat een invloed heeft op de getelde aantallen.
     Daarom nemen we ook de zoekinspanning mee op in de modellen.
-    Bij de larvetellingen gaat het om het aantal keer dar er geschept werd.
-    Bij de vuursalamander drukken we de zoekinspanning uit als de lengte van het afgelegde transect.
-    Bij de fuiktellingen van kamsalamander gaat het om het aantal fuiken.
-    Meestal worden er twee fuiken gebruikt, zoals het protocol voorschrijft, maar in sommige gevallen worden er ook meer of minder fuiken ingezet.
+
+    -   Bij de larvetellingen gaat het om het aantal keer dar er geschept werd.
+    -   Bij de vuursalamander drukken we de zoekinspanning uit als de lengte van het afgelegde transect.
+    -   Bij de fuiktellingen van kamsalamander gaat het om het aantal fuiken. Meestal worden er twee fuiken gebruikt, zoals het protocol voorschrijft, maar in sommige gevallen worden er ook meer of minder fuiken ingezet.
+    -   Bij rugstreeppad komt de zoekinspanning overeen met het aantal puntlocaties waar naar roepkoren geluisterd wordt.
 
 In Bijlage \@ref(bijlage2) geven we informatie over de reproduceerbaarheid van de analyses.
 

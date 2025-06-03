@@ -91,7 +91,7 @@ resultaten_piloot_table %>%
                             ifelse(parameter == "aantal", "Gemiddeld aantal heikikkereiklompen per bezoek", 
                                    ifelse(parameter == "aantal_tot", "Gemiddelde van totaal aantal heikikkereiklompen per poel", NA)))) %>%
   select(Variabele, "Schatting (90% betrouwbaarheidsinterval)" = mean_tbl) %>%
-  kable(caption = "Overzicht resultaten pilootproject heikikker",
+  kbl(caption = "Overzicht resultaten pilootproject heikikker",
         booktabs = TRUE) %>%
   kable_styling()
 ```
@@ -202,7 +202,7 @@ resultaten_piloot_table %>%
   mutate(Variabele = ifelse(parameter == "occurence", "Voorkomen poelkikkerlarven",
                             ifelse(parameter == "aantal", "Gemiddeld aantal poelkikkerroepkoren per bezoek", NA))) %>%
   select(Variabele, "Schatting (90% betrouwbaarheidsinterval)" = mean_tbl) %>%
-  kable(caption = "Overzicht resultaten pilootproject poelkikker",
+  kbl(caption = "Overzicht resultaten pilootproject poelkikker",
         booktabs = TRUE) %>%
   kable_styling()
 ```

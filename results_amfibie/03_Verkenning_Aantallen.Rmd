@@ -56,7 +56,8 @@ summary_table <- summary_counts_periode %>%
   
 summary_year_sec <- analyseset_aggr %>%
   mutate(protocol = ifelse(protocol == "Amfibieën - Larven", "Amfibieën - Larven en metamorfen", protocol)) %>%
-  filter(!primaire_soort) %>%
+  filter((!primaire_soort) | soort_nl %in% c("Meerkikker", "Bastaardkikker", "Groene kikker-complex")) %>%
+  filter(!soort_nl %in% c("Heikikker", "Poelkikker", "Kamsalamander", "Boomkikker", "Vroedmeesterpad", "Rugstreeppad", "Knoflookpad")) %>%
   group_by(protocol, jaar) %>%
   mutate(n_locaties_secundair = n_distinct(locatie),
          n_tellingen_secundair = n_distinct(visit_id),
@@ -92,14 +93,14 @@ summary_table %>%
   filter(primaire_soort, !soort_nl %in% c("Meerkikker", "Bastaardkikker", "Groene kikker-complex")) %>%
   filter(is_sample) %>%
   select("Nederlandse naam" = soort_nl,  "Levensstadium" = type,  Jaar = periode, "Totaal" = aantal_tot, "Gemiddeld" = aantal_mean, "Locaties" = n_locaties, "Proportie (%)" = prop_aanwezig) %>%
-  kable(caption = "Overzicht getelde aantallen voor de prioritaire soorten (Totaal = totaal aantal, Gemiddeld = gemiddeld aantal per bezoek, Locaties = aantal getelde meetnetlocaties, Proportie = proportie van de bezochte meetnetlocaties waar de soort en het levensstadium werd waargenomen)",
+  kbl(caption = "Overzicht getelde aantallen voor de prioritaire soorten (Totaal = totaal aantal, Gemiddeld = gemiddeld aantal per bezoek, Locaties = aantal getelde meetnetlocaties, Proportie = proportie van de bezochte meetnetlocaties waar de soort en het levensstadium werd waargenomen)",
       booktabs = TRUE,
       longtable = TRUE,
       align = "lllccccc") %>%
   kable_styling(bootstrap_options = c( "condensed"), 
                 latex_options = c("scale_down", "repeat_header"),
                 repeat_header_text = "(vervolg)",
-                font_size = 8) %>%
+                font_size = ifelse(html_output, 11, 8)) %>%
   column_spec(c(1,3), width = "6em") %>%
   column_spec(2, italic = TRUE, width = "7em") %>%
   collapse_rows(c(1,2), target = 2,  latex_hline = "major") %>%
@@ -156,7 +157,7 @@ utm_meetnet <- utm_vl %>%
   filter(tag_utm %in% details_locatie_m$tag_utm)
 ```
 
-`r ifelse(html_output, "In onderstaande kaart en bijhorende tabel geven we een overzicht van de gemiddeld getelde aantallen per soort, levensstadium en per meetnetlocatie. De meetnetlocaties worden weergegeven in de centroïde van het 5 km x 5 km hok waarin de locatie gelegen is. De oppervlakte van de punten is evenredig met het gemiddeld getelde aantal per bezoek over de volledige periode (2016 - 2023). In de bijhorende tabel geven we ook het gemiddeld getelde aantallen per bezoek voor elk jaar. Gezien we de exacte locaties niet weergeven in dit rapport, kennen we hier aan elke locatie een code toe die refereert naar het overeenkomstige hok. Als je in de tabel een rij selecteert, krijg je in de kaart de (vervaagde) locatie te zien.", "")`
+`r ifelse(html_output, "In onderstaande kaart en bijhorende tabel geven we een overzicht van de gemiddeld getelde aantallen per soort, levensstadium en per meetnetlocatie. De meetnetlocaties worden weergegeven in de centroïde van het 5 km x 5 km hok waarin de locatie gelegen is. De oppervlakte van de punten is evenredig met het gemiddeld getelde aantal per bezoek over de volledige periode (2016 - 2024). In de bijhorende tabel geven we ook het gemiddeld getelde aantallen per bezoek voor elk jaar. Gezien we de exacte locaties niet weergeven in dit rapport, kennen we hier aan elke locatie een code toe die refereert naar het overeenkomstige hok. Als je in de tabel een rij selecteert, krijg je in de kaart de (vervaagde) locatie te zien.", "")`
 
 ```{r, eval = html_output}
 
@@ -179,7 +180,7 @@ bscols(list(
                       rownames = FALSE,
                       #class = "compact",
                       extensions = "FixedColumns",
-                      options = list(columnDefs = list(list(visible = FALSE, targets = c( 4, 5, 14, 15))),
+                      options = list(columnDefs = list(list(visible = FALSE, targets = c( 4, 5, 15, 16))),
                                      #dom = 't',
                                      pageLength = 5,
                                      scrollX = TRUE,
@@ -213,6 +214,7 @@ De tabel bevat ook prioritaire soorten, maar dit zijn dan de aantallen die getel
 
 summary_table_all_years <- summary_table %>%
   filter(!primaire_soort) %>%
+  filter(!soort_nl %in% c("Heikikker", "Poelkikker", "Kamsalamander", "Boomkikker", "Vroedmeesterpad", "Rugstreeppad", "Knoflookpad")) %>%
   group_by(primaire_soort, soort_nl, soort_wet, type) %>%
   summarise(aantal_totaal_ls = sum(aantal_tot)) %>%
   ungroup() %>%
@@ -227,25 +229,25 @@ summary_table_all_years <- summary_table %>%
 ```{r tabaantaltotoverige, eval=TRUE}
 summary_table_all_years %>% 
   select("Nederlandse naam" = soort_nl,  "Levensstadium" = type, "Totaal" = aantal_totaal_ls) %>%
-  kable(caption = "Totaal aantal getelde overige soorten voor alle amfibieënmeetnetten samen",
+  kbl(caption = "Totaal aantal getelde overige soorten voor alle amfibieënmeetnetten samen",
      longtable = TRUE,
       booktabs = TRUE) %>%
   kable_styling(bootstrap_options = c( "condensed"), 
                 latex_options = c("scale_down", "repeat_header"),
                 repeat_header_text = "(vervolg)",
-                font_size = 8) %>%
+                font_size = ifelse(html_output, 11, 8)) %>%
   column_spec(2, italic = TRUE) %>%
   collapse_rows(c(1,2), target = 1) %>%
   scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
 ```
 
-Voor de alpenwatersalamander, de kleine watersalamander en de vinpootsalamander tonen we in Tabel \@ref(tab: tabaantalsec) ook de getelde aantallen per jaar.
+De in Tabel \@ref(tab:tabaantaltotoverige) getoonde aantallen voor adulten en juvenielen komen van de fuiktellingen van het meetnet kamsalamander.
+De aantallen van larven en metamorfen komen van de larvetellingen van het meetnet boomkikker en het meetnet kamsalamander.
+
+Voor de alpenwatersalamander, de kleine watersalamander en de vinpootsalamander tonen we in Tabel \@ref(tab:tabaantalsec) ook de getelde aantallen per jaar.
 Dit doen we op basis van zowel tellingen op meetnetlocaties als tellingen op optionele locaties.
 Voor de secundaire soorten worden nulwaarnemingen meestal niet ingevoerd.
 Daarom veronderstellen we dat wanneer er aantallen worden ingevoerd voor één of meerdere secundaire soorten, de niet genoteerde secundaire soorten afwezig zijn.
-
-De in Tabel \@ref(tab:tabaantaltotoverige) getoonde aantallen voor adulten en juvenielen komen van de fuiktellingen van het meetnet kamsalamander.
-De aantallen van larven en metamorfen komen van de larvetellingen van het meetnet boomkikker en het meetnet kamsalamander.
 
 ```{r tabaantalsec, eval=TRUE}
 
@@ -254,14 +256,14 @@ summary_year_sec %>%
   filter(!primaire_soort, soort_nl %in% c("Vinpootsalamander", "Alpenwatersalamander", "Kleine watersalamander")) %>%
   filter(protocol %in% c("Amfibieën - Fuiken", "Amfibieën - Larven en metamorfen")) %>%
   select("Nederlandse naam" = soort_nl, "Levensstadium" = type,  Jaar = jaar, "Totaal" = aantal_tot, "Gemiddeld" = aantal_mean, "Locaties" = n_locaties_secundair, "Proportie (%)" = prop_aanwezig) %>%
-  kable(caption = "Overzicht getelde aantallen voor de secundaire soorten (Totaal = totaal aantal, Gemiddeld = gemiddeld aantal per bezoek, Locaties = aantal getelde locaties met secundaire soorten, Proportie = proportie van de locaties waar de soort en het levensstadium werd waargenomen)",
+  kbl(caption = "Overzicht getelde aantallen voor de secundaire soorten (Totaal = totaal aantal, Gemiddeld = gemiddeld aantal per bezoek, Locaties = aantal getelde locaties met secundaire soorten, Proportie = proportie van de locaties waar de soort en het levensstadium werd waargenomen)",
       booktabs = TRUE,
       longtable = TRUE,
       align = "lllccccc") %>%
   kable_styling(bootstrap_options = c( "condensed"), 
                 latex_options = c("scale_down", "repeat_header"),
                 repeat_header_text = "(vervolg)",
-                font_size = 8) %>%
+                font_size = ifelse(html_output, 11, 8)) %>%
   column_spec(1, width = "9em") %>%
   column_spec(2, italic = TRUE, width = "7em") %>%
   column_spec(3, italic = TRUE, width = "6em") %>%

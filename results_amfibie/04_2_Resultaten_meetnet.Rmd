@@ -183,6 +183,10 @@ m <- "Boomkikker"
 
 ```
 
+```{r, fig.cap= str_c(m,  " (Foto: Wim Verschraegen)"), out.width = "50%"}
+include_graphics("image/boomkikker_wim_verschraegen.jpg")
+```
+
 ### Meetnetkarakteristieken
 
 ```{r mkboomkikker}
@@ -192,7 +196,7 @@ meetnetcharacteristics_long %>%
   select(-Meetnet) %>%
   rename(" " = Variabele) %>%
   arrange(Veldprotocol) %>%
-  kable(align = "llc", 
+  kbl(align = "llc", 
         caption = str_c("Karakteristieken van het meetnet ", str_to_lower(m)),
         booktabs = TRUE) %>%
   kable_styling(full_width = FALSE) %>%
@@ -306,6 +310,10 @@ m <- "Knoflookpad"
 
 ```
 
+```{r, fig.cap= str_c(m,  " (Foto: Hugo Willocx)"), out.width = "50%"}
+include_graphics("image/knoflookpad_hugo_willocx_klein.jpg")
+```
+
 ### Meetnetkarakteristieken
 
 ```{r mkknoflookpad}
@@ -315,7 +323,7 @@ meetnetcharacteristics_long %>%
   select(-Meetnet) %>%
   rename(" " = Variabele) %>%
   arrange(Veldprotocol) %>%
-  kable(align = "llc", 
+  kbl(align = "llc", 
         caption = str_c("Karakteristieken van het meetnet ", str_to_lower(m)),
         booktabs = TRUE) %>%
   kable_styling(full_width = FALSE) %>%
@@ -435,11 +443,122 @@ Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een ge
 De knoflookpad doet het nog steeds zeer slecht in Vlaanderen.
 Door de lage aantallen, is er een grote onzekerheid op de trend.
 
+## Rugstreeppad (*Epidalea calamita*) {#rugstreeppad}
+
+```{r}
+m <- "Rugstreeppad"
+
+```
+
+```{r, fig.cap= str_c(m,  " (Foto: leo mrn)"), out.width = "50%"}
+include_graphics("image/rugstreppad_leo_mrn.jpg")
+```
+
+### Meetnetkarakteristieken
+
+```{r mkrugstreeppad}
+
+meetnetcharacteristics_long %>%
+  filter(Meetnet == m) %>%
+  select(-Meetnet) %>%
+  rename(" " = Variabele) %>%
+  arrange(Veldprotocol) %>%
+  kbl(align = "llc", 
+        caption = str_c("Karakteristieken van het meetnet ", str_to_lower(m)),
+        booktabs = TRUE) %>%
+  kable_styling(full_width = FALSE) %>%
+  collapse_rows(1)
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+Figuur \@ref(fig:merugstreeppad) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r merugstreeppad, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", str_to_lower(m))}
+
+plot_m <- monitoring_effort %>%
+  filter(is_sample) %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    #facet_wrap(~meetnet, scales = "free_y") +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+if (html_output) {
+  
+  ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+} else {
+  plot_m
+}
+
+```
+
+### Vergelijking tussen de meetcycli
+
+```{r vmrugstreeppad, fig.cap= str_c("Verschillen in aantallen per meetcyclus t.o.v. referentie meetcyclus met het 90\\% betrouwbaarheidsinterval voor de ", str_to_lower(m), ".")}
+
+labels_prct <- c(-95,-75, -50, -25, 0, 33, 100, 200, 400, 1000, 2500, 5000)
+breaks_log <- log(labels_prct/100 + 1) + 1
+labels_show <- str_c(labels_prct, " %")
+
+result_indexmodel_cyclus_table %>%
+  filter(soort_nl == m) %>%
+  filter(type_model == "offset") %>%
+  mutate(soort_show = str_c(soort_nl, " ", levensstadium)) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = meetcyclus, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 20 * 2.58 / 3, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "white") +
+  labs(y = "Vreschil t.o.v. referentie meetcyclus", x = "Meetcyclus") +
+  facet_wrap(~ soort_show, ncol = 2) +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- result_trendmodel %>%
+  filter(soort_nl == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(klassenamen, by = "klasse")
+
+trend_total_meetnet <- result_trendmodel %>%
+  filter(soort_nl == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))`
+
+\pagebreak
+
 ## Vroedmeesterpad (*Alytes obstetricans*) {#vroedmeesterpad}
 
 ```{r}
 m <- "Vroedmeesterpad"
 
+```
+
+```{r, fig.cap= str_c(m,  " (Foto: Alain Roujas)"), out.width = "50%"}
+include_graphics("image/vroedmeesterpad_alain_roujas.jpg")
 ```
 
 ### Meetnetkarakteristieken
@@ -451,7 +570,7 @@ meetnetcharacteristics_long %>%
   select(-Meetnet) %>%
   rename(" " = Variabele) %>%
   arrange(Veldprotocol) %>%
-  kable(align = "llc", 
+  kbl(align = "llc", 
         caption = str_c("Karakteristieken van het meetnet ", str_to_lower(m)),
         booktabs = TRUE) %>%
   kable_styling(full_width = FALSE) %>%
@@ -577,6 +696,10 @@ m <- "Kamsalamander"
 
 ```
 
+```{r, fig.cap= str_c(m,  " (Foto: Hugo Willocx)"), out.width = "50%"}
+include_graphics("image/kamsalamander_hugo_willocx_klein.jpg")
+```
+
 ### Meetnetkarakteristieken
 
 ```{r mkkamsalamander}
@@ -586,7 +709,7 @@ meetnetcharacteristics_long %>%
   select(-Meetnet) %>%
   rename(" " = Variabele) %>%
   arrange(Veldprotocol) %>%
-  kable(align = "llc", 
+  kbl(align = "llc", 
         caption = str_c("Karakteristieken van het meetnet ", str_to_lower(m)),
         booktabs = TRUE) %>%
   kable_styling(full_width = FALSE) %>%
@@ -692,6 +815,10 @@ m <- "Vuursalamander"
 
 ```
 
+```{r, fig.cap= str_c(m,  " (Foto: Iwan Lewylle)"), out.width = "50%"}
+include_graphics("image/vuursalamander_iwan_lewylle_klein.jpg")
+```
+
 ### Meetnetkarakteristieken
 
 ```{r mkvuursalamander}
@@ -701,7 +828,7 @@ meetnetcharacteristics_long %>%
   select(-Meetnet) %>%
   rename(" " = Variabele) %>%
   arrange(Veldprotocol) %>%
-  kable(align = "llc", 
+  kbl(align = "llc", 
         caption = str_c("Karakteristieken van het meetnet ", str_to_lower(m)),
         booktabs = TRUE) %>%
   kable_styling(full_width = FALSE) %>%

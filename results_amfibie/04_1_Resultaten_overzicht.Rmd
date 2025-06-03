@@ -7,7 +7,7 @@ name_results_trendmodel <- "results_trendmodel_amfibieën"
 name_results_occurence <- "results_occurence_meetcyclus_amfibieën"
 name_results_waic <- "results_waic_amfibieën"
 
-path_results <- file.path(fileman_up("analysis_amfibieën"), "output/results")
+path_results <- file.path(fileman_up("analysis_amfibieen"), "output/results")
 
 result_indexmodel <- read_vc(file = name_results_indexmodel,
                               root = path_results)
@@ -68,11 +68,11 @@ verschillen_jaren <- result_indexmodel %>%
 verschillen_jaren %>%
   select(-soort_wet, -levensstadium) %>%
   rename("Soort" = soort_nl,  Referentiejaar = ref_jaar) %>%
-  kable(caption = str_c("Verschil in aantallen t.o.v. referentiejaar", legend_klasses),
+  kbl(caption = str_c("Verschil in aantallen t.o.v. referentiejaar", legend_klasses),
       booktabs = TRUE,
       escape = FALSE,
       align = "lccccc") %>%
-  kable_styling(font_size = 8) %>%
+  kable_styling(font_size = ifelse(html_output, 11,8)) %>%
   add_header_above(c(" " = 2, "Verschil t.o.v. referentiejaar" = 8)) %>%
   collapse_rows(1) %>%
   scroll_box(width = "700px", height = "100%")
@@ -101,11 +101,11 @@ verschillen_vorigjaar <- result_indexmodel %>%
 verschillen_vorigjaar %>%
   select(-soort_wet, -levensstadium) %>%
   rename("Soort" = soort_nl) %>%
-  kable(caption = "Verschil in aantal adulten voor opeenvolgende jaren",
+  kbl(caption = "Verschil in aantal adulten voor opeenvolgende jaren",
       booktabs = TRUE,
       escape = FALSE,
       align = "lcccccccc") %>%
-  kable_styling(font_size = 8) %>%
+  kable_styling(font_size = ifelse(html_output, 11,8)) %>%
   column_spec(c(2:9), width = "1.5cm") %>%
   collapse_rows(1) %>%
   scroll_box(width = "700px", height = "100%")
@@ -119,6 +119,7 @@ Voor boomkikker en kamsalamander werden er al twee meetcycli afgerond en kunnen 
 
 ```{r}
 verschillen_cyclus <- result_indexmodel_meetcyclus %>%
+  filter(type_model == "offset" | is.na(type_model)) %>%
   mutate(meetcyclus = str_replace(meetcyclus, "_", "-"),
          meetcyclus_ref = str_replace(meetcyclus_ref, "_", "-")) %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
@@ -153,11 +154,11 @@ verschillen_cyclus %>%
   select(-soort_wet) %>%
   mutate(meetcyclus = str_remove(meetcyclus, "meetcyclus")) %>%
   rename("Nederlandse naam" = soort_nl, "Levensstadium" = levensstadium, "Referentie meetcyclus" = meetcyclus_ref, "Meetcyclus" = meetcyclus, "Klasse" = klasse_output, "Verschil" = verschil_tbl) %>%
-  kable(caption = "Verschil in aantallen t.o.v. referentie meetcyclus",
+  kbl(caption = "Verschil in aantallen t.o.v. referentie meetcyclus",
       booktabs = TRUE,
       escape = FALSE,
       align = "lccccc") %>%
-kable_styling(font_size = 8) 
+kable_styling(font_size = ifelse(html_output, 11,8)) 
 ```
 
 ## Trends
@@ -231,11 +232,13 @@ if (html_output) {
 ```{r tabtrendresultaat, eval = TRUE}
 
 overzicht_trend_tabel %>%
-  kable(align = "lcclcc",
+  select(-`Type trend`) %>%
+  kbl(align = "lcclcc",
         caption = str_c("Jaarlijkse wijziging en wijziging over de looptijd", legend_klasses),
       booktabs = TRUE,
       escape = FALSE)  %>%
-  kable_styling(latex_options = "scale_down")
+  kable_styling(latex_options = "scale_down",
+                font_size = ifelse(html_output, 11,8))
 ```
 
 \needspace{50mm}
@@ -247,7 +250,6 @@ Opnieuw maken we gebruik van de [classificatie](#h:classtrend) zoals besproken i
 Voor de gemiddelde jaarlijkse trend komt dit overeen met een ondergens van -5,6 % en een bovengrens van +5,9 %.
 
 ```{r figtrend, fig.cap= str_c("Gemiddelde jaarlijkse trend met 90 \\% betrouwbaarheidsinterval ", legend_klasses)}
-
 
 trend_plot <- trend_all %>%
   filter(parameter == "trend_average") %>%
@@ -289,19 +291,20 @@ plot
 
 ```{r}
 name_results_habitat_bk <- "habitatkenmerken_boomkikker_kamsalamander_wide"
-name_results_habitat_r <- "habitatkenmerken_rugstreeppad_wide"
+name_results_habitat_r <- "habitatkenmerken_rugstreeppad_vroedmeesterpad_wide"
 
-path_analyseset <- file.path(fileman_up("analysis_amfibieën"), "output/analyseset")
+path_analyseset <- file.path(fileman_up("analysis_amfibieen"), "output/analyseset")
 
 habitat_bk <- read_vc(name_results_habitat_bk,
                               root = path_analyseset)
 
-habitat_r <- read_vc(name_results_habitat_r,
+habitat_rv <- read_vc(name_results_habitat_r,
                               root = path_analyseset) %>%
-  mutate(locatie = str_c(locatie, "_", sample_id))
+  mutate(locatie = str_c(locatie, "_", sample_id),
+         ph = as.numeric(ph))
 
 habitatkenmerken <- habitat_bk %>%
-  bind_rows(habitat_r)
+  bind_rows(habitat_rv)
 ```
 
 Voor boomkikker, kamsalamander, rugstreeppad werden ook enkele habitatkenmerken bepaald die indicatief zijn voor de kwaliteit van het aquatische deel van het leefgebied.
@@ -385,7 +388,8 @@ habitatkenmerken_numeric_status %>%
   facet_wrap( ~ habitatkenmerk, scales = "free") +
   labs(y = "Proportie van de plassen") +
   scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
-  theme(axis.title.x = element_blank())
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45))
 
 ggsave("../output/habkwaliteit1.png", width = 7, height = 3)
 
@@ -434,7 +438,8 @@ p1 <- waterkwaliteit_status %>%
   labs(x = "Soort", y = "Proportie van de plassen", fill = "Waterkwaliteit") +
   scale_y_continuous(labels = scales::percent) +
   labs(title = "Waterkwaliteit") +
-  theme(axis.title.x = element_blank())
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45))
 ```
 
 ```{r}
@@ -461,7 +466,8 @@ p2 <- maximale_diepte_status %>%
   labs(x = "Soort", y = "Proportie van de plassen", fill = "Maximale diepte (m)") +
   scale_y_continuous(labels = scales::percent) +
   labs(title = "Maximale diepte plas") +
-  theme(axis.title.x = element_blank())
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45))
 ```
 
 ```{r}
@@ -489,7 +495,8 @@ p3 <- beschaduwing_status %>%
   labs(x = "Soort", y = "Proportie van de plassen", fill = "Beschaduwing") +
   scale_y_continuous(labels = scales::percent) +
   labs(title = "Beschaduwing") +
-  theme(axis.title.x = element_blank())
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45))
 ```
 
 ```{r}
@@ -518,7 +525,8 @@ p4 <- oppervlakte_waterpartij %>%
   labs(x = "Soort", y = "Proportie van de plassen", fill = "Oppervlakte (m²)") +
   scale_y_continuous(labels = scales::percent) +
   labs(title = "Oppervlakte plas (m²)") +
-  theme(axis.title.x = element_blank())
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45))
 ```
 
 De andere habitatkernmerken worden bepaald aan de hand van vaste categorieën.
@@ -537,7 +545,7 @@ grid.arrange(p1, p2, p3, p4)
 ```{r}
 vegetatie <- habitatkenmerken  %>%
   filter(is_sample) %>%
-  filter(meetnet == "Rugstreeppad") %>%
+  filter(meetnet %in% c("Rugstreeppad", "Vroedmeesterpad")) %>%
   select(meetnet, visit_id, sample_id, datum, locatie, drijvende_vegetatie, verticale_vegetatie, onderwatervegetatie) %>%
   pivot_longer(cols = c("drijvende_vegetatie", "verticale_vegetatie", "onderwatervegetatie"), names_to = "variabele", values_to = "waarde") %>%
   filter(!waarde %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
@@ -559,11 +567,12 @@ vegetatie <- habitatkenmerken  %>%
 vegetatie %>%
   mutate(variabele = str_to_sentence(variabele),
          variabele = str_replace(variabele, "_", " ")) %>%
-  ggplot(aes(x = variabele, y = prop_locatie, fill = waarde)) + 
+  ggplot(aes(x = meetnet, y = prop_locatie, fill = waarde)) + 
   geom_col() +
   geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
   labs(x = "Soort", y = "Proportie van de plassen", fill = "Bedekking") +
   scale_y_continuous(labels = scales::percent) +
-  facet_wrap(~meetnet) +
-  theme(axis.title.x = element_blank())
+  facet_wrap(~variabele) +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45))
 ```

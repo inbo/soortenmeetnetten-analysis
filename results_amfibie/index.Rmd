@@ -46,10 +46,12 @@ floatbarrier: subsubsection
 keywords: "meetnetten; soorten"
 community: "inbo"
 publication_type: report
-year: 2023
-doi: 10.21436/inbor.99216099
-reportnr: 51
-depotnr: D/2023/3241/392
+year: 2025
+doi: 10.21436/inbor.125529462
+reportnr: 27
+depotnr: D/2025/3241/178
+cover_photo: cover.JPG
+cover_description: Telling van boomkikkerlarven (&copy; Hannes Ledegen)
 funder: Instituut voor Natuur- en Bosonderzoek (INBO)
 rightsholder: Instituut voor Natuur- en Bosonderzoek (INBO)
 bibliography: references.bib

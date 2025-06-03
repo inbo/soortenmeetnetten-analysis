@@ -47,7 +47,7 @@ meetnetcharacteristics %>%
   mutate(type = ifelse(type != "Pilootproject", "Meetnet", type)) %>%
   select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, Beleidsrelevantie = type_soort, "Type monitoring" = type, "Start monitoring" = opstartjaar) %>%
     unique() %>%
-  kable(caption = "Overzicht van de amfibieën waarvoor een meetnet bestaat met onderscheid tussen Europees prioritaire (EPS) en Vlaams prioritaire soorten (VPS), en met het jaar waarin de monitoring werd opgestart",
+  kbl(caption = "Overzicht van de amfibieën waarvoor een meetnet bestaat met onderscheid tussen Europees prioritaire (EPS) en Vlaams prioritaire soorten (VPS), en met het jaar waarin de monitoring werd opgestart",
         booktabs = TRUE,
         align = c("l", "l", "c", "l", "c"),
       row.names = FALSE) %>%
@@ -103,7 +103,7 @@ meetnetcharacteristics1 <- meetnetcharacteristics %>%
 
 meetnetcharacteristics1 %>%
   arrange(Meetnet, Veldprotocol) %>%
-  kable(caption = "Overzicht van de meetnetkarakterisitieken: veldprotocol, telperiode en aantal bezoeken",
+  kbl(caption = "Overzicht van de meetnetkarakterisitieken: veldprotocol, telperiode en aantal bezoeken",
         align = "llcc",
         booktabs = TRUE) %>%
   kable_styling() %>%
@@ -148,7 +148,7 @@ meetnetcharacteristics2 <- meetnetcharacteristics %>%
 
 meetnetcharacteristics2 %>%
   arrange(Meetnet) %>%
-  kable(caption = "Overzicht van de meetnetkarakteristieken: selectie van locaties, aantal locaties en duur van de meetcyclus",
+  kbl(caption = "Overzicht van de meetnetkarakteristieken: selectie van locaties, aantal locaties en duur van de meetcyclus",
         align = "llcc",
         booktabs = TRUE,
         row.names = FALSE) %>%
@@ -243,7 +243,7 @@ Voor rugstreeppad en vroedmeesterpad vragen we bijkomend een inschatting van de 
 
 ```{r, message=FALSE, warning=FALSE}
 
-data_path <- fileman_up("analysis_amfibieën")
+data_path <- fileman_up("analysis_amfibieen")
 
 analyseset_fuiken_detail <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_fuiken_detail")
 analyseset_roepkoren_boomkikker <- read_vc(root = file.path(data_path, "output/analyseset"), "analyseset_roepkoren_boomkikker")
