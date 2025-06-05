@@ -69,14 +69,34 @@ output:
 
 # Dankwoord {.unnumbered}
 
-De tekst voor het optionele dankwoord.
+We wensen in de eerste plaats alle vrijwilligers te bedanken voor de vele tellingen die ze hebben uitgevoerd voor de amfibieënmeetnetten.
+Frederic Piesschaert bedanken we voor de technische ondersteuning bij de invoer van de gegevens via meetnetten.be en de bevraging van de meetnetten-databank.
+We bedanken ook de actieve leden en ex-leden van de stuurgroep van het project 'Langetermijn monitoring van beleidsrelevante soorten via meetnetten in Vlaanderen': Bernard Van Elegem, Véronique Verbist, Elke Roels, Sanne Ruyts, Samuel De Rycke, Koen Van Keer, Hannes Ledegen, Wouter Vanreusel, Marc Herremans, Maurice Hoffmann, Marc Pollet, Dirk Maes en Tim Adriaens.
+Ten slotte willen we Dirk Maes bedanken voor het kritisch nalezen van dit rapport.
 
 # Samenvatting {.unnumbered}
 
 <!-- description: start -->
 
-De tekst voor de verplichte samenvatting.
-Hou het [Heerlijk Helder](https://overheid.vlaanderen.be/communicatie/heerlijk-helder).
+Via de soortenmeetnetten ([meetnetten.be](www.meetnetten.be)) willen het Instituut voor Natuur‐ en Bosonderzoek (INBO) en het Agentschap voor Natuur en Bos (ANB) betrouwbare informatie verzamelen over prioritaire soorten in Vlaanderen.
+Deze groep van prioritaire soorten omvat 8 amfibieën, waarvan 7 Natura 2000-soorten (Europees prioritaire soorten) en 1 Vlaamse prioritaire soort.
+
+Het merendeel van de tellingen gebeurt door vrijwilligers, onder coördinatie van Natuurpunt Studie.
+De tellers passen daarbij een vastgelegde methode toe om de relatieve aantallen te schatten voor elk meetnetlocatie.
+
+Dit rapport toont de eerste resultaten van de amfibieënmeetnetten voor de periode 2016 ‐ 2024.
+In die periode zien we:
+
+-   een sterke toename voor vroedmeesterpad en vuursalamander
+-   een toename voor boomkikker en rugstreeppad
+-   een mogelijke toename voor kamsalamander
+
+Voor knoflookpad is de trend nog onzeker.
+
+Heikikker en poelkikker zijn twee moeilijk telbare soorten waarvoor we een monitoringsprotocol hebben uitgetest in een pilootproject.
+Het monitoringsprotocol voor heikikker werd als gunstig geëvalueerd en zal worden verdergezet.
+Voor poelkikker zijn er nog aanpassingen nodig aan het monitoringsprotocol.
+
 <!-- description: end -->
 
 ```{r setup, include = FALSE}

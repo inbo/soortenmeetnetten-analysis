@@ -474,6 +474,8 @@ meetnetcharacteristics_long %>%
 
 Figuur \@ref(fig:merugstreeppad) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
 
+De pieken in het aantal tellingen zijn het gevolg van het groot aantal tellingen van eisnoeren in de locaties die in het Antwerpse havengebied gelegen zijn (zie paragraaf \@ref(analyserugstreeppad)).
+
 ```{r merugstreeppad, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", str_to_lower(m))}
 
 plot_m <- monitoring_effort %>%

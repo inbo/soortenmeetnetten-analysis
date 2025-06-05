@@ -307,7 +307,7 @@ habitatkenmerken <- habitat_bk %>%
   bind_rows(habitat_rv)
 ```
 
-Voor boomkikker, kamsalamander, rugstreeppad werden ook enkele habitatkenmerken bepaald die indicatief zijn voor de kwaliteit van het aquatische deel van het leefgebied.
+Voor boomkikker, kamsalamander, rugstreeppad en vroedmeesterpad werden ook enkele habitatkenmerken bepaald die indicatief zijn voor de kwaliteit van het aquatische deel van het leefgebied.
 
 Momenteel analyseren we enkel de huidige toestand van de verschillende habitatkenmerken.
 We kijken dus nog niet naar veranderingen in de tijd, omdat we veronderstellen dat dergelijke veranderingen relatief traag gaan en we momenteel nog onvoldoende data hebben om hier zinvolle uitspraken over te doen.
