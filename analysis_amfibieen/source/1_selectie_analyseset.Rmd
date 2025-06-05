@@ -1546,7 +1546,7 @@ check_wrong_category <- habitatkenmerken_rugstreeppad_vroedmeesterpad %>%
 habitatkenmerken_rugstreeppad_vroedmeesterpad_wide <- habitatkenmerken_rugstreeppad_vroedmeesterpad %>%
   select(-eenheid) %>%
   pivot_wider(names_from = bezoekvariabele, values_from = waarde) %>%
-  rename(oppervlakte_waterpartij = "oppervlakte waterpartij", maximale_diepte = "maximale diepte", aanwezigheid_vis = "aanwezigheid vis", permanente_waterkolom = "permanente waterkolom", drijvende_vegetatie = "drijvende vegetatie", verticale_vegetatie = "verticale vegetatie") %>%
+  rename(oppervlakte_waterpartij = "oppervlakte waterpartij", maximale_diepte = "maximale diepte", aanwezigheid_vis = "aanwezigheid vis", permanente_waterkolom = "permanente waterkolom", drijvende_vegetatie = "drijvende vegetatie", verticale_vegetatie = "verticale vegetatie", ph = "pH (zuurtegraad)") %>%
   mutate(oppervlakte_waterpartij = factor(oppervlakte_waterpartij, levels = c("onbekend", "niet bekeken/niet van toepassing","<10", "10-100", "101-250", "251-400", ">400")),
          maximale_diepte = factor(maximale_diepte, levels = c("onbekend", "niet bekeken/niet van toepassing", "<0.5", "0.5-1", ">1", ">1.5")),
          aanwezigheid_vis = ifelse(aanwezigheid_vis %in% c("TRUE", "ja"), TRUE,
