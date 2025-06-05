@@ -279,7 +279,7 @@ result1 <- derive_trend(analyseset_heivlinder_paired, model_paired)
 results_indexmodel %>%
   filter(parameter != "sample_value") %>%
   write_vc(file = str_c("results_indexmodel_", name_analysis2), 
-         root = "../output/temp", 
+        
          sorting = c("parameter", "soort_nl", "jaar"),
          strict = FALSE)
 
@@ -300,7 +300,48 @@ results_waic %>%
          sorting = c("parameter", "soort_nl"),
          strict = FALSE)
 
+
+results_indexmodel <- read_vc(root = "../output/temp", file = "results_indexmodel_vlinders_imago_transect")
+results_indexmodel_meetcyclus <- read_vc(root = "../output/temp", file = "results_indexmodel_meetcyclusvlinders_imago_transect")
+
+
+index_jaar_oz <- results_indexmodel %>%
+  filter(meetnet == "Oranje zandoogje",
+         parameter == "index") %>%
+  select( parameter, soort_nl, soort_wet, jaar, ref_jaar, mean, lcl_0.90, ucl_0.90) %>%
+  mutate(mean = ifelse(is.na(mean), 1, mean),
+         mean = round(mean, 3),
+         lcl_0.90 = round(lcl_0.90, 3),
+         ucl_0.90 = round(ucl_0.90, 3))
+
+index_jaar_oz %>%
+  write_csv2("../output/index_jaar.csv",na = "")
+
+index_meetcyclus_oz_ref <- results_indexmodel_meetcyclus %>%
+   filter(soort_nl == "Oranje zandoogje",
+         parameter == "index") %>% 
+  distinct(parameter, soort_nl, soort_wet) %>%
+  mutate(meetcyclus = "2017-2019",
+         meetcyclus_ref = "2017-2019",
+         mean = 1)
+
+index_meetcyclus_oz <- results_indexmodel_meetcyclus %>%
+  filter(soort_nl == "Oranje zandoogje",
+         parameter == "index") %>%
+  select(parameter, soort_nl, soort_wet, meetcyclus, meetcyclus_ref, mean, lcl_0.90, ucl_0.90) %>%
+  mutate(meetcyclus = "2020-2022",
+         meetcyclus_ref = "2017-2019") %>%
+  bind_rows(index_meetcyclus_oz_ref) %>%
+  arrange(meetcyclus) %>%
+  mutate( mean = round(mean, 3),
+         lcl_0.90 = round(lcl_0.90, 3),
+         ucl_0.90 = round(ucl_0.90, 3))
+
+index_meetcyclus_oz %>%
+  write_csv2("../output/index_meetcyclus.csv")
 ```
+
+
 ```{r}
 provinces <- read_admin_areas(dsn = "provinces") %>%
   select(name)
