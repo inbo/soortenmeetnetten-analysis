@@ -1,10 +1,11 @@
 ---
-title: "Stand van zaken inhaalslag Otter"
+title: "Resultaten inhaalslag Otter"
 author: 
   -
     name: "Toon Westra"
     email: "Toon.Westra@inbo.be"
   -
+date: "2025-06-05"
 link-citations: TRUE
 site: bookdown::bookdown_site
 output:
@@ -51,7 +52,7 @@ library(conflicted)
 conflicts_prefer(dplyr::filter())
 
 
-source("../../src/functions_smp.R")
+source("../../source/functions_smp.R")
 
 
 ```

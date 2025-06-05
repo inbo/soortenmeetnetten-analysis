@@ -52,6 +52,11 @@ aantallen_sublocatie_otter <- aantallen_otter %>%
   select(-locatie) %>%
   left_join(select(bezoeken_otter, visit_id, locatie), by = "visit_id")
 
+aantal_aanwezig <- aantallen_locaties_otter %>%
+  bind_rows(aantallen_sublocatie_otter) %>%
+  filter(aantal > 0) %>%
+  st_as_sf(coords = c("x", "y"), crs = 31370)
+  
 overzicht_aantallen_otter <- aantallen_locaties_otter %>%
   bind_rows(aantallen_sublocatie_otter) %>%
   group_by(sample_id) %>%
@@ -94,6 +99,8 @@ overzicht_otter3 <- hoofdlocaties_zoekgebied %>%
   select(-aantal_tot, -spoor) %>%
   select(zoekgebied, locatie, veldseizoen, n_bezoeken, waarneming_spoor, n_nulwaarnemingen)
 
+write_csv2(overzicht_otter3, "../output/overzicht_meetnet_otter.csv", na = "")
+
 overzicht_locaties <- hoofdlocaties_otter %>%
   select(locatie) %>%
   left_join(overzicht_otter3, by = "locatie") %>%
@@ -118,8 +125,9 @@ overzicht_locaties %>%
   addPolygons(data = zoekgebieden_otter, color = "black", label = ~zoekgebied, group = "Zoekgebied") %>%
   addPolygons(color = ~show_color, label = ~locatie, group =  "Locatie in meetnetten.be") %>%
   addMarkers(data = sublocaties_otter, label = ~refpunt, group =  "Referentiepunten") %>%
+  addCircleMarkers(data = st_transform(aantal_aanwezig, crs = 4326), color = "red", group = "Spoor otter") %>%
   addLayersControl(
-    overlayGroups = c("Zoekgebied", "Locatie in meetnetten.be", "Referentiepunten"),
+    overlayGroups = c("Spoor otter", "Zoekgebied", "Locatie in meetnetten.be", "Referentiepunten"),
     options = layersControlOptions(collapsed = FALSE)
   )
 
@@ -130,22 +138,26 @@ Onderstaande tabel geeft een overzicht van de inhaalslag per locatie.
 
 ```{r}
 overzicht_otter3 %>%
-  kable(caption = "Overzicht inhaalslag Otter") %>%
-  kable_styling() %>%
-  collapse_rows(1)
+  datatable(caption = "Overzicht inhaalslag Otter",
+            rownames = FALSE,
+            filter = "top")
 ```
 
 ```{r}
 sublocaties_otter %>%
   select(zoekgebied, locatie, refpunt) %>%
-  st_write(dsn = "../output/inhaalslag_otter.gpkg", layer = "referentiepunten")
+  st_write(dsn = "../output/inhaalslag_otter.gpkg", layer = "referentiepunten", delete_layer = TRUE, quiet = TRUE)
 
 hoofdlocaties_otter %>%
   select(meetnet, locatie) %>%
-  st_write(dsn = "../output/inhaalslag_otter.gpkg", layer = "gebieden")
+  st_write(dsn = "../output/inhaalslag_otter.gpkg", layer = "gebieden", delete_layer = TRUE, quiet = TRUE)
 
 zoekgebieden_otter %>%
-  st_write(dsn = "../output/inhaalslag_otter.gpkg", layer = "zoekgebieden")
+  st_write(dsn = "../output/inhaalslag_otter.gpkg", layer = "zoekgebieden", delete_layer = TRUE, quiet = TRUE)
+
+aantal_aanwezig %>%
+  st_transform(4326) %>%
+  st_write(dsn = "../output/inhaalslag_otter.gpkg", layer = "sporen", delete_layer = TRUE, quiet = TRUE)
 
 ```
 
