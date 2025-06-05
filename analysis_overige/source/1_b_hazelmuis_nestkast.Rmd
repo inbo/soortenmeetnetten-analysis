@@ -7,7 +7,7 @@ We maken gebruik van de data ingezameld via [meetnetten.be](www.meetnetten.be).
 visits_hazelmuis <- get_visits_smp() %>%
   filter(meetnet == "Hazelmuis - Nestbuizen")
 
-hazelmuis_nestbuis_orig <- read_vc("raw/aantal_hazelmuis_nestbuizen_20240105", root = data_path) %>%
+hazelmuis_nestbuis_orig <- read_vc("raw/aantal_hazelmuis_nestbuizen", root = data_path) %>%
   mutate(visit_id = as.numeric(visit_id))
 
 hazelmuis_nestbuis_bezoek <- visits_hazelmuis %>%
@@ -19,6 +19,17 @@ hazelmuis_nestbuis_bezoek <- visits_hazelmuis %>%
 ```
 
 ## Dataverkenning
+
+```{r}
+hazelmuis_nestbuis_bezoek %>%
+  distinct(meetnet, locatie, sublocatie) %>%
+  ggplot(aes(x = locatie)) +
+  geom_bar() +
+  coord_flip() +
+  labs(y = "Aantal nestbuizen")
+```
+
+
 
 ```{r}
 n_species_nestbuis <- hazelmuis_nestbuis_bezoek %>%
@@ -180,14 +191,14 @@ analyseset_nesten_jaar <- hazelmuis_nestbuis_occurence %>%
          fjaar = factor(jaar),
          aanwezig = ifelse(aanwezig, 1, 0))
 
-data_sim_year <- tibble(jaar = c(2020:2023),
+data_sim_year <- tibble(jaar = c(2020:2024),
                         fjaar = factor(jaar),
                          activiteit = "nest",
                          soort_nl = "Hazelmuis",
                          data_type = "sim_year")
 
-data_sim_trend <- tibble(jaar = c(2020:2023),
-                        year_scaled = c(1:4),
+data_sim_trend <- tibble(jaar = c(2020:2024),
+                        year_scaled = c(1:5),
                          activiteit = "nest",
                          soort_nl = "Hazelmuis",
                          data_type = "sim_trend")
@@ -412,13 +423,14 @@ data_comb_gebied %>%
 
 
   fun = function(...) {
-    c(plogis(fjaar2020), plogis(fjaar2021), plogis(fjaar2022), plogis(fjaar2023), 
+    c(plogis(fjaar2020), plogis(fjaar2021), plogis(fjaar2022), plogis(fjaar2023), plogis(fjaar2024),
       (plogis(fjaar2021) - plogis(fjaar2020)) / plogis(fjaar2020),
       (plogis(fjaar2022) - plogis(fjaar2020)) / plogis(fjaar2020),
       (plogis(fjaar2023) - plogis(fjaar2020)) / plogis(fjaar2020),
+      (plogis(fjaar2024) - plogis(fjaar2020)) / plogis(fjaar2020),
       (plogis(fjaar2022) - plogis(fjaar2021)) / plogis(fjaar2021),
-      (plogis(fjaar2023) - plogis(fjaar2022)) / plogis(fjaar2022)
-      )
+      (plogis(fjaar2023) - plogis(fjaar2022)) / plogis(fjaar2022),
+      (plogis(fjaar2024) - plogis(fjaar2023)) / plogis(fjaar2023))
       }
 
   model_inla.samples <- inla.posterior.sample(1000, indexmodel_iid_0)
@@ -427,8 +439,8 @@ data_comb_gebied %>%
   
   results_index <- inla.posterior.sample.eval(fun, model_inla.samples) %>%
     as.data.frame() %>%
-    mutate(jaar = c(2020:2023, 2021:2023, 2022, 2023),
-           jaar_ref = c(NA, NA, NA, NA, 2020, 2020, 2020:2022)) %>%
+    mutate(jaar = c(2020:2024, 2021:2024, 2022, 2023, 2024),
+           jaar_ref = c(NA, NA, NA, NA, NA, 2020, 2020, 2020, 2020:2023)) %>%
     gather(starts_with("sample"), key = "sample", value = "waarde") %>%
     group_by(jaar, jaar_ref) %>%
     mutate(mean = mean(waarde),
@@ -532,39 +544,50 @@ results_index_diff_prevyear %>%
 ```{r}
 
   fun2 = function(...) {
-    c(plogis((fjaar2020)), plogis(fjaar2021 ), plogis(fjaar2022), plogis(fjaar2023),
+    c(plogis((fjaar2020)), plogis(fjaar2021 ), plogis(fjaar2022), plogis(fjaar2023), plogis(fjaar2024),
             (plogis(fjaar2021) - plogis(fjaar2020)) / plogis(fjaar2020),
       (plogis(fjaar2022) - plogis(fjaar2020)) / plogis(fjaar2020),
       (plogis(fjaar2023) - plogis(fjaar2020)) / plogis(fjaar2020),
+      (plogis(fjaar2024) - plogis(fjaar2020)) / plogis(fjaar2020),
       (plogis(fjaar2022) - plogis(fjaar2021)) / plogis(fjaar2021),
       (plogis(fjaar2023) - plogis(fjaar2022)) / plogis(fjaar2022),
+      (plogis(fjaar2024) - plogis(fjaar2023)) / plogis(fjaar2023),
       plogis(fjaar2020 + gebTe), 
       plogis(fjaar2021 + gebTe + `fjaar2021:gebTe`), 
       plogis(fjaar2022 + gebTe + `fjaar2022:gebTe`), 
-      plogis(fjaar2023 + gebTe + `fjaar2023:gebTe`),  
+      plogis(fjaar2023 + gebTe + `fjaar2023:gebTe`), 
+       plogis(fjaar2024 + gebTe + `fjaar2024:gebTe`), 
       (plogis(fjaar2021 + gebTe + `fjaar2021:gebTe`) - plogis(fjaar2020 + gebTe)) / plogis(fjaar2020 + gebTe), 
       (plogis(fjaar2022 + gebTe + `fjaar2022:gebTe`) - plogis(fjaar2020 + gebTe)) / plogis(fjaar2020 + gebTe), 
-      (plogis(fjaar2023 + gebTe + `fjaar2023:gebTe`) - plogis(fjaar2020 + gebTe)) / plogis(fjaar2020 + gebTe), 
+      (plogis(fjaar2023 + gebTe + `fjaar2023:gebTe`) - plogis(fjaar2020 + gebTe)) / plogis(fjaar2020 + gebTe),
+      (plogis(fjaar2024 + gebTe + `fjaar2024:gebTe`) - plogis(fjaar2020 + gebTe)) / plogis(fjaar2020 + gebTe), 
       (plogis(fjaar2022 + gebTe + `fjaar2022:gebTe`) - plogis(fjaar2021 + gebTe + `fjaar2021:gebTe`)) / plogis(fjaar2021 + gebTe + `fjaar2021:gebTe`),
       (plogis(fjaar2023 + gebTe + `fjaar2023:gebTe`) - plogis(fjaar2022 + gebTe + `fjaar2022:gebTe`)) / plogis(fjaar2022 + gebTe + `fjaar2022:gebTe`),
+      (plogis(fjaar2024 + gebTe + `fjaar2024:gebTe`) - plogis(fjaar2023 + gebTe + `fjaar2023:gebTe`)) / plogis(fjaar2023 + gebTe + `fjaar2023:gebTe`),
        plogis(fjaar2020 + gebVe), 
       plogis(fjaar2021 + gebVe + `fjaar2021:gebVe`), 
       plogis(fjaar2022 + gebVe + `fjaar2022:gebVe`), 
-      plogis(fjaar2023 + gebVe + `fjaar2023:gebVe`),  
+      plogis(fjaar2023 + gebVe + `fjaar2023:gebVe`), 
+       plogis(fjaar2024 + gebVe + `fjaar2024:gebVe`), 
       (plogis(fjaar2021 + gebVe + `fjaar2021:gebVe`) - plogis(fjaar2020 + gebVe)) / plogis(fjaar2020 + gebVe), 
       (plogis(fjaar2022 + gebVe + `fjaar2022:gebVe`) - plogis(fjaar2020 + gebVe)) / plogis(fjaar2020 + gebVe), 
-      (plogis(fjaar2023 + gebVe + `fjaar2023:gebVe`) - plogis(fjaar2020 + gebVe)) / plogis(fjaar2020 + gebVe), 
+      (plogis(fjaar2023 + gebVe + `fjaar2023:gebVe`) - plogis(fjaar2020 + gebVe)) / plogis(fjaar2020 + gebVe),
+      (plogis(fjaar2024 + gebVe + `fjaar2024:gebVe`) - plogis(fjaar2020 + gebVe)) / plogis(fjaar2020 + gebVe), 
       (plogis(fjaar2022 + gebVe + `fjaar2022:gebVe`) - plogis(fjaar2021 + gebVe + `fjaar2021:gebVe`)) / plogis(fjaar2021 + gebVe + `fjaar2021:gebVe`),
       (plogis(fjaar2023 + gebVe + `fjaar2023:gebVe`) - plogis(fjaar2022 + gebVe + `fjaar2022:gebVe`)) / plogis(fjaar2022 + gebVe + `fjaar2022:gebVe`),
-      plogis(fjaar2020 + gebVr),  
+      (plogis(fjaar2024 + gebVe + `fjaar2024:gebVe`) - plogis(fjaar2023 + gebVe + `fjaar2023:gebVe`)) / plogis(fjaar2023 + gebVe + `fjaar2023:gebVe`),
+       plogis(fjaar2020 + gebVr), 
       plogis(fjaar2021 + gebVr + `fjaar2021:gebVr`), 
       plogis(fjaar2022 + gebVr + `fjaar2022:gebVr`), 
-      plogis(fjaar2023 + gebVr + `fjaar2023:gebVr`),  
+      plogis(fjaar2023 + gebVr + `fjaar2023:gebVr`), 
+       plogis(fjaar2024 + gebVr + `fjaar2024:gebVr`), 
       (plogis(fjaar2021 + gebVr + `fjaar2021:gebVr`) - plogis(fjaar2020 + gebVr)) / plogis(fjaar2020 + gebVr), 
       (plogis(fjaar2022 + gebVr + `fjaar2022:gebVr`) - plogis(fjaar2020 + gebVr)) / plogis(fjaar2020 + gebVr), 
-      (plogis(fjaar2023 + gebVr + `fjaar2023:gebVr`) - plogis(fjaar2020 + gebVr)) / plogis(fjaar2020 + gebVr), 
+      (plogis(fjaar2023 + gebVr + `fjaar2023:gebVr`) - plogis(fjaar2020 + gebVr)) / plogis(fjaar2020 + gebVr),
+      (plogis(fjaar2024 + gebVr + `fjaar2024:gebVr`) - plogis(fjaar2020 + gebVr)) / plogis(fjaar2020 + gebVr), 
       (plogis(fjaar2022 + gebVr + `fjaar2022:gebVr`) - plogis(fjaar2021 + gebVr + `fjaar2021:gebVr`)) / plogis(fjaar2021 + gebVr + `fjaar2021:gebVr`),
-      (plogis(fjaar2023 + gebVr + `fjaar2023:gebVr`) - plogis(fjaar2022 + gebVr + `fjaar2022:gebVr`)) / plogis(fjaar2022 + gebVr + `fjaar2022:gebVr`))
+      (plogis(fjaar2023 + gebVr + `fjaar2023:gebVr`) - plogis(fjaar2022 + gebVr + `fjaar2022:gebVr`)) / plogis(fjaar2022 + gebVr + `fjaar2022:gebVr`),
+      (plogis(fjaar2024 + gebVr + `fjaar2024:gebVr`) - plogis(fjaar2023 + gebVr + `fjaar2023:gebVr`)) / plogis(fjaar2023 + gebVr + `fjaar2023:gebVr`))
       }
 
   model_inla.samples <- inla.posterior.sample(1000, indexmodel_gebied_iid_0)
@@ -573,12 +596,12 @@ results_index_diff_prevyear %>%
   
   results_index_geb <- inla.posterior.sample.eval(fun2, model_inla.samples) %>%
     as.data.frame() %>%
-    mutate(geb = c(rep("Broekbos - Konenbos", 9), 
-                   rep("Teuvenerberg - Obsinnisch", 9), 
-                   rep("Veursbos", 9), 
-                   rep("Vrouwenbos", 9)),
-           jaar = rep(c(2020:2023, 2021:2023, 2022, 2023), 4),
-           jaar_ref = rep(c(NA, NA, NA, NA, 2020, 2020, 2020:2022), 4)) %>%
+    mutate(geb = c(rep("Broekbos - Konenbos", 12), 
+                   rep("Teuvenerberg - Obsinnisch", 12), 
+                   rep("Veursbos", 12), 
+                   rep("Vrouwenbos", 12)),
+           jaar = rep(c(2020:2024, 2021:2024, 2022, 2023, 2024), 4),
+           jaar_ref = rep(c(NA, NA, NA, NA, NA, 2020, 2020, 2020, 2020:2023), 4)) %>%
     gather(starts_with("sample"), key = "sample", value = "waarde") %>%
     group_by(geb, jaar, jaar_ref) %>%
     mutate(mean = mean(waarde),
@@ -740,8 +763,8 @@ indexmodel_individu_gebied_iid_0 <- inla(formula = aanwezig ~ 0 + fjaar*geb +
   
   results_index_individu <- inla.posterior.sample.eval(fun, model_inla.samples) %>%
     as.data.frame() %>%
-    mutate(jaar = c(2020:2023, 2021:2023, 2022, 2023),
-           jaar_ref = c(NA, NA, NA, NA, 2020, 2020, 2020:2022)) %>%
+    mutate(jaar = c(2020:2024, 2021:2024, 2022, 2023, 2024),
+           jaar_ref = c(NA, NA, NA, NA, NA, 2020, 2020, 2020, 2020:2023)) %>%
     gather(starts_with("sample"), key = "sample", value = "waarde") %>%
     group_by(jaar, jaar_ref) %>%
     mutate(mean = mean(waarde),
@@ -770,12 +793,12 @@ indexmodel_individu_gebied_iid_0 <- inla(formula = aanwezig ~ 0 + fjaar*geb +
   
   results_index_individu_geb <- inla.posterior.sample.eval(fun2, model_inla.samples) %>%
     as.data.frame() %>%
-    mutate(geb = c(rep("Broekbos - Konenbos", 9), 
-                   rep("Teuvenerberg - Obsinnisch", 9), 
-                   rep("Veursbos", 9), 
-                   rep("Vrouwenbos", 9)),
-           jaar = rep(c(2020:2023, 2021:2023, 2022, 2023), 4),
-           jaar_ref = rep(c(NA, NA, NA, NA, 2020, 2020, 2020:2022), 4)) %>%
+    mutate(geb = c(rep("Broekbos - Konenbos", 12), 
+                   rep("Teuvenerberg - Obsinnisch", 12), 
+                   rep("Veursbos", 12), 
+                   rep("Vrouwenbos", 12)),
+           jaar = rep(c(2020:2024, 2021:2024, 2022, 2023, 2024), 4),
+           jaar_ref = rep(c(NA, NA, NA, NA, NA, 2020, 2020, 2020, 2020:2023), 4)) %>%
     gather(starts_with("sample"), key = "sample", value = "waarde") %>%
     group_by(geb, jaar, jaar_ref) %>%
     mutate(mean = mean(waarde),
