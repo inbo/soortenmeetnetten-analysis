@@ -248,6 +248,18 @@ datasetset_kamsalamander %>%
 ### adulten en juvenielen
 
 ```{r}
+
+mean_cluster <- datasetset_kamsalamander %>%
+  mutate(cluster = str_wrap(cluster)) %>%
+  filter(levensstadium == "adult en juveniel") %>%
+  filter(is_sample) %>%
+  filter(n_poelen >= 3) %>%
+  group_by(cluster, periode) %>%
+  summarise(mean_fuik = mean(aantal/n_fuiken),
+            mean_totaal = mean(aantal)) %>%
+  ungroup()
+  
+
 datasetset_kamsalamander %>%
   mutate(cluster = str_wrap(cluster)) %>%
   filter(levensstadium == "adult en juveniel") %>%

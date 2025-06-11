@@ -37,6 +37,13 @@ analyseset_rugstreeppad_adult <- analyseset_rugstreeppad_est %>%
 ```
 
 ```{r, fig.height= 11}
+
+check <- analyseset_rugstreeppad_adult %>%
+  group_by(locatie, meetcyclus) %>%
+  summarise(mean_aantal_adult_roepend = mean(aantal_adult_roepend),
+            mean_aantal_adult_perpunt = mean(aantal_adult_roepend/n_samples)) %>%
+  ungroup()
+
 analyseset_rugstreeppad_adult %>%
   group_by(locatie, meetcyclus) %>%
   summarise(mean_aantal_adult_roepend = mean(aantal_adult_roepend)) %>%

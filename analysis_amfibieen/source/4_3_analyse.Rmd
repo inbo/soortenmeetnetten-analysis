@@ -1232,6 +1232,9 @@ analyseset_rugstreeppad_adult <- analyseset_rugstreeppad_adult %>%
         jaar_scaled = jaar - year_min + 1,
         year_scaled = jaar_scaled)
 
+analyseset_rugstreeppad_adult %>%
+  write_vc(file = "analyseset_rugstreeppad_roepkoren", root = "../output/analyseset",
+           sorting = c("locatie", "datum"))
 
 indexmodel_meetcyclus_iid <- inla(formula = aantal_adult_roepend ~ meetcyclus + 
                                 f(locatie, 
