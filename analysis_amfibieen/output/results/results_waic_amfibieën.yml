@@ -1,0 +1,27 @@
+..generic:
+  git2rdata: 0.5.0
+  optimize: yes
+  NA string: NA
+  sorting: soort_nl
+  hash: d92a3bd6b0db63200755cac155ea971f17e0451b
+  data_hash: 9c28f1d7bbb909973c07739e494b27e106520a5a
+parameter:
+  class: character
+soort_nl:
+  class: character
+soort_wet:
+  class: character
+trendmodel:
+  class: numeric
+  digits: 6
+indexmodel:
+  class: numeric
+  digits: 6
+diff_waic:
+  class: numeric
+  digits: 6
+type_trend:
+  class: character
+trendmodel_iid2:
+  class: numeric
+  digits: 6

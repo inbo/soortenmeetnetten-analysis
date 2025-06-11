@@ -1,0 +1,26 @@
+..generic:
+  git2rdata: 0.4.0
+  optimize: yes
+  NA string: NA
+  sorting:
+  - soort_nl
+  - levensstadium
+  - parameter
+  hash: 5dc27eeac9463c91504d817bec87730252bce01d
+  data_hash: 3b577aff602d705eda9eb2b705b391a3ca7d2131
+parameter:
+  class: character
+soort_nl:
+  class: character
+levensstadium:
+  class: character
+mean:
+  class: numeric
+lcl_0.95:
+  class: numeric
+lcl_0.90:
+  class: numeric
+ucl_0.95:
+  class: numeric
+ucl_0.90:
+  class: numeric

@@ -1,0 +1,6 @@
+parameter	soort_nl	soort_wet	trendmodel	indexmodel	diff_waic	type_trend	trendmodel_iid2
+waic	Boomkikker	Hyla arborea	3393.86	3395.25	-1.39224	Quasi lineair	3382.22
+waic	Kamsalamander	Triturus cristatus	1256.36	1266.1	-9.74129	Lineair	NA
+waic	Knoflookpad	Pelobates fuscus	319.507	318.434	1.0727	Niet lineair	NA
+waic	Vroedmeesterpad	Alytes obstetricans	1669.89	1653.51	16.3826	Niet lineair	NA
+waic	Vuursalamander	Salamandra salamandra	7169.46	7161.28	8.18521	Niet lineair	NA

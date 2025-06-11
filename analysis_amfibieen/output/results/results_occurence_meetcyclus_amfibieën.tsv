@@ -1,0 +1,6 @@
+parameter	soort_nl	soort_wet	levensstadium	meetcyclus	mean	lcl_0.95	lcl_0.90	ucl_0.95	ucl_0.90
+occurence	Boomkikker	Boomkikker	Larva	meetcyclus2016_2018	0.795168	0.588743	0.628071	0.916712	0.901575
+occurence	Boomkikker	Boomkikker	Larva	meetcyclus2019_2021	0.58471	0.349935	0.387792	0.790671	0.760534
+occurence	Boomkikker	Boomkikker	Larva	meetcyclus2022_2024	0.595363	0.354936	0.393753	0.801501	0.771894
+occurence	Kamsalamander	Kamsalamander	Larva	meetcyclus2017_2020	0.560296	0.394524	0.422188	0.708881	0.68689
+occurence	Kamsalamander	Kamsalamander	Larva	meetcyclus2021_2023	0.442955	0.303069	0.32535	0.586741	0.564049

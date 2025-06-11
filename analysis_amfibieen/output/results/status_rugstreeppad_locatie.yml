@@ -1,0 +1,41 @@
+..generic:
+  git2rdata: 0.5.0
+  optimize: yes
+  NA string: NA
+  sorting:
+  - locatie
+  - periode
+  hash: 829cba6edb5536e3821df2534bf54de088ff3fba
+  data_hash: c3e53eec267a5ecd65d81b7afbc7d674528dd525
+meetnet:
+  class: character
+locatie:
+  class: character
+periode:
+  class: character
+dagbezoeken:
+  class: integer
+avondbezoeken:
+  class: integer
+bezoeken_onbekend:
+  class: integer
+bezoeken_totaal:
+  class: integer
+n_telling_eisnoer:
+  class: integer
+n_telling_adult:
+  class: integer
+jaar:
+  class: character
+zoekinspanning:
+  class: character
+aanwezig:
+  class: logical
+aanwezig_adult:
+  class: logical
+aanwezig_ei:
+  class: logical
+conclusie_adult:
+  class: character
+conclusie_ei:
+  class: character

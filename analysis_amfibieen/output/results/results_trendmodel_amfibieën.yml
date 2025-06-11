@@ -1,0 +1,99 @@
+..generic:
+  git2rdata: 0.5.0
+  optimize: yes
+  NA string: NA
+  sorting:
+  - parameter
+  - soort_nl
+  - jaar_min
+  hash: 1e1e275d0c655b4c2a30c26f2e7c7f8f16c64773
+  data_hash: 888da935dec71edb56657de32db8083ea6bd0624
+parameter:
+  class: character
+soort_nl:
+  class: character
+soort_wet:
+  class: character
+jaar_min:
+  class: numeric
+  digits: 6
+jaar_max:
+  class: numeric
+  digits: 6
+mean:
+  class: numeric
+  digits: 6
+sd:
+  class: numeric
+  digits: 6
+lcl_0.95:
+  class: numeric
+  digits: 6
+ucl_0.95:
+  class: numeric
+  digits: 6
+lcl_0.30:
+  class: numeric
+  digits: 6
+lcl_0.60:
+  class: numeric
+  digits: 6
+lcl_0.90:
+  class: numeric
+  digits: 6
+ucl_0.30:
+  class: numeric
+  digits: 6
+ucl_0.60:
+  class: numeric
+  digits: 6
+ucl_0.90:
+  class: numeric
+  digits: 6
+periode_tekst:
+  class: character
+n_jaar:
+  class: numeric
+  digits: 6
+treshold_low:
+  class: numeric
+  digits: 6
+treshold_high:
+  class: numeric
+  digits: 6
+klasse:
+  class: factor
+  labels:
+  - ++
+  - +
+  - +~
+  - '~'
+  - -~
+  - '-'
+  - --
+  - ?+
+  - ?-
+  - '?'
+  index:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  - 10
+  ordered: no
+mean_log:
+  class: numeric
+  digits: 6
+lcl_0.90_log:
+  class: numeric
+  digits: 6
+ucl_0.90_log:
+  class: numeric
+  digits: 6
+soort_periode:
+  class: character
