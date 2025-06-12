@@ -106,7 +106,7 @@ verschillen_vorigjaar %>%
       escape = FALSE,
       align = "lcccccccc") %>%
   kable_styling(font_size = ifelse(html_output, 11,8)) %>%
-  column_spec(c(2:9), width = "1.5cm") %>%
+  column_spec(c(2:9), width = "1cm") %>%
   collapse_rows(1) %>%
   scroll_box(width = "700px", height = "100%")
 ```
@@ -375,7 +375,7 @@ De habitatkenmerken 'aanwezigheid van vis' en 'permanente waterkolom' zijn binai
 In Figuur \@ref(fig:fighk1) geven voor elk meetnet de proportie van de plassen met aanwezigheid van vis en met een permanente waterkolom.
 De figuur toont ook het 90%-betrouwbaarheidsinterval op de geschatte proportie.
 
-```{r fighk1, fig.width = 9, fig.cap = "Proportie van de waterpartijen met aanwezigheid van vis en met een permanente waterkolom en 90 \\% betrouwbaarheidsinterval"}
+```{r fighk1, fig.width = 9, fig.height = 5, fig.cap = "Proportie van de waterpartijen met aanwezigheid van vis en met een permanente waterkolom en 90 \\% betrouwbaarheidsinterval"}
 
 habitatkenmerken_numeric_status %>%
   filter(habitatkenmerk %in% c("aanwezigheid_vis", "permanente_waterkolom")) %>%
@@ -569,7 +569,7 @@ vegetatie %>%
          variabele = str_replace(variabele, "_", " ")) %>%
   ggplot(aes(x = meetnet, y = prop_locatie, fill = waarde)) + 
   geom_col() +
-  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white", size = 2) +
   labs(x = "Soort", y = "Proportie van de plassen", fill = "Bedekking") +
   scale_y_continuous(labels = scales::percent) +
   facet_wrap(~variabele) +

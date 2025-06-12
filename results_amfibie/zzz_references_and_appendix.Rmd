@@ -18,7 +18,9 @@ De gegevens die we gebruiken voor de analyse moeten aan volgende voorwaarden vol
 
 -   de gegevens zijn afkomstig van meetnetlocaties (bijkomende tellingen op locaties die niet tot de steekproef behoren gebruiken we niet in de analyse omdat dit tot vertekening kan leiden)
 
--   voor knoflookpad gebruiken we enkele de tellingen via een hydrofoon
+-   voor knoflookpad gebruiken we enkel de tellingen via een hydrofoon
+
+-   voor rugstreeppad gebruiken we enkel de tellingen van roepkoren
 
 ## Model voor verschillen tussen de jaren
 
@@ -26,19 +28,27 @@ Via een statistisch model analyseren we de getelde aantallen als functie van het
 Op die manier krijgen we een schatting per jaar.
 We voegen ook een locatie-effect toe aan het model onder de vorm van een *random intercept*.
 Hiermee geven we aan dat tellingen op eenzelfde locatie gecorreleerd zijn.
-Voor Boomkikker en Rugstreeppad voegen we ook een *random intercept* voor cluster toe, om aan te geven dat de aantallen per poelen binnen een cluster gecorreleerd zijn met elkaar.
+Voor boomkikker en kamsalamander voegen we ook een *random intercept* voor cluster toe, om aan te geven dat de aantallen per poelen binnen een cluster gecorreleerd zijn met elkaar.
 
-De zoekinspanning per telling is verschillend bij de tellingen van vuursalamander, de larvetellingen en de fuiktellingen.
+De zoekinspanning per telling is verschillend bij de tellingen van:
+
+-   vuursalamander
+-   de larvetellingen van boomkikker en kamsalamander
+-   fuiktellingen van kamsalamander
+-   roepkoortellingen van rugstreeppad
+
 Daarom maken we gebruik van volgende waarden als *offset* in het model:
 
 -   transectlengte in meter / 1000
 -   aantal schepbewegingen / 10
 -   aantal fuiken
+-   aantal luisterpunten van rugstreeppad roepkoren
 
-Hierdoor worden de resultaten uitgedrukt als respectievelijk het verschil in aantallen per 1000 meter transectlengte, het verschil in aantallen per 10 schepbewegingen en het verschil in aantallen per fuik.
+Hierdoor worden de resultaten uitgedrukt als respectievelijk het verschil in aantallen per 1000 meter transectlengte, het verschil in aantallen per 10 schepbewegingen, het verschil in aantallen per fuik en het verschil in aantal roepkoren per luisterpunt.
 
 Op basis van dit model maken we een schatting van de jaarlijkse index.
 Dit is het procentueel verschil in aantallen tussen een bepaald jaar en een referentiejaar.
+Daarnaast maken we ook een schatting van het relatief verschil tussen opeenvolgende jaren.
 
 We maken gebruik van een generalised linear mixed model (GLMM), waarbij we aannemen dat het getelde aantal $C_{lcj}$ op locatie $l$, cluster $c$ en jaar $j$ een negatief binomiale distributie volgt met gemiddelde $\mu_{lcj}$ en overdispersie parameter $k$.
 
@@ -54,7 +64,7 @@ $$\log(\mu_{lcj}) = \eta_{lcj}$$ De lineaire predictor $\log(\mu_{lcj})$ hangt a
     Het volgt een normale distributie met gemiddelde 0 en variantie $\sigma_{l}^2$
 
 -   $b_{c}$: een random intercept voor cluster $c$.
-    Het volgt een normale distributie met gemiddelde 0 en variantie $\sigma_{c}^2$ (enkel bij boomkikker en kamsalmander)
+    Het volgt een normale distributie met gemiddelde 0 en variantie $\sigma_{c}^2$ (enkel bij boomkikker en kamsalamander)
 
 -   $b_{j}$ het effect van jaar $j$.
     Dit effect modelleert een eerste orde random walk.
@@ -67,6 +77,21 @@ $$b_{l} \sim {N(0,\sigma_{l}^2)} $$
 $$b_{c} \sim {N(0,\sigma_{c}^2)} $$
 
 $$\Delta b_j \sim {N(0,\sigma_{j}^2)} $$
+
+## Model voor verschillen tussen de meetcycli
+
+Voor de meetnetten meet een driejaarlijkse meetcyclus fitten we een model om de verschillen tussen de meetcycli te schatten.
+
+Het model is analoog aan het model voor het verschillen tussen de jaren.
+Het enige verschil is dat we gebruik maken van $\beta_{m}M_{m}$, het effect van meetcyclus $m$, i.p.v. het jaareffect $b_{j}$.
+
+We krijgen dan:
+
+$$\eta_{lcm}= \beta_{0} + \beta_{m}M_{m} + b_{l} + b_{c}$$
+
+$$b_{l} \sim {N(0,\sigma_{l}^2)} $$
+
+$$b_{c} \sim {N(0,\sigma_{c}^2)} $$
 
 ## Model voor jaarlijkse trend
 
@@ -81,3 +106,38 @@ Dit model gebruiken we voor volgende schattingen:
 -   gemiddelde jaarlijkse lineaire trend in aantallen, m.a.w. de percentage vooruitgang of achteruitgang per jaar;
 
 -   totale trend in aantallen over de volledige periode, m.a.w. de percentage vooruitgang of achteruitgang over de hele periode.
+
+# Reproduceerbaarheid van de analyse {#bijlage2}
+
+De analyses werden uitgevoerd via de programmeertaal R [@R].
+De R-scripts staan onder versiebeheer via volgende GitHub repository: [inbo/soortenmeetnetten-analysis](https://github.com/inbo/soortenmeetnetten-analysis) en zijn publiek toegankelijk.
+
+Meer specifiek gebeuren de analyses voor de amfibieënmeetnetten via de scripts in de folder [inbo/soortenmeetnetten-analysis/analysis_amfibien/source (commit 747da09)](https://github.com/inbo/soortenmeetnetten-analysis/tree/747da09e44f4d9d9bbcd6e0a3f784dc9c6f31682/analysis_amfibieen/source).
+
+De analyseresultaten zijn terug te vinden in de folder [inbo/soortenmeetnetten-analysis/analysis_amfibien/output/results (commit 747da09)](https://github.com/inbo/soortenmeetnetten-analysis/tree/747da09e44f4d9d9bbcd6e0a3f784dc9c6f31682/analysis_amfibieen/output/results)
+
+De ruwe data die we gebruiken voor de analyse zijn niet publiek beschikbaar omdat het om gevoelige data gaat.
+De ruwe data zijn wel beschikbaar via [deze Google Drive folder](https://drive.google.com/drive/folders/17pNKbLcSZxPd6BjNaGEfhjOQG2iZgC9J), die enkel toegankelijk is op verzoek.
+
+# Details analyse rugstreeppad {#bijlage3}
+
+Tabel \@ref(tab:tabbijlage3) geeft een overzicht van de meetnetlocaties die deel uitmaken van de analyse van rugstreeppad.
+Daarnaast geeft deze tabel een inschatting van het voorkomen van rugstreeppad per meetcyclus, op basis van waarnemingen van adulten en eisnoeren.
+
+Wanneer er geen adulten of eisnoeren werden waargenomen en er werd een voldoende zoekinspanning geleverd, beschouwen we de rugstreeppad als afwezig.
+Onder voldoende zoekinspanning verstaan we minstens 3 avondbezoeken of minstens 3 bezoeken waar gericht naar eisnoeren wordt gezocht in één veldseizoen.
+Wanneer de zoekinspanning onvoldoende is beschouwen we de aanwezigheid als onbekend.
+
+```{r tabbijlage3}
+tabel_status_rugstreeppad %>%
+  kbl(caption = "Overzicht van het voorkomen van de rugstreeppad (op basis van tellingen van adulten en eisnoeren) per meetnetlocatie en meetcyclus en overzicht van de meetnetlocaties die deel uitmaken van de analyse van de trend van het aantal roepkoren.",
+      longtable = TRUE,
+      booktabs = TRUE) %>%
+  kable_styling(bootstrap_options = c( "condensed"), 
+                latex_options = c("scale_down", "repeat_header"),
+                repeat_header_text = "(vervolg)",
+                font_size = ifelse(html_output, 11, 8)) %>%
+  column_spec(4, width = "1.5cm") %>%
+  column_spec(5, width = "3cm") %>%
+   column_spec(1, width = "3cm")
+```

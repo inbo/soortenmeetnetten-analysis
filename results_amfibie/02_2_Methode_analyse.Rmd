@@ -37,11 +37,11 @@ Bij rugstreeppad moeten volgens het monitoringsprotocol roepkoren, zichtwaarnemi
 Op de locaties in het Antwerpse havengebied werden echter enkel eisnoeren geteld.
 Dit komt omdat de monitoring daar al langer loopt dan het soortenmeetnettenproject.
 Daarbij worden per locatie een groot aantal bezoeken uitgevoerd overdag.
-Om de continuïteit van de monitoring van rugstreeppad in het Antwerpse havengebied te garanderen werd het monitoringsprotocol niet aangepast.
+Om de continuïteit van deze monitoring te garanderen, werd het monitoringsprotocol niet aangepast in het Antwerpse havengebied.
 
 In de andere meetnetlocaties zien we dat maar in een beperkt aantal bezoeken juvenielen, larven of eisnoeren werden waargenomen.
 We vermoeden dat er niet altijd in detail werd gezocht naar deze levensvormen en veronderstellen dat een deel van de nulwaarnemingen ontbrekende waarnemingen zijn.
-Om dit te vermijden hebben we vanaf 2024 het monitoringsprotocol nog verder aangescherpt: enkel roepkoren, zichtwaarnemingen en eisnoeren moeten geteld worden en de teller moet aangeven aan welke categoriën geteld werden.
+Om dit te vermijden hebben we vanaf 2024 het monitoringsprotocol nog verder aangescherpt: enkel roepkoren, zichtwaarnemingen en eisnoeren moeten geteld worden en de teller moet aangeven aan welke categorieën geteld werden.
 
 Voor de analyse in dit rapport hebben we enkel gebruik gemaakt van de getelde roepkoren.
 Om het verschil in aantal roepkoren te analyseren tussen de meetcycli 2019-2021 en 2022-2024, hebben we enkel gebruik gemaakt van de meetnetlocaties die in beide periodes geteld werden.

@@ -1,6 +1,26 @@
 \benglish
 
-# English abstract {-}
+# English abstract {.unnumbered}
 
-Insert a translation of the summary here.
+The species monitoring programme ([meetnetten.be](www.meetnetten.be)) aims at collecting reliable information on priority species in Flanders.
+It consists of a series of monitoring schemes which were designed by the Research Institute for Nature and Forest (INBO).
+Species are counted by volunteers in a standardized way under the coordination of the NGO Natuurpunt.
+
+This report presents the initial results of the amphibian monitoring networks for the period 2016–2024.
+During this period, we observed:
+
+-   a strong increase in midwife toad and fire salamander
+
+-   an increase in tree frog and natterjack toad
+
+-   a possible increase in great crested newt
+
+The strong increase in midwife toad populations can partly be explained by the release of captive-bred individuals.
+Continued monitoring is needed to determine whether this increase is sustainable.
+
+The trend for common spadefoot toad remains uncertain.
+
+Moor frog and pool frog are two difficult-to-survey species for which a monitoring protocol has been tested in a pilot project.
+The monitoring protocol for moor frog was evaluated positively and will be continued.
+For pool frog, adjustments to the monitoring protocol are still needed.
 \eenglish

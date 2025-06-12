@@ -18,7 +18,7 @@ We geven eerst wat achtergrond over het [ontwerp van de soortenmeetnetten] en de
 Daarna doen we een [verkenning van de aantallen] en geven we een [overzicht van de resultaten] van de statistische analyses.
 Vervolgens bespreken we de resultaten voor elk meetnet ([Boomkikker](#boomkikker), [Knoflookpad](#knoflookpad), [Rugstreeppad](#rugstreeppad), [Vroedmeesterpad](#vroedmeesterpad), [Kamsalamander](#kamsalamander) en [Vuursalamander](#vuursalamander)).
 
-Heikikker en Poelkikker zijn twee moeilijk telbare soorten waarvoor het monitoringsprotocol uitgetest werd in een pilooproject.
+Heikikker en Poelkikker zijn twee moeilijk telbare soorten waarvoor het monitoringsprotocol uitgetest werd in een pilootproject.
 We eindigen dit rapport met een evaluatie van beide [pilootprojecten](#pilootproject).
 
-`r ifelse(!html_output, "Dit rapport bevat enkele interactieve figuren die alleen kunnen bekeken worden via de [website versie](https://inbo.github.io/soortenmeetnetten-amfibieënrapport-2023/) van dit rapport.", "")`
+`r ifelse(!html_output, "Dit rapport bevat enkele interactieve figuren die alleen kunnen bekeken worden via de [website versie](https://inbo.github.io/soortenmeetnetten-amfibieënrapport-2025/) van dit rapport.", "")`

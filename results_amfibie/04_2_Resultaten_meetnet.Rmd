@@ -111,6 +111,29 @@ monitoring_effort <- bind_rows(
     mutate(monitoringsinspanning = "aantal tellers"))
 ```
 
+```{r}
+status_locatie_rugstreeppad <- read_vc("status_rugstreeppad_locatie", root = path_results)
+
+analyseset_rugstreeppad_roepkoren <- read_vc("analyseset_rugstreeppad_roepkoren", root = path_analyseset)
+
+locaties_paired <- analyseset_rugstreeppad_roepkoren %>%
+  distinct(locatie, paired, aanwezig)
+
+status_rugstreeppad_adult <- status_locatie_rugstreeppad %>%
+  select(meetnet, locatie, periode, conclusie_adult) %>%
+  left_join(locaties_paired, by = "locatie") %>%
+  pivot_wider(names_from = periode, values_from = conclusie_adult) %>%
+  mutate(analyse_roepkoren = ifelse(is.na(paired), "nee",
+                                    ifelse(paired & aanwezig, "ja", "nee")),
+         opmerking = ifelse(is.na(paired), "enkel eitellingen",
+                            ifelse(aanwezig & analyse_roepkoren == "nee", "ontbrekende gegevens roepkoren",
+                                   ifelse(!aanwezig, "enkel nulwaarnemingen roepkoren", ""))))
+
+tabel_status_rugstreeppad <- status_rugstreeppad_adult %>%
+  select(locatie, `2019 - 2021`, `2022 - 2024`, `analyse roepkoren` = analyse_roepkoren, opmerking)
+  
+```
+
 ```{r, eval = FALSE }
 
 labels_prct <- c(-95,-75, -50, -25, 0, 33, 100, 200, 400, 1000, 2500, 5000)
@@ -296,7 +319,9 @@ trend_total_meetnet <- result_trendmodel %>%
 Over de periode `r trend_average_meetnet$periode_tekst` vertonen de adulten van `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))`
 
-De opmars van deze soort is goed gedocumenteerd (REF).
+Meer achtergrondinformatie over de opmars van deze soort in Vlaanderen is te vinden in @engelen_2024a en @engelen_2024b.
+Ook in Nederland zien we een duidelijke toename van de boomkikker [@clo_amfibieen_2022].
+
 De weliswaar onduidelijke minder positieve trend in de larventellingen hangt mogelijk samen met gebrek aan beheer van de poelen waarin de soort zich voortplant.
 Boomkikkers bereiken namelijk hun grootste voortplantingssucces in poelen die niet te ver staan in successie.
 Rijpere systemen met rijkere vegetatie huisvesten ook een complexer voedselweb aan allerhande predatoren.
@@ -421,6 +446,9 @@ result_verschil_table %>%
 
 ```
 
+Wanneer we de aantallen vergelijken met het referentiejaar 2019, zien we dat vanaf 2021 de verschillen onduidelijk zijn door het brede betrouwbaarheidsinterval.
+Wanneer we echter opeenvolgende jaren vergelijken zien we dat de aantallen in de laaste drie jaren stabiel zijn gebleven.
+
 ### Trend
 
 ```{r}
@@ -438,10 +466,12 @@ trend_total_meetnet <- result_trendmodel %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))`
 
 De knoflookpad doet het nog steeds zeer slecht in Vlaanderen.
-Door de lage aantallen, is er een grote onzekerheid op de trend.
+Door de lage aantallen en het beperkt aantal locaties waar de soort voorkomt, is er een grote onzekerheid op de trend.
+
+\pagebreak
 
 ## Rugstreeppad (*Epidalea calamita*) {#rugstreeppad}
 
@@ -474,7 +504,7 @@ meetnetcharacteristics_long %>%
 
 Figuur \@ref(fig:merugstreeppad) toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
 
-De pieken in het aantal tellingen zijn het gevolg van het groot aantal tellingen van eisnoeren in de locaties die in het Antwerpse havengebied gelegen zijn (zie paragraaf \@ref(analyserugstreeppad)).
+De pieken in het aantal tellingen zijn het gevolg van het groot aantal tellingen van eisnoeren in de locaties die in het Antwerpse havengebied gelegen zijn (zie paragraaf \@ref(h:analyserugstreeppad)).
 
 ```{r merugstreeppad, fig.cap= str_c("Monitoringsinspanning voor het meetnet ", str_to_lower(m))}
 
@@ -506,6 +536,17 @@ if (html_output) {
 
 ### Vergelijking tussen de meetcycli
 
+We tonen hier enkel de resultaten van de analyse van het aantal roepkoren (zie paragraaf \@ref(h:analyserugstreeppad)).
+
+De meetnetlocaties die gebruikt werden in de analyse zijn deze waar:
+
+-   minsten in één bezoek roepkoren van rugstreeppad werden gehoord
+-   er minstens één avondtelling is uitgevoerd in elke meetcyclus.
+
+Bijlage \@ref(bijlage3) geeft aan welke locaties voldoen aan deze voorwaarden en dus onderdeel uitmaken van de analyse.
+
+De resultaten van de analyse zijn deze gebaseerd op een deel van de meetnetlocaties en zijn dus niet volledig representatief voor Vlaanderen.
+
 ```{r vmrugstreeppad, fig.cap= str_c("Verschillen in aantallen per meetcyclus t.o.v. referentie meetcyclus met het 90\\% betrouwbaarheidsinterval voor de ", str_to_lower(m), ".")}
 
 labels_prct <- c(-95,-75, -50, -25, 0, 33, 100, 200, 400, 1000, 2500, 5000)
@@ -514,7 +555,7 @@ labels_show <- str_c(labels_prct, " %")
 
 result_indexmodel_cyclus_table %>%
   filter(soort_nl == m) %>%
-  filter(type_model == "offset") %>%
+  filter(type_model == "offset" | is.na(type_model)) %>%
   mutate(soort_show = str_c(soort_nl, " ", levensstadium)) %>%
   ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = meetcyclus, label = klasse, colour = klasse)) +
   geom_errorbar(width = 0, size = 20 * 2.58 / 3, alpha = 0.3) +
@@ -547,8 +588,13 @@ trend_total_meetnet <- result_trendmodel %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))`
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend in aantal roepkoren van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
+De jaarlijke trend is onbekend als gevolg van het brede betrouwbaarheidsinterval.
+Maar als we de periode 2022-2024 vergelijken met de periode 2019-2021 zien we wel een (nipt) significante toename in aantel roepkoren.
+
+Gebieden met een sterke toename in het aantal getelde roepkoren zijn o.a.
+De Liereman, De Maten, Ravelse Bergen en De Westhoek.
+In de gebieden Bergerven, het westelijk deel van De Teut en Noordelijk eiland was er een duidelijke afname in het aantal getelde roepkoren.
 
 \pagebreak
 
@@ -687,7 +733,7 @@ trend_total_meetnet <- result_trendmodel %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))` Deze opwaartse trend hangt ongetwijfeld nauw samen met de inspanningen van het kweekprogramma voor deze soort. Hoewel de daarbij nieuw gestichte populaties pas deel zullen uitmaken van het meetnet wanneer ze zelfstandig (dus zonder verdere bijplaatsing van kweekdieren) geacht zijn, zijn er in tal van bestaande (en hier wel beschouwde) populaties dieren bijgeplaatst. De effecten laten zich dan ook opmerken. Ook hier zal echter pas op langere termijn blijken of dit duurzaam tot grotere populaties heeft geleid. De toename als geconsolideerd beschouwen is dan ook voorbarig.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))` Deze opwaartse trend hangt ongetwijfeld nauw samen met de inspanningen van het kweekprogramma voor deze soort [@Auwerx_2021]. Hoewel de daarbij nieuw gestichte populaties pas deel zullen uitmaken van het meetnet wanneer ze zelfstandig (dus zonder verdere bijplaatsing van kweekdieren) geacht zijn, zijn er in tal van bestaande (en hier wel beschouwde) populaties dieren bijgeplaatst. De effecten laten zich dan ook opmerken. Ook hier zal echter pas op langere termijn blijken of dit duurzaam tot grotere populaties heeft geleid. De toename als geconsolideerd beschouwen is dan ook voorbarig.
 
 \pagebreak
 
@@ -806,7 +852,13 @@ trend_total_meetnet <- result_trendmodel %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ")") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))`.
+
+Als we kijken naar de gemiddelde getelde aantallen per fuik in de grotere clusters van poelen, dan zien we zowel clusters met een toename in getelde aantallen als clusters met een afname in getelde aantallen.
+Hierdoor krijgen we geen duidelijke signaal voor de trend in populatiegrootte op schaal Vlaanderen.
+
+Enkele clusters met een toename in getelde aantallen per fuik zijn De Brand, De Westhoek en Wortel Kolonie.
+Clusters waar we een duidelijke afname zien in getelde aantallen zijn: Antitankgracht Haacht, Dauteweyers en TRP Langgeleed.
 
 \pagebreak
 
@@ -947,6 +999,6 @@ trend_total_meetnet <- result_trendmodel %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 0)` % met een 90% betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 0)` % en `r round(trend_average_meetnet$ucl_0.90, 0)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))` Het relatief lager niveau van 2016 is wellicht deels toe te schrijven aan de onervarenheid van de tellende vrijwilligers. Natte zomers geven echter aanleiding tot groter reproductiesucces en aanwas van de populatieze. De toename van 2021 naar 2022 is ook in die zin te begrijpen. In de daaropvolgende jaren blijven de aantallen van deze langlevende soort verhoogt.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", str_to_lower(m), " in deze periode."))` Het relatief lager niveau van 2016 is wellicht deels toe te schrijven aan de onervarenheid van de tellende vrijwilligers. Natte zomers geven echter aanleiding tot groter reproductiesucces en aanwas van de populaties. De toename van 2021 naar 2022 is ook in die zin te begrijpen. In de daaropvolgende jaren blijven de aantallen van deze langlevende soort verhoogt.
 
 \pagebreak

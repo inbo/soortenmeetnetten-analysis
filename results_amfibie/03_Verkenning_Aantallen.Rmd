@@ -208,8 +208,6 @@ In Tabel \@ref(tab:tabaantaltotoverige) geven we het totaal aantal getelde indiv
 De soorten worden gerangschikt volgens getelde aantallen van hoog naar laag.
 De tabel bevat ook prioritaire soorten, maar dit zijn dan de aantallen die geteld werden in locaties van andere meetnetten.
 
-\needspace{50mm}
-
 ```{r , message=FALSE}
 
 summary_table_all_years <- summary_table %>%
@@ -230,11 +228,8 @@ summary_table_all_years <- summary_table %>%
 summary_table_all_years %>% 
   select("Nederlandse naam" = soort_nl,  "Levensstadium" = type, "Totaal" = aantal_totaal_ls) %>%
   kbl(caption = "Totaal aantal getelde overige soorten voor alle amfibieënmeetnetten samen",
-     longtable = TRUE,
       booktabs = TRUE) %>%
   kable_styling(bootstrap_options = c( "condensed"), 
-                latex_options = c("scale_down", "repeat_header"),
-                repeat_header_text = "(vervolg)",
                 font_size = ifelse(html_output, 11, 8)) %>%
   column_spec(2, italic = TRUE) %>%
   collapse_rows(c(1,2), target = 1) %>%
