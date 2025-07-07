@@ -1612,9 +1612,39 @@ plot
 
 # Resultaten wegschrijven
 
+```{r, eval = FALSE}
+trend <- read_vc(root = "../output/results", file = "results_trendmodel_amfibieën") 
+
+trend <- trend %>%
+  mutate(type_model = ifelse(soort_nl == "Rugstreeppad", "offset", NA))
+
+result_add <- results_trend_rugstreeppad_no_offset %>%
+              mutate(type_model = "no offset") %>%
+  group_by(soort_nl) %>%
+  mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
+         n_jaar = jaar_max - jaar_min + 1,
+         treshold_low = ifelse(parameter == "trend_average", 
+                               round((exp(log(0.75)/(6 - 1)) - 1) * 100, 1),
+                               -25),
+         treshold_high = ifelse(parameter == "trend_average", 
+                                round((exp(log(1.33)/(6 - 1)) - 1) * 100, 1),
+                                33)) %>%
+  ungroup() %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0),
+         mean_log = log(mean/100 + 1),
+          lcl_0.90_log = log(lcl_0.90/100 + 1),
+         ucl_0.90_log = log(ucl_0.90/100 + 1),
+         soort_periode = str_c(soort_nl, jaar_min, jaar_max, sep = "_")) 
+
+trend <- trend %>%
+  bind_rows(result_add)
+
+```
+
+
 ```{r}
 trend %>%
-  write_vc(root = "../output/results", file = "results_trendmodel_amfibieën", sorting = c("parameter", "soort_nl", "jaar_min"), strict = FALSE)
+  write_vc(root = "../output/results", file = "results_trendmodel_amfibieën", sorting = c("parameter", "soort_nl", "jaar_min", "type_model"), strict = FALSE)
 ```
 ```{r}
  results_index_jaar %>%

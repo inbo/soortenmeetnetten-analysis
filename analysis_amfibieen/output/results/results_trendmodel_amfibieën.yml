@@ -6,8 +6,9 @@
   - parameter
   - soort_nl
   - jaar_min
-  hash: 1e1e275d0c655b4c2a30c26f2e7c7f8f16c64773
-  data_hash: 888da935dec71edb56657de32db8083ea6bd0624
+  - type_model
+  hash: e193137a09eb13dedec122d92d9df4ed52507379
+  data_hash: 9a269b95e7fe694907cb7d4a225c5897cafc2e08
 parameter:
   class: character
 soort_nl:
@@ -96,4 +97,6 @@ ucl_0.90_log:
   class: numeric
   digits: 6
 soort_periode:
+  class: character
+type_model:
   class: character

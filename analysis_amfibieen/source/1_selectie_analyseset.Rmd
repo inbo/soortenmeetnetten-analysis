@@ -284,13 +284,18 @@ dataset_roepkoren_actief <- dataset_roepkoren %>%
   filter(is_active)
 
 locaties_niet_actief <- dataset_roepkoren %>%
-  distinct(meetnet, locatie) %>%
+  group_by(meetnet, locatie,  primaire_soort) %>%
+  summarise(totaal = sum(aantal)) %>%
   anti_join(dataset_roepkoren_actief, by = c("meetnet", "locatie"))
 
 locaties_niet_actief %>%
   kable(caption = "Niet actieve locaties waarvoor bezoeken niet geselecteerd werden") %>%
   kable_styling()
 ```
+
++ Niet actieve locaties waar soort al werd waargenomen
+  + Merkske - Poel B46b: behoort niet tot de steekproef --> geen probleem
+  + Zwin - Kleine vlakte 3: vervanging binnen cluster (door Zwin - Kleine vlakte 13) --> OK
 
 + We selecteren enkel tellingen die geschikt zijn voor analyse
   + Geen veldwerk mogelijk - locatie ongechikt: wanneer de poel droog staat rekenen we dit mee als een nulwaarning (dit moet aangepast worden in de databank: voor_analyse = TRUE)
@@ -518,7 +523,10 @@ dataset_fuiken_actief <- dataset_fuiken %>%
   filter(is_active)
 
 locaties_niet_actief <- dataset_fuiken %>%
-  distinct(meetnet, locatie) %>%
+  filter(primaire_soort) %>%
+  group_by(meetnet, locatie, is_sample, primaire_soort) %>%
+  summarise(aantal = sum(aantal)) %>%
+  ungroup() %>%
   anti_join(dataset_fuiken_actief, by = c("meetnet", "locatie"))
 
 locaties_niet_actief %>%
@@ -526,6 +534,10 @@ locaties_niet_actief %>%
   kable_styling()
 
 ```
+
++ Niet actieve locaties waar soort al werd waargenomen
+  + Dheide - Poel 1: Poel is verland, vervanging binnen cluster
+  + Kooldries Hoofsweer - Poel 26: Poel is verland, vervanging binnen cluster
 
 + We selecteren enkel tellingen die geschikt zijn voor analyse
   
@@ -696,7 +708,8 @@ dataset_roepkoren_knoflookpad_actief <- dataset_roepkoren_knoflookpad %>%
   filter(is_active)
 
 locaties_niet_actief <- dataset_roepkoren_knoflookpad %>%
-  distinct(meetnet, locatie) %>%
+  group_by(meetnet, locatie, type_aantal, primaire_soort) %>%
+  summarise(totaal = sum(aantal)) %>%
   anti_join(dataset_roepkoren_knoflookpad_actief, by = c("meetnet", "locatie"))
 
 locaties_niet_actief %>%
@@ -819,13 +832,16 @@ dataset_vuursalamander_actief <- dataset_vuursalamander %>%
   filter(is_active)
 
 locaties_niet_actief <- dataset_vuursalamander %>%
-  distinct(meetnet, locatie) %>%
+  group_by(meetnet, locatie) %>%
+  summarise(aantal = sum(aantal)) %>%
   anti_join(dataset_vuursalamander_actief, by = c("meetnet", "locatie"))
 
 locaties_niet_actief %>%
   kable(caption = "Niet actieve locaties waarvoor bezoeken niet geselecteerd werden") %>%
   kable_styling()
 ```
+
++ Transect Hayesbos Noord stopgezet want het overlapt met Hayesbos zuid
 
 + We selecteren enkel tellingen die geschikt zijn voor analyse
 
@@ -1357,7 +1373,9 @@ dataset_rugstreeppad_actief <- dataset_rugstreeppad_corr %>%
   filter(is_active | is.na(is_active))
 
 locaties_niet_actief <- dataset_rugstreeppad_corr %>%
-  distinct(meetnet, locatie) %>%
+  group_by(meetnet, locatie, primaire_soort) %>%
+  summarise(aantal = sum(aantal)) %>%
+  ungroup() %>%
   anti_join(dataset_rugstreeppad_actief, by = c("meetnet", "locatie"))
 
 locaties_niet_actief %>%
@@ -1472,17 +1490,17 @@ habitatkenmerken_boomkikker_kamsalamander_wide <- habitatkenmerken_boomkikker_ka
   pivot_wider(names_from = bezoekvariabele, values_from = waarde) %>%
   rename(ph = "pH (zuurtegraad)", oppervlakte_waterpartij = "oppervlakte waterpartij", maximale_diepte = "maximale diepte", aanwezigheid_vis = "aanwezigheid vis", permanente_waterkolom = "permanente waterkolom") %>%
   mutate(ph = as.numeric(ph),
-         oppervlakte_waterpartij = factor(oppervlakte_waterpartij, levels = c("onbekend", "niet bekeken/niet van toepassing","<10", "10-100", "101-250", "251-400", ">400")),
-         maximale_diepte = factor(maximale_diepte, levels = c("onbekend", "niet bekeken/niet van toepassing", "<0.5", "0.5-1", ">1", ">1.5")),
+         oppervlakte_waterpartij = factor(oppervlakte_waterpartij, levels = c("onbekend", "niet bekeken/niet van toepassing","<10", "10-100", "101-250", "251-400", ">400"), ordered = TRUE),
+         maximale_diepte = factor(maximale_diepte, levels = c("onbekend", "niet bekeken/niet van toepassing", "<0.5", "0.5-1", ">1", ">1.5"), ordered = TRUE),
          aanwezigheid_vis = ifelse(aanwezigheid_vis %in% c("TRUE", "ja"), TRUE,
                                    ifelse(aanwezigheid_vis %in% c("FALSE", "nee"), FALSE, NA)),
          permanente_waterkolom = ifelse(permanente_waterkolom %in% c("TRUE", "ja"), TRUE,
                                    ifelse(permanente_waterkolom %in% c("FALSE", "nee"), FALSE, NA)),
-         beschaduwing = factor(beschaduwing, levels = c("onbekend", "niet bekeken/niet van toepassing", "geen schaduw", "<30%", "30-60%", ">60%")),
+         beschaduwing = factor(beschaduwing, levels = c("onbekend", "niet bekeken/niet van toepassing", "geen schaduw", "<30%", "30-60%", ">60%"), ordered = TRUE),
          waterkwaliteit = ifelse(str_detect(waterkwaliteit, "goed"), "goed",
                                  ifelse(str_detect(waterkwaliteit, "middelmatig"), "middelmatig",
                                       ifelse(str_detect(waterkwaliteit, "slecht"), "slecht", waterkwaliteit))),
-         waterkwaliteit = factor(waterkwaliteit, levels = c("onbekend", "niet bekeken/niet van toepassing", "plas verdwenen of volledig verland", "slecht", "middelmatig", "goed")))
+         waterkwaliteit = factor(waterkwaliteit, levels = c("onbekend", "niet bekeken/niet van toepassing", "plas verdwenen of volledig verland", "slecht", "middelmatig", "goed"), ordered = TRUE))
 
 
 covar_rugstreeppad_vroedmeesterpad <- covar_sample %>%
@@ -1548,16 +1566,16 @@ habitatkenmerken_rugstreeppad_vroedmeesterpad_wide <- habitatkenmerken_rugstreep
   select(-eenheid) %>%
   pivot_wider(names_from = bezoekvariabele, values_from = waarde) %>%
   rename(oppervlakte_waterpartij = "oppervlakte waterpartij", maximale_diepte = "maximale diepte", aanwezigheid_vis = "aanwezigheid vis", permanente_waterkolom = "permanente waterkolom", drijvende_vegetatie = "drijvende vegetatie", verticale_vegetatie = "verticale vegetatie", ph = "pH (zuurtegraad)") %>%
-  mutate(oppervlakte_waterpartij = factor(oppervlakte_waterpartij, levels = c("onbekend", "niet bekeken/niet van toepassing","<10", "10-100", "101-250", "251-400", ">400")),
-         maximale_diepte = factor(maximale_diepte, levels = c("onbekend", "niet bekeken/niet van toepassing", "<0.5", "0.5-1", ">1", ">1.5")),
+  mutate(oppervlakte_waterpartij = factor(oppervlakte_waterpartij, levels = c("onbekend", "niet bekeken/niet van toepassing","<10", "10-100", "101-250", "251-400", ">400"), ordered = TRUE),
+         maximale_diepte = factor(maximale_diepte, levels = c("onbekend", "niet bekeken/niet van toepassing", "<0.5", "0.5-1", ">1", ">1.5"), ordered = TRUE),
          aanwezigheid_vis = ifelse(aanwezigheid_vis %in% c("TRUE", "ja"), TRUE,
                                    ifelse(aanwezigheid_vis %in% c("FALSE", "nee"), FALSE, NA)),
          permanente_waterkolom = ifelse(permanente_waterkolom %in% c("TRUE", "ja"), TRUE,
                                    ifelse(permanente_waterkolom %in% c("FALSE", "nee"), FALSE, NA)),
-         beschaduwing = factor(beschaduwing, levels = c("onbekend", "niet bekeken/niet van toepassing", "geen schaduw", "<30%", "30-60%", ">60%")),
-         drijvende_vegetatie = factor(drijvende_vegetatie, levels = c("onbekend", "niet bekeken/niet van toepassing", "0%", "1-25%", "26-50%", "51-75%", "76-100%")),
-         onderwatervegetatie = factor(onderwatervegetatie, levels = c("onbekend", "niet bekeken/niet van toepassing", "0%", "1-25%", "26-50%", "51-75%", "76-100%")),
-         verticale_vegetatie = factor(verticale_vegetatie, levels = c("onbekend", "niet bekeken/niet van toepassing", "0%", "1-25%", "26-50%", "51-75%", "76-100%")))
+         beschaduwing = factor(beschaduwing, levels = c("onbekend", "niet bekeken/niet van toepassing", "geen schaduw", "<30%", "30-60%", ">60%"), ordered = TRUE),
+         drijvende_vegetatie = factor(drijvende_vegetatie, levels = c("onbekend", "niet bekeken/niet van toepassing", "0%", "1-25%", "26-50%", "51-75%", "76-100%"), ordered = TRUE),
+         onderwatervegetatie = factor(onderwatervegetatie, levels = c("onbekend", "niet bekeken/niet van toepassing", "0%", "1-25%", "26-50%", "51-75%", "76-100%"), ordered = TRUE),
+         verticale_vegetatie = factor(verticale_vegetatie, levels = c("onbekend", "niet bekeken/niet van toepassing", "0%", "1-25%", "26-50%", "51-75%", "76-100%"), ordered = TRUE))
 ```
 
 ### Boomkikker en kamsalamander
