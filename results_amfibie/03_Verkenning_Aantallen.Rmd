@@ -200,6 +200,7 @@ include_graphics("image/dummy_figuur.png")
 
 ## Aantallen voor de secundaire soorten
 
+Naast de getelde aantallen van de prioritaire soorten, is het ook mogelijk om de getelde aantallen van secundaire soorten te in te voeren in meetnetten.be.
 Deze gegevens kunnen zeker een meerwaarde zijn, maar we moeten wel voorzichtig zijn bij het interpreteren of analyseren ervan.
 Zowel de tellocaties als de telperiode zijn immers specifiek gekozen voor de prioritaire soorten.
 Dat maakt dat de aantallen voor de secundaire soorten niet altijd representatief zijn voor een uitspraak op schaal Vlaanderen.

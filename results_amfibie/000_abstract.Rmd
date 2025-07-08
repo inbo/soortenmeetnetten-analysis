@@ -2,23 +2,29 @@
 
 # English abstract {.unnumbered}
 
-The species monitoring programme ([meetnetten.be](www.meetnetten.be)) aims at collecting reliable information on priority species in Flanders.
-It consists of a series of monitoring schemes which were designed by the Research Institute for Nature and Forest (INBO).
-Species are counted by volunteers in a standardized way under the coordination of the NGO Natuurpunt.
+The species monitoring programme ([meetnetten.be](www.meetnetten.be)) of the Research Institute for Nature and Forest (INBO) and the Nature and Forest Agency (ANB) aims at collecting reliable information on priority species in Flanders.
+The list of priority species includes 8 amphibians: 7 Natura 2000 species (European priority species) and 1 species (fire salamander) of regional importance (Flemish priority species).
 
-This report presents the initial results of the amphibian monitoring networks for the period 2016–2024.
+Most species are counted by volunteers in a standardized way under the coordination of the NGO Natuurpunt.
+
+This report presents the initial results of the amphibian monitoring schemes for the period 2016–2024.
 During this period, we observed:
 
--   a strong increase in midwife toad and fire salamander
+-   a strong increase in midwife toad, fire salamander and natterjack toad
 
--   an increase in tree frog and natterjack toad
+-   an increase in tree frog
 
 -   a possible increase in great crested newt
 
 The strong increase in midwife toad populations can partly be explained by the release of captive-bred individuals.
 Continued monitoring is needed to determine whether this increase is sustainable.
 
+The natterjack toad is a pioneer species that naturally exhibits strong fluctuations.
+For now, we are seeing a significant increase, but a longer time series is needed to gain a clearer view of the trend.
+
 The trend for common spadefoot toad remains uncertain.
+However, since the species only occurs in a few locations in Flanders, the conservation status is very unfavourable.
+In the comming years, monitoring will reveal if the release of captive-bred individuals is succesfull.
 
 Moor frog and pool frog are two difficult-to-survey species for which a monitoring protocol has been tested in a pilot project.
 The monitoring protocol for moor frog was evaluated positively and will be continued.

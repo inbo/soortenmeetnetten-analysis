@@ -31,9 +31,9 @@ overzicht_metingen <- analyseset_heikikker %>%
 ```
 
 Op `r overzicht_metingen$aantal_locaties` locaties werden er in totaal `r overzicht_metingen$aantal_tellingen` eitellingen uitgevoerd.
-Er werden `r overzicht_metingen$aantal_staalnames` stalen genomen van in totaal `r overzicht_metingen$aantal_eitjes_bemonsterd` kikkereitjes.
+Er werden `r overzicht_metingen$aantal_staalnames` stalen genomen met in totaal `r overzicht_metingen$aantal_eitjes_bemonsterd` ingezamelde kikkereitjes.
 
-Op basis van een DNA-analyse op de kikkereitjes werd per staal het aandeel heikikkereitjes bepaald.
+Op basis van een DNA-analyse werd per staal het aandeel heikikkereitjes bepaald.
 Figuur \@ref(fig:figstalenhei) toont de verdeling van het aandeel heikikkereitjes in de geanalyseerde stalen.
 
 ```{r figstalenhei, fig.cap = "Verdeling van het aandeel heikikkereitjes in de geanalyseerde stalen"}
@@ -50,16 +50,16 @@ analyseset_heikikker %>%
   labs(x = "Aandeel heikikkereitjes", y = "Aantal stalen")
 ```
 
-Het aandeel heikikereitjes afgeleid uit de DNA-analyse gaan we vervolgens gebruiken om in te schatten hoeveel van de getelde kikkereitjes in een poel afkomstig zijn van de heikikker.
+Het aandeel heikikereitjes afgeleid uit de DNA-analyse gaan we vervolgens gebruiken om in te schatten hoeveel van de getelde eiklompen in een poel afkomstig zijn van de heikikker.
 
 Figuur \@ref(fig:fighei2) toont de verdeling van het afgeleide aantal eiklompen afkomstig van heikikker.
-Een deel van de nulwaarnemingen in deze figuur is te verklaren doordat er initieel geen kikkereitjes werden waargenomen (en er dus ook geen staal werd genomen).
-Bij een ander deel van de nulwaarnemingen werden er initieel wel kikkereitjes geteld, maar geeft de DNA-analyse aan dat de kikkereitjes niet afkomstig zijn van de heikikker.
+Een deel van de nulwaarnemingen in deze figuur is te verklaren doordat er initieel geen eiklompen werden waargenomen (en er dus ook geen staal werd genomen).
+Bij een ander deel van de nulwaarnemingen werden er initieel wel eiklompen geteld, maar geeft de DNA-analyse aan dat de eiklompen afkomstig zijn van de bruine kikker.
 
 In Figuur \@ref(fig:fighei2) zie je ook dat voor twee bezoeken het aantal heikikkereiklompen kon ingeschat worden zonder staalname.
 Dit komt omdat een expert de eitjes visueel kon onderscheiden en er dus geen staalname nodig was.
 
-```{r fighei2, fig.cap= "Verdeling van het geschatte aantal eiklompen afkomtig van heikikker"}
+```{r fighei2, fig.cap= "Verdeling van het geschatte aantal eiklompen afkomstig van heikikker"}
 analyseset_heikikker %>%
   filter(!is.na(aantal_doelsoort)) %>%
   mutate(Staalname = ifelse(staalname, "Ja", "Nee"),
@@ -75,11 +75,13 @@ analyseset_heikikker %>%
   labs(x = "Aantal heikikkereiklompen", y = "Aantal tellingen")
 ```
 
+\needspace{50mm}
+
 Ten slotte kunnen we voor de periode 2021-2023 een schatting maken van:
 
 -   het percentage van de heikikkerpoelen waar er eitjes voorkomen;
--   het gemiddeld aantal heikikkereiklompen per bezoek;
--   het gemiddelde van het totaal aantal heikikkereiklompen over de verschillende bezoeken per poel.
+-   het gemiddeld aantal heikikkereiklompen per bezoek (inclusief nulwaarnemingen);
+-   het gemiddelde van het totaal aantal heikikkereiklompen over de verschillende bezoeken per poel (inclusief nulwaarnemingen).
 
 Deze resultaten worden getoond in Tabel \@ref(tab:tabheipiloot).
 
@@ -96,7 +98,7 @@ resultaten_piloot_table %>%
   kable_styling()
 ```
 
-De sinds 2021 gevolgde workflow voor deze moeilijk te monitoren soort wordt door de uitvoerende professionele medewerkers van INBO en Natuurpunt Studie als adequaat geëvalueerd en zal dan ook verder gezet worden.
+Het sinds 2021 gevolgde protocol voor deze moeilijk te monitoren soort wordt door de uitvoerende professionele medewerkers van INBO en Natuurpunt Studie als adequaat geëvalueerd en zal dan ook verder gezet worden.
 Toenemend grote variatie in waterstanden in het vroege voorjaar bemoeilijken weliswaar het afbakenen van de te onderzoeken waterpartijen.
 Bovendien leggen heikikkers vaak eieren in ondiepe plassen die niet zichtbaar zijn in de watervlakkenlaag die voor de steekproeftrekking werd gebruikt.
 De steekproef vereist dan ook enige verdere aanpassing.
@@ -115,12 +117,12 @@ overzicht_metingen_larrven <- analyseset_poelkikker %>%
   filter(protocol == "Poelkikker - DNA larven") %>%
   group_by(meetnet) %>%
   summarise(aantal_locaties_larven = n_distinct(locatie),
-            aantal_larvestalen = sum(aantal_bemonsterd > 0),
+            aantal_larvestalen = sum(aantal_bemonsterd > 0, na.rm = TRUE),
             aantal_larvebemonsterd = sum(aantal_bemonsterd, na.rm = TRUE)) %>%
   ungroup()
 ```
 
-Op `r overzicht_metingen_roepkoren$aantal_locaties_roepkoor` locaties werden er in totaal `r overzicht_metingen_roepkoren$aantal_roekpoortellingen` roepkoortellignen uitgevoerd.
+Op `r overzicht_metingen_roepkoren$aantal_locaties_roepkoor` locaties werden er in totaal `r overzicht_metingen_roepkoren$aantal_roekpoortellingen` roepkoortellingen uitgevoerd.
 
 Er werden op `r overzicht_metingen_larrven$aantal_locaties_larven` locaties naar kikkerlarven gezocht en op `r overzicht_metingen_larrven$aantal_larvestalen` van deze locaties werden er DNA-stalen genomen van in totaal `r overzicht_metingen_larrven$aantal_larvebemonsterd` kikkerlarven.
 
@@ -141,16 +143,16 @@ analyseset_poelkikker %>%
   labs(x = "Aandeel poelkikkerlarven", y = "Aantal stalen")
 ```
 
-Het aandeel poelkikkerlarven afgeleid uit de DNA-analyse gaan we vervolgens gebruiken om in te schatten hoeveel van de getelde roepkoren afkomstig zijn van de poelkikker.
+Het aandeel poelkikkerlarven afgeleid uit de DNA-analyse gaan we vervolgens gebruiken om in te schatten hoeveel van de getelde roepende kikkers (poelkikker en bastaardkikker) afkomstig zijn van de poelkikker.
 
-Figuur \@ref(fig:figpoel2) toont de verdeling van de het afgeleide aantal roepkoren afkomstig van poelkikker.
+Figuur \@ref(fig:figpoel2) toont de verdeling van het afgeleide aantal roepende poelkikkers.
 Een deel van de nulwaarnemingen in deze figuur is te verklaren doordat er initieel geen roepkoren werden gehoord.
 Bij een ander deel van de nulwaarnemingen werden er wel roepkoren gehoord, maar geeft de DNA-analyse aan dat er geen poelkikkerlarven aanwezig zijn.
 We gaan er dan vanuit dat de roepkoren niet van poelkikker afkomstig zijn.
 
-We zien in Figuur \@ref(fig:figpoel2) dat er ook een aantal onbekende waarden zijn voor het aantal roepkoren van poelkikker.
+We zien in Figuur \@ref(fig:figpoel2) dat er ook een aantal onbekende waarden zijn voor het aantal roepende poelkikkers.
 Dit is het geval als het aandeel poelkikkerlarven niet bepaald kon worden, doordat er geen larvetelling werd uitgevoerd of doordat er geen larven gevonden werden.
-Voor enkele bezoeken konden de poelkikkerroepkoren onderscheiden worden, zodat een staalname niet nodig was.
+Voor enkele bezoeken kon het aantal roepende poelkikkers op het gehoor onderscheiden worden, zodat een staalname niet nodig was.
 
 ```{r figpoel2, fig.cap= "Verdeling van het geschatte aantal roepkoren afkomstig van de poelkikker"}
 
@@ -185,13 +187,15 @@ poelkikker_roepkoor_aggr %>%
          aantal_doelsoort_klasse = factor(aantal_doelsoort_klasse, levels = c("onbekend", "0", "1-9", "10-24", "25-49", "50-100"))) %>%
   ggplot(aes(x = aantal_doelsoort_klasse, fill = staalname)) +
   geom_bar() +
-  labs(x = "Aantal poelkikkerroepkoren", y = "Aantal tellingen") 
+  labs(x = "Aantal roepende poelkikker", y = "Aantal tellingen") 
 ```
 
 Ten slotte kunnen we voor de periode 2021-2023 een schatting maken van:
 
 -   het percentage van de poelkikkerpoelen waar er larven voorkomen;
--   het gemiddeld aantal poelkikkerroepkoren per bezoek;
+-   het gemiddeld aantal roepende poelkikkers per bezoek.
+
+\needspace{50mm}
 
 Deze resultaten worden getoond in Tabel \@ref(tab:tabhpoelpiloot).
 
@@ -200,7 +204,7 @@ resultaten_piloot_table %>%
   filter(soort_nl == "poelkikker") %>%
   filter(parameter %in% c("occurence", "aantal")) %>%
   mutate(Variabele = ifelse(parameter == "occurence", "Voorkomen poelkikkerlarven",
-                            ifelse(parameter == "aantal", "Gemiddeld aantal poelkikkerroepkoren per bezoek", NA))) %>%
+                            ifelse(parameter == "aantal", "Gemiddeld aantal roepende poelkikkers per bezoek", NA))) %>%
   select(Variabele, "Schatting (90% betrouwbaarheidsinterval)" = mean_tbl) %>%
   kbl(caption = "Overzicht resultaten pilootproject poelkikker",
         booktabs = TRUE) %>%
@@ -212,7 +216,7 @@ Een te groot aandeel van de onderzochte poelen leverde geen roepers en/of larven
 Dit dient deels te worden opgelost door bijsturen van de steekproef.
 Omdat larven te vaak niet adequaat werden gevangen, zal vanaf 2025 het protocol worden aangepast en zal de verhouding tussen poelkikker en bastaardkikker niet langer bepaald worden via genetisch onderzoek van larven maar via morfologisch onderzoek van adulte kikkers.
 In die zin starten we in 2025 dus met een tweede, nieuw pilootproject voor de monitoring van deze soort.
-De locaties van de (aangepaste) steekproef zullen ’s nachts worden bezocht en in elke poellocatie zullen 50 volwassen kikkers worden gevangen en gedetermineerd.
-De roepkoortellingen gaan verder zoals voordien.
+De locaties van de (aangepaste) steekproef zullen ’s nachts worden bezocht en in elke poel zullen 30 adulte kikkers worden gevangen en gedetermineerd.
+De roepkoortellingen worden stopgezet.
 
 \pagebreak

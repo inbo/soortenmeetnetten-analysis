@@ -79,22 +79,27 @@ Ten slotte willen we Dirk Maes bedanken voor het kritisch nalezen van dit rappor
 <!-- description: start -->
 
 Via de soortenmeetnetten ([meetnetten.be](www.meetnetten.be)) willen het Instituut voor Natuur‐ en Bosonderzoek (INBO) en het Agentschap voor Natuur en Bos (ANB) betrouwbare informatie verzamelen over prioritaire soorten in Vlaanderen.
-Deze groep van prioritaire soorten omvat 8 amfibieën, waarvan 7 Natura 2000-soorten (Europees prioritaire soorten) en 1 Vlaamse prioritaire soort.
+Deze groep van prioritaire soorten omvat 8 amfibieën, waarvan 7 Natura 2000-soorten (Europees prioritaire soorten) en 1 Vlaamse prioritaire soort (vuursalamander).
 
 Het merendeel van de tellingen gebeurt door vrijwilligers, onder coördinatie van Natuurpunt Studie.
-De tellers passen daarbij een vastgelegde methode toe om de relatieve aantallen te schatten voor elk meetnetlocatie.
+De tellers passen daarbij een vastgelegde methode toe om de relatieve aantallen te schatten voor elke meetnetlocatie.
 
 Dit rapport toont de eerste resultaten van de amfibieënmeetnetten voor de periode 2016 ‐ 2024.
 In die periode zien we:
 
--   een sterke toename voor vroedmeesterpad en vuursalamander
--   een toename voor boomkikker en rugstreeppad
+-   een sterke toename voor vroedmeesterpad, vuursalamander en rugstreeppad
+-   een toename voor boomkikker
 -   een mogelijke toename voor kamsalamander
 
-De sterke toename voor vroedmeesterpad is deels te verklaren door het bijplaatsen van gekweekte dieren.
+De sterke toename voor vroedmeesterpad is grotendeels te verklaren door het bijplaatsen van gekweekte dieren.
 Verdere monitoring is nodig om na te gaan of deze toename duurzaam is.
 
-Voor knoflookpad is de trend nog onzeker.
+Rugstreeppad is een pioniersoort die van nature sterk kan fluctueren.
+Voorlopig zien we een sterke toename, maar een langere tijdreeks is nodig om beter zicht te krijgen op de trend.
+
+Voor knoflookpad is de trend onzeker.
+Maar gezien de soort nog maar op enkele locaties in Vlaanderen voorkomt, blijft de toestand van de soort zeer ongunstig.
+In de komende jaren zal via gerichte monitoring worden nagegaan of de uitzetting van gekweekte dieren succesvol is.
 
 Heikikker en poelkikker zijn twee moeilijk telbare soorten waarvoor we een monitoringsprotocol hebben uitgetest in een pilootproject.
 Het monitoringsprotocol voor heikikker werd als gunstig geëvalueerd en zal worden verdergezet.

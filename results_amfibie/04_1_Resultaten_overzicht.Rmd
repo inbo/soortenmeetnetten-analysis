@@ -39,7 +39,7 @@ species_in_analysis <- unique(result_indexmodel$soort_nl) %>%
 
 In dit onderdeel geven we een overzicht van de resultaten van de analyses voor boomkikker, knoflookpad, kamsalamander, vroedmeesterpad en vuursalamander.
 Een meer gedetailleerde bespreking per meetnet volgt in Hoofdstuk \@ref(detailresultaat).
-De resultaten van de pilootprojecten voor heilikker en poelkikker bespreken we in Hoofdstuk \@ref(pilootproject).
+De resultaten van de pilootprojecten voor heikikker en poelkikker bespreken we in Hoofdstuk \@ref(pilootproject).
 
 ## Verschillen tussen de jaren
 
@@ -119,7 +119,7 @@ Voor boomkikker en kamsalamander werden er al twee meetcycli afgerond en kunnen 
 
 ```{r}
 verschillen_cyclus <- result_indexmodel_meetcyclus %>%
-  filter(type_model == "offset" | is.na(type_model)) %>%
+  filter(type_model == "no offset" | is.na(type_model)) %>%
   mutate(meetcyclus = str_replace(meetcyclus, "_", "-"),
          meetcyclus_ref = str_replace(meetcyclus_ref, "_", "-")) %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
@@ -166,6 +166,7 @@ kable_styling(font_size = ifelse(html_output, 11,8))
 ```{r}
 
 trend_all <- result_trendmodel %>%
+  filter(type_model == "no offset" | is.na(type_model)) %>%
   mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
          n_jaar = 6,
          treshold_low = ifelse(parameter == "trend_average", 
@@ -304,7 +305,11 @@ habitat_rv <- read_vc(name_results_habitat_r,
          ph = as.numeric(ph))
 
 habitatkenmerken <- habitat_bk %>%
-  bind_rows(habitat_rv)
+  bind_rows(habitat_rv) %>%
+  mutate(meetnet_short = ifelse(meetnet == "Boomkikker", "BK",
+                                ifelse(meetnet == "Kamsalamander", "KS",
+                                       ifelse(meetnet == "Rugstreeppad", "RP",
+                                              ifelse(meetnet == "Vroedmeesterpad", "VP",NA)))))
 ```
 
 Voor boomkikker, kamsalamander, rugstreeppad en vroedmeesterpad werden ook enkele habitatkenmerken bepaald die indicatief zijn voor de kwaliteit van het aquatische deel van het leefgebied.
@@ -354,7 +359,7 @@ habitatkenmerken <- habitatkenmerken %>%
   mutate(oppervlakte_waterpartij = if_else(waterkwaliteit == "plas verdwenen of volledig verland", "<10", oppervlakte_waterpartij))
 
 habitatkenmerken_numeric <- habitatkenmerken %>%
-  select(meetnet, meetcyclus, periode, datum, locatie, is_sample, ph, aanwezigheid_vis, permanente_waterkolom) %>%
+  select(meetnet_short, meetcyclus, periode, datum, locatie, is_sample, ph, aanwezigheid_vis, permanente_waterkolom) %>%
   pivot_longer(cols = c("ph", "aanwezigheid_vis", "permanente_waterkolom"),
                names_to = "habitatkenmerk",
                values_to = "waarde")
@@ -365,7 +370,7 @@ habitatkenmerken_numeric_periode <- habitatkenmerken_numeric %>%
 habitatkenmerken_numeric_status <- habitatkenmerken_numeric %>%
   filter(!is.na(waarde)) %>%
   filter(is_sample) %>%
-  group_by(meetnet, locatie, habitatkenmerk) %>%
+  group_by(meetnet_short, locatie, habitatkenmerk) %>%
   filter(datum == max(datum)) %>%
   ungroup()
 
@@ -375,128 +380,125 @@ De habitatkenmerken 'aanwezigheid van vis' en 'permanente waterkolom' zijn binai
 In Figuur \@ref(fig:fighk1) geven voor elk meetnet de proportie van de plassen met aanwezigheid van vis en met een permanente waterkolom.
 De figuur toont ook het 90%-betrouwbaarheidsinterval op de geschatte proportie.
 
-```{r fighk1, fig.width = 9, fig.height = 5, fig.cap = "Proportie van de waterpartijen met aanwezigheid van vis en met een permanente waterkolom en 90 \\% betrouwbaarheidsinterval"}
+```{r fighk1, fig.width = 6, fig.height = 3, fig.cap = "Proportie van de waterpartijen met aanwezigheid van vis en met een permanente waterkolom en 90 \\% betrouwbaarheidsinterval voor de verschillende meetnetten (BK = boomkikker, KS = kamsalamander, RP = rugstreeppad, VP = vroedmeesterpad)"}
 
 habitatkenmerken_numeric_status %>%
   filter(habitatkenmerk %in% c("aanwezigheid_vis", "permanente_waterkolom")) %>%
   mutate(habitatkenmerk = str_replace(habitatkenmerk, "_", " "),
          habitatkenmerk = str_to_sentence(habitatkenmerk)) %>%
-  ggplot(aes(x = meetnet, y = waarde)) +
+  ggplot(aes(x = meetnet_short, y = waarde)) +
  # stat_sum(alpha = 0.6) +
   stat_summary(fun.data = "mean_cl_boot", fun.args = list(conf.int = .9),  alpha = 0.4, geom = "linerange",  size=8) +
   stat_summary(fun = "mean", size = 1, alpha = 0.6) +
   facet_wrap( ~ habitatkenmerk, scales = "free") +
   labs(y = "Proportie van de plassen") +
   scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45))
-
-ggsave("../output/habkwaliteit1.png", width = 7, height = 3)
+  theme(axis.title.x = element_blank())
 
 ```
 
-Figuur \@ref(fig:fighk2) toont de gemiddelde zuurtegraad (rode cirkel) van de plassen met boomkikker en kamsalamander en het 90%-betrouwbaarheidsinterval.
-De figuur toont ook de pH-metingen per plas (blauwe cirkels), waarbij de grootte van de cirkel evenredig is met het aantal plassen met een bepaalde pH-waarde.
+Figuur \@ref(fig:fighk2) toont de gemiddelde zuurtegraad van de plassen met boomkikker, kamsalamander en vroedmeesterpad en het 90%-betrouwbaarheidsinterval.
+De figuur toont ook de pH-metingen per plas (rode cirkels), waarbij de grootte van de cirkel evenredig is met het aantal plassen met een bepaalde pH-waarde.
 
-```{r fighk2, fig.cap = "Gemiddelde zuurtgegraad (pH) in de poelen met boomkikker en kamsalamander"}
+```{r fighk2, fig.cap = "Gemiddelde zuurtgegraad (pH) en 90% betrouwbaarheidsinterval in de poelen met boomkikker (BK), kamsalamander (KS) en vroedmeesterpad (VP). De rode cirkels tonen de pH-metingen per plas, waarbij de grootte van de cirkel evenredig is met het aantal plassen met een bepaalde pH-waarde."}
 habitatkenmerken_numeric_status %>%
   filter(habitatkenmerk == "ph") %>%
-  ggplot(aes(x = meetnet, y = waarde)) +
-  stat_sum(alpha = 0.6) +
-  stat_summary(fun.data = "mean_cl_boot", fun.args = list(conf.int = .9), colour = "red", size = 1, alpha = 0.6) +
+  ggplot(aes(x = meetnet_short, y = waarde)) +
+  stat_sum(alpha = 0.6, colour = "red") +
+  stat_summary(fun.data = "mean_cl_boot", fun.args = list(conf.int = .9),  alpha = 0.4, geom = "linerange",  size=8) +
+  stat_summary(fun = "mean", size = 1, alpha = 0.6) +
+  lims(y = c(5,9)) +
   labs(y = "Zuurtgegraad (pH)", x = "Soort", size = "Aantal plassen") +
   theme(axis.title.x = element_blank())
 ```
+
+De andere habitatkernmerken worden bepaald aan de hand van vaste categorieën.
+In Figuur \@ref(fig:figwat), \@ref(fig:figdie), \@ref(fig:figscha), \@ref(fig:figopp) en \@ref(fig:fighk4) geven we per habitatkenmerk de verdeling van de plassen over de verschillende categorieën.
+De figuur toont ook het totaal aantal plassen per categorie.
 
 ```{r}
 waterkwaliteit_status <- habitatkenmerken  %>%
   filter(is_sample) %>%
   filter(!waterkwaliteit %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
-  group_by(meetnet, locatie) %>%
+  group_by(meetnet_short, locatie) %>%
   filter(datum == max(datum)) %>%
   ungroup() %>%
-  group_by(meetnet) %>%
+  group_by(meetnet_short) %>%
   mutate(n_locaties_meting = n_distinct(locatie)) %>%
   ungroup() %>%
   mutate(waterkwaliteit = ifelse(str_detect(waterkwaliteit, "middelmatig"), "middelmatig",
                                  ifelse(str_detect(waterkwaliteit, "slecht"), "slecht",
                                         ifelse(str_detect(waterkwaliteit, "goed"), "goed", waterkwaliteit))),
-         waterkwaliteit = factor(waterkwaliteit, levels = c("plas verdwenen of volledig verland", "slecht", "middelmatig", "goed"))) %>% 
-  group_by(meetnet, n_locaties_meting, waterkwaliteit) %>%
+         waterkwaliteit = factor(waterkwaliteit, levels = c("plas verdwenen of volledig verland", "slecht", "middelmatig", "goed"), ordered = TRUE)) %>% 
+  group_by(meetnet_short, n_locaties_meting, waterkwaliteit) %>%
   summarise(prop_locatie = round(n() / n_locaties_meting, 2),
             n = n()) %>%
   ungroup() %>%
   unique()
 ```
 
-```{r}
-p1 <- waterkwaliteit_status %>%
+```{r figwat, fig.height= 3.5, fig.cap= "Proportie van de plassen en totaal aantal plassen voor de verschillende categorieën waterkwaliteit per meetnet (BK = boomkikker, KS = kamsalamander, RP = rugstreeppad, VP = vroedmeesterpad)"}
+waterkwaliteit_status %>%
   mutate(waterkwaliteit = fct_recode(waterkwaliteit, "plas verdwenen/verland" = "plas verdwenen of volledig verland")) %>%
-  ggplot(aes(x = meetnet, y = prop_locatie, fill = waterkwaliteit)) + 
+  ggplot(aes(x = meetnet_short, y = prop_locatie, fill = waterkwaliteit)) + 
   geom_col() +
   geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
   labs(x = "Soort", y = "Proportie van de plassen", fill = "Waterkwaliteit") +
   scale_y_continuous(labels = scales::percent) +
-  labs(title = "Waterkwaliteit") +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45))
+  theme(axis.title.x = element_blank())
 ```
 
 ```{r}
 maximale_diepte_status <- habitatkenmerken  %>%
   filter(is_sample) %>%
   filter(!maximale_diepte %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
-  group_by(meetnet, locatie) %>%
+  group_by(meetnet_short, locatie) %>%
   filter(datum == max(datum)) %>%
   ungroup() %>%
-  group_by(meetnet) %>%
+  group_by(meetnet_short) %>%
   mutate(n_locaties_meting = n_distinct(locatie)) %>%
   ungroup() %>%
-  group_by(meetnet, n_locaties_meting, maximale_diepte) %>%
+  group_by(meetnet_short, n_locaties_meting, maximale_diepte) %>%
   summarise(n = n()) %>%
   ungroup() %>%
   mutate(prop_locatie = round(n / n_locaties_meting, 2)) 
 ```
 
-```{r}
-p2 <- maximale_diepte_status %>%
-  ggplot(aes(x = meetnet, y = prop_locatie, fill = maximale_diepte)) + 
+```{r figdie, fig.height= 3.5, fig.cap = "Proportie van de plassen en totaal aantal plassen voor de verschillende categorieën van maximale diepte per meetnet (BK = boomkikker, KS = kamsalamander, RP = rugstreeppad, VP = vroedmeesterpad)"}
+maximale_diepte_status %>%
+  ggplot(aes(x = meetnet_short, y = prop_locatie, fill = maximale_diepte)) + 
   geom_col() +
   geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
   labs(x = "Soort", y = "Proportie van de plassen", fill = "Maximale diepte (m)") +
   scale_y_continuous(labels = scales::percent) +
-  labs(title = "Maximale diepte plas") +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45))
+  theme(axis.title.x = element_blank())
 ```
 
-```{r}
+```{r }
 beschaduwing_status <- habitatkenmerken  %>%
   filter(is_sample) %>%
   filter(!beschaduwing %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
-  group_by(meetnet, locatie) %>%
+  group_by(meetnet_short, locatie) %>%
   filter(datum == max(datum)) %>%
   ungroup() %>%
-  group_by(meetnet) %>%
+  group_by(meetnet_short) %>%
   mutate(n_locaties_meting = n_distinct(locatie)) %>%
   ungroup() %>%
-  group_by(meetnet, n_locaties_meting, beschaduwing) %>%
+  group_by(meetnet_short, n_locaties_meting, beschaduwing) %>%
   summarise(n = n()) %>%
   ungroup() %>%
   mutate(prop_locatie = round(n / n_locaties_meting, 2)) %>%
   mutate(beschaduwing = factor(beschaduwing, levels = c(">60%", "30-60%", "<30%", "geen schaduw")))
 ```
 
-```{r}
-p3 <- beschaduwing_status %>%
-  ggplot(aes(x = meetnet, y = prop_locatie, fill = beschaduwing)) + 
+```{r figscha, fig.height= 3.5, fig.cap = "Proportie van de plassen en totaal aantal plassen voor de verschillende categorieën van beschaduwing per meetnet (BK = boomkikker, KS = kamsalamander, RP = rugstreeppad, VP = vroedmeesterpad)"}
+beschaduwing_status %>%
+  ggplot(aes(x = meetnet_short, y = prop_locatie, fill = beschaduwing)) + 
   geom_col() +
   geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
   labs(x = "Soort", y = "Proportie van de plassen", fill = "Beschaduwing") +
   scale_y_continuous(labels = scales::percent) +
-  labs(title = "Beschaduwing") +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45))
+  theme(axis.title.x = element_blank())
 ```
 
 ```{r}
@@ -504,36 +506,30 @@ oppervlakte_waterpartij <- habitatkenmerken  %>%
   filter(is_sample) %>%
   filter(!oppervlakte_waterpartij %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
   filter(!is.na(oppervlakte_waterpartij)) %>%
-  group_by(meetnet, locatie) %>%
+  group_by(meetnet_short, locatie) %>%
   filter(datum == max(datum)) %>%
   ungroup() %>%
-  group_by(meetnet) %>%
+  group_by(meetnet_short) %>%
   mutate(n_locaties_meting = n_distinct(locatie)) %>%
   ungroup() %>%
-  group_by(meetnet, n_locaties_meting, oppervlakte_waterpartij) %>%
+  group_by(meetnet_short, n_locaties_meting, oppervlakte_waterpartij) %>%
   summarise(n = n()) %>%
   ungroup() %>%
   mutate(prop_locatie = round(n / n_locaties_meting, 2))
 ```
 
-```{r}
-p4 <- oppervlakte_waterpartij %>%
-  mutate(oppervlakte_waterpartij = factor(oppervlakte_waterpartij, levels = c("<10", "10-100", "101-250", "251-400", ">400"))) %>%
-  ggplot(aes(x = meetnet, y = prop_locatie, fill = oppervlakte_waterpartij)) + 
+```{r figopp, fig.height= 3.5, fig.cap = "Proportie van de plassen en totaal aantal plassen voor de verschillende oppervlaktecategorieën per meetnet (BK = boomkikker, KS = kamsalamander, RP = rugstreeppad, VP = vroedmeesterpad)"}
+oppervlakte_waterpartij %>%
+  mutate(oppervlakte_waterpartij = factor(oppervlakte_waterpartij, levels = c("<10", "10-100", "101-250", "251-400", ">400"), , ordered = TRUE)) %>%
+  ggplot(aes(x = meetnet_short, y = prop_locatie, fill = oppervlakte_waterpartij)) + 
   geom_col() +
   geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
   labs(x = "Soort", y = "Proportie van de plassen", fill = "Oppervlakte (m²)") +
   scale_y_continuous(labels = scales::percent) +
-  labs(title = "Oppervlakte plas (m²)") +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45))
+  theme(axis.title.x = element_blank())
 ```
 
-De andere habitatkernmerken worden bepaald aan de hand van vaste categorieën.
-In Figuur \@ref(fig:fighk3) en \@ref(fig:fighk4) geven we per habitatkenmerk de verdeling van de plassen over de verschillende categorieën.
-De figuur toont ook het totaal aantal plassen per categorie.
-
-```{r fighk3, fig.width = 11, fig.height= 9, fig.cap= "Proportie van de plassen en totaal aantal plassen voor de verschillende categorieën van de habitatkenmerken waterkwaliteit, maximale diepte, beschaduwing en oppervlakte plas"}
+```{r , eval = FALSE, fig.width = 11, fig.height= 9, fig.cap= "Proportie van de plassen en totaal aantal plassen voor de verschillende categorieën van de habitatkenmerken waterkwaliteit, maximale diepte, beschaduwing en oppervlakte plas"}
 grid.arrange(p1, p2, p3, p4)
 
 # p_boven <- grid.arrange(p1, p2, ncol = 2 )
@@ -545,34 +541,33 @@ grid.arrange(p1, p2, p3, p4)
 ```{r}
 vegetatie <- habitatkenmerken  %>%
   filter(is_sample) %>%
-  filter(meetnet %in% c("Rugstreeppad", "Vroedmeesterpad")) %>%
-  select(meetnet, visit_id, sample_id, datum, locatie, drijvende_vegetatie, verticale_vegetatie, onderwatervegetatie) %>%
+  filter(meetnet_short %in% c("RP", "VP")) %>%
+  select(meetnet_short, visit_id, sample_id, datum, locatie, drijvende_vegetatie, verticale_vegetatie, onderwatervegetatie) %>%
   pivot_longer(cols = c("drijvende_vegetatie", "verticale_vegetatie", "onderwatervegetatie"), names_to = "variabele", values_to = "waarde") %>%
   filter(!waarde %in% c("onbekend", "niet bekeken/niet van toepassing")) %>%
   filter(!is.na(waarde)) %>%
-  group_by(meetnet, locatie, variabele) %>%
+  group_by(meetnet_short, locatie, variabele) %>%
   filter(datum == max(datum)) %>%
   ungroup() %>%
-  group_by(meetnet, variabele) %>%
+  group_by(meetnet_short, variabele) %>%
   mutate(n_locaties_meting = n_distinct(locatie)) %>%
   ungroup() %>%
-  group_by(meetnet, n_locaties_meting, variabele, waarde) %>%
+  group_by(meetnet_short, n_locaties_meting, variabele, waarde) %>%
   summarise(n = n()) %>%
   ungroup() %>%
   mutate(prop_locatie = round(n / n_locaties_meting, 2))
 ```
 
-```{r fighk4, fig.cap= "Proportie van de plassen en totaal aantal plassen voor de verschillende categorieën van de habitatkenmerken m.b.t. de vegetatie (meetnet rugstreeppad)"}
+```{r fighk4, fig.height= 4, fig.width= 7, fig.cap= "Proportie van de plassen en totaal aantal plassen voor de verschillende vegetatiecategorieën voor rugstreeppad (RP) en vroedmeesterpad (VP))"}
 
 vegetatie %>%
   mutate(variabele = str_to_sentence(variabele),
          variabele = str_replace(variabele, "_", " ")) %>%
-  ggplot(aes(x = meetnet, y = prop_locatie, fill = waarde)) + 
+  ggplot(aes(x = meetnet_short, y = prop_locatie, fill = waarde)) + 
   geom_col() +
-  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white", size = 2) +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white") +
   labs(x = "Soort", y = "Proportie van de plassen", fill = "Bedekking") +
   scale_y_continuous(labels = scales::percent) +
   facet_wrap(~variabele) +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45))
+  theme(axis.title.x = element_blank())
 ```

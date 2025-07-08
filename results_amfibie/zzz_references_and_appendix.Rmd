@@ -112,9 +112,9 @@ Dit model gebruiken we voor volgende schattingen:
 De analyses werden uitgevoerd via de programmeertaal R [@R].
 De R-scripts staan onder versiebeheer via volgende GitHub repository: [inbo/soortenmeetnetten-analysis](https://github.com/inbo/soortenmeetnetten-analysis) en zijn publiek toegankelijk.
 
-Meer specifiek gebeuren de analyses voor de amfibieënmeetnetten via de scripts in de folder [inbo/soortenmeetnetten-analysis/analysis_amfibien/source (commit 747da09)](https://github.com/inbo/soortenmeetnetten-analysis/tree/747da09e44f4d9d9bbcd6e0a3f784dc9c6f31682/analysis_amfibieen/source).
+Meer specifiek gebeuren de analyses voor de amfibieënmeetnetten via de scripts in de folder [inbo/soortenmeetnetten-analysis/analysis_amfibien/source (commit 8043773)](https://github.com/inbo/soortenmeetnetten-analysis/tree/8043773448933ef1b875e734c5efd8c7cf1aa586/analysis_amfibieen/source).
 
-De analyseresultaten zijn terug te vinden in de folder [inbo/soortenmeetnetten-analysis/analysis_amfibien/output/results (commit 747da09)](https://github.com/inbo/soortenmeetnetten-analysis/tree/747da09e44f4d9d9bbcd6e0a3f784dc9c6f31682/analysis_amfibieen/output/results)
+De analyseresultaten zijn terug te vinden in de folder [inbo/soortenmeetnetten-analysis/analysis_amfibien/output/results (commit 8043773)](https://github.com/inbo/soortenmeetnetten-analysis/tree/8043773448933ef1b875e734c5efd8c7cf1aa586/analysis_amfibieen/output/results)
 
 De ruwe data die we gebruiken voor de analyse zijn niet publiek beschikbaar omdat het om gevoelige data gaat.
 De ruwe data zijn wel beschikbaar via [deze Google Drive folder](https://drive.google.com/drive/folders/17pNKbLcSZxPd6BjNaGEfhjOQG2iZgC9J), die enkel toegankelijk is op verzoek.
@@ -130,7 +130,7 @@ Wanneer de zoekinspanning onvoldoende is beschouwen we de aanwezigheid als onbek
 
 ```{r tabbijlage3}
 tabel_status_rugstreeppad %>%
-  kbl(caption = "Overzicht van het voorkomen van de rugstreeppad (op basis van tellingen van adulten en eisnoeren) per meetnetlocatie en meetcyclus en overzicht van de meetnetlocaties die deel uitmaken van de analyse van de trend van het aantal roepkoren.",
+  kbl(caption = "Overzicht van het voorkomen van de rugstreeppad (op basis van tellingen van adulten en eisnoeren) per meetnetlocatie en meetcyclus en overzicht van de meetnetlocaties die deel uitmaken van de analyse van de trend van het aantal roepende mannetjes.",
       longtable = TRUE,
       booktabs = TRUE) %>%
   kable_styling(bootstrap_options = c( "condensed"), 
