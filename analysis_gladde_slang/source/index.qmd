@@ -1,0 +1,385 @@
+---
+title: "Datverkenning gladde slang"
+format: html
+editor: source
+toc: true
+number-sections: true
+execute:
+  echo: false
+  warning: false
+---
+
+```{r}
+#|output: false
+
+library(tidyverse)
+library(INBOtheme)
+library(sf)
+library(leaflet)
+library(DT)
+library(units)
+library(n2khab)
+conflicted::conflicts_prefer(dplyr::filter)
+```
+
+## Data
+
+De data bevindt zich in [deze google drive folder](https://drive.google.com/drive/folders/150Os04BluF3xMnfy6reOJR7jKltrhVr8):
+
+- `DumpGladdeSlang_alles_december2024.shp`: waarnemingen gladde slang
+- `Gladde_Slang_Gebieden_2024.shp`: gebieden in meetnet en inhaalslag
+- `LocatieSlangenplaten2024.shp`: locatie slangenplaten
+
+```{r}
+path_google_drive <- "G:/Mijn Drive/Soortenmeetnetten/Oplevering data/2024/Data niet in Meetnetten.be/Gladde Slang - Oplevering data Meetnetten 2024"
+
+wnm_orig <- st_read(file.path(path_google_drive, "DumpGladdeSlang_alles_december2024.shp"),
+                    quiet = TRUE)
+
+wnm_eff_orig <- st_read(file.path(path_google_drive, "DumpGladdeSlang_alles_december2024_Effectwrn.shp"),
+                    quiet = TRUE)
+
+gebieden_orig <- st_read(file.path(path_google_drive, "Gladde_Slang_Gebieden_2024.shp"),
+                    quiet = TRUE)
+
+platen_orig <- st_read(file.path(path_google_drive, "LocatieSlangenplaten2024.shp"),
+                    quiet = TRUE)
+
+vlaanderen <- read_admin_areas(dsn = "flanders") %>%
+  mutate(gewest = "Vlaams gewest") %>%
+  select(gewest)
+
+wnm <- wnm_orig %>%
+  select(wnm_id = unieke_id, naam_nl, naam_lat, datum, aantal, methode, kleed, geslacht) %>%
+  mutate(jaar = year(datum)) %>%
+  mutate(methode = ifelse(methode == "NULL", "onbekend", methode)) %>%
+  st_join(vlaanderen) %>%
+  filter(!is.na(gewest))
+
+gebieden <- gebieden_orig %>%
+  select(metapopulatie = metapop, populatie = pop, eigenaar_beheerder = Eig.Beheer, type_gebied = PROJECT_24, aantal_platen = X..PLATEN) %>%
+  mutate(type_gebied = factor(str_trim(type_gebied), levels = c("Meetnet", "Inhaalslag", "Aandachtgebied", "Lage prioriteit")))
+
+platen <- platen_orig %>%
+  select(code = Code, gebied = Gebied) %>%
+  st_join(vlaanderen) %>%
+  filter(!is.na(gewest))
+
+```
+
+## Verkenning ruwe data
+
+We selecteren enkel de data die in Vlaanderen liggen.
+
+### Waarnemingen
+
+```{r}
+#| label: "Fig1"
+#| fig-cap: "Aantal waarnemingen per methode"  
+
+wnm %>%
+  mutate(nulwaarneming  = aantal == 0) %>%
+  ggplot(aes(x = methode, fill = nulwaarneming)) +
+  geom_bar()
+```
+
+
+
+```{r}
+#| fig-cap: "Aantal waarnemingen per jaar per methode" 
+wnm %>%
+  filter(methode %in% c("gezien", "onbekend", "reptielenplaat")) %>%
+  mutate(nulwaarneming  = aantal == 0) %>%
+  ggplot(aes(x = jaar, fill = nulwaarneming)) +
+  geom_bar() +
+  facet_wrap(~methode, scales = "free", ncol = 2)
+```
+
+
+```{r}
+
+wnm %>%
+  filter(aantal == 0) %>%
+  st_drop_geometry() %>%
+  group_by(methode, kleed, geslacht) %>%
+  summarise(n_records = n()) %>%
+  ungroup() %>%
+  datatable(rownames = FALSE,
+            filter = "top",
+            caption = "Aantal records voor alle combinaties van methode, kleed en geslacht (exclusief nulwaarnemingen)")
+```
+
+
+### Gebieden en platen
+
+```{r}
+platen_populatie <- platen %>%
+  st_join(select(gebieden, populatie))
+
+n_platen_pop <- platen_populatie %>%
+  st_drop_geometry() %>%
+  group_by(populatie) %>%
+  summarise(n_platen = n_distinct(code)) %>%
+  ungroup() %>%
+  mutate(populatie = ifelse(is.na(populatie), "geen populatie afgelijnd", populatie))
+
+gebieden_platen <- gebieden %>%
+  left_join(n_platen_pop, by = "populatie") %>%
+  mutate(n_platen = ifelse(is.na(n_platen), 0, n_platen))
+
+```
+
+Onderstaande kaart toont 
+
+- de onderzochte gebieden (populaties)
+- de ligging van de reptielenplaten (enkel deze in Vlaanderen)
+- de waarnemingen van gladde slang sinds 2021 (exclusief nulwaarnemingen)
+
+```{r}
+gebieden <- gebieden %>%
+  mutate(area_ha = st_area(geometry)) %>%
+  ungroup()
+
+aanwezig_2021 <- wnm %>%
+  filter(aantal > 0) %>%
+  filter(jaar >= 2021)
+ 
+pal <- colorFactor(
+  palette = c("blue", "yellow", "red", "orange"),
+  domain = gebieden$type_gebied
+)
+
+gebieden %>%
+  st_transform(crs = 4326) %>%
+  leaflet() %>%
+  addTiles() %>%
+  addPolygons(label = ~populatie, color = ~pal(type_gebied), group = "gebieden") %>%
+  addMarkers(data = st_transform(platen, 4326), label = ~code,
+             clusterOptions = markerClusterOptions(), group = "platen") %>%
+  addCircleMarkers(data = st_transform(aanwezig_2021, crs = 4326), radius = 3, color = "black", stroke = FALSE, opacity = 0.8,
+                   label = ~methode, group = "aanwezigheid gladde slang") %>%
+  addLegend(pal = pal, values = ~type_gebied,
+    title = "Type gebied"
+  )  %>%
+  addLayersControl(
+    overlayGroups = c("gebieden", "platen", "gezien sinds 2021"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+  
+```
+
+Onderstaande tabel toont het aantal reptielenplaten per gebied/populatie:
+
+- `n_platen_tabel`: het aantal platen zoals aangegeven in de attributentabel van het bestand `Gladde_Slang_Gebieden_2024.shp`
+- `n_platen_gis`: het aantal platen door een gis-overlay van de platenlaag (`LocatieSlangenplaten2024.shp`) met de gebiedenlaag (`Gladde_Slang_Gebieden_2024.shp`)
+
+
+```{r}
+gebieden_platen %>%
+  st_drop_geometry() %>%
+  select(type_gebied, metapopulatie, populatie, n_platen_tabel = aantal_platen, n_platen_gis = n_platen) %>%
+  arrange(type_gebied, metapopulatie, populatie) %>%
+  datatable(rownames = FALSE,
+            filter = "top",
+            caption = "Aantal reptielenplaten per gebied")
+```
+
+Een aantal platen liggen buiten de gebiedenlaag.
+
+```{r}
+platen_populatie %>%
+  st_drop_geometry() %>%
+  filter(is.na(populatie)) %>%
+  group_by(gebied) %>%
+  summarise(n_platen = n()) %>%
+  ungroup() %>%
+  datatable(rownames = FALSE,
+            filter = "top",
+            caption = "aantal platen die niet in gebiedenlaag liggen")
+```
+
+## Aantallen per gebied
+
+```{r}
+wnm_populatie <- wnm %>%
+  st_join(gebieden) %>%
+  st_drop_geometry() %>%
+  group_by(naam_nl, metapopulatie, populatie, type_gebied) %>%
+  mutate(aantal_tot = sum(aantal),
+            aanwezig_hist = aantal_tot > 0,
+            n_wnm_tot = n()) %>%
+  ungroup() %>%
+  group_by(naam_nl, metapopulatie, populatie, type_gebied, aantal_tot, aanwezig_hist, n_wnm_tot) %>%
+  filter(jaar >= 2021) %>%
+  summarise(aantal_sinds_2021 = sum(aantal),
+            aanwezig_sinds_2021 = sum(aantal) > 0,
+            n_wnm_sinds_2021 = n()) %>%
+  ungroup()
+```
+Onderstaande tabel tonen de totale aantallen en het aantal waarnemingen per gebied:
+
+- voor de volledige tijdreeks
+- voor de periode vanad 2021
+
+
+```{r}
+wnm_populatie %>%
+  select(type_gebied, metapopulatie, populatie, aantal_tot, aantal_sinds_2021, n_wnm_tot, n_wnm_sinds_2021) %>%
+  arrange(type_gebied, metapopulatie, populatie) %>%
+  datatable(rownames = FALSE,
+            filter = "top",
+            caption = "Aantallen per gebied")
+```
+
+
+
+## Koppeling waarnemingen aan platen
+
+De waarnemingen bevatten geen informatie over welke plaat werd onderzocht.
+We proberen de waarnemingen te koppelen aan de platen op basis van de afstand tot de dichtst bijzijnde plaat.
+
+```{r}
+
+platen_buffer <- platen %>%
+  st_buffer(dist = 25) %>%
+  select(code_buffer = code)
+
+platen_aggr <- platen %>%
+  summarise(n_platen = n()) %>%
+  ungroup()
+
+wnm_sind2021_plaat <- wnm %>%
+  filter(jaar >= 2021) %>%
+  st_join(platen_buffer) %>%
+  st_join(select(gebieden, populatie, type_gebied)) %>%
+  st_join(select(platen_populatie, code, populatie_plaat = populatie), join = st_nearest_feature)
+
+check <- wnm_sind2021_plaat %>%
+  filter(populatie_plaat != populatie)
+
+# wnm > 25m van een plaat
+wnm_sind2021_zonderplaat <- wnm_sind2021_plaat %>%
+  filter(is.na(code_buffer)) %>%
+  st_drop_geometry()
+
+# wnm < 25m van een plaat
+wnm_sind2021_plaat <- wnm_sind2021_plaat %>%
+  filter(!is.na(code_buffer)) %>%
+  group_by(wnm_id) %>%
+  mutate(dist_plaat = min(st_distance(geometry, platen_aggr))) %>%
+  ungroup() %>%
+  st_drop_geometry()
+
+
+
+wnm_sind2021_all <- wnm_sind2021_plaat %>%
+  filter(populatie_plaat == populatie) %>%
+  filter(code_buffer == code) %>%
+  bind_rows(wnm_sind2021_zonderplaat) %>%
+  mutate(dist_plaat_m = drop_units(dist_plaat),
+         afstand_plaat = ifelse(is.na(dist_plaat_m), "> 25 m",
+                                ifelse(dist_plaat_m <= 1, "<= 1 m",
+                                       ifelse(dist_plaat_m <= 5, "1-5 m",
+                                              ifelse(dist_plaat_m <= 10, "5-10 m",
+                                                     ifelse(dist_plaat_m <= 25, "10-25 m", NA))))),
+         afstand_plaat = factor(afstand_plaat, levels = c("<= 1 m", "1-5 m", "5-10 m", "10-25 m", "> 25 m"),
+                                ordered = TRUE))
+  
+```
+
+```{r}
+#|fig-cap: "Verdeling afstand van waarneming tot een reptielenplaat voor verschillende methode's"
+#|fig-width: 7
+
+wnm_sind2021_all %>%
+  filter(methode %in% c("gezien", "onbekend", "reptielenplaat")) %>%
+  mutate(nulwaarneming = aantal == 0) %>%
+  ggplot(aes(x = afstand_plaat, fill = nulwaarneming)) +
+  geom_bar() +
+  facet_wrap(~methode, ncol = 2) +
+  labs(x = "Afstand tot dichtste reptielenplaat",
+       y = "Aantal waarnemingen") +
+  theme(axis.text.x = element_text(angle = 90))
+```
+Problemen:
+
+- Er ontbreken waarschijnlijk platen in de platen gis-laag
+- De locaties van de waarnemingen zijn waarschijnlijk niet altijd nauwkeurig
+- De telmethode is niet altijd vermeld
+
+```{r}
+gebieden_afstand <- wnm_sind2021_all %>%
+  filter(methode == "reptielenplaat") %>%
+  group_by(populatie) %>%
+  mutate(n_wnm_totaal = n()) %>%
+  ungroup() %>%
+  group_by(type_gebied, populatie, afstand_plaat, n_wnm_totaal) %>%
+  summarise(n_wnm = n(),
+            n_platen_afstand = n_distinct(code)) %>%
+  ungroup() %>%
+  mutate(prop_wnm = round(n_wnm / n_wnm_totaal, 2)) %>%
+  select(type_gebied, populatie, afstand_plaat, n_wnm_totaal, prop_wnm, n_platen_afstand) %>%
+  left_join(n_platen_pop, by = "populatie") %>%
+  mutate(n_platen_gis = ifelse(is.na(n_platen), 0, n_platen))
+
+gebieden_afstand_wide <- gebieden_afstand %>%
+  select(type_gebied, populatie, n_wnm = n_wnm_totaal, n_platen = n_platen_gis, afstand_plaat, prop_wnm) %>%
+  pivot_wider(names_from = "afstand_plaat", values_from = "prop_wnm", values_fill = 0)
+  
+```
+
+In onderstaande tabel geven we een overzicht van de situatie per gebied.
+Per gebied kijken we naar de verdeling van de afstand tussen de waarnemingen en de platen.
+We gebruiken hiervoor enkel de waarnemingen met telmethode = reptielenplaat.
+Hoe hoger de proportie van de waarnemingen met een afstand > 25 m tot de dichtst bijzijnde plaat,
+hoe groter de kans dat er platen ontbreken in de gis-laag.
+
+
+```{r}
+gebieden_afstand_wide %>%
+  filter(!is.na(populatie)) %>%
+  arrange(desc(`> 25 m`)) %>%
+  datatable(rownames = FALSE, filter = "top", )
+```
+
+Voor verdere analyse selecteren we voorlopig enkel:
+
+- waarnemingen met methode = reptielenplaat
+- waarnemingen op een afstand van minder dan 10 m tot de dichtstbijzijnde reptielenplaat
+- waarnemingen sinds 2022
+
+```{r}
+wnm_analyse <- wnm_sind2021_all %>%
+  filter(jaar >= 2022) %>%
+  filter(methode == "reptielenplaat",
+         afstand_plaat %in% c("< 1 m", "1-5 m", "5-10 m")) %>%
+  select(wnm_id, type_gebied, populatie, code_plaat = code, jaar, datum, dist_plaat_m, afstand_plaat, methode, naam_nl, aantal, kleed, geslacht)
+  
+gebieden_analyse <- wnm_sind2021_all %>%
+  group_by(type_gebied, populatie, jaar) %>%
+  summarise(aanwezig = sum(aantal) > 0,
+         aantal_gebied = sum(aantal),
+         bezoeken = n(),
+         bezoeken_aanwezig = sum(aantal > 0)) %>%
+  ungroup() 
+```
+
+## Aantallen per plaat
+
+```{r}
+platen_jaar <- wnm_analyse %>%
+  group_by(code_plaat) %>%
+  mutate(aanwezig_2022_2024 = sum(aantal) > 0) %>%
+  ungroup() %>%
+  group_by(type_gebied, populatie, code_plaat, jaar, datum, aanwezig_2022_2024) %>%
+  summarise(aanwezig_bezoek = sum(aantal) > 0,
+            aantal_bezoek = sum(aantal)) %>%
+  ungroup() %>%
+  group_by(type_gebied, populatie, code_plaat, jaar, aanwezig_2022_2024) %>%
+  summarise(aanwezig_jaar = sum(aantal_bezoek) > 0,
+            n_bezoeken = n_distinct(datum),
+            n_aanwezig = sum(aantal_bezoek > 0)) %>%
+  ungroup() %>%
+  mutate(prop_aanwezig = n_aanwezig / n_bezoeken)
+```
+
