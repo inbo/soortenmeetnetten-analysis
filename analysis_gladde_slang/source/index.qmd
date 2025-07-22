@@ -3,7 +3,7 @@ title: "Datverkenning gladde slang"
 format: html
 editor: source
 author: "Toon Westra"
-date: "2025-07-10"
+date: "2025-07-22"
 toc: true
 number-sections: true
 code-fold: true
@@ -365,7 +365,7 @@ De waarnemingen bevatten geen informatie over welke plaat werd onderzocht.
 We proberen de waarnemingen te koppelen aan de platen op basis van de afstand tot de dichtst bijzijnde plaat.
 
 ```{r}
-#| label: afstand-platen
+#| label: calc-afstand-platen
 #| cache: true
 
 platen_buffer <- platen %>%
@@ -413,12 +413,11 @@ wnm_sind2021_all <- wnm_sind2021_plaat %>%
   
 ```
 
-@fig-afstand-platen geeft een overzicht van de afstanden tussen de waarnemingen en de dichtst bijzijnde reptielenplaat.
+In @fig-verdeling geven we een overzicht van de afstanden tussen de waarnemingen en de dichtst bijzijnde reptielenplaat.
 
 ```{r}
-#|label: fig-afstand-platen
-#|fig-cap: "Verdeling afstand van waarneming tot een reptielenplaat voor verschillende methode's"
-#|fig-width: 7
+#| label: fig-verdeling
+#| fig-cap: "Verdeling afstand van waarneming tot een reptielenplaat voor verschillende methodes"
 
 wnm_sind2021_all %>%
   filter(methode %in% c("gezien", "onbekend", "reptielenplaat")) %>%
@@ -430,6 +429,8 @@ wnm_sind2021_all %>%
        y = "Aantal waarnemingen") +
   theme(axis.text.x = element_text(angle = 90))
 ```
+
+Er zijn een groot aantal waarnemingen die op meer dan 25 meter afstand van een reptielenplaat liggen.
 
 Problemen:
 
@@ -458,11 +459,11 @@ gebieden_afstand_wide <- gebieden_afstand %>%
   
 ```
 
-In onderstaande tabel geven we een overzicht van de situatie per gebied. Per gebied kijken we naar de verdeling van de afstand tussen de waarnemingen en de platen. We gebruiken hiervoor enkel de waarnemingen met telmethode `reptielenplaat.` Hoe hoger de proportie van de waarnemingen met een afstand \> 25 m tot de dichtst bijzijnde plaat, hoe groter de kans dat er platen ontbreken in de gis-laag.
+In @tbl-afstand-gebied geven we een overzicht van de situatie per gebied. Per gebied kijken we naar de verdeling van de afstand tussen de waarnemingen en de platen. We gebruiken hiervoor enkel de waarnemingen met telmethode `reptielenplaat.` Hoe hoger de proportie van de waarnemingen met een afstand \> 25 m tot de dichtst bijzijnde plaat, hoe groter de kans dat er platen ontbreken in de gis-laag.
 
 ```{r}
-#|label: tbl-afstand-gebied
-#|tbl-cap: Overzicht per gebied van afstanden tussen waarnemingen en platen
+#| label: tbl-afstand-gebied
+#| tbl-cap: "Overzicht per gebied van afstanden tussen waarnemingen en platen"
 
 gebieden_afstand_wide %>%
   filter(!is.na(populatie)) %>%
@@ -472,7 +473,6 @@ gebieden_afstand_wide %>%
 
 Voor verdere analyse selecteren we voorlopig enkel:
 
--   waarnemingen met methode `reptielenplaat`
 -   waarnemingen op een afstand van minder dan 25 m tot de dichtstbijzijnde reptielenplaat
 -   waarnemingen sinds 2022
 
@@ -482,8 +482,7 @@ wnm_analyse <- wnm_sind2021_all %>%
   mutate(aanwezig_gebied = sum(aantal) > 0) %>%
   ungroup() %>%
   filter(jaar >= 2022) %>%
-  filter(methode == "reptielenplaat",
-         afstand_plaat %in% c("< 1 m", "1-5 m", "5-10 m", "10 - 25 m")) %>%
+  filter(afstand_plaat %in% c("< 1 m", "1-5 m", "5-10 m", "10 - 25 m")) %>%
   select(wnm_id, type_gebied, metapopulatie, populatie, aanwezig_gebied, code_plaat = code, jaar, datum, dist_plaat_m, afstand_plaat, methode, naam_nl, aantal)
   
 gebieden_analyse <- wnm_sind2021_all %>%
@@ -497,8 +496,25 @@ gebieden_analyse <- wnm_sind2021_all %>%
 
 ## Aandeel platen met detectie gladde slang
 
+We bepalen het aandeel van de platen met detectie van gladde slang per jaar en per metapopulatie.
+We rekenen hiervoor enkel de platen mee die in een gebied liggen waar de gladde slang werd waargenomen in dat jaar.
+
+We doen dit voor verschillende maten van `zoekinspanning`:
+
++ `bezocht`: aantal platen met minstens één bezoek in een jaar
++ `voldoende_onderzocht_5`: aantal platen met minstens 5 bezoeken of met detectie van gladde slang 
++ `voldoende_onderzocht_7`: aantal platen met minstens 7 bezoeken of met detectie van gladde slang 
+
+Ten slotte doen we dit ook voor twee datasets
+
++ enkel waarnemingen met methode = `reptielenplaat` (op afstand < 25m van een plaat)
++ alle waarnemingen (op afstand < 25m van een plaat)
+
+### Enkel waarnemingen met methode = `reptielenplaat`
+
 ```{r}
-platen_jaar <- wnm_analyse %>%
+platen_meta_jaar <- wnm_analyse %>%
+  filter(methode == "reptielenplaat") %>%
   group_by(type_gebied, metapopulatie, populatie, aanwezig_gebied, code_plaat, jaar, datum) %>%
   summarise(aanwezig_bezoek = sum(aantal) > 0,
             aantal_bezoek = sum(aantal)) %>%
@@ -509,87 +525,300 @@ platen_jaar <- wnm_analyse %>%
             n_aanwezig = sum(aantal_bezoek > 0)) %>%
   ungroup()
 
-prop_platen_meta <- platen_jaar %>%
+prop_platen_meta <- platen_meta_jaar %>%
   group_by(metapopulatie) %>%
   mutate(n_platen_tot = n_distinct(code_plaat)) %>%
   ungroup() %>%
   filter(aanwezig_gebied) %>%
   group_by(type_gebied, metapopulatie, n_platen_tot, jaar) %>%
   summarise(n_aanwezig = sum(aanwezig_jaar),
-            n_platen_vo5 = sum(n_bezoeken >= 5 | aanwezig_jaar),
-            n_platen_vo7 = sum(n_bezoeken >= 7 | aanwezig_jaar),
-            n_platen = n_distinct(code_plaat)) %>%
+            voldoende_onderzocht_5 = sum(n_bezoeken >= 5 | aanwezig_jaar),
+            voldoende_onderzocht_7 = sum(n_bezoeken >= 7 | aanwezig_jaar),
+            bezocht = n_distinct(code_plaat)) %>%
   ungroup() %>%
-  mutate(bezocht = n_aanwezig / n_platen,
-         platen_totaal = n_aanwezig / n_platen_tot,
-         voldoende_onderzocht_5 = ifelse(n_platen_vo5 > 0, 
-                                   n_aanwezig / n_platen_vo5,
-                                   NA),
-         voldoende_onderzocht_7 = ifelse(n_platen_vo7 > 0, 
-                                   n_aanwezig / n_platen_vo7,
-                                   NA))
-  
-```
-@fig-prop-detectie toont het aandeel van de platen met detectie van gladde slang per jaar en per metapopulatie.
-We rekenen hiervoor enkel de platen/jaren mee die in een gebied liggen waar de gladde slang werd waargenomen in dat jaar.
-
-We doen dit voor verschillende maten van `zoekinspanning`:
-
-+ `bezocht`: aantal platen met minstens één bezoek in een jaar
-+ `voldoende_onderzocht_5`: aantal platen met minstens 5 bezoeken of met detectie van gladde slang 
-+ `voldoende_onderzocht_7`: aantal platen met minstens 7 bezoeken of met detectie van gladde slang 
-
-```{r}
-#| label: fig-prop-detectie
-#| fig-cap: Aandeel van de bezochte platen en voldoende onderzochte platen met detectie van gladde slang per metapopulatie
-  
-prop_platen_meta_wide <- prop_platen_meta %>%
   filter(type_gebied == "Meetnet") %>%
   pivot_longer(cols = c(bezocht, voldoende_onderzocht_5, voldoende_onderzocht_7),
                names_to = "zoekinspanning",
-               values_to = "prop_detectie")
+               values_to = "n_platen") %>%
+  mutate(prop_detectie = n_aanwezig/ n_platen)
 
-prop_platen_meta_wide %>%
+prop_platen <- platen_meta_jaar %>%
+  group_by(jaar) %>%
+  mutate(n_platen_tot = n_distinct(code_plaat)) %>%
+  ungroup() %>%
+  filter(aanwezig_gebied) %>%
+  group_by(type_gebied, n_platen_tot, jaar) %>%
+  summarise(n_aanwezig = sum(aanwezig_jaar),
+            voldoende_onderzocht_5 = sum(n_bezoeken >= 5 | aanwezig_jaar),
+            voldoende_onderzocht_7 = sum(n_bezoeken >= 7 | aanwezig_jaar),
+            bezocht = n_distinct(code_plaat)) %>%
+  ungroup() %>%
+  filter(type_gebied == "Meetnet") %>%
+  pivot_longer(cols = c(bezocht, voldoende_onderzocht_5, voldoende_onderzocht_7),
+               names_to = "zoekinspanning",
+               values_to = "n_platen") %>%
+  mutate(prop_detectie = n_aanwezig/ n_platen)
+  
+```
+@fig-prop-detectie toont het aandeel van de platen met detectie van gladde slang per jaar voor verschillende zoekinspanningen.
+Ook het totaal aantal platen per zoekinspanning wordt weergegeven. 
+
+```{r}
+#| label: fig-prop-detectie
+#| fig-cap: Aandeel van de bezochte platen platen met detectie van gladde slang voor verschillende zoekinsapnningen. De getallen tonen het aantal platen per zoekinspanning.
+
+prop_platen %>%
+  ggplot(aes(x = factor(jaar), y = prop_detectie, label = n_platen, colour = zoekinspanning, shape = zoekinspanning)) +
+  geom_point(size = 3, alpha = 0.6) +
+  geom_text(vjust = 0, nudge_y = 0.02) +
+  labs(x = "Jaar", y = "Aandeel van platen met detectie") +
+  lims(y = c(0,1))
+```
+
+@fig-prop-detectie-meta toont het aandeel van de platen met detectie van gladde slang per metatpopulatie.
+
+```{r}
+#| label: fig-prop-detectie-meta
+#| fig-cap: Aandeel van de bezochte platen en voldoende onderzochte platen met detectie van gladde slang per metapopulatie
+
+prop_platen_meta %>%
   ggplot(aes(x = factor(jaar), y = prop_detectie, colour = zoekinspanning, shape = zoekinspanning)) +
   geom_point(size = 2, alpha = 0.6) +
   labs(x = "Jaar", y = "Aandeel van platen met detectie") +
   facet_wrap(~ str_c(metapopulatie, " (", n_platen_tot, ")"))
 ```
 
-
+### Alle waarnemingen op afstand < 25  van reptielenplaat
 
 ```{r}
-platen_jaar <- wnm_analyse %>%
-  group_by(code_plaat) %>%
-  mutate(aanwezig_2022_2024 = sum(aantal) > 0) %>%
-  ungroup() %>%
-  group_by(type_gebied, populatie, code_plaat, jaar, datum, aanwezig_2022_2024) %>%
+platen_meta_jaar <- wnm_analyse %>%
+  group_by(type_gebied, metapopulatie, populatie, aanwezig_gebied, code_plaat, jaar, datum) %>%
   summarise(aanwezig_bezoek = sum(aantal) > 0,
             aantal_bezoek = sum(aantal)) %>%
   ungroup() %>%
-  group_by(type_gebied, populatie, code_plaat, jaar, aanwezig_2022_2024) %>%
+  group_by(type_gebied, metapopulatie, populatie, code_plaat, jaar, aanwezig_gebied) %>%
+  summarise(aanwezig_jaar = sum(aantal_bezoek) > 0,
+            n_bezoeken = n_distinct(datum),
+            n_aanwezig = sum(aantal_bezoek > 0)) %>%
+  ungroup()
+
+prop_platen_meta <- platen_meta_jaar %>%
+  group_by(metapopulatie) %>%
+  mutate(n_platen_tot = n_distinct(code_plaat)) %>%
+  ungroup() %>%
+  filter(aanwezig_gebied) %>%
+  group_by(type_gebied, metapopulatie, n_platen_tot, jaar) %>%
+  summarise(n_aanwezig = sum(aanwezig_jaar),
+            voldoende_onderzocht_5 = sum(n_bezoeken >= 5 | aanwezig_jaar),
+            voldoende_onderzocht_7 = sum(n_bezoeken >= 7 | aanwezig_jaar),
+            bezocht = n_distinct(code_plaat)) %>%
+  ungroup() %>%
+  filter(type_gebied == "Meetnet") %>%
+  pivot_longer(cols = c(bezocht, voldoende_onderzocht_5, voldoende_onderzocht_7),
+               names_to = "zoekinspanning",
+               values_to = "n_platen") %>%
+  mutate(prop_detectie = n_aanwezig/ n_platen)
+
+prop_platen <- platen_meta_jaar %>%
+  group_by(jaar) %>%
+  mutate(n_platen_tot = n_distinct(code_plaat)) %>%
+  ungroup() %>%
+  filter(aanwezig_gebied) %>%
+  group_by(type_gebied, n_platen_tot, jaar) %>%
+  summarise(n_aanwezig = sum(aanwezig_jaar),
+            voldoende_onderzocht_5 = sum(n_bezoeken >= 5 | aanwezig_jaar),
+            voldoende_onderzocht_7 = sum(n_bezoeken >= 7 | aanwezig_jaar),
+            bezocht = n_distinct(code_plaat)) %>%
+  ungroup() %>%
+  filter(type_gebied == "Meetnet") %>%
+  pivot_longer(cols = c(bezocht, voldoende_onderzocht_5, voldoende_onderzocht_7),
+               names_to = "zoekinspanning",
+               values_to = "n_platen") %>%
+  mutate(prop_detectie = n_aanwezig/ n_platen)
+  
+```
+@fig-prop-detectie-2 toont het aandeel van de platen met detectie van gladde slang per jaar voor verschillende zoekinspanningen.
+Ook het totaal aantal platen per zoekinspanning wordt weergegeven. 
+
+```{r}
+#| label: fig-prop-detectie-2
+#| fig-cap: Aandeel van de bezochte platen platen met detectie van gladde slang voor verschillende zoekinsapnningen. De getallen tonen het aantal platen per zoekinspanning.
+
+prop_platen %>%
+  ggplot(aes(x = factor(jaar), y = prop_detectie, label = n_platen, colour = zoekinspanning, shape = zoekinspanning)) +
+  geom_point(size = 3, alpha = 0.6) +
+  geom_text(vjust = 0, nudge_y = 0.02) +
+  labs(x = "Jaar", y = "Aandeel van platen met detectie") +
+  lims(y = c(0,1))
+```
+
+@fig-prop-detectie-meta-2 toont het aandeel van de platen met detectie van gladde slang per metatpopulatie.
+
+```{r}
+#| label: fig-prop-detectie-meta-2
+#| fig-cap: Aandeel van de bezochte platen en voldoende onderzochte platen met detectie van gladde slang per metapopulatie
+
+prop_platen_meta %>%
+  ggplot(aes(x = factor(jaar), y = prop_detectie, colour = zoekinspanning, shape = zoekinspanning)) +
+  geom_point(size = 2, alpha = 0.6) +
+  labs(x = "Jaar", y = "Aandeel van platen met detectie") +
+  facet_wrap(~ str_c(metapopulatie, " (", n_platen_tot, ")"))
+```
+
+## Detectiekans
+
+
+```{r}
+platen_jaar_all <- wnm_analyse %>%
+  group_by(type_gebied, metapopulatie, populatie, code_plaat, jaar, datum, aanwezig_gebied) %>%
+  summarise(aanwezig_bezoek = sum(aantal) > 0,
+            aantal_bezoek = sum(aantal)) %>%
+  ungroup() %>%
+  group_by(type_gebied, metapopulatie, populatie, code_plaat, jaar, aanwezig_gebied) %>%
   summarise(aanwezig_jaar = sum(aantal_bezoek) > 0,
             n_bezoeken = n_distinct(datum),
             n_aanwezig = sum(aantal_bezoek > 0)) %>%
   ungroup() %>%
   mutate(prop_aanwezig = n_aanwezig / n_bezoeken)
-```
 
-```{r}
-overzicht <- platen_jaar %>%
-  group_by(type_gebied, populatie, jaar) %>%
-  summarise(n_platen_bezocht = sum(n_bezoeken > 0),
-            n_platen_5bez = sum(n_bezoeken >= 5),
-            n_platen_aanwezig = sum(aanwezig_jaar > 0),
-            prob_aanwezig = round(sum(n_aanwezig)/ sum(n_bezoeken), 2)) %>%
-  ungroup()
-
-detectiekans_gebied <- platen_jaar %>%
-  group_by(type_gebied, populatie, jaar) %>%
+detectiekans_glob_all <- platen_jaar_all %>%
+  filter(aanwezig_gebied) %>%
+  group_by(type_gebied, jaar) %>%
   summarise(mean_det_rate = mean(prop_aanwezig),
             n_platen = n_distinct(code_plaat),
             n_bezoeken = sum(n_bezoeken)) %>%
   ungroup()
+
+detectiekans_meta_all <- platen_jaar_all %>%
+  filter(aanwezig_gebied) %>%
+  group_by(type_gebied, metapopulatie) %>%
+  summarise(mean_det_rate = mean(prop_aanwezig),
+            n_platen = n_distinct(code_plaat),
+            n_bezoeken = sum(n_bezoeken)) %>%
+  ungroup()
+
+```
+
+De detectiekans is de kans dat een gladde slang waargenomen wordt in als de soort aanwezig is (voor een bepaald jaar).
+We beschouwen de soort aanwezig als die wordt waargenomen binnen het gebied via gelijk welke methode.
+De detectiekans kunnen we dan berekenen als de verhouding tussen:
+
++ het aantal bezoeken met een effectieve waarneming van de soort
++ het totaal aantal bezoeken (voor de jaren en gebieden waarin de soort aanwezig is)
+
+
+```{r}
+platen_jaar <- wnm_analyse %>%
+  filter(methode == "reptielenplaat") %>%
+  group_by(type_gebied, metapopulatie, populatie, code_plaat, jaar, datum, aanwezig_gebied) %>%
+  summarise(aanwezig_bezoek = sum(aantal) > 0,
+            aantal_bezoek = sum(aantal)) %>%
+  ungroup() %>%
+  group_by(type_gebied, metapopulatie, populatie, code_plaat, jaar, aanwezig_gebied) %>%
+  summarise(aanwezig_jaar = sum(aantal_bezoek) > 0,
+            n_bezoeken = n_distinct(datum),
+            n_aanwezig = sum(aantal_bezoek > 0)) %>%
+  ungroup() %>%
+  mutate(prop_aanwezig = n_aanwezig / n_bezoeken)
+
+detectiekans_glob <- platen_jaar %>%
+  filter(aanwezig_gebied) %>%
+  filter(type_gebied == "Meetnet") %>%
+  group_by(type_gebied, jaar) %>%
+  summarise(detectiekans_1 = round(mean(prop_aanwezig), 3),
+            n_platen = n_distinct(code_plaat),
+            n_bezoeken = sum(n_bezoeken)) %>%
+  ungroup() %>%
+  mutate(detectiekans_5 = round(1 - (1 - detectiekans_1) ^ 5, 2),
+         detectiekans_7 = round(1 - (1 - detectiekans_1) ^ 7, 2),
+         methode = "reptielenplaat")
+  
+detectiekans_meta <- platen_jaar %>%
+  filter(aanwezig_gebied) %>%
+  filter(type_gebied == "Meetnet") %>%
+  group_by(type_gebied, metapopulatie, jaar) %>%
+  summarise(detectiekans_1 = round(mean(prop_aanwezig), 3),
+            n_platen = n_distinct(code_plaat),
+            n_bezoeken = sum(n_bezoeken)) %>%
+  ungroup() %>%
+  mutate(detectiekans_5 = round(1 - (1 - detectiekans_1) ^ 5, 2),
+         detectiekans_7 = round(1 - (1 - detectiekans_1) ^ 7, 2))
+
+```
+```{r}
+platen_jaar_all <- wnm_analyse %>%
+  group_by(type_gebied, metapopulatie, populatie, code_plaat, jaar, datum, aanwezig_gebied) %>%
+  summarise(aanwezig_bezoek = sum(aantal) > 0,
+            aantal_bezoek = sum(aantal)) %>%
+  ungroup() %>%
+  group_by(type_gebied, metapopulatie, populatie, code_plaat, jaar, aanwezig_gebied) %>%
+  summarise(aanwezig_jaar = sum(aantal_bezoek) > 0,
+            n_bezoeken = n_distinct(datum),
+            n_aanwezig = sum(aantal_bezoek > 0)) %>%
+  ungroup() %>%
+  mutate(prop_aanwezig = n_aanwezig / n_bezoeken)
+
+detectiekans_glob_all <- platen_jaar_all %>%
+  filter(aanwezig_gebied) %>%
+  filter(type_gebied == "Meetnet") %>%
+  group_by(type_gebied, jaar) %>%
+  summarise(detectiekans_1 = round(mean(prop_aanwezig), 3),
+            n_platen = n_distinct(code_plaat),
+            n_bezoeken = sum(n_bezoeken)) %>%
+  ungroup() %>%
+  mutate(detectiekans_5 = round(1 - (1 - detectiekans_1) ^ 5, 2),
+         detectiekans_7 = round(1 - (1 - detectiekans_1) ^ 7, 2),
+         methode = "alle wnm")
+
+platen_jaar_onb_plaat <- wnm_analyse %>%
+  filter(methode != "gezien") %>%
+  group_by(type_gebied, metapopulatie, populatie, code_plaat, jaar, datum, aanwezig_gebied) %>%
+  summarise(aanwezig_bezoek = sum(aantal) > 0,
+            aantal_bezoek = sum(aantal)) %>%
+  ungroup() %>%
+  group_by(type_gebied, metapopulatie, populatie, code_plaat, jaar, aanwezig_gebied) %>%
+  summarise(aanwezig_jaar = sum(aantal_bezoek) > 0,
+            n_bezoeken = n_distinct(datum),
+            n_aanwezig = sum(aantal_bezoek > 0)) %>%
+  ungroup() %>%
+  mutate(prop_aanwezig = n_aanwezig / n_bezoeken)
+
+detectiekans_onb_plaat <- platen_jaar_onb_plaat %>%
+  filter(aanwezig_gebied) %>%
+  filter(type_gebied == "Meetnet") %>%
+  group_by(type_gebied, jaar) %>%
+  summarise(detectiekans_1 = round(mean(prop_aanwezig), 3),
+            n_platen = n_distinct(code_plaat),
+            n_bezoeken = sum(n_bezoeken)) %>%
+  ungroup() %>%
+  mutate(detectiekans_5 = round(1 - (1 - detectiekans_1) ^ 5, 2),
+         detectiekans_7 = round(1 - (1 - detectiekans_1) ^ 7, 2),
+         methode = "reptielenplaat + onbekend")
+
+```
+@tbl-dr toont de detectiekans voor 1 bezoek (`dr_1`) en de afgeleide detectiekans in geval van 5 bezoeken (`dr_5`) en 7 bezoeken (`dr_7`) per plaat.
+De detectiekans berekenen we voor verschillende datasets:
+
++ enkel waarnemingen met methode `reptielenplaat`
++ enkel waarnemingen met methode `reptielenplaat` en `onbekend`
++ alle methodes
+
+We selecteren enkel de waarnemingen op een afstand < 25m van een reptielenplaat.
+
+
+```{r}
+#| label: tbl-dr
+#| tbl-cap: Gemiddelde detectiekans voor 1 bezoek, 5 bezoeken en 7 bezoeken
+
+detectiekans_glob %>%
+  bind_rows(detectiekans_onb_plaat) %>%
+  bind_rows(detectiekans_glob_all) %>%
+  select(methode, jaar, n_bezoeken, dr_1 = detectiekans_1, dr_5 = detectiekans_5, dr_7 = detectiekans_7) %>%
+  datatable(rownames = FALSE,
+            filter = "top")
+```
+
+
 
 
 ```
