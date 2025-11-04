@@ -5,8 +5,19 @@
 
 ### GemiddeldeGetelde aantallen
 
+```{r}
+
+name_analyseset <- "analyseset_vlinders_imago_transect"
+versie <- "vlinders_imago_transect_2025-11-04"
+
+analyseset_transect <- read_vc(file = name_analyseset,
+                               root = str_c("../output/analyseset/", versie)) %>%
+  mutate(doy = as.numeric(format(datum, "%j")))
+
+```
+
 ```{r, fig.cap= "Gemiddeld aantal getelde individuen per jaar", eval=FALSE}
-analyseset_transecten_locations %>%
+analyseset_transect %>%
   ggplot(aes(x= jaar, y = aantal)) +  
   #geom_point(alpha = 0.6, colour = inbo.grijs) +
   stat_summary(fun.data = "mean_cl_boot",  alpha = 0.8) +
@@ -18,7 +29,7 @@ analyseset_transecten_locations %>%
 
 ```{r, fig.height = 8, fig.cap = "Gemiddeld aantal getelde individuen per 100 meter transectlengte"}
 
-analyseset_transecten_locations %>%
+analyseset_transect %>%
   ggplot(aes(x= jaar, y = aantal *100/ lengte_transect)) +  
   #geom_point(alpha = 0.6, colour = inbo.grijs) +
   stat_summary(fun.data = "mean_cl_boot",  alpha = 0.8) +
@@ -31,14 +42,14 @@ analyseset_transecten_locations %>%
 
 
 ```{r, fig.height = 11, eval=FALSE}
-analyseset_transecten_locations %>%
+analyseset_transect %>%
   ggplot(aes(x = doy, y = aantal, colour = generatie)) +
   geom_point(alpha = 0.6) +
   facet_grid(meetnet ~ jaar, scales = "free_y")
 ```
 
 ```{r, fig.height= 10, fig.cap= "Getelde aantallen per 100 meter transectlengte"}
-analyseset_transecten_locations %>%
+analyseset_transect %>%
   ggplot(aes(x = doy, y = aantal * 100 / lengte_transect, colour = generatie)) +
   geom_point(alpha = 0.6) +
   facet_grid(meetnet ~ jaar, scales = "free_y")
@@ -47,7 +58,7 @@ analyseset_transecten_locations %>%
 ### GemiddeldeGetelde aantallen per locatie
 
 ```{r}
-aantallen_locaties <- analyseset_transecten_locations %>%
+aantallen_locaties <- analyseset_transect %>%
   group_by(meetnet, locatie, jaar) %>%
   summarise(mean_aantal_100 =  mean(aantal/lengte_transect *100)) %>%
   ungroup() %>%
@@ -60,7 +71,7 @@ aantallen_locaties <- analyseset_transecten_locations %>%
 ### Seizoenaliteit
 
 ```{r, fig.height= 6,  fig.cap= "Vergelijking seizoenaliteit via gam-smoother (enkel voor jaren met minstens 18 observaties)"}
-analyseset_transecten_locations %>%
+analyseset_transect %>%
   group_by(meetnet, jaar) %>%
   filter(n_distinct(visit_id) > 17) %>%
   ungroup() %>%
@@ -75,7 +86,7 @@ analyseset_transecten_locations %>%
 ### Effect weersomstandigheden
 
 ```{r, fig.height= 6, fig.cap= "Effect van windkracht op getelde aantallen per 100 meter transectlengte"}
-analyseset_transecten_locations %>%
+analyseset_transect %>%
   mutate(aantal_100m = aantal * 100 / lengte_transect) %>%
   ggplot(aes(x = windkracht, y = aantal_100m)) +
   geom_boxplot() +
@@ -85,7 +96,7 @@ analyseset_transecten_locations %>%
 
 
 ```{r, fig.height= 6, fig.cap=  "Effect van bewolking op getelde aantallen per 100 meter transectlengte"}
-analyseset_transecten_locations %>%
+analyseset_transect %>%
   mutate(aantal_100m = aantal * 100 / lengte_transect) %>%
   ggplot(aes(x = bewolking, y = aantal_100m)) +
   geom_boxplot() +
@@ -94,7 +105,8 @@ analyseset_transecten_locations %>%
 ```
 
 ```{r, fig.height= 6, fig.cap =  "Effect van temperatuur op getelde aantallen per 100 meter transectlengte"}
-analyseset_transecten_locations %>%
+analyseset_transect %>%
+  filter(temperatuur < 50) %>%
   mutate(aantal_100m = aantal * 100 / lengte_transect) %>%
   ggplot(aes(x = temperatuur, y = aantal_100m)) +
   geom_point(color = "green", alpha = 0.5) +
@@ -105,7 +117,7 @@ analyseset_transecten_locations %>%
 Volgend model geeft globaal gezien (voor alle meetnetten samen) enkel een significant effect van bewolking op de getelde aantallen. 
 
 ```{r}
-analyseset_transecten_locations_weer <- analyseset_transecten_locations %>%
+analyseset_transecten_locations_weer <- analyseset_transect %>%
   mutate(bewolking_max = as.numeric(str_sub(bewolking, start = -4, end = -4)),
          bewolking_min = ifelse(bewolking_max > 0, as.numeric(str_sub(bewolking, start = -10, end = -10)), 0),
          bewolking_cont = (bewolking_max + bewolking_min)/2/8,
@@ -140,6 +152,16 @@ analyseset_transecten_locations_weer %>%
 ```
 ## Eitellingen
 
+```{r}
+
+name_analyseset <- "analyseset_vlinders_eitelling"
+versie <- "vlinders_eitelling_2025-11-04"
+
+analyseset_gb <- read_vc(file = name_analyseset,
+                               root = str_c("../output/analyseset/", versie)) %>%
+  mutate(doy = as.numeric(format(datum, "%j")))
+
+```
 
 ```{r, fig.cap= "Gemiddeld aantal getelde individuen per jaar"}
 
@@ -163,7 +185,7 @@ analyseset_gb_long %>%
   geom_smooth(se = FALSE)
 ```
 
-```{r}
+```{r, fig.height= 8}
 analyseset_gb %>%
 ggplot(aes(x = jaar, y = n_ei_totaal, group = plot, colour = plot)) +
   geom_point() +
@@ -173,7 +195,7 @@ ggplot(aes(x = jaar, y = n_ei_totaal, group = plot, colour = plot)) +
   
 ```
 
-```{r}
+```{r, fig.height= 8}
 analyseset_gb %>%
   ggplot(aes(x = jaar, y = prop_aanwezig_plant, group = plot, colour = plot)) +
   geom_point() +
@@ -184,7 +206,7 @@ analyseset_gb %>%
 ```
 
 
-```{r}
+```{r, fig.height= 8}
 analyseset_gb %>%
  ggplot(aes(x = jaar, y = prop_aanwezig_knop, group = plot, colour = plot)) +
   geom_point() +
@@ -196,7 +218,7 @@ analyseset_gb %>%
 
 
 
-```{r}
+```{r, fig.height= 8}
 analyseset_gb %>%
  ggplot(aes(x = jaar, y = n_plant, group = plot, colour = plot)) +
   geom_point() +

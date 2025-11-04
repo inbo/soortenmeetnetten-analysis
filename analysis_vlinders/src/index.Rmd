@@ -34,20 +34,20 @@ library(tidyverse)
 library(INBOtheme)
 library(INBOmd)
 library(sf)
-library(here)
 library(INLA)
 library(inlatools)
-library(inlabru)
 library(kableExtra)
 library(units)
 library(effectclass)
 library(openssl)
-library(lubridate)
 library(git2rdata)
 library(n2khab)
+library(DT)
+library(here)
 
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(dplyr::lag)
+conflicted::conflicts_prefer(tidyr::expand)
 ```
 
 

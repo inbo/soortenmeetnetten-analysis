@@ -3,6 +3,17 @@
 
 ## Transecttelling
 
+```{r}
+
+name_analyseset <- "analyseset_vlinders_imago_transect"
+versie <- "vlinders_imago_transect_2025-11-03"
+
+analyseset_transect <- read_vc(file = name_analyseset,
+                               root = str_c("../output/analyseset/", versie))
+
+```
+
+
 ### Keuze model
 
 We opteren voor een model met:
@@ -115,20 +126,22 @@ indexmodel_1 <- models_inla$indexmodel
 
 ```
 
+#### Jaren
+
 ```{r}
 
-analyseset_transecten_locations <- analyseset_transecten_locations %>%
+analyseset_transect <- analyseset_transect %>%
   filter(!((meetnet == "Klaverblauwtje") & (jaar <= 2020))) # pas vanaf 2021 meerdere locaties geteld
 
 seed <- 15486
 
-analyseset_locations_by_species <- analyseset_transecten_locations %>%
+analyseset_transect_by_species <- analyseset_transect %>%
   group_by(meetnet) %>%
   nest() %>%
   mutate(offset_var = "log_section_100",
          use_seed = seed)
 
-models_inla <- analyseset_locations_by_species %>%
+models_inla <- analyseset_transect_by_species %>%
   mutate(indexmodel = pmap(list(data, offset_var), fit_indexmodel_rw_nbinom_inla),
          trendmodel = map2(data, offset_var, fit_trendmodel_rw_nbinom_inla))
 
@@ -164,21 +177,23 @@ results_waic <- bind_rows(waic_index,
 
 ```
 
+#### Meetcyclus
+
 ```{r}
-analyseset_meetcyclus <- analyseset_transecten_locations %>%
+analyseset_meetcyclus <- analyseset_transect %>%
   filter(meetnet %in% c("Heivlinder", "Argusvlinder", "Oranje zandoogje")) %>%
   mutate(start_jaar = ifelse(meetnet %in% c("Heivlinder", "Argusvlinder"), 2016, 2017),
          duur_cyclus = 3,
          meetcyclus_i = ceiling((jaar - start_jaar + 1) / duur_cyclus)) %>%
   group_by(meetnet, meetcyclus_i) %>%
   mutate(jaar_min = min(jaar),
-         jaar_max = max(jaar)) %>%
+         jaar_max = max(jaar),
+         doy = as.numeric(format(datum, "%j"))) %>%
   ungroup() 
 
 analyseset_meetcyclus_heivlinder <- analyseset_meetcyclus %>%
   filter(meetnet == "Heivlinder") %>%
-  mutate( jaar_scaled = jaar - min(jaar),
-         locatie = as.character(locatie),
+  mutate(jaar_scaled = jaar - min(jaar),
          locatie = as.factor(locatie),
          doy_scaled2 = doy - min(doy),
          meetcyclus = str_c(jaar_min, "_", jaar_min + duur_cyclus - 1),
@@ -258,23 +273,6 @@ result_indexmodel_meetcyclus <- index_meetcyclus_av %>%
 ```
 
 ```{r}
-analyseset_heivlinder_paired <- analyseset_meetcyclus_heivlinder %>%
-  group_by(meetnet, locatie) %>%
-  mutate(n_cycli = n_distinct(meetcyclus)) %>%
-  ungroup() %>%
-  filter(n_cycli == 3)
-  
-model_paired <- fit_trendmodel_nbinom_inla(analyseset_species = analyseset_heivlinder_paired,
-                                              offset_var = "log_section_100")
-
-result1 <- derive_trend(analyseset_heivlinder_paired, model_paired)
-
-
-```
-
-
-
-```{r}
 
 results_indexmodel %>%
   filter(parameter != "sample_value") %>%
@@ -300,13 +298,13 @@ results_waic %>%
          sorting = c("parameter", "soort_nl"),
          strict = FALSE)
 
-
+```
+```{r}
 results_indexmodel <- read_vc(root = "../output/temp", file = "results_indexmodel_vlinders_imago_transect")
 results_indexmodel_meetcyclus <- read_vc(root = "../output/temp", file = "results_indexmodel_meetcyclusvlinders_imago_transect")
 
-
-index_jaar_oz <- results_indexmodel %>%
-  filter(meetnet == "Oranje zandoogje",
+index_jaar <- results_indexmodel %>%
+  filter(meetnet %in% c("Heivlinder", "Argusvlinder", "Aardbeivlinder"),
          parameter == "index") %>%
   select( parameter, soort_nl, soort_wet, jaar, ref_jaar, mean, lcl_0.90, ucl_0.90) %>%
   mutate(mean = ifelse(is.na(mean), 1, mean),
@@ -314,111 +312,34 @@ index_jaar_oz <- results_indexmodel %>%
          lcl_0.90 = round(lcl_0.90, 3),
          ucl_0.90 = round(ucl_0.90, 3))
 
-index_jaar_oz %>%
-  write_csv2("../output/index_jaar.csv",na = "")
+index_jaar %>%
+  write_csv2("../output/index_jaar_vlinders.csv",na = "")
 
-index_meetcyclus_oz_ref <- results_indexmodel_meetcyclus %>%
-   filter(soort_nl == "Oranje zandoogje",
+index_meetcyclus_vlinders_ref <- results_indexmodel_meetcyclus %>%
+   filter(soort_nl %in% c("Argusvlinder", "Heivlinder"),
          parameter == "index") %>% 
   distinct(parameter, soort_nl, soort_wet) %>%
-  mutate(meetcyclus = "2017-2019",
-         meetcyclus_ref = "2017-2019",
+  mutate(meetcyclus = "2016-2018",
+         meetcyclus_ref = "2016-2018",
          mean = 1)
 
-index_meetcyclus_oz <- results_indexmodel_meetcyclus %>%
-  filter(soort_nl == "Oranje zandoogje",
+index_meetcyclus_vlinders <- results_indexmodel_meetcyclus %>%
+  filter(soort_nl %in% c("Argusvlinder", "Heivlinder"),
          parameter == "index") %>%
   select(parameter, soort_nl, soort_wet, meetcyclus, meetcyclus_ref, mean, lcl_0.90, ucl_0.90) %>%
-  mutate(meetcyclus = "2020-2022",
-         meetcyclus_ref = "2017-2019") %>%
-  bind_rows(index_meetcyclus_oz_ref) %>%
+  mutate(meetcyclus = str_remove(meetcyclus, "meetcyclus"),
+         meetcyclus = str_replace(meetcyclus, "_", "-"),
+         meetcyclus_ref = "2016-2018") %>%
+  bind_rows(index_meetcyclus_vlinders_ref) %>%
   arrange(meetcyclus) %>%
   mutate( mean = round(mean, 3),
          lcl_0.90 = round(lcl_0.90, 3),
-         ucl_0.90 = round(ucl_0.90, 3))
+         ucl_0.90 = round(ucl_0.90, 3)) %>%
+  arrange(soort_nl)
 
-index_meetcyclus_oz %>%
-  write_csv2("../output/index_meetcyclus.csv")
+index_meetcyclus_vlinders %>%
+  write_csv2("../output/index_meetcyclus_vlinders.csv",na = "")
 ```
-
-
-```{r}
-provinces <- read_admin_areas(dsn = "provinces") %>%
-  select(name)
-
-locaties_argus <- get_locations_smp() %>%
-  filter(meetnet == "Argusvlinder") %>%
-  filter(locatie_type == "locatie") %>%
-  st_transform(31370) %>%
-  st_join(provinces) %>%
-  select(meetnet, locatie, provincie = name) %>%
-  st_drop_geometry()
-
-analyseset_meetcyclus_argusvlinder_regio <- analyseset_meetcyclus_argusvlinder %>%
-  left_join(locaties_argus, by = c("meetnet", "locatie")) %>%
-  # filter(provincie %in% c("Oost-Vlaanderen", "Antwerpen", "West-Vlaanderen")) %>%
-  mutate(regio = ifelse(provincie == "West-Vlaanderen", "Kustduinen en polders", 
-                        ifelse(provincie == "Limburg", "Limburg", "Antwerpse haven")))
-
-seed <- 15486
-
-analyseset_locations_by_regio <- analyseset_meetcyclus_argusvlinder_regio %>%
-  group_by(meetnet, regio) %>%
-  nest() %>%
-  mutate(offset_var = "log_section_100",
-         use_seed = seed)
-
-models_inla <- analyseset_locations_by_regio %>%
-  mutate(indexmodel = pmap(list(data, offset_var), fit_indexmodel_rw_nbinom_inla),
-         trendmodel = map2(data, offset_var, fit_trendmodel_rw_nbinom_inla))
-
-results_indexmodel_argusvlinder_regio <- models_inla %>%
-  transmute(index = pmap(list(data, indexmodel, use_seed), derive_index_rw_inla)) %>%
-  unnest(cols = c(meetnet, index))
-
-results_trendmodel_argusvlinder_regio  <- models_inla %>%
-  transmute(trend = map2(data, trendmodel, derive_trend)) %>%
-  select(meetnet, regio, trend) %>%
-  unnest()
-
-indexmodel_doyrw2_iid_meetcyclus_AH <- inla(aantal ~ meetcyclus  + 
-                                f(doy_scaled2, model = "rw2", 
-                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
-                                 f(locatie, model = "iid", 
-                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
-                              family = "nbinomial",
-                              data = analyseset_meetcyclus_argusvlinder_regio %>%
-                                filter(regio == "Antwerpse haven"),
-                              offset = log_section_100,
-                              control.compute = list(config = TRUE, waic = TRUE),
-                              control.predictor = list(compute = TRUE))
-
-indexmodel_doyrw2_iid_meetcyclus_KP <- inla(aantal ~ meetcyclus  + 
-                                f(doy_scaled2, model = "rw2", 
-                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
-                                 f(locatie, model = "iid", 
-                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
-                              family = "nbinomial",
-                              data = analyseset_meetcyclus_argusvlinder_regio %>%
-                                filter(regio != "Antwerpse haven"),
-                              offset = log_section_100,
-                              control.compute = list(config = TRUE, waic = TRUE),
-                              control.predictor = list(compute = TRUE))
-
-index_meetcyclus_av_ah <- derive_index_meetcyclus_inla(analyseset_meetcyclus_argusvlinder_regio, 
-                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
-                             indexmodel_doyrw2_iid_meetcyclus_AH, set_seed = seed) %>%
-  mutate(regio = "Antwerpse haven")
-
-index_meetcyclus_av_kp <- derive_index_meetcyclus_inla(analyseset_meetcyclus_argusvlinder_regio, 
-                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
-                             indexmodel_doyrw2_iid_meetcyclus_KP, set_seed = seed) %>%
-  mutate(regio = "Kustduinen en polders")
-
-results_index_meetcyclus_av_regio <- index_meetcyclus_av_ah %>%
-  bind_rows(index_meetcyclus_av_kp)
-```
-
 
 ### Validatie
 
@@ -495,9 +416,153 @@ iid_checked_plot %>%
       facet_wrap(~meetnet + sigma_tekst, scales = "free")
     
 ```
+### Evolutie per stratum
 
+#### Argusvlinder
+
+```{r}
+provinces <- read_admin_areas(dsn = "provinces") %>%
+  select(name)
+
+locaties_argus <- get_locations_smp() %>%
+  filter(meetnet == "Argusvlinder") %>%
+  filter(locatie_type == "locatie") %>%
+  st_transform(31370) %>%
+  st_join(provinces) %>%
+  select(meetnet, locatie, provincie = name) %>%
+  st_drop_geometry()
+
+analyseset_meetcyclus_argusvlinder_regio <- analyseset_meetcyclus_argusvlinder %>%
+  left_join(locaties_argus, by = c("meetnet", "locatie")) %>%
+  # filter(provincie %in% c("Oost-Vlaanderen", "Antwerpen", "West-Vlaanderen")) %>%
+  mutate(regio = ifelse(provincie == "West-Vlaanderen", "Kustduinen en polders", 
+                        ifelse(provincie == "Limburg", "Limburg", "Antwerpse haven")))
+
+analyseset_locations_by_regio <- analyseset_meetcyclus_argusvlinder_regio %>%
+  group_by(meetnet, regio) %>%
+  nest() %>%
+  mutate(offset_var = "log_section_100",
+         use_seed = seed)
+
+models_inla_regio <- analyseset_locations_by_regio %>%
+  mutate(indexmodel = pmap(list(data, offset_var), fit_indexmodel_rw_nbinom_inla),
+         trendmodel = map2(data, offset_var, fit_trendmodel_rw_nbinom_inla))
+
+results_indexmodel_argusvlinder_regio <- models_inla_regio %>%
+  transmute(index = pmap(list(data, indexmodel, use_seed), derive_index_rw_inla)) %>%
+  unnest(cols = c(meetnet, index))
+
+results_trendmodel_argusvlinder_regio  <- models_inla_regio %>%
+  transmute(trend = map2(data, trendmodel, derive_trend)) %>%
+  select(meetnet, regio, trend) %>%
+  unnest()
+
+indexmodel_doyrw2_iid_meetcyclus_AH <- inla(aantal ~ meetcyclus  + 
+                                f(doy_scaled2, model = "rw2", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = "iid", 
+                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                              family = "nbinomial",
+                              data = analyseset_meetcyclus_argusvlinder_regio %>%
+                                filter(regio == "Antwerpse haven"),
+                              offset = log_section_100,
+                              control.compute = list(config = TRUE, waic = TRUE),
+                              control.predictor = list(compute = TRUE))
+
+indexmodel_doyrw2_iid_meetcyclus_KP <- inla(aantal ~ meetcyclus  + 
+                                f(doy_scaled2, model = "rw2", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = "iid", 
+                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                              family = "nbinomial",
+                              data = analyseset_meetcyclus_argusvlinder_regio %>%
+                                filter(regio != "Antwerpse haven"),
+                              offset = log_section_100,
+                              control.compute = list(config = TRUE, waic = TRUE),
+                              control.predictor = list(compute = TRUE))
+
+index_meetcyclus_av_ah <- derive_index_meetcyclus_inla(analyseset_meetcyclus_argusvlinder_regio, 
+                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
+                             indexmodel_doyrw2_iid_meetcyclus_AH, set_seed = seed) %>%
+  mutate(regio = "Antwerpse haven")
+
+index_meetcyclus_av_kp <- derive_index_meetcyclus_inla(analyseset_meetcyclus_argusvlinder_regio, 
+                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
+                             indexmodel_doyrw2_iid_meetcyclus_KP, set_seed = seed) %>%
+  mutate(regio = "Kustduinen en polders")
+
+results_index_meetcyclus_av_regio <- index_meetcyclus_av_ah %>%
+  bind_rows(index_meetcyclus_av_kp)
+```
+#### Heivlinder
+
+```{r}
+
+locaties_hv <- get_locations_smp() %>%
+  filter(meetnet == "Heivlinder") %>%
+  filter(locatie_type == "locatie") %>%
+  st_transform(31370) %>%
+  st_join(provinces, largest = TRUE) %>%
+  select(meetnet, locatie, provincie = name) %>%
+  st_drop_geometry()
+
+analyseset_meetcyclus_heivlinder_kust <- analyseset_meetcyclus_heivlinder %>%
+  left_join(locaties_hv, by = c("meetnet", "locatie")) %>%
+  filter(provincie == "West-Vlaanderen")
+
+indexmodel_hv_kust <- inla(aantal ~ meetcyclus  + 
+                                f(doy_scaled2, model = "rw2", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = "iid", 
+                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                              family = "nbinomial",
+                              data = analyseset_meetcyclus_heivlinder_kust,
+                              offset = log_section_100,
+                              control.compute = list(config = TRUE, waic = TRUE),
+                              control.predictor = list(compute = TRUE))
+seed <- 5654
+
+index_meetcyclus_hv_kust <- derive_index_meetcyclus_inla(analyseset_meetcyclus_heivlinder_kust, 
+                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
+                             indexmodel_hv_kust, set_seed = seed) %>%
+  mutate(regio = "Kust")
+
+analyseset_meetcyclus_heivlinder_antw_lim <- analyseset_meetcyclus_heivlinder %>%
+  left_join(locaties_hv, by = c("meetnet", "locatie")) %>%
+  filter(provincie != "West-Vlaanderen")
+
+indexmodel_hv_antw_lim <- inla(aantal ~ meetcyclus  + 
+                                f(doy_scaled2, model = "rw2", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = "iid", 
+                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                              family = "nbinomial",
+                              data = analyseset_meetcyclus_heivlinder_antw_lim,
+                              offset = log_section_100,
+                              control.compute = list(config = TRUE, waic = TRUE),
+                              control.predictor = list(compute = TRUE))
+seed <- 551515
+
+index_meetcyclus_hv_antw_lim  <- derive_index_meetcyclus_inla(analyseset_meetcyclus_heivlinder_antw_lim, 
+                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
+                             indexmodel_hv_antw_lim, set_seed = seed) %>%
+  mutate(regio = "Antwerpen en Limburg")
+
+index_meetcyclus_hv_regio <- index_meetcyclus_hv_antw_lim %>%
+  bind_rows(index_meetcyclus_hv_kust)
+```
 
 ## Gebiedstelling
+
+```{r}
+
+name_analyseset <- "analyseset_vlinders_imago_gebied"
+versie <- "vlinders_imago_gebied_2025-11-03"
+
+analyseset_gebied <- read_vc(file = name_analyseset,
+                               root = str_c("../output/analyseset/", versie))
+
+```
 
 ### Keuze model
 
@@ -548,8 +613,6 @@ results_waic_gebied <- bind_rows(waic_index_gebied,
                                ifelse(diff_waic > -2,
                                       "Quasi lineair", "Lineair")))
 ```
-
-
 
 ```{r}
 
@@ -1186,7 +1249,7 @@ verschil_meetcyclus %>%
 
 ```{r, fig.width= 5, fig.height= 4}
 verschil_meetcyclus %>%
-  filter(soort_nl == "Argusvlinder") %>%
+  filter(soort_nl == "Heivlinder") %>%
   mutate(klasse = str_remove_all(klasse, "`")) %>%
   ggplot(aes(x = meetcyclus, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
   geom_errorbar(width = 0, size = 10, alpha = 0.3) +
@@ -1201,11 +1264,11 @@ verschil_meetcyclus %>%
   theme(legend.position = "hide") +
   facet_wrap(~soort_nl, scales = "free")
 
-ggsave("../output/figures/2024/verschil_meetcyclus_argusvlinder.jpg",
+ggsave("../output/figures/2024/verschil_meetcyclus_heivlinder.jpg",
        width = 5, height = 4)
 ```
 ```{r}
-verschil_meetcyclus_regio <- results_index_meetcyclus_av_regio %>%
+verschil_meetcyclus_regio <- index_meetcyclus_hv_regio %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
          klasse = format(klasse, type = "markdown"),
          meetcyclus = str_remove(meetcyclus, "meetcyclus"),
@@ -1214,7 +1277,7 @@ verschil_meetcyclus_regio <- results_index_meetcyclus_av_regio %>%
           lcl_0.90_log = log(lcl_0.90) + 1,
          ucl_0.90_log = log(ucl_0.90) + 1)
 
-verschil_meetcyclus_add <- verschil_meetcyclus_regio %>%
+verschil_meetcyclus_add <- index_meetcyclus_hv_regio %>%
   distinct(soort_nl, soort_wet, regio) %>%
   mutate(klasse = "R",
          meetcyclus = ifelse(soort_nl == "Oranje zandoogje", "2017-2019", "2016-2018"),
@@ -1243,9 +1306,9 @@ verschil_meetcyclus_regio %>%
   scale_y_continuous(breaks = breaks_log, labels = labels_show) +
   scale_color_manual(values = klasse_color) +
   theme(legend.position = "hide") +
-  facet_wrap(~regio)
+  facet_wrap(~str_c(soort_nl, " - ", regio))
 
-ggsave("../output/figures/2024/verschil_meetcyclus_argusvlinder_regio.jpg",
+ggsave("../output/figures/2024/verschil_meetcyclus_heivlinder_regio.jpg",
        width = 7, height = 4)
 ```
 

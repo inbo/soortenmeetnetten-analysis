@@ -1,0 +1,143 @@
+# Missing data
+
+## Ontbrekende nullen
+
+### Data verkenning
+
+```{r}
+
+name_analyseset <- "analyseset_vlinders_imago_transect"
+versie <- "vlinders_imago_transect_2025-11-04"
+
+analyseset_transect <- read_vc(file = name_analyseset,
+                               root = str_c("../output/analyseset/", versie)) %>%
+  mutate(doy = as.numeric(format(datum, "%j")))
+
+meetnet_missing0 <- analyseset_transect %>%
+  group_by(meetnet) %>%
+  filter(any(type_data == "missing_0")) %>%
+  ungroup()
+
+```
+
+```{r}
+meetnet_missing0 %>%
+  group_by(meetnet, jaar, type_data) %>%
+  summarise(n_locaties = n_distinct(locatie)) %>%
+  ungroup() %>%
+  pivot_wider(names_from = type_data,
+              names_prefix = "n_locaties_",
+              values_fill = 0,
+              values_from = n_locaties) %>%
+  datatable(rownames = FALSE)
+```
+
+
+
+```{r}
+meetnet_missing0 %>%
+  ggplot(aes(x = doy, y =aantal, colour = type_data, shape = type_data)) +
+  geom_point(alpha = 0.4, size = 2) +
+  facet_wrap(~meetnet)
+```
+```{r}
+mean_counted <- meetnet_missing0 %>%
+  group_by(meetnet, jaar) %>%
+  mutate(withmissing0 = mean(aantal)) %>%
+  ungroup() %>%
+  filter(type_data == "counted") %>%
+  group_by(meetnet, jaar, withmissing0) %>%
+  summarise(withoutmissing0 = mean(aantal)) %>%
+  ungroup() %>%
+  pivot_longer(cols = c(withmissing0, withoutmissing0),
+               names_to = "type_data", 
+               values_to = "mean")
+```
+```{r}
+mean_counted %>%
+  ggplot(aes(x = jaar, y = mean, group = type_data, colour = type_data)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~meetnet)
+```
+
+### Model
+
+```{r}
+
+analyseset_withmissing0 <- meetnet_missing0
+
+analyseset_withoutmissing0 <- meetnet_missing0 %>%
+  filter(type_data == "counted")
+
+analyseset_removeloc <- meetnet_missing0 %>%
+  group_by(meetnet, locatie) %>%
+  filter(all(type_data == "counted")) %>%
+  ungroup()
+
+model_withmissing0 <- fit_indexmodel_rw_nbinom_inla(analyseset_species = analyseset_withmissing0, 
+                                                    offset_var = "log_section_100")
+index_withmissing0 <- derive_index_rw_inla(analyseset_withmissing0, inlamodel_rw = model_withmissing0) %>%
+  mutate(type_model = "With missing 0")
+
+
+model_withoutmissing0 <- fit_indexmodel_rw_nbinom_inla(analyseset_species = analyseset_withoutmissing0, 
+                                                    offset_var = "log_section_100")
+index_withoutmissing0 <- derive_index_rw_inla(analyseset_withoutmissing0, inlamodel_rw = model_withoutmissing0)  %>%
+  mutate(type_model = "Without missing 0")
+
+model_removeloc <- fit_indexmodel_rw_nbinom_inla(analyseset_species = analyseset_removeloc, 
+                                                    offset_var = "log_section_100")
+index_removeloc <- derive_index_rw_inla(analyseset_removeloc, inlamodel_rw = model_removeloc)  %>%
+  mutate(type_model = "Remove location")
+  
+models_compare <- index_withmissing0 %>%
+  bind_rows(index_withoutmissing0) %>%
+  bind_rows(index_removeloc)
+```
+### Verschil t.o.v. referentiejaar
+
+```{r}
+models_compare %>%
+  filter(parameter == "index") %>%
+  mutate(jaar = factor(jaar)) %>%
+  ggplot(aes(x = jaar, y = mean, ymin = lcl_0.90, ymax = ucl_0.90, group = type_model, colour = type_model)) +
+  geom_point(alpha = 0.5, size = 3) +
+  geom_errorbar() +
+  labs(y = "index")
+```
+
+
+```{r}
+model_withmissing0 <- fit_trendmodel_rw_nbinom_inla(analyseset_species = analyseset_withmissing0, 
+                                                    offset_var = "log_section_100")
+trend_withmissing0 <- derive_trend(analyseset_withmissing0, model_withmissing0) %>%
+  mutate(type_model = "With missing 0")
+
+
+model_withoutmissing0 <- fit_trendmodel_rw_nbinom_inla(analyseset_species = analyseset_withoutmissing0, 
+                                                    offset_var = "log_section_100")
+trend_withoutmissing0 <- derive_trend(analyseset_withoutmissing0, model_withoutmissing0)  %>%
+  mutate(type_model = "Without missing 0")
+
+model_removeloc <- fit_trendmodel_rw_nbinom_inla(analyseset_species = analyseset_removeloc, 
+                                                    offset_var = "log_section_100")
+trend_removeloc <- derive_trend(analyseset_removeloc, model_removeloc)  %>%
+  mutate(type_model = "Remove location")
+  
+trend_compare <- trend_withmissing0 %>%
+  bind_rows(trend_withoutmissing0) %>%
+  bind_rows(trend_removeloc)
+```
+
+### Gemiddelde jaarlijkse trend
+
+```{r}
+trend_compare %>%
+  filter(parameter == "trend_average") %>%
+  ggplot(aes(x = type_model, y = mean, ymin = lcl_0.90, ymax = ucl_0.90, colour = type_model)) +
+  geom_point(alpha = 0.5, size = 3) +
+  geom_errorbar() +
+  labs(y = "trend") +
+  lims(y = c(NA,0))
+```
