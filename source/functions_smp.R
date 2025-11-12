@@ -1817,6 +1817,7 @@ fit_indexmodel_rw_nbinom_inla <- function(analyseset_species, offset_var = NULL)
     mutate(locatie = as.character(locatie),
            locatie = as.factor(locatie),
            jaar_centered = jaar - min(jaar),
+           doy = as.numeric(format(datum, "%j")),
            doy_centered = doy - min(doy))
   
   formula_indexmodel <- as.formula("aantal ~ f(jaar_centered, model = \"rw1\", 
@@ -1857,6 +1858,7 @@ fit_trendmodel_rw_nbinom_inla <- function(analyseset_species, offset_var = NULL)
     mutate(locatie = as.character(locatie),
            locatie = as.factor(locatie),
            year_scaled = jaar - min(jaar),
+           doy = as.numeric(format(datum, "%j")),
            doy_centered = doy - min(doy))
   
   formula_indexmodel <- as.formula("aantal ~ year_scaled + 
