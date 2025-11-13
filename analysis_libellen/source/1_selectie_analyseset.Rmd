@@ -436,7 +436,7 @@ dataset_presence_sample <- dataset_presence_sample %>%
 
 De tellingen zijn gevalideerd t.e.m. het jaar `r max_year`.
 
-## Gebiedstelling per locatie"
+## Gebiedstelling per locatie
 
 ```{r}
 

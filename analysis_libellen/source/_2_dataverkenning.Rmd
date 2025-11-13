@@ -1,0 +1,174 @@
+
+# Dataverkenning
+
+## Gebiedstelling
+
+```{r}
+name_analysis1 <- "libellen_gebiedstelling"
+
+name_analyseset <- str_c("analyseset_", name_analysis1)
+versie <- str_c(name_analysis1, "_2025-11-12")
+
+analyseset_gebied <- read_vc(file = name_analyseset,
+                               root = str_c("../output/analyseset/", versie)) %>%
+  mutate(doy = as.numeric(format(datum, "%j")))
+```
+
+### Getelde aantallen
+
+```{r, fig.height = 11}
+analyseset_gebied %>%
+  ggplot(aes(x = doy, y = aantal)) +
+  geom_point(alpha = 0.6) +
+  facet_grid(meetnet ~ jaar, scales = "free_y")
+```
+
+
+### Gemiddelde getelde aantallen per jaar
+
+```{r, fig.cap= "Gemiddeld aantal getelde individuen per jaar", eval=FALSE}
+analyseset_gebied %>%
+  ggplot(aes(x= jaar, y = aantal)) +  
+  #geom_point(alpha = 0.6, colour = "gray") +
+  stat_summary(fun.data = "mean_cl_boot",  alpha = 0.8) +
+  geom_smooth(method = "gam", method.args = list(family = poisson),formula = y ~ s(x, bs = "cs", k = 4)) +
+  facet_wrap(~ soort_nl, scale = "free_y") +
+  labs(y = "Aantal getelde individuen", x = "Jaar") +
+  theme(legend.position = "bottom") +
+  lims(y = c(0, NA))
+```
+
+
+### Gemiddelde getelde aantallen per jaar en per locatie
+
+```{r }
+analyseset_gebied %>%
+  filter(meetnet == "Maanwaterjuffer") %>%
+  group_by(meetnet, locatie, jaar) %>%
+  summarise(mean_aantal = mean(aantal)) %>%
+  ungroup() %>%
+  ggplot(aes(x = jaar, y = mean_aantal)) +
+  geom_point(alpha = 0.6) +
+  facet_wrap(meetnet ~ locatie, scales = "free_y") +
+  lims(y = c(0, NA))
+```
+
+```{r }
+analyseset_gebied %>%
+  filter(meetnet == "Kempense heidelibel") %>%
+  group_by(meetnet, locatie, jaar) %>%
+  summarise(mean_aantal = mean(aantal)) %>%
+  ungroup() %>%
+  ggplot(aes(x = jaar, y = mean_aantal)) +
+  geom_point(alpha = 0.6) +
+  facet_wrap(meetnet ~ locatie, scales = "free_y") +
+  lims(y = c(0, NA))
+```
+
+```{r }
+analyseset_gebied %>%
+  filter(meetnet == "Speerwaterjuffer") %>%
+  group_by(meetnet, locatie, jaar) %>%
+  summarise(mean_aantal = mean(aantal)) %>%
+  ungroup() %>%
+  ggplot(aes(x = jaar, y = mean_aantal)) +
+  geom_point(alpha = 0.6) +
+  facet_wrap(meetnet ~ locatie, scales = "free_y") +
+  lims(y = c(0, NA))
+```
+## Transecttelling
+
+```{r}
+name_analysis1 <- "libellen_transecten"
+
+name_analyseset <- str_c("analyseset_", name_analysis1)
+versie <- str_c(name_analysis1, "_2025-11-12")
+
+analyseset_transect <- read_vc(file = name_analyseset,
+                               root = str_c("../output/analyseset/", versie)) %>%
+  mutate(doy = as.numeric(format(datum, "%j")))
+
+analyseset_transect <- analyseset_transect %>%
+  group_by(meetcyclus, meetnet) %>%
+  mutate(min_jaar_meetcyclus = min(jaar)) %>%
+  ungroup() %>%
+  mutate(periode = ifelse(duur_meetcyclus == 1, as.character(jaar), str_c(min_jaar_meetcyclus, "-", min_jaar_meetcyclus - 1 + duur_meetcyclus)))
+```
+
+### Getelde aantallen
+
+```{r, fig.height = 11}
+analyseset_transect %>%
+  ggplot(aes(x = doy, y = aantal)) +
+  geom_point(alpha = 0.6) +
+  facet_grid(meetnet ~ jaar, scales = "free_y")
+```
+
+
+### Gemiddelde getelde aantallen per jaar
+
+```{r, fig.cap= "Gemiddeld aantal getelde individuen per jaar", eval=FALSE}
+analyseset_transect %>%
+  ggplot(aes(x= jaar, y = aantal)) +  
+  #geom_point(alpha = 0.6, colour = "gray") +
+  stat_summary(fun.data = "mean_cl_boot",  alpha = 0.8) +
+  geom_smooth(method = "gam", method.args = list(family = poisson),formula = y ~ s(x, bs = "cs", k = 4)) +
+  facet_wrap(~ soort_nl, scale = "free_y") +
+  labs(y = "Aantal getelde individuen", x = "Jaar") +
+  theme(legend.position = "bottom") +
+  lims(y = c(0, NA))
+```
+
+```{r, fig.cap= "Gemiddeld aantal getelde individuen per meetcyclus"}
+analyseset_transect %>%
+  filter(duur_meetcyclus > 1) %>%
+  ggplot(aes(x= periode, y = aantal)) +  
+  #geom_point(alpha = 0.6, colour = "gray") +
+  stat_summary(fun.data = "mean_cl_boot",  alpha = 0.8) +
+  facet_wrap(~ soort_nl, scale = "free") +
+  labs(y = "Aantal getelde individuen", x = "Jaar") +
+  theme(legend.position = "bottom", axis.text.x = element_text(angle = 45)) +
+  lims(y = c(0, NA))
+```
+
+
+### Gemiddelde getelde aantallen per jaar en per locatie
+
+```{r }
+plot <- analyseset_transect %>%
+  filter(meetnet == "Rivierrombout") %>%
+  group_by(meetnet, locatie, jaar) %>%
+  summarise(mean_aantal = mean(aantal)) %>%
+  ungroup() %>%
+  ggplot(aes(x = jaar, y = mean_aantal, group = locatie)) +
+  geom_point(alpha = 0.6) +
+  geom_line(alpha = 0.6) +
+  lims(y = c(0, NA))
+  
+library(plotly)
+  ggplotly(plot)
+```
+
+```{r }
+analyseset_gebied %>%
+  filter(meetnet == "Kempense heidelibel") %>%
+  group_by(meetnet, locatie, jaar) %>%
+  summarise(mean_aantal = mean(aantal)) %>%
+  ungroup() %>%
+  ggplot(aes(x = jaar, y = mean_aantal)) +
+  geom_point(alpha = 0.6) +
+  facet_wrap(meetnet ~ locatie, scales = "free_y") +
+  lims(y = c(0, NA))
+```
+
+```{r }
+analyseset_gebied %>%
+  filter(meetnet == "Speerwaterjuffer") %>%
+  group_by(meetnet, locatie, jaar) %>%
+  summarise(mean_aantal = mean(aantal)) %>%
+  ungroup() %>%
+  ggplot(aes(x = jaar, y = mean_aantal)) +
+  geom_point(alpha = 0.6) +
+  facet_wrap(meetnet ~ locatie, scales = "free_y") +
+  lims(y = c(0, NA))
+```
