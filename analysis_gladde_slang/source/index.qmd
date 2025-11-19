@@ -1,6 +1,8 @@
 ---
-title: "Datverkenning gladde slang"
-format: html
+title: "Dataverkenning gladde slang"
+format: 
+  html:
+    embed-resources: true
 editor: source
 author: "Toon Westra"
 date: "2025-07-22"
