@@ -5,8 +5,10 @@
 
 ```{r}
 
-name_analyseset <- "analyseset_vlinders_imago_transect"
-versie <- "vlinders_imago_transect_2025-11-03"
+name_analysis2 <- "vlinders_imago_transect"
+
+name_analyseset <- str_c("analyseset_", name_analysis2)
+versie <- str_c(name_analysis2, "_2025-11-05")
 
 analyseset_transect <- read_vc(file = name_analyseset,
                                root = str_c("../output/analyseset/", versie))
@@ -131,7 +133,10 @@ indexmodel_1 <- models_inla$indexmodel
 ```{r}
 
 analyseset_transect <- analyseset_transect %>%
-  filter(!((meetnet == "Klaverblauwtje") & (jaar <= 2020))) # pas vanaf 2021 meerdere locaties geteld
+  filter(!((meetnet == "Klaverblauwtje") & (jaar <= 2020))) %>% # pas vanaf 2021 meerdere locaties geteld
+  group_by(meetnet, meetcyclus) %>%
+  filter(n_distinct(jaar) == duur_meetcyclus) %>%
+  ungroup()
 
 seed <- 15486
 
@@ -139,20 +144,20 @@ analyseset_transect_by_species <- analyseset_transect %>%
   group_by(meetnet) %>%
   nest() %>%
   mutate(offset_var = "log_section_100",
-         use_seed = seed)
+         use_seed = seed,
+         use_meetcyclus = FALSE)
 
 models_inla <- analyseset_transect_by_species %>%
-  mutate(indexmodel = pmap(list(data, offset_var), fit_indexmodel_rw_nbinom_inla),
+  mutate(indexmodel = pmap(list(data, offset_var, use_meetcyclus), fit_indexmodel_rw_nbinom_inla),
          trendmodel = map2(data, offset_var, fit_trendmodel_rw_nbinom_inla))
 
 results_indexmodel <- models_inla %>%
-  transmute(index = pmap(list(data, indexmodel, use_seed), derive_index_rw_inla)) %>%
+  transmute(index = pmap(list(data, indexmodel, use_meetcyclus, use_seed), derive_index_rw_inla)) %>%
   unnest(cols = c(meetnet, index))
 
-results_trendmodel  <- models_inla %>%
+results_trendmodel_jaar  <- models_inla %>%
   transmute(trend = map2(data, trendmodel, derive_trend)) %>%
-  select(meetnet, trend) %>%
-  unnest()
+  unnest(cols = c(meetnet, trend))
 
 waic_index  <- models_inla %>%
   transmute(waic_index =  map2(data, indexmodel, get_waic)) %>%
@@ -180,78 +185,57 @@ results_waic <- bind_rows(waic_index,
 #### Meetcyclus
 
 ```{r}
+
 analyseset_meetcyclus <- analyseset_transect %>%
-  filter(meetnet %in% c("Heivlinder", "Argusvlinder", "Oranje zandoogje")) %>%
-  mutate(start_jaar = ifelse(meetnet %in% c("Heivlinder", "Argusvlinder"), 2016, 2017),
-         duur_cyclus = 3,
-         meetcyclus_i = ceiling((jaar - start_jaar + 1) / duur_cyclus)) %>%
-  group_by(meetnet, meetcyclus_i) %>%
-  mutate(jaar_min = min(jaar),
-         jaar_max = max(jaar),
-         doy = as.numeric(format(datum, "%j"))) %>%
-  ungroup() 
+  filter(duur_meetcyclus > 1) %>%
+  group_by(meetnet, meetcyclus) %>%
+  mutate(periode = str_c(min(jaar), "_", min(jaar) + duur_meetcyclus - 1)) %>%
+  ungroup() %>%
+  mutate(locatie = as.factor(locatie),
+         doy_scaled = doy - min(doy))
 
-analyseset_meetcyclus_heivlinder <- analyseset_meetcyclus %>%
-  filter(meetnet == "Heivlinder") %>%
-  mutate(jaar_scaled = jaar - min(jaar),
-         locatie = as.factor(locatie),
-         doy_scaled2 = doy - min(doy),
-         meetcyclus = str_c(jaar_min, "_", jaar_min + duur_cyclus - 1),
-         meetcyclus = factor(meetcyclus))
-
-indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ meetcyclus  + 
-                                f(doy_scaled2, model = "rw2", 
+indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ periode  + 
+                                f(doy_scaled, model = "rw2", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
                                  f(locatie, model = "iid", 
                                    hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                               family = "nbinomial",
-                              data = analyseset_meetcyclus_heivlinder,
+                              data = analyseset_meetcyclus %>%
+                                filter(meetnet == "Heivlinder"),
                               offset = log_section_100,
                               control.compute = list(config = TRUE, waic = TRUE),
                               control.predictor = list(compute = TRUE))
 
-set.seed(54545)
-index_meetcyclus_hv <- derive_index_meetcyclus_inla(analyseset_meetcyclus_heivlinder, 
-                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
-                             indexmodel_doyrw2_iid_meetcyclus, set_seed = seed)
+seed <- 551515
 
-analyseset_meetcyclus_argusvlinder <- analyseset_meetcyclus %>%
-  filter(meetnet == "Argusvlinder") %>%
-  mutate( jaar_scaled = jaar - min(jaar),
-         locatie = as.character(locatie),
-         locatie = as.factor(locatie),
-         doy_scaled2 = doy - min(doy),
-         meetcyclus = str_c(jaar_min, "_", jaar_min + duur_cyclus - 1),
-         meetcyclus = factor(meetcyclus))
+index_meetcyclus_hv <- derive_index_meetcyclus_inla(
+  indexmodel_nbinom_inla = indexmodel_doyrw2_iid_meetcyclus,
+  function_eval = function(...) {c(exp(periode2019_2021), exp(periode2022_2024))},
+  set_seed = seed)
 
-indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ meetcyclus  + 
-                                f(doy_scaled2, model = "rw2", 
+indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ periode  + 
+                                f(doy_scaled, model = "rw2", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
                                  f(locatie, model = "iid", 
                                    hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                               family = "nbinomial",
-                              data = analyseset_meetcyclus_argusvlinder,
+                              data = analyseset_meetcyclus %>%
+                                filter(meetnet == "Argusvlinder"),
                               offset = log_section_100,
                               control.compute = list(config = TRUE, waic = TRUE),
                               control.predictor = list(compute = TRUE))
 
-set.seed(54545)
-index_meetcyclus_av <- derive_index_meetcyclus_inla(analyseset_meetcyclus_argusvlinder, 
-                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
-                             indexmodel_doyrw2_iid_meetcyclus, set_seed = seed)
+index_meetcyclus_av <- derive_index_meetcyclus_inla(
+  indexmodel_nbinom_inla = indexmodel_doyrw2_iid_meetcyclus,
+  function_eval = function(...) {c(exp(periode2019_2021), exp(periode2022_2024))},
+  set_seed = seed)
 
 analyseset_meetcyclus_oz <- analyseset_meetcyclus %>%
   filter(meetnet == "Oranje zandoogje") %>%
-  filter(jaar <= 2022) %>%
-  mutate( jaar_scaled = jaar - min(jaar),
-         locatie = as.character(locatie),
-         locatie = as.factor(locatie),
-         doy_scaled2 = doy - min(doy),
-         meetcyclus = str_c(jaar_min, "_", jaar_min + duur_cyclus - 1),
-         meetcyclus = factor(meetcyclus))
+  filter(jaar <= 2022)
 
-indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ meetcyclus  + 
-                                f(doy_scaled2, model = "rw2", 
+indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ periode  + 
+                                f(doy_scaled, model = "rw2", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
                                  f(locatie, model = "iid", 
                                    hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
@@ -262,13 +246,24 @@ indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ meetcyclus  +
                               control.predictor = list(compute = TRUE))
 
 set.seed(54545)
-index_meetcyclus_oz <- derive_index_meetcyclus_inla(analyseset_meetcyclus_oz, 
-                                                    function_eval = function(...) {c(exp(meetcyclus2020_2022))},
-                             indexmodel_doyrw2_iid_meetcyclus, set_seed = seed)
+
+index_meetcyclus_oz <- derive_index_meetcyclus_inla(
+  indexmodel_nbinom_inla = indexmodel_doyrw2_iid_meetcyclus,
+  function_eval = function(...) {c(exp(periode2020_2022))},
+  set_seed = seed)
 
 result_indexmodel_meetcyclus <- index_meetcyclus_av %>%
   bind_rows(index_meetcyclus_hv) %>%
   bind_rows(index_meetcyclus_oz)
+
+models_trend_meetcyclus <- analyseset_transect_by_species %>%
+  filter(meetnet %in% analyseset_meetcyclus$soort_nl) %>%
+  mutate(use_meetcyclus = TRUE) %>%
+  mutate(trendmodel = pmap(list(data, offset_var, use_meetcyclus), fit_trendmodel_rw_nbinom_inla))
+
+results_trendmodel_meetcyclus  <- models_trend_meetcyclus %>%
+  transmute(trend = pmap(list(data, trendmodel, use_meetcyclus), derive_trend)) %>%
+  unnest(cols = c(meetnet, trend))
 
 ```
 
@@ -282,13 +277,18 @@ results_indexmodel %>%
          strict = FALSE)
 
 result_indexmodel_meetcyclus %>%
-  write_vc(file = str_c("results_indexmodel_meetcyclus", name_analysis2), 
+  write_vc(file = str_c("results_indexmodel_meetcyclus_", name_analysis2), 
          root = "../output/temp", 
          sorting = c("parameter", "soort_nl", "meetcyclus"),
          strict = FALSE)
 
-results_trendmodel %>%
+results_trendmodel_jaar %>%
   write_vc(file = str_c("results_trendmodel_", name_analysis2), 
+         root = "../output/temp", 
+         sorting = c("parameter", "soort_nl"), strict = FALSE)
+
+results_trendmodel_meetcyclus %>%
+  write_vc(file = str_c("results_trendmodel_meetcyclus_", name_analysis2), 
          root = "../output/temp", 
          sorting = c("parameter", "soort_nl"), strict = FALSE)
 
@@ -298,47 +298,6 @@ results_waic %>%
          sorting = c("parameter", "soort_nl"),
          strict = FALSE)
 
-```
-```{r}
-results_indexmodel <- read_vc(root = "../output/temp", file = "results_indexmodel_vlinders_imago_transect")
-results_indexmodel_meetcyclus <- read_vc(root = "../output/temp", file = "results_indexmodel_meetcyclusvlinders_imago_transect")
-
-index_jaar <- results_indexmodel %>%
-  filter(meetnet %in% c("Heivlinder", "Argusvlinder", "Aardbeivlinder"),
-         parameter == "index") %>%
-  select( parameter, soort_nl, soort_wet, jaar, ref_jaar, mean, lcl_0.90, ucl_0.90) %>%
-  mutate(mean = ifelse(is.na(mean), 1, mean),
-         mean = round(mean, 3),
-         lcl_0.90 = round(lcl_0.90, 3),
-         ucl_0.90 = round(ucl_0.90, 3))
-
-index_jaar %>%
-  write_csv2("../output/index_jaar_vlinders.csv",na = "")
-
-index_meetcyclus_vlinders_ref <- results_indexmodel_meetcyclus %>%
-   filter(soort_nl %in% c("Argusvlinder", "Heivlinder"),
-         parameter == "index") %>% 
-  distinct(parameter, soort_nl, soort_wet) %>%
-  mutate(meetcyclus = "2016-2018",
-         meetcyclus_ref = "2016-2018",
-         mean = 1)
-
-index_meetcyclus_vlinders <- results_indexmodel_meetcyclus %>%
-  filter(soort_nl %in% c("Argusvlinder", "Heivlinder"),
-         parameter == "index") %>%
-  select(parameter, soort_nl, soort_wet, meetcyclus, meetcyclus_ref, mean, lcl_0.90, ucl_0.90) %>%
-  mutate(meetcyclus = str_remove(meetcyclus, "meetcyclus"),
-         meetcyclus = str_replace(meetcyclus, "_", "-"),
-         meetcyclus_ref = "2016-2018") %>%
-  bind_rows(index_meetcyclus_vlinders_ref) %>%
-  arrange(meetcyclus) %>%
-  mutate( mean = round(mean, 3),
-         lcl_0.90 = round(lcl_0.90, 3),
-         ucl_0.90 = round(ucl_0.90, 3)) %>%
-  arrange(soort_nl)
-
-index_meetcyclus_vlinders %>%
-  write_csv2("../output/index_meetcyclus_vlinders.csv",na = "")
 ```
 
 ### Validatie
@@ -432,7 +391,8 @@ locaties_argus <- get_locations_smp() %>%
   select(meetnet, locatie, provincie = name) %>%
   st_drop_geometry()
 
-analyseset_meetcyclus_argusvlinder_regio <- analyseset_meetcyclus_argusvlinder %>%
+analyseset_meetcyclus_argusvlinder_regio <- analyseset_meetcyclus %>%
+  filter(meetnet == "Argusvlinder") %>%
   left_join(locaties_argus, by = c("meetnet", "locatie")) %>%
   # filter(provincie %in% c("Oost-Vlaanderen", "Antwerpen", "West-Vlaanderen")) %>%
   mutate(regio = ifelse(provincie == "West-Vlaanderen", "Kustduinen en polders", 
@@ -442,23 +402,19 @@ analyseset_locations_by_regio <- analyseset_meetcyclus_argusvlinder_regio %>%
   group_by(meetnet, regio) %>%
   nest() %>%
   mutate(offset_var = "log_section_100",
-         use_seed = seed)
+         use_seed = seed,
+         use_meetcyclus = TRUE)
 
 models_inla_regio <- analyseset_locations_by_regio %>%
-  mutate(indexmodel = pmap(list(data, offset_var), fit_indexmodel_rw_nbinom_inla),
-         trendmodel = map2(data, offset_var, fit_trendmodel_rw_nbinom_inla))
-
-results_indexmodel_argusvlinder_regio <- models_inla_regio %>%
-  transmute(index = pmap(list(data, indexmodel, use_seed), derive_index_rw_inla)) %>%
-  unnest(cols = c(meetnet, index))
+  mutate(trendmodel = pmap(list(data, offset_var, use_meetcyclus), fit_trendmodel_rw_nbinom_inla))
 
 results_trendmodel_argusvlinder_regio  <- models_inla_regio %>%
-  transmute(trend = map2(data, trendmodel, derive_trend)) %>%
+  transmute(trend = pmap(list(data, trendmodel, use_meetcyclus), derive_trend)) %>%
   select(meetnet, regio, trend) %>%
   unnest()
 
-indexmodel_doyrw2_iid_meetcyclus_AH <- inla(aantal ~ meetcyclus  + 
-                                f(doy_scaled2, model = "rw2", 
+indexmodel_doyrw2_iid_meetcyclus_AH <- inla(aantal ~ periode  + 
+                                f(doy_scaled, model = "rw2", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
                                  f(locatie, model = "iid", 
                                    hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
@@ -469,8 +425,8 @@ indexmodel_doyrw2_iid_meetcyclus_AH <- inla(aantal ~ meetcyclus  +
                               control.compute = list(config = TRUE, waic = TRUE),
                               control.predictor = list(compute = TRUE))
 
-indexmodel_doyrw2_iid_meetcyclus_KP <- inla(aantal ~ meetcyclus  + 
-                                f(doy_scaled2, model = "rw2", 
+indexmodel_doyrw2_iid_meetcyclus_KP <- inla(aantal ~ periode  + 
+                                f(doy_scaled, model = "rw2", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
                                  f(locatie, model = "iid", 
                                    hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
@@ -482,18 +438,19 @@ indexmodel_doyrw2_iid_meetcyclus_KP <- inla(aantal ~ meetcyclus  +
                               control.predictor = list(compute = TRUE))
 
 index_meetcyclus_av_ah <- derive_index_meetcyclus_inla(analyseset_meetcyclus_argusvlinder_regio, 
-                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
+                                                    function_eval = function(...) {c(exp(periode2019_2021), exp(periode2022_2024))},
                              indexmodel_doyrw2_iid_meetcyclus_AH, set_seed = seed) %>%
   mutate(regio = "Antwerpse haven")
 
 index_meetcyclus_av_kp <- derive_index_meetcyclus_inla(analyseset_meetcyclus_argusvlinder_regio, 
-                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
+                                                    function_eval = function(...) {c(exp(periode2019_2021), exp(periode2022_2024))},
                              indexmodel_doyrw2_iid_meetcyclus_KP, set_seed = seed) %>%
   mutate(regio = "Kustduinen en polders")
 
 results_index_meetcyclus_av_regio <- index_meetcyclus_av_ah %>%
   bind_rows(index_meetcyclus_av_kp)
 ```
+
 #### Heivlinder
 
 ```{r}
@@ -506,12 +463,35 @@ locaties_hv <- get_locations_smp() %>%
   select(meetnet, locatie, provincie = name) %>%
   st_drop_geometry()
 
-analyseset_meetcyclus_heivlinder_kust <- analyseset_meetcyclus_heivlinder %>%
+analyseset_meetcyclus_heivlinder_regio <- analyseset_meetcyclus %>%
+  filter(meetnet == "Heivlinder") %>%
+  left_join(locaties_hv, by = c("meetnet", "locatie")) %>%
+  # filter(provincie %in% c("Oost-Vlaanderen", "Antwerpen", "West-Vlaanderen")) %>%
+  mutate(regio = ifelse(provincie == "West-Vlaanderen", "Kustduinen en polders", 
+                        "Antwerpen en Limburg"))
+
+analyseset_locations_by_regio <- analyseset_meetcyclus_heivlinder_regio %>%
+  group_by(meetnet, regio) %>%
+  nest() %>%
+  mutate(offset_var = "log_section_100",
+         use_seed = seed,
+         use_meetcyclus = TRUE)
+
+models_inla_regio <- analyseset_locations_by_regio %>%
+  mutate(trendmodel = pmap(list(data, offset_var, use_meetcyclus), fit_trendmodel_rw_nbinom_inla))
+
+results_trendmodel_heivlinder_regio  <- models_inla_regio %>%
+  transmute(trend = pmap(list(data, trendmodel, use_meetcyclus), derive_trend)) %>%
+  select(meetnet, regio, trend) %>%
+  unnest()
+
+analyseset_meetcyclus_heivlinder_kust <- analyseset_meetcyclus %>%
+  filter(meetnet == "Heivlinder") %>%
   left_join(locaties_hv, by = c("meetnet", "locatie")) %>%
   filter(provincie == "West-Vlaanderen")
 
-indexmodel_hv_kust <- inla(aantal ~ meetcyclus  + 
-                                f(doy_scaled2, model = "rw2", 
+indexmodel_hv_kust <- inla(aantal ~ periode  + 
+                                f(doy_scaled, model = "rw2", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
                                  f(locatie, model = "iid", 
                                    hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
@@ -523,16 +503,17 @@ indexmodel_hv_kust <- inla(aantal ~ meetcyclus  +
 seed <- 5654
 
 index_meetcyclus_hv_kust <- derive_index_meetcyclus_inla(analyseset_meetcyclus_heivlinder_kust, 
-                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
+                                                    function_eval = function(...) {c(exp(periode2019_2021), exp(periode2022_2024))},
                              indexmodel_hv_kust, set_seed = seed) %>%
   mutate(regio = "Kust")
 
-analyseset_meetcyclus_heivlinder_antw_lim <- analyseset_meetcyclus_heivlinder %>%
+analyseset_meetcyclus_heivlinder_antw_lim <- analyseset_meetcyclus %>%
+  filter(meetnet == "Heivlinder") %>%
   left_join(locaties_hv, by = c("meetnet", "locatie")) %>%
   filter(provincie != "West-Vlaanderen")
 
-indexmodel_hv_antw_lim <- inla(aantal ~ meetcyclus  + 
-                                f(doy_scaled2, model = "rw2", 
+indexmodel_hv_antw_lim <- inla(aantal ~ periode  + 
+                                f(doy_scaled, model = "rw2", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
                                  f(locatie, model = "iid", 
                                    hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
@@ -544,20 +525,43 @@ indexmodel_hv_antw_lim <- inla(aantal ~ meetcyclus  +
 seed <- 551515
 
 index_meetcyclus_hv_antw_lim  <- derive_index_meetcyclus_inla(analyseset_meetcyclus_heivlinder_antw_lim, 
-                                                    function_eval = function(...) {c(exp(meetcyclus2019_2021), exp(meetcyclus2022_2024))},
+                                                    function_eval = function(...) {c(exp(periode2019_2021), exp(periode2022_2024))},
                              indexmodel_hv_antw_lim, set_seed = seed) %>%
   mutate(regio = "Antwerpen en Limburg")
 
-index_meetcyclus_hv_regio <- index_meetcyclus_hv_antw_lim %>%
+results_index_meetcyclus_hv_regio <- index_meetcyclus_hv_antw_lim %>%
   bind_rows(index_meetcyclus_hv_kust)
+```
+
+```{r}
+
+results_index_regio <- results_index_meetcyclus_av_regio %>%
+  bind_rows(results_index_meetcyclus_hv_regio) 
+
+results_index_regio %>%
+  write_vc(file = str_c("results_indexmodel_regio_", name_analysis2), 
+         root = "../output/temp", 
+         sorting = c("parameter", "soort_nl", "meetcyclus", "regio"),
+         strict = FALSE)
+
+results_trend_regio <- results_trendmodel_argusvlinder_regio %>%
+  bind_rows(results_trendmodel_heivlinder_regio) %>%
+  ungroup()
+
+results_trend_regio %>%
+  write_vc(file = str_c("results_trend_regio_", name_analysis2), 
+         root = "../output/temp", 
+         sorting = c("parameter", "soort_nl", "regio"),
+         strict = FALSE)
 ```
 
 ## Gebiedstelling
 
 ```{r}
+name_analysis0 <- "vlinders_imago_gebied"
 
-name_analyseset <- "analyseset_vlinders_imago_gebied"
-versie <- "vlinders_imago_gebied_2025-11-03"
+name_analyseset <- str_c("analyseset_", name_analysis0)
+versie <- str_c(name_analysis0, "_2025-11-05")
 
 analyseset_gebied <- read_vc(file = name_analyseset,
                                root = str_c("../output/analyseset/", versie))
@@ -577,14 +581,15 @@ set.seed(seed)
 analyseset_locations_by_species <- analyseset_gebied %>%
   group_by(meetnet) %>%
   nest() %>%
-  mutate(use_seed = seed)
+  mutate(use_seed = seed,
+         use_meetcyclus = FALSE)
 
 models_inla <- analyseset_locations_by_species %>%
   mutate(indexmodel = map(data, fit_indexmodel_rw_nbinom_inla),
          trendmodel = map(data, fit_trendmodel_rw_nbinom_inla))
 
 results_indexmodel_gebied <- models_inla %>%
-  transmute(index = pmap(list(data, indexmodel, use_seed), derive_index_rw_inla)) %>%
+  transmute(index = pmap(list(data, indexmodel, use_meetcyclus, use_seed), derive_index_rw_inla)) %>%
   unnest(cols = c(meetnet, index))
 
 results_trendmodel_gebied  <- models_inla %>%
@@ -715,6 +720,18 @@ iid_checked_plot %>%
 
 
 ## Eitelling 
+
+```{r}
+
+name_analysis3 <- "vlinders_eitelling"
+
+name_analyseset <- str_c("analyseset_", name_analysis3)
+versie <- str_c(name_analysis3, "_2025-11-05")
+
+analyseset_gb <- read_vc(file = name_analyseset,
+                               root = str_c("../output/analyseset/", versie))
+
+```
 
 ### Keuze model
 
@@ -929,18 +946,14 @@ iid_checked_plot %>%
 ## Resultaten
 
 
+### Vergelijking tussen de jaren
+
 ```{r}
 results_indexmodel_all <- bind_rows(results_indexmodel,
                                 results_indexmodel_gebied,
                                 results_indexmodel_eitelling)
-
-results_trendmodel_all <- bind_rows(results_trendmodel,
-                                results_trendmodel_gebied,
-                                results_trendmodel_eitelling)
 ```
 
-
-### Vergelijking tussen de jaren
 
 ```{r}
 
@@ -1043,51 +1056,6 @@ ggsave("../output/figures/2024/verschil_jaar_argusvlinder.jpg",
        width = 5, height = 4)
 ```
 
-```{r, eval = FALSE}
-verschil_jaren_ref_regio <- results_indexmodel_argusvlinder_regio %>%
-  filter(parameter == "index") %>%
-  filter(!is.na(mean)) %>%
-  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
-         klasse = format(klasse, type = "markdown"))
-  
-verschil_jaren_ref_add <- verschil_jaren_ref_regio %>%
-  distinct(soort_nl, soort_wet, regio, ref_jaar) %>%
-  mutate(jaar = ref_jaar,
-        mean = 1,
-         klasse = "R") 
-
-verschil_jaren_ref_regio <- verschil_jaren_ref_regio %>%
-  bind_rows(verschil_jaren_ref_add) %>%
-  mutate(mean_log = log(mean) + 1,
-          lcl_0.90_log = log(lcl_0.90) + 1,
-         ucl_0.90_log = log(ucl_0.90) + 1)
-  
-```
-
-```{r, fig.width= 7, fig.height= 4, eval = FALSE}
-verschil_jaren_ref_regio %>%
-  filter(meetnet == "Argusvlinder") %>%
-  filter(regio != "Limburg") %>%
-  mutate(klasse = str_remove_all(klasse, "`")) %>%
-  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
-  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
-  geom_point(size = 7, alpha = 0.6) +
-  geom_hline(yintercept = 1, linetype = 2) +
-  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
-  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
-  geom_text(size = 4, colour = "black") +
-  labs(y = "Verschil t.o.v. referentiejaar", x = "Jaar") +
-  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
-  scale_color_manual(values = klasse_color) +
-  theme(legend.position = "hide") +
-  facet_wrap(~regio)
-
-ggsave("../output/figures/2024/verschil_jaar_argusvlinder_regio.jpg",
-       width = 7, height = 4)
-```
-
-
-
 ```{r}
 verschil_vorigjaar <- results_indexmodel_all %>%
   filter(parameter == "diff_previous_year") %>%
@@ -1135,7 +1103,7 @@ verschil_vorigjaar %>%
   facet_wrap(~soort_nl, scales = "free_y")
 ```
 
-```{r, fig.width= 5, fig.height= 4}
+```{r, fig.width= 5, fig.height= 4, eval = FALSE}
 verschil_vorigjaar %>%
   filter(meetnet == "Argusvlinder") %>%
   mutate(klasse = str_remove_all(klasse, "`")) %>%
@@ -1157,57 +1125,20 @@ ggsave("../output/figures/2024/verschil_jaren_opeenvolgend_argusvlinder.jpg",
        width = 5, height = 4)
 ```
 
-```{r, eval = FALSE}
-verschil_vorigjaar_regio <- results_indexmodel_argusvlinder_regio %>%
-  filter(parameter == "diff_previous_year") %>%
-  mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
-  filter(!is.na(mean)) %>%
-  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
-         klasse = format(klasse, type = "markdown")) %>%
-  mutate(mean_log = log(mean) + 1,
-          lcl_0.90_log = log(lcl_0.90) + 1,
-         ucl_0.90_log = log(ucl_0.90) + 1)
-  
-```
-
-```{r, fig.width= 7, fig.height= 4, eval = FALSE}
-verschil_vorigjaar_regio %>%
-  filter(meetnet == "Argusvlinder") %>%
-  mutate(klasse = str_remove_all(klasse, "`")) %>%
-  ggplot(aes(x = periode, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
-  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
-  geom_point(size = 7, alpha = 0.6) +
-  geom_hline(yintercept = 1, linetype = 2) +
-  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
-  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
-  geom_text(size = 4, colour = "black") +
-  labs(y = "Verschil opeenvolgende jarenr", x = "Jaar") +
-  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
-  scale_color_manual(values = klasse_color) +
-  theme(legend.position = "hide",
-        axis.text.x = element_text(angle = 45)) +
-  facet_wrap(~regio)
-
-ggsave("../output/figures/2024/verschil_jaren_opeenvolgend_argusvlinder.jpg",
-       width = 5, height = 4)
-```
-
 ### Vergelijking tussen de meetcycli
 
 ```{r}
 verschil_meetcyclus <- result_indexmodel_meetcyclus %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
-         klasse = format(klasse, type = "markdown"),
-         meetcyclus = str_remove(meetcyclus, "meetcyclus"),
-         meetcyclus = str_replace(meetcyclus, "_", "-")) %>%
+         klasse = format(klasse, type = "markdown")) %>%
   mutate(mean_log = log(mean) + 1,
-          lcl_0.90_log = log(lcl_0.90) + 1,
+         lcl_0.90_log = log(lcl_0.90) + 1,
          ucl_0.90_log = log(ucl_0.90) + 1)
 
 verschil_meetcyclus_add <- verschil_meetcyclus %>%
   distinct(soort_nl, soort_wet) %>%
   mutate(klasse = "R",
-         meetcyclus = ifelse(soort_nl == "Oranje zandoogje", "2017-2019", "2016-2018"),
+         periode = ifelse(soort_nl == "Oranje zandoogje", "2017-2019", "2016-2018"),
          mean = 0,
          mean_log = 1)
   
@@ -1215,8 +1146,8 @@ verschil_meetcyclus_add <- verschil_meetcyclus %>%
 
 ```{r}
 verschil_meetcyclus %>%
-  select(soort_nl, soort_wet, meetcyclus, klasse) %>%
-  spread(key = "meetcyclus", value = "klasse") %>%
+  select(soort_nl, soort_wet, periode, klasse) %>%
+  spread(key = "periode", value = "klasse") %>%
   rename("Nederlandse naam" = soort_nl) %>%
   kbl(caption = "Verschil in aantallen per meetcyclus",
       booktabs = TRUE,
@@ -1232,7 +1163,7 @@ verschil_meetcyclus <- verschil_meetcyclus %>%
 
 verschil_meetcyclus %>%
   mutate(klasse = str_remove_all(klasse, "`")) %>%
-  ggplot(aes(x = meetcyclus, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  ggplot(aes(x = periode, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
   geom_errorbar(width = 0, size = 10, alpha = 0.3) +
   geom_point(size = 7, alpha = 0.6) +
   geom_hline(yintercept = 1, linetype = 2) +
@@ -1247,7 +1178,7 @@ verschil_meetcyclus %>%
   facet_wrap(~soort_nl, scales = "free")
 ```
 
-```{r, fig.width= 5, fig.height= 4}
+```{r, fig.width= 5, fig.height= 4, eval = FALSE}
 verschil_meetcyclus %>%
   filter(soort_nl == "Heivlinder") %>%
   mutate(klasse = str_remove_all(klasse, "`")) %>%
@@ -1286,8 +1217,6 @@ verschil_meetcyclus_add <- index_meetcyclus_hv_regio %>%
   
 ```
 
-
-
 ```{r, fig.width= 8, eval = FALSE}
 
 verschil_meetcyclus_regio <- verschil_meetcyclus_regio %>%
@@ -1314,12 +1243,20 @@ ggsave("../output/figures/2024/verschil_meetcyclus_heivlinder_regio.jpg",
 
 ### Trends
 
+```{r}
+results_trendmodel_all <- bind_rows(results_trendmodel_jaar %>%
+                                      filter(!soort_nl %in% c("Heivlinder", "Argusvlinder", "Oranje zandoogje")),
+                                    results_trendmodel_meetcyclus,
+                                    results_trendmodel_gebied,
+                                    results_trendmodel_eitelling)
+```
+
 ```{r, fig.cap = "Schatting en classificatie van trends voor de verschillende soorten met 90%-betrouwbaarheidsinterval"}
 klasse_color <- c("++" = inbo_groen, "+" = inbo_groen, "--" = inbo_rood, "-" = inbo_rood, "?+" = inbo_grijsblauw, "?-" = inbo_grijsblauw, "?" = inbo_grijsblauw, "~" = inbo_geelgr, "+~" = inbo_groen, "-~" = inbo_rood, "R" = inbo_grijsblauw)
 
 trend <- results_trendmodel_all %>%
   filter(is.na(model_description) | model_description == "without offset") %>%
-  filter(parameter == "trend_average") %>%
+  filter(parameter %in% c("trend_average", "trend_jaar")) %>%
   mutate(mean_log = log(mean/100 + 1),
           lcl_0.90_log = log(lcl_0.90/100 + 1),
          ucl_0.90_log = log(ucl_0.90/100 + 1)) %>%
@@ -1381,7 +1318,7 @@ result_waic_all %>%
 
 ```{r}
 
-names_analysis <- c(name_analysis0, name_analysis1, name_analysis2, name_analysis3)
+names_analysis <- c(name_analysis0, name_analysis2, name_analysis3)
 
 mypath <- "../output/temp"
 
@@ -1457,6 +1394,14 @@ if (new_analysis) {
 
 
 ```
+## Overzicht
+
+```{r}
+read_vc(file = "analysis_hashes", root = "../output") %>%
+  datatable(rownames = FALSE)
+```
+
+
 
 ## Gebruikte functies
 
