@@ -1,0 +1,8 @@
+# Inleiding
+
+Dit technisch rapport overloopt de stappen in de analyse van de libellenmeetnetten:
+
+-   selectie van de dataset gebruikt voor de analyse (=analyseset)
+-   keuze model
+-   validatie model
+-   resultaten

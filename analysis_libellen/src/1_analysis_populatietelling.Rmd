@@ -1,5 +1,3 @@
-
-
 # Libellen - Populatietelling per locatie"
 
 ```{r}
@@ -25,9 +23,6 @@ locatie_detail <- get_locations_smp() %>%
 visits <- get_visits_smp("libellen")
 counts <- get_counts_smp(species_group = "libellen", count_aggregation = "individuals") %>%
   filter(primaire_soort)
-
-unique(counts$activiteit)
-unique(counts$levensstadium)
 
 count_period <- get_characteristics_smp(species_group = "libellen") %>%
   mutate(doy_min = as.numeric(format(start_telperiode, "%j")),

@@ -1,9 +1,45 @@
+# Analyse
 
-# Modellering voor alle soorten
+```{r}
+#| label: setup  
+#| output: false
+#| cache: false
+
+library(knitr)
+options(knitr.kable.NA = '')
+
+library(tidyverse)
+library(INBOtheme)
+library(INBOmd)
+library(sf)
+library(INLA)
+library(inlatools)
+library(kableExtra)
+library(units)
+library(effectclass)
+library(openssl)
+library(git2rdata)
+library(n2khab)
+library(DT)
+
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::lag)
+conflicted::conflicts_prefer(tidyr::expand)
+```
+
+```{r}
+#| label: load-functions
+
+path_functions <- fileman_up("soortenmeetnetten-analysis")
+
+source(file.path(path_functions, "source/functions_smp.R"))
+
+```
 
 ## Transecttelling
 
 ```{r}
+#| label: load-data
 
 name_analysis2 <- "libellen_transecten"
 
@@ -15,21 +51,26 @@ analyseset_transect <- read_vc(file = name_analyseset,
 
 ```
 
-
 ### Keuze model
 
-We opteren voor een model met: 
+We kiezen een model met volgende kenmerken:
 
-+ seizoenseffect via tweede orde random walk voor locatie
-+ random intercept voor locatie
-+ jaar als continue variabele voor trendmodel
-+ jaar als eerste orde random walk  voor indexmodel 
-+ meetcyclus als factor voor indexmodel om meetcycli te vergelijken
-+ het logaritme van van de transectlengte/100 als offset
-
-#### Jaren
+-   Seizoenseffect
+    -   tweede orde random walk voor dagnummer
+-   Locatie-effect
+    -   random intercept voor locatie
+-   Zoekinspanning: het logaritme van van de transectlengte/50 als offset
+-   Tijdseffect
+    -   Meetcyclus = 1 jaar
+        -   Verschillen tussen de jaren: jaar als eerste orde random walk (index per jaar)
+        -   Gemiddelde jaarlijkse verschil: jaar als continue variabele (trend)
+    -   Meetcyclus = 3 jaar
+        -   Verschillen tussen meetcycli: meetcyclus als factor (index per meetcyclus)
+        -   Gemiddelde verschil tussen meetcycli: meetcyclus als continue variabele (trend meetcyclus)
+        -   Trend meetcyclus herrekenen naar jaarlijkse trend.
 
 ```{r}
+#| label: analysis-jaarmodel
 
 seed <- 15486
 
@@ -79,9 +120,8 @@ results_waic <- bind_rows(waic_index,
 
 ```
 
-#### Meetcyclus
-
 ```{r}
+#| label: analysis-meetcyclusmodel
 
 analyseset_meetcyclus <- analyseset_transect %>%
   filter(duur_meetcyclus > 1) %>%
@@ -168,6 +208,8 @@ results_trendmodel_meetcyclus  <- models_trend_meetcyclus %>%
 ```
 
 ```{r}
+#| label: write-result
+#| output: false
 
 results_indexmodel %>%
   filter(parameter != "sample_value") %>%
@@ -200,9 +242,11 @@ results_waic %>%
 
 ```
 
-### Validatie
+### Validatie model
 
 ```{r}
+#| label: validatie
+
 model_validation <- models_inla %>%
   transmute(dispersion_check_model = map(indexmodel, dispersion_check),
             distribution_check_model = map(indexmodel, fast_distribution_check),
@@ -229,6 +273,8 @@ iid_checked <- model_validation %>%
 #### Dispersie
 
 ```{r}
+#| label: fig-dispersie
+#| fig-cap: "Dispersie"
 
 ggplot(data = dispersion, aes(x = dispersion_model)) +
       geom_density() +
@@ -240,6 +286,10 @@ ggplot(data = dispersion, aes(x = dispersion_model)) +
 #### Distributie
 
 ```{r, fig.height= 8}
+
+#| label: fig-distributie
+#| fig-cap: "Distributie"
+
 distribution %>%
   mutate(
       median = .data$ecdf / .data$median,
@@ -260,6 +310,8 @@ distribution %>%
 #### Random effect
 
 ```{r}
+#| label: fig-random-effect
+#| fig-cap: "Random effect"
 
 iid_checked_plot <- iid_checked %>%
   group_by(meetnet) %>%
@@ -275,9 +327,12 @@ iid_checked_plot %>%
       facet_wrap(~meetnet + sigma_tekst, scales = "free")
     
 ```
+
 ## Gebiedstelling
 
 ```{r}
+#| label: load-data-gebied
+
 name_analysis1 <- "libellen_gebiedstelling"
 
 name_analyseset <- str_c("analyseset_", name_analysis1)
@@ -290,9 +345,10 @@ analyseset_gebied <- read_vc(file = name_analyseset,
 
 ### Keuze model
 
-We kiezen voor het zelfde model als bij de transecttellingen maar dan zonder offset.
+We kiezen voor het zelfde model als bij de transecttellingen maar dan zonder offset (geen zoekinspanning bepaald).
 
 ```{r}
+#| label: analysis-gebied
 
 seed <- 20211124
 
@@ -340,6 +396,8 @@ results_waic_gebied <- bind_rows(waic_index_gebied,
 ```
 
 ```{r}
+#| label: results-gebied
+#| output: false
 
 results_indexmodel_gebied %>%
   filter(parameter != "sample_vaue") %>%
@@ -364,12 +422,13 @@ results_waic_gebied %>%
 ### Validatie
 
 ```{r}
+#| label: validatie-gebied
+
 model_validation <- models_inla %>%
   transmute(dispersion_check_model = map(indexmodel, dispersion_check),
             distribution_check_model = map(indexmodel, fast_distribution_check),
             iid_check = map(indexmodel, check_random_effect)
             )
-
 
 dispersion <- model_validation %>%
   transmute(dispersion_data = map(dispersion_check_model, "data"),
@@ -391,17 +450,22 @@ iid_checked <- model_validation %>%
 #### Dispersie
 
 ```{r}
+#| label: fig-dispersie-gebied
+#| fig-cap: Dispersie
 
 ggplot(data = dispersion, aes(x = dispersion_model)) +
       geom_density() +
       geom_vline(data = dispersion, aes(xintercept = dispersion_data), linetype = 2) +
       facet_wrap(~meetnet, scales = "free_x")
-     
+
 ```
 
 #### Distributie
 
 ```{r}
+#| label: fig-distributie-gebied
+#| fig-cap: Distributie
+
 distribution %>%
   mutate(
       median = .data$ecdf / .data$median,
@@ -422,6 +486,8 @@ distribution %>%
 #### Random effect
 
 ```{r}
+#| label: fig-randomeffect-gebied
+#| fig-cap: Random effect
 
 iid_checked_plot <- iid_checked %>%
   group_by(meetnet) %>%
@@ -438,44 +504,16 @@ iid_checked_plot %>%
     
 ```
 
-
 ## Resultaten
 
 ### Vergelijking tussen de jaren
 
 ```{r}
+#| label: results-jaar-ref
+
 results_indexmodel_all <- bind_rows(results_indexmodel,
                                 results_indexmodel_gebied)
-```
 
-
-```{r}
-
-verschillen_refjaar_table <- results_indexmodel_all %>%
-  filter(parameter == "index") %>%
-  filter(!is.na(mean)) %>%
-  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
-         klasse = format(klasse, type = "markdown")) %>%
-  select(soort_nl, soort_wet, ref_jaar, jaar, klasse) %>%
-  spread(key = "jaar", value = "klasse") %>%
-  ungroup() %>%
-  select(-meetnet)
-  
-```
-
-```{r}
-verschillen_refjaar_table %>%
-  select(-soort_wet) %>%
-  rename("Nederlandse naam" = soort_nl,  Referentiejaar = ref_jaar) %>%
-  kbl(caption = "Verschil in aantallen t.o.v. referentiejaar",
-      booktabs = TRUE,
-      escape = FALSE,
-      align = "lcccccc") %>%
-kable_styling() %>%
-add_header_above(c(" " = 2, "Verschil t.o.v. referentiejaar" = 8))
-```
-
-```{r}
 verschil_jaren_ref <- results_indexmodel_all %>%
   filter(parameter == "index") %>%
   filter(!is.na(mean)) %>%
@@ -496,8 +534,11 @@ verschil_jaren_ref <- verschil_jaren_ref %>%
   
 ```
 
+```{r}
+#| label: fig-jaar
+#| fig-cap: Verschillen t.o.v. referentiejaar
+#| fig-height: 9
 
-```{r, fig.height= 11}
 c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
   setNames(
     c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
@@ -510,7 +551,7 @@ labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
 verschil_jaren_ref %>%
   mutate(klasse = str_remove_all(klasse, "`")) %>%
   ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
-  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_errorbar(width = 0, size = 6, alpha = 0.3) +
   geom_point(size = 7, alpha = 0.6) +
   geom_hline(yintercept = 1, linetype = 2) +
   geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
@@ -528,6 +569,8 @@ ggsave("../output/libellen_index.png",
 ```
 
 ```{r}
+#| label: results-jaar-previous
+
 verschil_vorigjaar <- results_indexmodel_all %>%
   filter(parameter == "diff_previous_year") %>%
   mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
@@ -540,26 +583,14 @@ verschil_vorigjaar <- results_indexmodel_all %>%
   
 ```
 
-```{r}
-verschil_vorigjaar %>%
-  select(soort_nl, soort_wet, periode, klasse) %>%
-  spread(key = "periode", value = "klasse") %>%
-  ungroup() %>%
-  select(-meetnet) %>%
-  select(-soort_wet) %>%
-  rename("Nederlandse naam" = soort_nl) %>%
-  kbl(caption = "Verschil in aantallen voor opeenvolgende jaren",
-      booktabs = TRUE,
-      escape = FALSE,
-      align = "lcccccc") %>%
-kable_styling()
-```
-
 ```{r, fig.height=11}
+#| label: fig-jaar-previous
+#| fig-cap: Verschil t.o.v. vorig jaar
+
 verschil_vorigjaar %>%
   mutate(klasse = str_remove_all(klasse, "`")) %>%
   ggplot(aes(x = periode, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
-  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_errorbar(width = 0, size = 6, alpha = 0.3) +
   geom_point(size = 7, alpha = 0.6) +
   geom_hline(yintercept = 1, linetype = 2) +
   geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
@@ -573,11 +604,11 @@ verschil_vorigjaar %>%
   facet_wrap(~soort_nl, scales = "free_y")
 ```
 
-
-
 ### Vergelijking tussen de meetcycli
 
 ```{r}
+#| label: results-meetcyclus
+
 verschil_meetcyclus <- result_indexmodel_meetcyclus %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
          klasse = format(klasse, type = "markdown")) %>%
@@ -591,22 +622,11 @@ verschil_meetcyclus_add <- verschil_meetcyclus %>%
          periode = ifelse(soort_nl == "Oranje zandoogje", "2017-2019", "2016-2018"),
          mean = 0,
          mean_log = 1)
-  
 ```
 
 ```{r}
-verschil_meetcyclus %>%
-  select(soort_nl, soort_wet, periode, klasse) %>%
-  spread(key = "periode", value = "klasse") %>%
-  rename("Nederlandse naam" = soort_nl) %>%
-  kbl(caption = "Verschil in aantallen per meetcyclus",
-      booktabs = TRUE,
-      escape = FALSE,
-      align = "lcccccc") %>%
-kable_styling()
-```
-
-```{r, fig.width= 8}
+#| label: fig-results-meetcyclus
+#| fig-cap: Verschil t.o.v. referntiemeetcyclus
 
 verschil_meetcyclus <- verschil_meetcyclus %>%
   bind_rows(verschil_meetcyclus_add)
@@ -628,19 +648,16 @@ verschil_meetcyclus %>%
   facet_wrap(~soort_nl, scales = "free")
 ```
 
-
-
-
 ### Trends
 
 ```{r}
+#| label: results-trend
+
 results_trendmodel_all <- bind_rows(results_trendmodel_jaar %>%
                                       filter(!soort_nl %in% c("Variabele waterjuffer", "Vroege glazenmaker", "Bosbeekjuffer")),
                                     results_trendmodel_meetcyclus,
                                     results_trendmodel_gebied)
-```
 
-```{r, fig.cap = "Schatting en classificatie van trends voor de verschillende soorten met 90%-betrouwbaarheidsinterval"}
 klasse_color <- c("++" = inbo_groen, "+" = inbo_groen, "--" = inbo_rood, "-" = inbo_rood, "?+" = inbo_grijsblauw, "?-" = inbo_grijsblauw, "?" = inbo_grijsblauw, "~" = inbo_geelgr, "+~" = inbo_groen, "-~" = inbo_rood, "R" = inbo_grijsblauw)
 
 trend <- results_trendmodel_all %>%
@@ -649,13 +666,15 @@ trend <- results_trendmodel_all %>%
           lcl_0.90_log = log(lcl_0.90/100 + 1),
          ucl_0.90_log = log(ucl_0.90/100 + 1)) %>%
   mutate(n_jaar = 6,
-         treshold_low = round((exp(log(0.75)/(n_jaar - 1)) - 1) *100, 1),
-         treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) *100, 1)) %>%
+         treshold_low = round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
+         treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1)) %>%
   mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
 
 ```
 
 ```{r}
+#| label: fig-results-trend
+#| fig-cap: Schatting en classificatie van trends voor de verschillende soorten met 90%-betrouwbaarheidsinterval
 
 volgorde_soorten <- (trend %>%
   arrange(mean))$meetnet
@@ -680,28 +699,6 @@ trend %>%
 
 ggsave("../output/libellen_trend.png")
 ```
-
-
-### WAIC
-
-```{r}
-
-result_waic_all <- bind_rows(
-  results_waic, 
-  results_waic_gebied
-)
-
-result_waic_all %>%
-  mutate(indexmodel = round(indexmodel, 1),
-         trendmodel = round(trendmodel, 1),
-         diff_waic = round(diff_waic, 1)) %>%
-  select( meetnet, waic_indexmodel = indexmodel, waic_trendmodel = trendmodel, diff_waic, type_trend) %>%
-  kable() %>%
-  kable_styling()
-```
-
-
-## Documenteer analyse
 
 ```{r}
 
@@ -772,7 +769,7 @@ if (new_analysis) {
        file.copy(from = str_c(mypath,"/", hashes_new$filename[i]), 
                  to = str_c(path_to, "/", hashes_new$filename[i]), 
                  overwrite = TRUE)
-       
+
   }
   
      analysis_hashes %>%
@@ -781,48 +778,42 @@ if (new_analysis) {
 
 
 ```
-## Overzicht
 
 ```{r}
+#| eval: false
+
 read_vc(file = "analysis_hashes", root = "../output") %>%
   datatable(rownames = FALSE)
 ```
 
-
-
 ## Gebruikte functies
 
-+ fit_indexmodel_rw_nbinom_inla
-
+-   fit_indexmodel_rw_nbinom_inla
 
 ```{r}
 fit_indexmodel_rw_nbinom_inla
 ```
-+ fit_trendmodel_rw_nbinom_inla
+
+-   fit_trendmodel_rw_nbinom_inla
 
 ```{r}
 fit_trendmodel_rw_nbinom_inla
 ```
 
-
-+ derive_index_rw_sample
+-   derive_index_rw_sample
 
 ```{r}
 derive_index_rw_sample
 ```
 
-
-+ derive_index_rw_inla
+-   derive_index_rw_inla
 
 ```{r}
 derive_index_rw_inla
 ```
 
-+ derive_trend
+-   derive_trend
 
 ```{r}
 derive_trend
 ```
-
-
-

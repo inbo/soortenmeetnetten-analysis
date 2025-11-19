@@ -1,0 +1,752 @@
+# Selectie analyseset
+
+```{r}
+#| label: setup  
+#| output: false
+#| cache: false
+
+library(knitr)
+options(knitr.kable.NA = '')
+
+library(tidyverse)
+library(INBOtheme)
+library(INBOmd)
+library(sf)
+library(INLA)
+library(inlatools)
+library(kableExtra)
+library(units)
+library(effectclass)
+library(openssl)
+library(git2rdata)
+library(n2khab)
+library(DT)
+library(here)
+
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::lag)
+conflicted::conflicts_prefer(tidyr::expand)
+```
+
+```{r}
+#| label: load-functions
+
+path_functions <- fileman_up("soortenmeetnetten-analysis")
+
+source(file.path(path_functions, "source/functions_smp.R"))
+
+```
+
+## Data meetnetten.be
+
+De ruwe data wordt geëxporteerd uit de meetnetten.be-databank via de queries in het script [`get_data_meetnetten.Rmd`](https://github.com/inbo/soortenmeetnetten-queries/blob/master/src/get_data_meetnetten.Rmd) en lokaal opgeslagen.
+
+```{r}
+#| label: selectie-soortgroep
+
+species_group <- "libellen"
+
+protocol_selection <- c("Libellen - Populatietelling per locatie",
+                        "Libellen - Transect",
+                        "Libellen - Larvenhuidjes",
+                        "Libellen - Larvenhuidjes Beekrombout")
+
+```
+
+```{r}
+#| label: read-data
+
+locatie_detail <- get_locations_smp(only_active = FALSE) %>%
+  st_drop_geometry() %>%
+  filter(locatie_type == "locatie") %>%
+  select(meetnet, locatie, is_active, is_sample)
+
+visits <- get_visits_smp(species_group = species_group) %>%
+  filter(protocol %in% protocol_selection) %>%
+  select(-sublocatie) %>%
+  mutate(protocol = ifelse(str_detect(protocol, "Gebiedstelling"),
+                           "Vlinders - Gebiedstelling",
+                           protocol)) %>%
+  mutate(voor_analyse = ifelse((meetnet == "Gentiaanblauwtje") & 
+                                 (bezoek_status %in%  c("Conform protocol", "Weersomstandigheden ongunstig")),
+                               TRUE,
+                               voor_analyse)) %>% #weersomstandigheden hebben geen impact op eitelling dus steeds voor_analyse = TRUE
+  mutate(visit_id = as.character(visit_id)) %>%
+  select(soortgroep, meetnet, protocol, locatie, jaar, datum, doy, voor_analyse, jaardoel, bezoek_status, opmerking, hoofdteller, visit_id)
+
+counts_all <- get_counts_smp(species_group = species_group, count_aggregation = "individuals")
+
+counts_all <- counts_all %>%
+  mutate(visit_id = as.character(visit_id)) %>%
+  group_by(visit_id, sublocatie, niet_geteld, checklist, soort_nl, soort_wet, primaire_soort, sample_id) %>%
+  summarise(aantal = sum(aantal)) %>%
+  ungroup() 
+
+covars <- get_covariates_smp(species_group = species_group) %>%
+  filter(protocol %in% protocol_selection) %>%
+  select(-eenheid) %>%
+  mutate(bezoekvariabele = str_replace(bezoekvariabele, " ", "_")) %>%
+  pivot_wider(names_from = "bezoekvariabele", values_from = "waarde")  %>%
+  mutate(visit_id = as.character(visit_id),
+         lengte_transect = as.numeric(lengte_transect)) %>%
+  select(visit_id, lengte_transect, telmethode_larvenhuidjes)
+
+count_period <- get_characteristics_smp() %>%
+    mutate(doy_min = as.numeric(format(start_telperiode, "%j")),
+         doy_max = as.numeric(format(einde_telperiode, "%j"))) %>%
+  group_by(meetnet, protocol) %>%
+  summarise(doy_min = min(doy_min),
+            doy_max = max(doy_max)) %>%
+  ungroup() %>%
+  mutate(doy_mid = doy_min + round((doy_max - doy_min)/2, 0)) %>%
+  distinct(meetnet, protocol, doy_min, doy_max, doy_mid)
+
+dataset <- visits %>%
+  left_join(locatie_detail, by = c("meetnet", "locatie")) %>%
+  left_join(covars, by = "visit_id") %>%
+  left_join(counts_all, by = "visit_id") %>%
+  group_by(meetnet, locatie) %>%
+  mutate(aantal_locatie = sum(aantal * primaire_soort, na.rm = TRUE)) %>%
+  ungroup()
+
+```
+
+## Criteria voor selectie van tellingen
+
+-   We selecteren de meetnetten die al minstens drie jaar lopen.
+
+```{r}
+#| label: selectie-meetnetten
+
+meetnetten_selection <- dataset %>%
+  filter(protocol %in% protocol_selection) %>%
+  group_by(meetnet, protocol) %>%
+  summarise(n_jaar = n_distinct(jaar)) %>%
+  filter(n_jaar >= 3) %>%
+  filter(meetnet != "Hoogveenglanslibel")
+
+```
+
+```{r}
+#| label: tbl-selectie-meetnetten
+#| tbl-cap: "Geselecteerde meetnetten"
+
+meetnetten_selection %>%
+  kable() %>%
+  kable_styling()
+  
+```
+
+```{r}
+#| label: filter-selectie-meetnetten
+
+dataset <- dataset %>%
+  filter(meetnet %in% meetnetten_selection$meetnet)
+```
+
+-   We selecteren bezoeken, die geschikt zijn voor analyse (voor_analyse = TRUE)
+
+```{r}
+#| label: selectie-analyse
+
+dataset_selection <- dataset %>%
+  filter(voor_analyse)
+
+visits_reject <- dataset %>%
+  anti_join(dataset_selection, by = "visit_id") %>%
+  distinct(visit_id, meetnet, datum, locatie, bezoek_status, opmerking) 
+
+```
+
+@tbl-selectie-analyse toont de bezoeken die niet geschikt zijn voor analyse.
+
+```{r}
+#| label: tbl-selectie-analyse
+#| tbl-cap: Bezoeken niet geschikt voor analyse
+#| cache: false
+
+visits_reject %>%
+  datatable(rownames = FALSE,
+            filter = "top",
+            options = list(scrollX = TRUE)
+            )
+```
+
+-   We selecteren enkel locaties waar de soort minstens tijdens 1 bezoek werd waargenomen
+
+```{r}
+#| label: selectie-aanwezig
+
+dataset_presence <- dataset_selection %>%
+  filter(!is.na(aantal)) %>%
+  filter(aantal_locatie > 0)
+
+locations_absence <- dataset_selection %>%
+  group_by(meetnet, locatie, is_active, is_sample) %>%
+  summarise(n_visits = n_distinct(visit_id)) %>%
+  ungroup() %>%
+  anti_join(dataset_presence, by = c("meetnet", "locatie"))
+
+```
+
+```{r}
+#| label: tbl-selectie-aanwezig
+#| tbl-cap: "Locaties met enkel nulwaarnemingen"
+
+locations_absence %>%
+  kbl() %>%
+  kable_styling()
+```
+
+## Opgesplitste locaties
+
+-   Meetnet gevlekte witsnuitlibel:
+    -   `Teut Groot ven` in 2020 opgesplitst in `Teut - Waterlelieven` en `Teut - Vier Vijvers`.
+    -   Er zijn enkel nulwaarnemingen in `Teut - Vier Vijvers`
+    -   Voor periode 2016 tot 2019 enkel bezoeken voor `Teut Groot ven`: we gaan er van uit dat de waargenomen individuen in `Teut - Waterlelieven` werden gezien.
+
+```{r}
+#| label: split-location-gw
+
+meetnet_select <- "Gevlekte witsnuitlibel"
+locatie_oud <- "Teut Grootven"
+locatie_nieuw <- c("Teut - Waterlelieven", "Teut - Vier vijvers")
+jaar_splits = 2020
+
+data_rename <- dataset_presence %>%
+  filter(locatie == locatie_oud,
+         meetnet == meetnet_select) %>%
+  mutate(locatie = "Teut - Waterlelieven")
+
+dataset_presence <- dataset_presence %>%
+  anti_join(data_rename, by = "visit_id") %>%
+  bind_rows(data_rename)
+
+```
+
+-   Meetnet speerwaterjuffer:
+    -   `Teut west` vanaf 2020 opgeplitst in `Teut - Waterlelieven` en `Teut - Vier Vijvers`.
+    -   We berekenen de gemiddelde proportie van de getelde aantallen voor `Teut - Waterlelieven` en `Teut - Vier Vijvers`, voor de periode vanaf 2020.
+    -   Voor periode 2017 en 2019 enkel bezoeken voor `Teut West`. We schatten het aantal in `Teut - Vier Vijvers` via random generatie volgens binomiale distributie (`rbinom`), met probabiliteit gelijk aan de gemiddelde proportie in `Teut - Vier Vijvers` voor de periode vanaf 2020.
+
+```{r}
+#| label: split-location-sj
+
+meetnet_select <- "Speerwaterjuffer"
+locatie_oud <- "Teut west"
+locatie_nieuw <- c("Teut - Waterlelieven", "Teut - Vier vijvers")
+jaar_splits = 2020
+
+data_nieuw <- dataset_presence %>%
+  filter(locatie %in% locatie_nieuw,
+         meetnet == meetnet_select)
+
+data_oud <- dataset_presence %>%
+  filter(primaire_soort) %>%
+  filter(locatie == locatie_oud,
+         meetnet == meetnet_select) 
+
+data_nieuw_mean <- data_nieuw %>%
+  filter(primaire_soort) %>%
+  group_by(meetnet, datum) %>%
+  filter(n_distinct(locatie) == 2) %>%
+  ungroup() %>%
+  group_by(meetnet, locatie, datum, jaar) %>%
+  summarise(aantal_tot = sum(aantal)) %>%
+  ungroup() %>%
+  group_by(meetnet, locatie) %>%
+  summarise(mean_aantal = mean(aantal_tot)) %>%
+  ungroup() %>%
+  group_by(meetnet) %>%
+  mutate(aantal_tot = sum(mean_aantal)) %>%
+  ungroup()
+
+prob_4vijvers <- data_nieuw_mean %>%
+  filter(locatie == "Teut - Vier vijvers") %>%
+  filter(aantal_tot != 0) %>%
+  mutate(prob_loc_4vijvers = mean_aantal/aantal_tot) %>%
+  select(meetnet, prob_loc_4vijvers)
+
+split_aantal <- function(aantal, prob, select_seed) {
+  
+  set.seed(select_seed)
+  
+  aantal_split <- rbinom(n = 1, size = aantal, prob = prob)
+  
+  return(aantal_split)
+  
+}
+
+set.seed(54684)
+data_oud_corr <- data_oud %>%
+  mutate(select_seed = round(runif(n = n(), min = 0, max = 100000))) %>%
+  left_join(prob_4vijvers, by = c("meetnet")) %>%
+  rowwise() %>%
+  mutate(aantal_4vijvers = ifelse(is.na(prob_loc_4vijvers), 0,
+                                  split_aantal(aantal, prob_loc_4vijvers, select_seed)),
+         aantal_waterlelie = aantal - aantal_4vijvers) %>%
+  rename(locatie_oud = locatie,
+         aantal_oud = aantal) %>%
+  pivot_longer(cols = c(aantal_4vijvers, aantal_waterlelie),
+               names_to = "locatie",
+               values_to = "aantal") %>%
+  mutate(locatie = ifelse(locatie == "aantal_4vijvers", "Teut - Vier vijvers", 
+                          ifelse(locatie == "aantal_waterlelie", "Teut - Waterlelieven", NA)))
+
+dataset_presence <- dataset_presence %>%
+  anti_join(data_oud, by = c("visit_id", "primaire_soort")) %>%
+  bind_rows(data_oud_corr)
+
+```
+
+## Ontbrekende data
+
+### Locaties die niet meer geteld worden
+
+De geselecteerde dataset bevat tellingen voor locaties die op inactief gezet werden (en waarvoor dus geen tellingen meer ingevoerd kunnen worden).
+
+Het gaat om volgende gevallen:
+
+-   de locatie is niet meer toegankelijk
+-   de soort komt niet meer voor op de locatie/ de locatie is ongeschikt geworden
+
+Onderstaande tabel geeft een overzicht van de locaties waar deze gevallen zich voordoen.
+Om een idee te hebben van het belang van de locatie berekenen we per jaar de proportie van het totaal aantal getelde individuen voor de locatie t.o.v.het totaal aantal getelde individuen voor het hele meetnet.
+De tabel geeft het maximum van deze proportie weer over de verschillende jaren (`prop_locatie_max`).
+
+```{r}
+#| label: missing-data
+
+locatie_doc <- tibble(meetnet = c(rep("Bosbeekjuffer", 5), "Gevlekte witsnuitlibel", "Rivierrombout", "Speerwaterjuffer", "Variabele waterjuffer", "Vroege glazenmaker"),
+                         locatie = c("Afwateringskanaal", "De Kluis - Blommerschot", "Kindernouwbeek", "Prinsenpark", "Rosdel", "Teut Grootven", "Deurne vaartdijk - zuid", "Teut west", "Wellemeersen", "Tiewinkel"),
+                         type_missing = c("Ontoegankelijk", "Locatie niet geschikt", "Locatie niet geschikt", "Locatie niet geschikt", "Locatie niet geschikt", "Locatie opgesplitst", "Ontoegankelijk", "Locatie opgesplitst", "Ontoegankelijk", "Locatie niet geschikt"))
+
+locaties_missing_data <- dataset %>%
+  filter(primaire_soort) %>%
+  filter(meetnet != "Beekrombout") %>%
+  group_by(meetnet, jaar) %>%
+  mutate(aantal_meetnet_jaar = sum(aantal, na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_by(meetnet, jaar, locatie) %>%
+  mutate(aantal_locatie_jaar = sum(aantal)) %>%
+  ungroup() %>%
+  mutate(prop_locatie = aantal_locatie_jaar / aantal_meetnet_jaar) %>%
+  group_by(meetnet, locatie) %>%
+  mutate(prop_locatie_max = round(max(prop_locatie), 3),
+         aantal_locatie_max = max(aantal_locatie_jaar)) %>%
+  filter(!is_active) %>%
+  semi_join(dataset_presence, by = c("meetnet", "locatie")) %>%
+  group_by(meetnet, locatie, is_sample, is_active, aantal_locatie, prop_locatie_max, aantal_locatie_max) %>%
+  summarise(ontoegankelijk = any(bezoek_status == "Geen veldwerk mogelijk - locatie ontoegankelijk"),
+            ongeschikt = any(bezoek_status == "Geen veldwerk mogelijk - locatie ongeschikt"),
+            jaren_bezoek = str_c(unique(jaar), collapse = "; ")) %>%
+  ungroup() %>%
+  left_join(locatie_doc, by = c("meetnet", "locatie")) %>%
+  mutate(type_missing = ifelse(is.na(type_missing),
+                               ifelse(meetnet %in% c("Speerwaterjuffer", "Kempense heidelibel", "Maanwaterjuffer", "Gevlekte witsnuitlibel"), "Soort verdwenen", "?"),
+                               type_missing)) %>%
+  mutate(type_missing = ifelse(ontoegankelijk, "ontoegankelijk", type_missing),
+         analyse = ifelse(type_missing == "Soort verdwenen", "Locatie behouden en nullen toevoegen",
+                          ifelse(locatie %in% c("Deurne vaartdijk - zuid"), "Locatie behouden", "Locatie verwijderen")))
+
+```
+
+```{r}
+#| label: tbl-missing-data
+#| tbl-cap: "Niet actieve locaties waar soort geteld werd"
+
+locaties_missing_data %>%
+  select(meetnet, locatie, prop_locatie_max, jaren_bezoek, type_missing, analyse) %>%
+  datatable(rownames = FALSE)
+```
+
+Hoe gaan we hier mee om in de analyse:
+
+-   Locaties waar soort is verdwenen: bezoeken met nulwaarnemingen toevoegen voor ontbrekende jaren
+
+-   Ontoegankelijke locaties:
+
+    -   Enkel behouden indien al meerdere jaren geteld
+    -   Voorlopig geen imputatie ontbrekende data
+
+```{r}
+#| label: add-zeros
+
+# select equally spread dates within counting period
+random_date <- function(start_date, end_date, i_visit = 1, n_visits = 1, select_seed = NULL) {
+  
+  days_period <- (end_date - start_date)/n_visits
+  
+  if (!is.null(select_seed)) {
+    set.seed(select_seed)
+  }
+  
+  result <- start_date + 
+            (i_visit - 1) * days_period + 
+            runif(1, min = 0, max = days_period)
+  
+}
+
+#aantal bezoeken per meetnet
+meetnet_karakt_visits <- get_characteristics_smp() %>%
+  select(meetnet, protocol, generatie, n_visits = bezoeken, start_telperiode, einde_telperiode)
+
+meetnet_karakt_meetcyclus <- get_characteristics_smp() %>%
+  distinct(meetnet, opstartjaar, duur_meetcyclus)
+
+dataset_presence <- dataset_presence %>%
+  left_join(meetnet_karakt_meetcyclus,
+            by = "meetnet") %>%
+  mutate(meetcyclus = floor((jaar - opstartjaar) / duur_meetcyclus) + 1)
+
+meetnet_meetcyclus <- dataset_presence %>%
+  distinct(meetnet, protocol, meetcyclus, jaar, duur_meetcyclus) %>%
+  group_by(meetnet, protocol, meetcyclus, duur_meetcyclus) %>%
+  summarise(jaar_min = min(jaar),
+           jaar_max = min(jaar) + duur_meetcyclus - 1) %>%
+  ungroup()
+  
+missing_data <- dataset_presence %>%
+  filter(primaire_soort) %>%
+  distinct(meetnet, protocol, locatie, is_active, is_sample, soort_nl, soort_wet, primaire_soort, opstartjaar) %>%
+  left_join(meetnet_meetcyclus) %>%
+  anti_join(dataset_presence, by = c("meetnet", "locatie", "meetcyclus")) %>%
+  arrange(meetnet, locatie, meetcyclus)
+
+dataset_missing0 <- missing_data %>%
+  mutate(jaar = jaar_min) %>% #minimum jaar in meetcyclus
+  inner_join(locaties_missing_data %>%
+               select(meetnet, locatie, type_missing) %>%
+               filter(type_missing == "Soort verdwenen"),
+             by = c("meetnet", "locatie")) %>%
+  left_join(meetnet_karakt_visits, by = c("meetnet", "protocol")) %>%
+  group_by(meetnet, protocol, locatie, jaar, meetcyclus, duur_meetcyclus, opstartjaar, start_telperiode, einde_telperiode, is_active, is_sample, soort_nl, soort_wet, primaire_soort) %>%
+  expand(n_visits, i_visit = 1:n_visits) %>%
+  ungroup() %>%
+  mutate(start_date = dmy(str_c(day(start_telperiode),
+                                month(start_telperiode),
+                                jaar, sep = "-")),
+         end_date = dmy(str_c(day(einde_telperiode),
+                                month(einde_telperiode),
+                                jaar, sep = "-"))) %>%
+  select(-start_telperiode, -einde_telperiode)
+
+set.seed(454922)
+dataset_missing0 <- dataset_missing0 %>%
+  rowwise() %>%
+  mutate(select_seed = round(runif(n = n(), min = 0, max = 100000)),
+         datum = random_date(start_date, end_date, i_visit, n_visits, select_seed = select_seed),
+         doy = as.numeric(format(datum, "%j")),
+         aantal = 0,
+         type_data = "missing_0",
+         is_sample = TRUE)  %>%
+  select(-select_seed, -start_date, -end_date, -n_visits, -i_visit)
+
+```
+
+```{r}
+#| label: add-missing-data 
+
+dataset_remove <- dataset_presence %>%
+  inner_join(locaties_missing_data %>%
+              select(meetnet, locatie, analyse), 
+            by = c("meetnet", "locatie")) %>%
+  filter(analyse == "Locatie verwijderen")
+
+dataset_presence <- dataset_presence %>%
+  anti_join(dataset_remove, by = "visit_id") %>%
+  mutate(type_data = "counted") %>%
+  bind_rows(dataset_missing0)
+  
+```
+
+### Ontbrekende teljaren in actieve locaties
+
+```{r}
+#| label: missing-data-active 
+
+missing_data_meetcyclus <- missing_data %>%
+  filter(is_active) %>%
+  select(meetnet, is_sample, is_active, locatie, meetcyclus, jaar_min, jaar_max) %>%
+  mutate(periode = ifelse(jaar_min == jaar_max, jaar_min, str_c(jaar_min, "-", jaar_max)))
+
+```
+
+```{r}
+#| label: tbl-missing-data-active
+#| tbl-cap: "Meetcycli of jaren waarin er geen tellingen werden uitgevoerd voor meetnetlocatie"
+
+missing_data_meetcyclus %>%
+  filter(meetnet != "Beekrombout") %>%
+  filter(periode != "2024-2026") %>%
+  filter(periode != "2025") %>%
+  group_by(meetnet, is_sample, is_active, locatie) %>%
+  summarise(meetcyclus = str_c(unique(periode), collapse = "; ")) %>%
+  ungroup() %>%
+  datatable(rownames = FALSE, filter = "top")
+```
+
+Voorlopig geen imputatie.
+
+## Steekproeflocaties
+
+-   We selecteren enkel locaties die behoren tot de steekproef
+
+```{r}
+#| label: select-sample
+
+dataset_presence_sample <- dataset_presence %>%
+  filter(!((!is_sample) & meetnet %in% c("Variabele waterjuffer", "Bosbeekjuffer", "Vroege glazenmaker")))
+
+locations_not_sample <- dataset_presence %>%
+  group_by(meetnet, locatie) %>%
+  summarise(n_visits = n_distinct(visit_id),
+            aantal_tot = sum(aantal * primaire_soort)) %>%
+  ungroup() %>%
+  anti_join(dataset_presence_sample, by = c("meetnet", "locatie")) 
+
+```
+
+```{r}
+#| label: tbl-select-sample
+
+if (nrow(locations_not_sample) > 0) {
+  
+  locations_not_sample %>%
+  kable(caption = "Locaties die niet tot de steekproef behoren") %>%
+  kable_styling()
+  
+}
+```
+
+## Validatie tellingen
+
+```{r}
+#| label: select-validatie
+
+max_year <- 2024
+
+dataset_presence_sample <- dataset_presence_sample %>%
+  filter(jaar <= max_year)
+```
+
+De tellingen zijn gevalideerd t.e.m. het jaar `r max_year`.
+
+## Bewaar analyseset
+
+We bewaren 2 analysesets:
+
+-   gebiedstelling per locatie
+-   transecttelling
+
+### Gebiedstelling per locatie
+
+```{r}
+#| label: write-gebiedstelling
+
+protocol_selection <- "Libellen - Populatietelling per locatie"
+name_analysis1 <- "libellen_gebiedstelling"
+
+analyseset_gebied <- dataset_presence_sample %>%
+  filter(protocol == protocol_selection) %>%
+  filter(primaire_soort) %>%
+  select(soortgroep, meetnet, protocol, locatie, is_active, is_sample, meetcyclus, opstartjaar, duur_meetcyclus, jaar, datum, doy, visit_id, voor_analyse, bezoek_status, opmerking, soort_nl, soort_wet, aantal, type_data, opmerking)
+
+write_vc(analyseset_gebied, 
+       file = str_c("analyseset_", name_analysis1), 
+       root = "../output/temp", 
+       sorting = c("meetnet", "locatie", "datum", "visit_id"), 
+       strict = FALSE)
+```
+
+### Transecttelling
+
+```{r}
+#| label: write-transect
+
+species_group <- "libellen"
+protocol_selection <- c("Libellen - Transect", "Libellen - Larvenhuidjes", "Libellen - Larvenhuidjes Beekrombout")
+
+name_analysis2 <- "libellen_transecten"
+
+analyseset_transect <- dataset_presence_sample %>%
+  filter(protocol == protocol_selection) %>%
+  filter(primaire_soort) %>%
+  select(soortgroep, meetnet, protocol, locatie, is_active, is_sample, meetcyclus, opstartjaar, duur_meetcyclus, jaar, datum, doy, visit_id, lengte_transect, voor_analyse, bezoek_status, opmerking, soort_nl, soort_wet, aantal, type_data, opmerking)
+
+overzicht_missing <- analyseset_transect %>%
+  filter(is.na(lengte_transect)) %>%
+  select(meetnet, locatie, visit_id, datum) %>%
+  filter(meetnet != "Rivierrombout")
+
+overzicht_missing_locatie <- analyseset_transect %>%
+  group_by(meetnet, locatie) %>%
+  summarise(bezoeken = n(),
+            prop_ingevuld = round(sum(!is.na(lengte_transect))/n(), 2),
+            verschillende_lengtes = n_distinct(lengte_transect, na.rm = TRUE)) %>%
+  ungroup()
+
+write.csv2(overzicht_missing, "../output/transect_length_missing.csv", row.names = FALSE)
+write.csv2(overzicht_missing_locatie, "../output/transect_length_missing_locatie.csv", row.names = FALSE)
+```
+
+Voor Rivierrombout komt de transectlengte overeen met de lengte van de locatie (=lijn) in meetnetten.be
+
+```{r}
+#| label: length-transect-rr
+
+transect_rivierrombout <- get_locations_smp(only_active = FALSE) %>% 
+  filter(meetnet == "Rivierrombout") %>%
+  st_transform(crs = 31370) %>%
+  group_by(locatie) %>%
+  mutate(lengte_locatie = round(drop_units(st_length(geom)), 0)) %>%
+  ungroup() %>%
+  st_drop_geometry() %>%
+  select(meetnet, locatie, lengte_locatie)
+
+```
+
+Voor andere soorten wordt de transectlengte ingevoerd in meetnetten.be.
+Als de transectlengte ontbreekt voor een bezoek (niet ingevoerd) nemen we:
+
+-   de transectlengte van een bezoek op dezelfde datum en dezelfde locatie van een ander meetnet (locaties van Vroege glazenmaker en Variabele waterjuffer overlappen gedeeltelijk)
+
+-   de gemiddelde transectlengte voor de meetnetlocatie (indien geen bezoek op dezelfde datum en dezelfde locatie van een ander meetnet)
+
+```{r}
+#| label: length-transect-other
+
+proportion_missing <- analyseset_transect %>%
+  group_by(meetnet) %>%
+  summarise(n_missing = sum(is.na(lengte_transect)),
+            n_tot = n(),
+            prop_missiing  = n_missing/n_tot) %>%
+  ungroup()
+  
+transect_other <- analyseset_transect %>%
+  filter(meetnet != "Rivierrombout") %>%
+  distinct(meetnet, locatie, datum, visit_id, lengte_transect) %>%
+  group_by(meetnet) %>%
+  mutate(mean_meetnet = round(mean(lengte_transect, na.rm = TRUE), 0)) %>%
+  ungroup() %>%
+  group_by(locatie) %>%
+  mutate(mean_locatie = round(mean(lengte_transect, na.rm = TRUE), 0)) %>%
+  ungroup() %>%
+  group_by(locatie, datum) %>%
+  mutate(mean_locatie_datum = round(mean(lengte_transect, na.rm = TRUE), 0)) %>%
+  ungroup() %>%
+  mutate(lengte_transect_est = ifelse(!is.na(lengte_transect), lengte_transect,
+                                      ifelse(!is.nan(mean_locatie_datum), mean_locatie_datum,
+                                             ifelse(!is.na(mean_locatie), mean_locatie, mean_meetnet)))) %>%
+  select(meetnet, locatie, datum, visit_id, lengte_transect = lengte_transect_est)
+
+```
+
+```{r}
+#| label: length-transect-combine
+
+analyseset_rivierrombout <- analyseset_transect %>%
+  filter(meetnet == "Rivierrombout") %>%
+  left_join(transect_rivierrombout, by = c("meetnet", "locatie")) %>%
+  mutate(lengte_transect = ifelse(is.na(lengte_transect), lengte_locatie, lengte_transect)) %>%
+  select(-lengte_locatie)
+
+analyseset_other <- analyseset_transect %>%
+  filter(meetnet != "Rivierrombout") %>%
+  select(-lengte_transect) %>%
+  inner_join(transect_other, by = c("meetnet", "locatie", "datum", "visit_id"))
+  
+analyseset_transect <- bind_rows(analyseset_rivierrombout,
+                              analyseset_other)
+
+write_vc(analyseset_transect, file = str_c("analyseset_", name_analysis2), 
+       root = "../output/temp", 
+       sorting = c("meetnet", "locatie", "datum", "visit_id"), 
+       strict = FALSE)
+  
+```
+
+```{r}
+#| label: copy-analyseset-folder
+
+names_analysis <- c(name_analysis1, name_analysis2)
+
+mypath <- here(str_c("output/temp"))
+
+hashes <-
+    tibble(filepath = str_c(mypath, "/",
+        list.files(path = mypath,
+            recursive = TRUE)
+      )) %>%
+    mutate(version = Sys.time(),
+           filename = str_match(filepath, "(.+\\/)*(.+)")[,3],
+           name_analysis = str_extract(filename, str_c(names_analysis, collapse =  "|")),
+           md5 = map(filepath, function(x) {
+                           file(x) %>% md5 %>% str_c(collapse = '')
+                         }) %>% as.character,
+           sha256 = map(filepath, function(x) {
+                          file(x) %>% sha256 %>% str_c(collapse = '')
+                          }) %>% as.character
+           ) %>%
+    select(name_analysis,
+           version,
+           filename,
+           md5,
+           sha256) %>%
+  filter(str_detect(filename, "analyseset"))
+
+path <- fileman_up("analysis_libellen")
+file_name <- file.path(path,"output/analysis_hashes.tsv")
+
+if (!file.exists(file_name)) {
+  
+  new_analysis <- TRUE
+  
+  analysis_hashes <- hashes
+
+} else {
+  
+  analysis_hashes <- read_vc(file = "analysis_hashes", root = file.path(path,"output/"))
+  
+  hashes_new <- hashes %>%
+    anti_join(analysis_hashes, by = c("name_analysis", "filename", "md5", "sha256"))
+  
+  new_analysis <- nrow(hashes_new) > 0
+  
+  analysis_hashes <- bind_rows(analysis_hashes,
+                               hashes)
+  
+  names_analysis <- unique(hashes_new$name_analysis) 
+  
+}
+
+if (new_analysis) {
+  
+  for (name_analysis in names_analysis) {
+    
+     new_path <- str_c("../output/analyseset/", name_analysis, "_", Sys.Date())
+     
+     if (!dir.exists(new_path)) {
+       
+       dir.create(new_path)
+       
+     }
+       
+       file.copy(from = str_c(mypath, "/analyseset_", name_analysis,".tsv"), 
+                 to = str_c(new_path,  "/analyseset_", name_analysis,".tsv"), 
+                 overwrite = TRUE)
+       
+       file.copy(from = str_c(mypath, "/analyseset_", name_analysis,".yml"), 
+                 to = str_c(new_path, "/analyseset_", name_analysis,".yml"), 
+                 overwrite = TRUE)
+      
+  }
+  
+  analysis_hashes %>%
+       write_vc(file = "analysis_hashes", 
+                root = "../output", 
+                sorting = c("name_analysis", "version", "filename"), strict = FALSE)
+  
+  } 
+
+```

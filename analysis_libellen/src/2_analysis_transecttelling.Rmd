@@ -66,7 +66,8 @@ counts_selection <- visits_selection %>%
 
 ```{r}
 overzicht_missing <- counts_selection %>%
-  select(meetnet, protocol, locatie, jaar, datum, soort_nl, aantal, lengte_transect)
+  select(meetnet, protocol, locatie, jaar, datum, soort_nl, aantal, lengte_transect) %>%
+  filter(is.na(transect))
 
 overzicht_missing_locatie <- overzicht_missing %>%
   group_by(meetnet, locatie) %>%
