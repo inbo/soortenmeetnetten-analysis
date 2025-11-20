@@ -1,0 +1,522 @@
+# Dataverkenning
+
+```{r}
+#| label: setup  
+#| output: false
+#| cache: false
+
+library(knitr)
+options(knitr.kable.NA = '')
+
+library(tidyverse)
+library(INBOtheme)
+library(INBOmd)
+library(sf)
+library(leaflet)
+library(crosstalk)
+library(kableExtra)
+library(units)
+library(effectclass)
+library(openssl)
+library(git2rdata)
+library(n2khab)
+library(DT)
+library(here)
+library(plotly)
+
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::lag)
+conflicted::conflicts_prefer(tidyr::expand)
+conflicted::conflicts_prefer(plotly::layout)
+```
+
+```{r}
+#| label: load-functions
+
+path_functions <- fileman_up("soortenmeetnetten-analysis")
+
+source(file.path(path_functions, "source/functions_smp.R"))
+
+```
+
+```{r}
+#| label: read-data
+
+name_analysis <- "vlinders_imago_gebied"
+
+name_analyseset <- str_c("analyseset_", name_analysis)
+versie <- str_c(name_analysis, "_2025-11-19")
+
+analyseset_gebied <- read_vc(file = name_analyseset,
+                               root = str_c("../output/analyseset/", versie)) %>%
+  mutate(doy = as.numeric(format(datum, "%j")))
+
+name_analysis <- "vlinders_imago_transect"
+
+name_analyseset <- str_c("analyseset_", name_analysis)
+versie <- str_c(name_analysis, "_2025-11-19")
+
+analyseset_transect <- read_vc(file = name_analyseset,
+                               root = str_c("../output/analyseset/", versie)) %>%
+  mutate(doy = as.numeric(format(datum, "%j")))
+
+name_analysis <- "vlinders_eitelling"
+
+name_analyseset <- str_c("analyseset_", name_analysis)
+versie <- str_c(name_analysis, "_2025-11-19")
+
+analyseset_eitelling <- read_vc(file = name_analyseset,
+                               root = str_c("../output/analyseset/", versie)) %>%
+  mutate(doy = as.numeric(format(datum, "%j")),
+         aantal = n_ei_totaal)
+
+dataset <- analyseset_transect %>%
+  bind_rows(analyseset_gebied) %>%
+  bind_rows(analyseset_eitelling) %>%
+  group_by(meetcyclus, meetnet) %>%
+  mutate(min_jaar_meetcyclus = min(jaar)) %>%
+  ungroup() %>%
+  mutate(periode = ifelse(duur_meetcyclus == 1, as.character(jaar), str_c(min_jaar_meetcyclus, "-", min_jaar_meetcyclus - 1 + duur_meetcyclus)))
+
+```
+
+```{r}
+#| label: calc
+
+dataset_average <- dataset %>%
+  arrange(jaar) %>%
+  group_by(meetnet, jaar) %>%
+  mutate(aantal_average = mean(aantal)) %>%
+  ungroup() %>%
+  group_by(meetnet, jaar, locatie, aantal_average) %>%
+  summarise(aantal_average_locatie = mean(aantal)) %>%
+  ungroup()
+
+dataset_meetcyclus_average <- dataset %>%
+  arrange(jaar) %>%
+  group_by(meetnet, periode) %>%
+  mutate(aantal_average = mean(aantal)) %>%
+  ungroup() %>%
+  group_by(meetnet, periode, locatie, aantal_average) %>%
+  summarise(aantal_average_locatie = round(mean(aantal), 1)) %>%
+  ungroup()
+```
+
+```{r}
+#| label: locaties
+
+locaties_vlinders <- get_locations_smp(species_group = "dagvlinders", only_active = FALSE) 
+
+locaties_vlinders_dataset <- locaties_vlinders %>%
+  semi_join(dataset,
+            by = c("meetnet", "locatie")
+            )
+
+locaties_vlinders_point <- locaties_vlinders_dataset %>%
+  select(meetnet, locatie) %>%
+  st_point_on_surface() %>%
+  left_join(dataset_average, by = c("meetnet", "locatie")) %>%
+  mutate(relative_size = 5 + round(sqrt(aantal_average_locatie) / max(sqrt(aantal_average_locatie)) * 20))
+
+```
+
+In @fig-kaart tonen we de gemiddelde getelde aantallen per meetnetlocatie per jaar:
+
+-   de grootte van de punten is evenredig met de aantallen
+-   rode punten zijn nulwaarnemingen
+
+```{r}
+#| label: filters
+
+data_shared_locaties <- SharedData$new(locaties_vlinders_point)
+
+bscols(
+filter_slider("jaar", "Jaar", data_shared_locaties, ~jaar),
+filter_select("meetnet", "Selecteer meetnet", data_shared_locaties, ~meetnet)
+)
+
+```
+
+```{r}
+#| label: fig-kaart
+#| fig-cap: "Gemiddelde getelde aantallen per meetnetlocatie"
+
+data_shared_locaties %>%
+  leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = locaties_vlinders_dataset, color = "grey", label = ~str_c(meetnet, " - ", locatie)) %>%
+  addCircleMarkers(label = ~str_c(meetnet, " - ", locatie, ": aantal = ", aantal_average_locatie), radius = ~relative_size, stroke = FALSE, fillOpacity = 0.2, fillColor = ~ifelse(aantal_average_locatie > 0, "blue", "red")) 
+```
+
+Per meetnet tonen we grafieken met:
+
+-   gemiddelde getelde aantallen per meetnetlocatie en per jaar
+-   gemiddelde getelde aantallen per jaar voor het volledige meetnet
+
+::: panel-tabset
+## Aardbeivlinder
+
+```{r}
+#| label: Aardbeivlinder
+
+meetnet_sel <- "Aardbeivlinder"
+
+dataset_soort <- dataset_average %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_average, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~jaar, 
+            y = ~aantal_average_locatie, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Bruin dikkopje
+
+```{r}
+
+meetnet_sel <- "Bruin dikkopje"
+
+dataset_soort <- dataset_average %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_average, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~jaar, 
+            y = ~aantal_average_locatie, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Klaverblauwtje
+
+```{r}
+
+meetnet_sel <- "Klaverblauwtje"
+
+dataset_soort <- dataset_average %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_average, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~jaar, 
+            y = ~aantal_average_locatie, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Kommavlinder
+
+```{r}
+
+meetnet_sel <- "Kommavlinder"
+
+dataset_soort <- dataset_average %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_average, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~jaar, 
+            y = ~aantal_average_locatie, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Moerasparelmoervlinder
+
+```{r}
+
+meetnet_sel <- "Moerasparelmoervlinder"
+
+dataset_soort <- dataset_average %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_average, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~jaar, 
+            y = ~aantal_average_locatie, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Veldparelmoervlinder
+
+```{r}
+
+meetnet_sel <- "Veldparelmoervlinder"
+
+dataset_soort <- dataset_average %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_average, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~jaar, 
+            y = ~aantal_average_locatie, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Bruine eikenpage
+
+```{r}
+
+meetnet_sel <- "Bruine eikenpage"
+
+dataset_soort <- dataset_average %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_average, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~jaar, 
+            y = ~aantal_average_locatie, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Grote weerschijnvlinder
+
+```{r}
+
+meetnet_sel <- "Grote weerschijnvlinder"
+
+dataset_soort <- dataset_average %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_average, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~jaar, 
+            y = ~aantal_average_locatie, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Gentiaanblauwtje
+
+```{r}
+
+meetnet_sel <- "Gentiaanblauwtje"
+
+dataset_soort <- dataset_average %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_average, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~jaar, 
+            y = ~aantal_average_locatie, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Grote weerschijnvlinder
+
+```{r}
+
+meetnet_sel <- "Grote weerschijnvlinder"
+
+dataset_soort <- dataset_meetcyclus_average %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~periode, y =  ~aantal_average, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~periode, 
+            y = ~aantal_average_locatie, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Meetcyclus"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Argusvlinder
+
+```{r}
+
+meetnet_sel <- "Argusvlinder"
+
+dataset_soort <- dataset_meetcyclus_average %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~periode, y =  ~aantal_average, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~periode, 
+            y = ~aantal_average_locatie, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Meetcyclus"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Heivlinder
+
+```{r}
+
+meetnet_sel <- "Heivlinder"
+
+dataset_soort <- dataset_meetcyclus_average %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~periode, y =  ~aantal_average, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~periode, 
+            y = ~aantal_average_locatie, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Meetcyclus"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Oranje zandoogje
+
+```{r}
+
+meetnet_sel <- "Oranje zandoogje"
+
+dataset_soort <- dataset_meetcyclus_average %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~periode, y =  ~aantal_average, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~periode, 
+            y = ~aantal_average_locatie, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Meetcyclus"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+:::

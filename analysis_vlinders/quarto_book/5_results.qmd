@@ -1,0 +1,388 @@
+# Resultaten
+
+```{r}
+#| label: setup  
+#| output: false
+#| cache: false
+
+library(knitr)
+options(knitr.kable.NA = '')
+
+library(tidyverse)
+library(INBOtheme)
+library(INBOmd)
+library(sf)
+library(INLA)
+library(inlatools)
+library(kableExtra)
+library(units)
+library(effectclass)
+library(openssl)
+library(git2rdata)
+library(n2khab)
+library(DT)
+
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::lag)
+conflicted::conflicts_prefer(tidyr::expand)
+
+path_functions <- fileman_up("soortenmeetnetten-analysis")
+source(file.path(path_functions, "source/functions_smp.R"))
+```
+
+
+## Vergelijking tussen de jaren
+
+```{r}
+#| label: load-data
+
+name_analysis <- "vlinders_imago_transect"
+versie <- str_c(name_analysis, "_2025-11-20")
+results_indexmodel_transect <- read_vc(file = str_c("results_indexmodel_", name_analysis),
+                               root = str_c("../output/results/", versie))
+
+name_analysis <- "vlinders_imago_gebied"
+versie <- str_c(name_analysis, "_2025-11-20")
+results_indexmodel_gebied <- read_vc(file = str_c("results_indexmodel_", name_analysis),
+                               root = str_c("../output/results/", versie))
+
+name_analysis <- "vlinders_eitelling"
+versie <- str_c(name_analysis, "_2025-11-20")
+results_indexmodel_eitelling <- read_vc(file = str_c("results_indexmodel_", name_analysis),
+                               root = str_c("../output/results/", versie))
+
+```
+
+```{r}
+#| label: results-jaar-ref
+
+results_indexmodel_all <- bind_rows(results_indexmodel_transect,
+                                results_indexmodel_gebied,
+                                results_indexmodel_eitelling)
+
+verschil_jaren_ref <- results_indexmodel_all %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown"))
+  
+verschil_jaren_ref_add <- verschil_jaren_ref %>%
+  distinct(soort_nl, soort_wet, ref_jaar) %>%
+  mutate(jaar = ref_jaar,
+        mean = 1,
+         klasse = "R") 
+
+verschil_jaren_ref <- verschil_jaren_ref %>%
+  bind_rows(verschil_jaren_ref_add) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+  
+```
+
+```{r}
+#| label: fig-jaar
+#| fig-cap: Verschillen t.o.v. referentiejaar
+#| fig-height: 9
+
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+verschil_jaren_ref %>%
+  filter(is.na(model_description) | model_description == "without offset") %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 6, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiejaar", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~soort_nl, scales = "free_y", ncol = 3)
+
+ggsave("../output/dagvlinders_index.png",
+       width = 14,
+       height = 10)
+```
+
+```{r}
+#| eval: false
+
+verschil_jaren_ref %>%
+  filter(meetnet == "Argusvlinder") %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 6, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiejaar", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~soort_nl, scales = "free_y")
+
+ggsave("../output/figures/2024/verschil_jaar_argusvlinder.jpg",
+       width = 5, height = 4)
+```
+
+```{r}
+#| label: results-jaar-previous
+
+verschil_vorigjaar <- results_indexmodel_all %>%
+  filter(parameter == "diff_previous_year") %>%
+  mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+  
+```
+
+```{r}
+#| label: fig-jaar-previous
+#| fig-cap: Verschil t.o.v. vorig jaar
+#| fig-height: 9
+
+verschil_vorigjaar %>%
+  filter(is.na(model_description) | model_description == "without offset") %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = periode, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 6, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil opeenvolgende jarenr", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide",
+        axis.text.x = element_text(angle = 45)) +
+  facet_wrap(~soort_nl, scales = "free_y", ncol = 3)
+```
+
+## Vergelijking tussen de meetcycli
+
+```{r}
+#| label: load-results-meetcyclus
+
+name_analysis <- "vlinders_imago_transect"
+versie <- str_c(name_analysis, "_2025-11-20")
+result_indexmodel_meetcyclus <- read_vc(file = str_c("results_indexmodel_meetcyclus_", name_analysis),
+                               root = str_c("../output/results/", versie))
+
+```
+
+```{r}
+#| label: results-meetcyclus
+
+verschil_meetcyclus <- result_indexmodel_meetcyclus %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  mutate(mean_log = log(mean) + 1,
+         lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+verschil_meetcyclus_add <- verschil_meetcyclus %>%
+  distinct(soort_nl, soort_wet) %>%
+  mutate(klasse = "R",
+         periode = ifelse(soort_nl == "Oranje zandoogje", "2017-2019", "2016-2018"),
+         mean = 0,
+         mean_log = 1)
+  
+```
+
+
+```{r}
+#| label: fig-results-meetcyclus
+#| fig-cap: Verschil t.o.v. referentiemeetcyclus
+
+verschil_meetcyclus <- verschil_meetcyclus %>%
+  bind_rows(verschil_meetcyclus_add)
+
+verschil_meetcyclus %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = periode, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiemeetcyclus", x = "Meetcyclus") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide", 
+        axis.text.x = element_text(angle = 45)) +
+  facet_wrap(~soort_nl, scales = "free", ncol = 2)
+```
+
+```{r}
+#| eval: false
+
+verschil_meetcyclus %>%
+  filter(soort_nl == "Heivlinder") %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = meetcyclus, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 6, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiemeetcyclus", x = "Meetcyclus") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~soort_nl, scales = "free")
+
+ggsave("../output/figures/2024/verschil_meetcyclus_heivlinder.jpg",
+       width = 5, height = 4)
+```
+
+## Vergelijking tussen de meetcycli per stratum
+
+```{r}
+#| label: load-results-stratum
+
+name_analysis <- "vlinders_imago_transect"
+versie <- str_c(name_analysis, "_2025-11-20")
+result_indexmodel_regio <- read_vc(file = str_c("results_indexmodel_regio_", name_analysis),
+                               root = str_c("../output/results/", versie))
+
+```
+
+```{r}
+
+verschil_meetcyclus_regio <- result_indexmodel_regio %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown"),
+         meetcyclus = periode) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+verschil_meetcyclus_add <- result_indexmodel_regio %>%
+  distinct(soort_nl, soort_wet, regio) %>%
+  mutate(klasse = "R",
+         meetcyclus = ifelse(soort_nl == "Oranje zandoogje", "2017-2019", "2016-2018"),
+         mean = 0,
+         mean_log = 1)
+  
+```
+
+```{r}
+#| label: fig-regio
+#| fig-cap: Verschil t.o.v. referentiemeetcyclus
+
+verschil_meetcyclus_regio <- verschil_meetcyclus_regio %>%
+  bind_rows(verschil_meetcyclus_add)
+
+verschil_meetcyclus_regio %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = meetcyclus, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiemeetcyclus", x = "Meetcyclus") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~str_c(soort_nl, " - ", regio))
+
+ggsave("../output/figures/2024/verschil_meetcyclus_heivlinder_regio.jpg",
+       width = 7, height = 4)
+```
+
+## Trends
+
+```{r}
+#| label: load-results-trend
+
+name_analysis <- "vlinders_imago_transect"
+versie <- str_c(name_analysis, "_2025-11-20")
+results_trendmodel_transect_jaar <- read_vc(file = str_c("results_trendmodel_", name_analysis),
+                               root = str_c("../output/results/", versie))
+results_trendmodel_transect_meetcyclus <- read_vc(file = str_c("results_trendmodel_meetcyclus_", name_analysis),
+                               root = str_c("../output/results/", versie))
+
+name_analysis <- "vlinders_imago_gebied"
+versie <- str_c(name_analysis, "_2025-11-20")
+results_trendmodel_gebied <- read_vc(file = str_c("results_trendmodel_", name_analysis),
+                               root = str_c("../output/results/", versie))
+
+name_analysis <- "vlinders_eitelling"
+versie <- str_c(name_analysis, "_2025-11-20")
+results_trendmodel_eitelling <- read_vc(file = str_c("results_trendmodel_", name_analysis),
+                               root = str_c("../output/results/", versie))
+
+```
+
+```{r}
+#| label: results-trend
+
+results_trendmodel_all <- bind_rows(results_trendmodel_transect_jaar %>%
+                                      filter(!soort_nl %in% c("Heivlinder", "Argusvlinder", "Oranje zandoogje")),
+                                    results_trendmodel_transect_meetcyclus,
+                                    results_trendmodel_gebied,
+                                    results_trendmodel_eitelling)
+```
+
+```{r}
+#| label: fig-results-trend
+#| fig-cap: Schatting en classificatie van trends voor de verschillende soorten met 90%-betrouwbaarheidsinterval
+
+klasse_color <- c("++" = inbo_groen, "+" = inbo_groen, "--" = inbo_rood, "-" = inbo_rood, "?+" = inbo_grijsblauw, "?-" = inbo_grijsblauw, "?" = inbo_grijsblauw, "~" = inbo_geelgr, "+~" = inbo_groen, "-~" = inbo_rood, "R" = inbo_grijsblauw)
+
+trend <- results_trendmodel_all %>%
+  filter(is.na(model_description) | model_description == "without offset") %>%
+  filter(parameter %in% c("trend_average", "trend_jaar")) %>%
+  mutate(mean_log = log(mean/100 + 1),
+          lcl_0.90_log = log(lcl_0.90/100 + 1),
+         ucl_0.90_log = log(ucl_0.90/100 + 1)) %>%
+  mutate(n_jaar = 6,
+         treshold_low = round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
+         treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1)) %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
+
+volgorde_soorten <- (trend %>%
+  arrange(mean))$meetnet
+
+breaks_log <- log(c(-75, -50, -25, 0, 33, 100)/100 + 1)
+labels_show <- str_c(c(-75, -50, -25, 0, 33, 100), " %")
+
+trend %>%
+  mutate(meetnet = factor(meetnet, levels = volgorde_soorten)) %>%
+  ggplot( aes(x = meetnet, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_hline(aes(yintercept = max(log(treshold_low/100 +1))), linetype = 3, alpha = 0.8) +
+  geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3, alpha = 0.8) +
+  geom_hline(yintercept = 0, linetype = 2, alpha = 0.8) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Gemiddelde jaarlijkse trend (%)", x = "Soort") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show, limits = c(min(breaks_log), max(breaks_log))) +
+  coord_flip() +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+ggsave("../output/dagvlinders_trend.png")
+```

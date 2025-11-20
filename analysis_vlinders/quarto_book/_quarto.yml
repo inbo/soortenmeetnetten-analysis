@@ -1,0 +1,24 @@
+project:
+  type: book
+
+book:
+  title: "Analyse soortspecifieke dagvlindernmeetnetten"
+  subtitle: "Technisch rapport"
+  date: "2025-11-19"
+  author:
+    name: "Toon Westra, Dirk Maes, Sam Van De Poel, Frederic Piesschaert, Thierry Onkelinx"
+    email: "Toon.Westra@inbo.be"
+  chapters:
+    - index.qmd
+    - 1_selectie_analyseset.qmd
+    - 2_dataverkenning.qmd
+    - 3_missing_data.qmd
+    - 4_analyse.qmd
+    - 5_results.qmd
+format: html
+editor: source
+lang: nl
+execute:
+  cache: true
+  echo: false
+  warning: false

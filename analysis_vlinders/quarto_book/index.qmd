@@ -1,0 +1,9 @@
+# Inleiding
+
+Dit technisch rapport overloopt de stappen in de analyse van de dagvlindermeetnetten:
+
+-   selectie van de dataset gebruikt voor de analyse (=analyseset)
+-   dataverkenning
+-   keuze model
+-   validatie model
+-   resultaten

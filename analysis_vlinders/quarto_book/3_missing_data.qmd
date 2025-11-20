@@ -1,0 +1,193 @@
+# Impact ontbrekende nullen op resultaten
+
+```{r}
+#| label: setup
+#| output: false
+#| cache: false
+
+library(knitr)
+options(knitr.kable.NA = '')
+
+library(tidyverse)
+library(git2rdata)
+library(n2khab)
+library(INLA)
+library(DT)
+
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::lag)
+conflicted::conflicts_prefer(tidyr::expand)
+
+path_functions <- fileman_up("soortenmeetnetten-analysis")
+source(file.path(path_functions, "source/functions_smp.R"))
+```
+
+## Dataverkenning
+
+We verkennen hoe de manier van omgaan met ontbrekende nullen, een impact heeft op de resultaten van het meetnet Kommavlinder.
+
+```{r}
+#| label: read-data
+
+name_analyseset <- "analyseset_vlinders_imago_transect"
+versie <- "vlinders_imago_transect_2025-11-19"
+
+analyseset_transect <- read_vc(file = name_analyseset,
+                               root = str_c("../output/analyseset/", versie)) %>%
+  mutate(doy = as.numeric(format(datum, "%j")))
+
+meetnet_missing0 <- analyseset_transect %>%
+  group_by(meetnet) %>%
+  filter(any(type_data == "missing_0")) %>%
+  ungroup()
+
+```
+
+```{r}
+#| label: tbl-missing0
+#| tbl-cap: Aantal getelde locaties en aantal locaties met ontbrekende nullen per jaar
+
+meetnet_missing0 %>%
+  group_by(meetnet, jaar, type_data) %>%
+  summarise(n_locaties = n_distinct(locatie)) %>%
+  ungroup() %>%
+  pivot_wider(names_from = type_data,
+              names_prefix = "n_locaties_",
+              values_fill = 0,
+              values_from = n_locaties) %>%
+  datatable(rownames = FALSE)
+```
+
+```{r}
+#| label: fig-counts
+#| fig-cap: Getelde aantallen (counted) en toegevoegde nulwaarden (missing_0) 
+
+meetnet_missing0 %>%
+  ggplot(aes(x = doy, y =aantal, colour = type_data, shape = type_data)) +
+  geom_point(alpha = 0.3, size = 5) +
+  facet_wrap(~meetnet)
+```
+```{r}
+#| label: fig-mean
+#| fig-cap: Gemiddelde getelde aantallen met en zonder rekeninghoudend met ontbrekende 0'en
+
+mean_counted <- meetnet_missing0 %>%
+  group_by(meetnet, jaar) %>%
+  mutate(withmissing0 = mean(aantal)) %>%
+  ungroup() %>%
+  filter(type_data == "counted") %>%
+  group_by(meetnet, jaar, withmissing0) %>%
+  summarise(withoutmissing0 = mean(aantal)) %>%
+  ungroup() %>%
+  pivot_longer(cols = c(withmissing0, withoutmissing0),
+               names_to = "type_data", 
+               values_to = "mean")
+
+mean_counted %>%
+  ggplot(aes(x = jaar, y = mean, group = type_data, colour = type_data)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~meetnet)
+```
+
+## Model
+
+We evalueren 3 manieren om om te gaan met ontbrekende nullen:
+
++ locatie met ontbrekende nullen (voor locaties waar soort is verdwenen) weglaten uit analyse
++ locatie met ontbrekende nullen behouden, maar geen nullen toevoegen
++ locatie met ontbrekende nullen behouden en ontbrekende nullen toevoegen
+
+We vergelijken de resultaten van
+
++ indexmodel voor het verschil t.o.v. een referentiejaar
++ trendmodel voor de gemiddelde jaarlijkse trend
+
+### Verschil t.o.v. referentiejaar
+
+```{r}
+#| label: indexmodel-missing0
+
+analyseset_withmissing0 <- meetnet_missing0
+
+analyseset_withoutmissing0 <- meetnet_missing0 %>%
+  filter(type_data == "counted")
+
+analyseset_removeloc <- meetnet_missing0 %>%
+  group_by(meetnet, locatie) %>%
+  filter(all(type_data == "counted")) %>%
+  ungroup()
+
+model_withmissing0 <- fit_indexmodel_rw_nbinom_inla(analyseset_species = analyseset_withmissing0, 
+                                                    offset_var = "log_section_100")
+index_withmissing0 <- derive_index_rw_inla(analyseset_withmissing0, inlamodel_rw = model_withmissing0) %>%
+  mutate(type_model = "With missing 0")
+
+
+model_withoutmissing0 <- fit_indexmodel_rw_nbinom_inla(analyseset_species = analyseset_withoutmissing0, 
+                                                    offset_var = "log_section_100")
+index_withoutmissing0 <- derive_index_rw_inla(analyseset_withoutmissing0, inlamodel_rw = model_withoutmissing0)  %>%
+  mutate(type_model = "Without missing 0")
+
+model_removeloc <- fit_indexmodel_rw_nbinom_inla(analyseset_species = analyseset_removeloc, 
+                                                    offset_var = "log_section_100")
+index_removeloc <- derive_index_rw_inla(analyseset_removeloc, inlamodel_rw = model_removeloc)  %>%
+  mutate(type_model = "Remove location")
+  
+models_compare <- index_withmissing0 %>%
+  bind_rows(index_withoutmissing0) %>%
+  bind_rows(index_removeloc)
+```
+
+
+```{r}
+#| label: fig-impact-index
+#| fig-cap: Impact van manier van omgaan met ontbrekende nullen op de geschatte verschillen t.o.v. het referentiejaar
+
+models_compare %>%
+  filter(parameter == "index") %>%
+  mutate(jaar = factor(jaar)) %>%
+  ggplot(aes(x = jaar, y = mean, ymin = lcl_0.90, ymax = ucl_0.90, group = type_model, colour = type_model)) +
+  geom_point(alpha = 0.5, size = 3) +
+  geom_errorbar() +
+  labs(y = "index")
+```
+
+### Gemiddelde jaarlijkse trend
+
+```{r}
+#| label: trendmodel-missing0
+
+model_withmissing0 <- fit_trendmodel_rw_nbinom_inla(analyseset_species = analyseset_withmissing0, 
+                                                    offset_var = "log_section_100")
+trend_withmissing0 <- derive_trend(analyseset_withmissing0, model_withmissing0) %>%
+  mutate(type_model = "With missing 0")
+
+
+model_withoutmissing0 <- fit_trendmodel_rw_nbinom_inla(analyseset_species = analyseset_withoutmissing0, 
+                                                    offset_var = "log_section_100")
+trend_withoutmissing0 <- derive_trend(analyseset_withoutmissing0, model_withoutmissing0)  %>%
+  mutate(type_model = "Without missing 0")
+
+model_removeloc <- fit_trendmodel_rw_nbinom_inla(analyseset_species = analyseset_removeloc, 
+                                                    offset_var = "log_section_100")
+trend_removeloc <- derive_trend(analyseset_removeloc, model_removeloc)  %>%
+  mutate(type_model = "Remove location")
+  
+trend_compare <- trend_withmissing0 %>%
+  bind_rows(trend_withoutmissing0) %>%
+  bind_rows(trend_removeloc)
+```
+
+```{r}
+#| label: fig-impact-trend
+#| fig-cap: Impact van manier van omgaan met ontbrekende nullen op de geschatte trends
+
+trend_compare %>%
+  filter(parameter == "trend_average") %>%
+  ggplot(aes(x = type_model, y = mean, ymin = lcl_0.90, ymax = ucl_0.90, colour = type_model)) +
+  geom_point(alpha = 0.5, size = 3) +
+  geom_errorbar() +
+  labs(y = "trend") +
+  lims(y = c(NA,0))
+```
