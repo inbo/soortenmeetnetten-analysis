@@ -1186,10 +1186,10 @@ derive_trend_prop <- function(sample) {
     mutate(parameter = str_sub(parameter, end = -3)) %>%
     pivot_wider(names_from = parameter, values_from = V1) %>%
     mutate(prop_1 = plogis(`(Intercept)` + 1 * year_scaled),
-           prop_4 = plogis(`(Intercept)` + 4 * year_scaled),
-           trend_total_1_4 = (prop_4 / prop_1 - 1) * 100,
-           trend_average_1_4 = ((trend_total_1_4/100 + 1) ^ (1/3) - 1) * 100) %>%
-    pivot_longer(cols = c("(Intercept)", "year_scaled", "prop_1", "prop_4", "trend_total_1_4", "trend_average_1_4"), names_to = "parameter",
+           prop_5 = plogis(`(Intercept)` + 4 * year_scaled),
+           trend_total_1_5 = (prop_5 / prop_1 - 1) * 100,
+           trend_average_1_5 = ((trend_total_1_5/100 + 1) ^ (1/4) - 1) * 100) %>%
+    pivot_longer(cols = c("(Intercept)", "year_scaled", "prop_1", "prop_5", "trend_total_1_5", "trend_average_1_5"), names_to = "parameter",
                  values_to = "value")
            
   return(s)
@@ -1217,12 +1217,12 @@ derive_trend_prop <- function(sample) {
     spread(key = type, value = qs) 
   
   overzicht_trend_tabel_nestbuizen <- estimates_trend_prop %>%
-    filter(parameter %in% c("trend_total_1_4", "trend_average_1_4")) %>%
-    mutate( n_jaar = 4,
-         treshold_low = ifelse(parameter == "trend_average_1_4", 
+    filter(parameter %in% c("trend_total_1_5", "trend_average_1_5")) %>%
+    mutate( n_jaar = 5,
+         treshold_low = ifelse(parameter == "trend_average_1_5", 
                                round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
                                -25),
-         treshold_high = ifelse(parameter == "trend_average_1_4", 
+         treshold_high = ifelse(parameter == "trend_average_1_5", 
                                 round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1),
                                 33)) %>%
   ungroup() %>%
@@ -1237,12 +1237,12 @@ derive_trend_prop <- function(sample) {
                            ifelse(trend_ucl > 0, "+", ""),
                            trend_ucl, "%)")
          ) %>%
-  mutate(periode = "2020 - 2023",
+  mutate(periode = "2020 - 2024",
          soort_nl = "Hazelmuis") %>%
   select(parameter, soort_nl, periode, klasse, trend_tbl) %>%
   spread(key = "parameter", value = "trend_tbl") %>%
   mutate(klasse = as.character(klasse)) %>%
-  select("Nederlandse naam" = soort_nl,  Periode = periode, Klasse = klasse,  "Jaarlijkse wijziging" = trend_average_1_4, "Wijziging over de looptijd" = trend_total_1_4) %>%
+  select("Nederlandse naam" = soort_nl,  Periode = periode, Klasse = klasse,  "Jaarlijkse wijziging" = trend_average_1_5, "Wijziging over de looptijd" = trend_total_1_5) %>%
     mutate(meetnet = "Hazelmuis - nestbuizen")
 
 ```
