@@ -30,7 +30,7 @@ We verkennen hoe de manier van omgaan met ontbrekende nullen, een impact heeft o
 #| label: read-data
 
 name_analyseset <- "analyseset_vlinders_imago_transect"
-versie <- "vlinders_imago_transect_2025-11-19"
+versie <- "vlinders_imago_transect_2025-12-18"
 
 analyseset_transect <- read_vc(file = name_analyseset,
                                root = str_c("../output/analyseset/", versie)) %>%

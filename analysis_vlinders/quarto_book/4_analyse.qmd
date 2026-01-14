@@ -38,7 +38,7 @@ source(file.path(path_functions, "source/functions_smp.R"))
 name_analysis2 <- "vlinders_imago_transect"
 
 name_analyseset <- str_c("analyseset_", name_analysis2)
-versie <- str_c(name_analysis2, "_2025-11-05")
+versie <- str_c(name_analysis2, "_2025-12-18")
 
 analyseset_transect <- read_vc(file = name_analyseset,
                                root = str_c("../output/analyseset/", versie))
@@ -122,6 +122,7 @@ results_waic <- bind_rows(waic_index,
 analyseset_meetcyclus <- analyseset_transect %>%
   filter(duur_meetcyclus > 1) %>%
   group_by(meetnet, meetcyclus) %>%
+  filter(n_distinct(jaar) == duur_meetcyclus) %>%
   mutate(periode = str_c(min(jaar), "_", min(jaar) + duur_meetcyclus - 1)) %>%
   ungroup() %>%
   mutate(locatie = as.factor(locatie),
@@ -164,8 +165,7 @@ index_meetcyclus_av <- derive_index_meetcyclus_inla(
   set_seed = seed)
 
 analyseset_meetcyclus_oz <- analyseset_meetcyclus %>%
-  filter(meetnet == "Oranje zandoogje") %>%
-  filter(jaar <= 2022)
+  filter(meetnet == "Oranje zandoogje")
 
 indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ periode  + 
                                 f(doy_scaled, model = "rw2", 
@@ -182,7 +182,7 @@ set.seed(54545)
 
 index_meetcyclus_oz <- derive_index_meetcyclus_inla(
   indexmodel_nbinom_inla = indexmodel_doyrw2_iid_meetcyclus,
-  function_eval = function(...) {c(exp(periode2020_2022))},
+  function_eval = function(...) {c(exp(periode2020_2022), exp(periode2023_2025))},
   set_seed = seed)
 
 result_indexmodel_meetcyclus <- index_meetcyclus_av %>%
@@ -207,7 +207,7 @@ results_trendmodel_meetcyclus  <- models_trend_meetcyclus %>%
 results_indexmodel %>%
   filter(parameter != "sample_value") %>%
   write_vc(file = str_c("results_indexmodel_", name_analysis2), 
-        
+         root = "../output/temp", 
          sorting = c("parameter", "soort_nl", "jaar"),
          strict = FALSE)
 
@@ -517,7 +517,7 @@ results_trend_regio %>%
 name_analysis0 <- "vlinders_imago_gebied"
 
 name_analyseset <- str_c("analyseset_", name_analysis0)
-versie <- str_c(name_analysis0, "_2025-11-19")
+versie <- str_c(name_analysis0, "_2025-12-18")
 
 analyseset_gebied <- read_vc(file = name_analyseset,
                                root = str_c("../output/analyseset/", versie))
@@ -707,7 +707,7 @@ We kiezen een model met volgende kenmerken:
 name_analysis3 <- "vlinders_eitelling"
 
 name_analyseset <- str_c("analyseset_", name_analysis3)
-versie <- str_c(name_analysis3, "_2025-11-19")
+versie <- str_c(name_analysis3, "_2025-12-18")
 
 analyseset_gb <- read_vc(file = name_analyseset,
                                root = str_c("../output/analyseset/", versie))

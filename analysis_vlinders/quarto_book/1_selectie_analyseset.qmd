@@ -356,6 +356,7 @@ missing_data_meetcyclus <- missing_data %>%
   mutate(periode = ifelse(jaar_min == jaar_max, jaar_min, str_c(jaar_min, "-", jaar_max)))
 
 missing_data_meetcyclus %>%
+  filter(jaar_max <= 2025) %>%
   group_by(meetnet, is_sample, is_active, locatie) %>%
   summarise(meetcyclus = str_c(periode, collapse = "; ")) %>%
   ungroup() %>%
@@ -392,7 +393,7 @@ locations_not_sample %>%
 ```{r}
 #| label: select-validatie
 
-max_year <- 2024
+max_year <- 2025
 
 dataset_presence_sample <- dataset_presence_sample %>%
   filter(jaar <= max_year)

@@ -6,7 +6,7 @@ book:
   subtitle: "Technisch rapport"
   date: "2025-11-19"
   author:
-    name: "Toon Westra, Dirk Maes, Sam Van De Poel, Frederic Piesschaert, Thierry Onkelinx"
+    name: "Toon Westra, Dirk Maes, Sam Van De Poel, Wim Veraghtert, Frederic Piesschaert, Thierry Onkelinx"
     email: "Toon.Westra@inbo.be"
   chapters:
     - index.qmd
@@ -19,6 +19,6 @@ format: html
 editor: source
 lang: nl
 execute:
-  cache: true
+  cache: false
   echo: false
   warning: false

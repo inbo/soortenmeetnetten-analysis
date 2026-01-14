@@ -37,17 +37,17 @@ source(file.path(path_functions, "source/functions_smp.R"))
 #| label: load-data
 
 name_analysis <- "vlinders_imago_transect"
-versie <- str_c(name_analysis, "_2025-11-20")
+versie <- str_c(name_analysis, "_2025-12-18")
 results_indexmodel_transect <- read_vc(file = str_c("results_indexmodel_", name_analysis),
                                root = str_c("../output/results/", versie))
-
+getwd()
 name_analysis <- "vlinders_imago_gebied"
-versie <- str_c(name_analysis, "_2025-11-20")
+versie <- str_c(name_analysis, "_2025-12-18")
 results_indexmodel_gebied <- read_vc(file = str_c("results_indexmodel_", name_analysis),
                                root = str_c("../output/results/", versie))
 
 name_analysis <- "vlinders_eitelling"
-versie <- str_c(name_analysis, "_2025-11-20")
+versie <- str_c(name_analysis, "_2025-12-18")
 results_indexmodel_eitelling <- read_vc(file = str_c("results_indexmodel_", name_analysis),
                                root = str_c("../output/results/", versie))
 
@@ -106,13 +106,14 @@ verschil_jaren_ref %>%
   geom_text(size = 4, colour = "black") +
   labs(y = "Verschil t.o.v. referentiejaar", x = "Jaar") +
   scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_x_continuous(breaks = c(2016, 2019, 2022, 2025)) +
   scale_color_manual(values = klasse_color) +
   theme(legend.position = "hide") +
   facet_wrap(~soort_nl, scales = "free_y", ncol = 3)
 
 ggsave("../output/dagvlinders_index.png",
-       width = 14,
-       height = 10)
+       width = 9,
+       height = 9)
 ```
 
 ```{r}
@@ -182,7 +183,7 @@ verschil_vorigjaar %>%
 #| label: load-results-meetcyclus
 
 name_analysis <- "vlinders_imago_transect"
-versie <- str_c(name_analysis, "_2025-11-20")
+versie <- str_c(name_analysis, "_2025-12-18")
 result_indexmodel_meetcyclus <- read_vc(file = str_c("results_indexmodel_meetcyclus_", name_analysis),
                                root = str_c("../output/results/", versie))
 
@@ -230,6 +231,10 @@ verschil_meetcyclus %>%
   theme(legend.position = "hide", 
         axis.text.x = element_text(angle = 45)) +
   facet_wrap(~soort_nl, scales = "free", ncol = 2)
+
+ggsave("../output/dagvlinders_index_meetcyclus.png",
+       width = 7,
+       height = 5)
 ```
 
 ```{r}
@@ -261,7 +266,7 @@ ggsave("../output/figures/2024/verschil_meetcyclus_heivlinder.jpg",
 #| label: load-results-stratum
 
 name_analysis <- "vlinders_imago_transect"
-versie <- str_c(name_analysis, "_2025-11-20")
+versie <- str_c(name_analysis, "_2025-12-18")
 result_indexmodel_regio <- read_vc(file = str_c("results_indexmodel_regio_", name_analysis),
                                root = str_c("../output/results/", versie))
 
@@ -318,19 +323,19 @@ ggsave("../output/figures/2024/verschil_meetcyclus_heivlinder_regio.jpg",
 #| label: load-results-trend
 
 name_analysis <- "vlinders_imago_transect"
-versie <- str_c(name_analysis, "_2025-11-20")
+versie <- str_c(name_analysis, "_2025-12-18")
 results_trendmodel_transect_jaar <- read_vc(file = str_c("results_trendmodel_", name_analysis),
                                root = str_c("../output/results/", versie))
 results_trendmodel_transect_meetcyclus <- read_vc(file = str_c("results_trendmodel_meetcyclus_", name_analysis),
                                root = str_c("../output/results/", versie))
 
 name_analysis <- "vlinders_imago_gebied"
-versie <- str_c(name_analysis, "_2025-11-20")
+versie <- str_c(name_analysis, "_2025-12-18")
 results_trendmodel_gebied <- read_vc(file = str_c("results_trendmodel_", name_analysis),
                                root = str_c("../output/results/", versie))
 
 name_analysis <- "vlinders_eitelling"
-versie <- str_c(name_analysis, "_2025-11-20")
+versie <- str_c(name_analysis, "_2025-12-18")
 results_trendmodel_eitelling <- read_vc(file = str_c("results_trendmodel_", name_analysis),
                                root = str_c("../output/results/", versie))
 
@@ -384,5 +389,5 @@ trend %>%
   scale_color_manual(values = klasse_color) +
   theme(legend.position = "hide")
 
-ggsave("../output/dagvlinders_trend.png")
+ggsave("../output/dagvlinders_trend.png", height = 5, width = 6)
 ```

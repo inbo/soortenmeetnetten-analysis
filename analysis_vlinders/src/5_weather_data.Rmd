@@ -23,7 +23,7 @@ supported_frequencies(variable_name = "neerslag")
 
 ```{r, eval = FALSE}
 
-get_monthly_rainfall <- function(sation_no_select, from = "2016-01-01", to = "2021-12-31") {
+get_monthly_rainfall <- function(sation_no_select, from = "2016-01-01", to = "2024-12-31") {
   
   ts_id_select <-  (get_variables(sation_no_select) %>%
     filter(parametertype_name == "N",
@@ -52,11 +52,11 @@ rainfall_1month_station <- rainfall_1month %>%
   mutate(jaar = year(Timestamp),
          maand= month(Timestamp))
 
-write_csv2(rainfall_1month_station, "../output/weather_data/rainfall_monthly.csv")
+write_csv2(rainfall_1month_station, "output/weather_data/rainfall_monthly.csv")
 ```
 
 ```{r}
-rainfall_1month_station <- read_csv2( "../output/weather_data/rainfall_monthly.csv")
+rainfall_1month_station <- read_csv2( "output/weather_data/rainfall_monthly.csv")
 
 rainfall_1month_station %>%
   mutate(datum = as.Date(Timestamp)) %>%
@@ -75,7 +75,7 @@ rainfall_1month_station %>%
 
 ```{r, eval = FALSE}
 
-get_monthly_temperature <- function(station_no_select, from = "2016-01-01", to = "2021-12-31") {
+get_monthly_temperature <- function(station_no_select, from = "2016-01-01", to = "2024-12-31") {
   
   ts_id_select <-  (get_variables(station_no_select) %>%
     filter(parametertype_name == "Ta",
@@ -90,7 +90,7 @@ get_monthly_temperature <- function(station_no_select, from = "2016-01-01", to =
     
 }
 
-get_data_waterinfo <- function(station_no_select, from = "2016-01-01", to = "2021-12-31", parametertype = "Ta", stationparameter = "Ta(1.75m)", ts = "MaandGem") {
+get_data_waterinfo <- function(station_no_select, from = "2016-01-01", to = "2024-12-31", parametertype = "Ta", stationparameter = "Ta(1.75m)", ts = "MaandGem") {
   
   ts_id_select <-  get_variables(station_no_select) %>%
     filter(parametertype_name == parametertype,
@@ -168,8 +168,8 @@ test <- get_data_waterinfo(station_no_select = stations_neerslag[1,]$station_no,
   
 write_csv2(temperature_1month_station, "../output/weather_data/temperature_monthly.csv")
 write_csv2(temperature_daily_station, "../output/weather_data/temperature_daily.csv")
-write_csv2(spi_1, "../output/weather_data/spi_1.csv")
-write_csv2(spi_3, "../output/weather_data/spi_3.csv")
+write_csv2(spi_1, "output/weather_data/spi_1.csv")
+write_csv2(spi_3, "output/weather_data/spi_3.csv")
 ```
 
 ```{r}
@@ -191,7 +191,7 @@ temperature_daily_station %>%
 ```
 
 ```{r}
-spi_1 <- read_csv2("../output/weather_data/spi_1.csv")
+spi_1 <- read_csv2("output/weather_data/spi_1.csv")
 
 spi_1 %>%
   mutate(datum = as.Date(timestamp),
@@ -211,7 +211,7 @@ spi_1 %>%
   ylab("SPI-1")
 ```
 ```{r}
-spi_3 <- read_csv2("../output/weather_data/spi_3.csv")
+spi_3 <- read_csv2("output/weather_data/spi_3.csv")
 
 spi_3 %>%
   mutate(datum = as.Date(timestamp),

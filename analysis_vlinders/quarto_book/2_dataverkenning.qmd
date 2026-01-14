@@ -45,7 +45,7 @@ source(file.path(path_functions, "source/functions_smp.R"))
 name_analysis <- "vlinders_imago_gebied"
 
 name_analyseset <- str_c("analyseset_", name_analysis)
-versie <- str_c(name_analysis, "_2025-11-19")
+versie <- str_c(name_analysis, "_2025-12-18")
 
 analyseset_gebied <- read_vc(file = name_analyseset,
                                root = str_c("../output/analyseset/", versie)) %>%
@@ -54,7 +54,7 @@ analyseset_gebied <- read_vc(file = name_analyseset,
 name_analysis <- "vlinders_imago_transect"
 
 name_analyseset <- str_c("analyseset_", name_analysis)
-versie <- str_c(name_analysis, "_2025-11-19")
+versie <- str_c(name_analysis, "_2025-12-18")
 
 analyseset_transect <- read_vc(file = name_analyseset,
                                root = str_c("../output/analyseset/", versie)) %>%
@@ -63,7 +63,7 @@ analyseset_transect <- read_vc(file = name_analyseset,
 name_analysis <- "vlinders_eitelling"
 
 name_analyseset <- str_c("analyseset_", name_analysis)
-versie <- str_c(name_analysis, "_2025-11-19")
+versie <- str_c(name_analysis, "_2025-12-18")
 
 analyseset_eitelling <- read_vc(file = name_analyseset,
                                root = str_c("../output/analyseset/", versie)) %>%
