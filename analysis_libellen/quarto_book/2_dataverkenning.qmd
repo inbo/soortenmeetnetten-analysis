@@ -117,8 +117,8 @@ locaties_libellen_polygonen <- locaties_libellen_dataset %>%
 
 In @fig-kaart tonen we de gemiddelde getelde aantallen per meetnetlocatie per jaar:
 
-+ de grootte van de punten is evenredig met de aantallen
-+ rode punten zijn nulwaarnemingen
+-   de grootte van de punten is evenredig met de aantallen
+-   rode punten zijn nulwaarnemingen
 
 ```{r}
 #| label: filters
@@ -144,14 +144,12 @@ data_shared_locaties %>%
   addCircleMarkers(label = ~str_c(meetnet, " - ", locatie, ": aantal = ", aantal_average_locatie), radius = ~relative_size, stroke = FALSE, fillOpacity = 0.2, fillColor = ~ifelse(aantal_average_locatie > 0, "blue", "red")) 
 ```
 
-
 Per meetnet tonen we grafieken met:
 
-+ gemiddelde getelde aantallen per meetnetlocatie en per jaar
-+ gemiddelde getelde aantallen per jaar voor het volledige meetnet
+-   gemiddelde getelde aantallen per meetnetlocatie en per jaar
+-   gemiddelde getelde aantallen per jaar voor het volledige meetnet
 
-::: {.panel-tabset}
-
+::: panel-tabset
 ## Maanwaterjuffer
 
 ```{r}
@@ -349,7 +347,6 @@ plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_average, color = "black", typ
 
 ```
 
-
 ## Variabele waterjuffer
 
 ```{r}
@@ -405,6 +402,7 @@ plot_ly(data_shared_soort, x = ~periode, y =  ~aantal_average, color = "black", 
          yaxis = list(title = "Getelde aantallen"))
 
 ```
+
 ## Bosbeekjuffer
 
 ```{r}
