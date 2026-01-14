@@ -80,17 +80,17 @@ De amfibieën en reptielen worden geteld op basis van één of meerdere van volg
     -   Knoflookpadmannetjes roepen vanop de bodem van een poel en worden daarom met behulp van een hydrofoon geteld.
     -   Voor poelkikker tellen we het totaal van de roepende poelkikkers en bastaardkikkers samen, omdat de roep van beide soorten moeilijk te onderscheiden is. Via DNA-analyse van een 50-tal larven per poel maken we vervolgens een inschatting van de verhouding tussen beide soorten.
 
--   **Telling larven en metamorfen** Larven van kamsalamander, boomkikker, poelkikker en vroedmeesterpad worden geteld met een schepnet.
+-   **Telling larven en metamorfen (juvenielen)**: Larven van kamsalamander, boomkikker, poelkikker en vroedmeesterpad worden geteld met een schepnet.
     Per 2 meter oevertraject voeren we een schepbeweging uit met een maximum van 30 schepbewegingen per poel.
     We noteren het aantal larven per soort en ook het aantal uitgevoerde schepbewegingen.
-    We noteren ook het aantal metamorfen (juvenielen) die we op land waarnemen.
+    We noteren ook het aantal metamorfen die we op land waarnemen.
     Om poelkikker en bastaardkikker te onderscheiden voeren we ook een genetische bemonstering uit door het staartpuntje te knippen van ongeveer 50 larven per poel.
 
--   **Eitelling en DNA-analyse** Eiklompen van heikikker worden geteld per poel.
+-   **Eitelling en DNA-analyse**: Eiklompen van heikikker worden geteld per poel.
     Omdat de eiklompen van heikikker visueel moeilijk te onderscheiden zijn van deze van de bruine kikker, verzamelen we 1 eitje per eiklomp met een maximum van 50 eitjes.
     Via een DNA-analyse van de eitjes bepalen we het aandeel van de eitjes dat van heikikker afkomstig is.
 
--   **Transecttelling rugstreeppad** De rugstreeppad is een pioniersoort die voor de voortplanting gebruik maakt van tijdelijke plassen die per jaar sterk kunnen variëren in grootte en ligging.
+-   **Transecttelling rugstreeppad**: De rugstreeppad is een pioniersoort die voor de voortplanting gebruik maakt van tijdelijke plassen die per jaar sterk kunnen variëren in grootte en ligging.
     Daarom tellen we de soort langsheen een vast transect dat verschillende waterpartijen verbindt.
     Tijdens een avondbezoek worden langsheen het transect roepende mannetjes, eisnoeren en larven geteld.
     Ook zichtwaarnemingen van adulten en juvenielen worden genoteerd.

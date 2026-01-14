@@ -21,4 +21,4 @@ Vervolgens bespreken we de resultaten voor elk meetnet ([Boomkikker](#boomkikker
 Heikikker en Poelkikker zijn twee moeilijk telbare soorten waarvoor het monitoringsprotocol uitgetest werd in een pilootproject.
 We eindigen dit rapport met een evaluatie van beide [pilootprojecten](#pilootproject).
 
-`r ifelse(!html_output, "Dit rapport bevat enkele interactieve figuren die alleen kunnen bekeken worden via de [website versie](https://inbo.github.io/soortenmeetnetten-amfibieënrapport-2025/) van dit rapport.", "")`
+`r ifelse(!html_output, "Dit rapport bevat enkele interactieve figuren die alleen kunnen bekeken worden via de [website versie](https://inbo.github.io/soortenmeetnetten-amfibieenrapport-2025/) van dit rapport.", "")`

@@ -22,7 +22,9 @@ De gegevens die we gebruiken voor de analyse moeten aan volgende voorwaarden vol
 
 -   voor rugstreeppad gebruiken we enkel de tellingen van roepkoren
 
-## Model voor verschillen tussen de jaren
+## Statistische modellen
+
+### Model voor verschillen tussen de jaren
 
 Via een statistisch model analyseren we de getelde aantallen als functie van het jaar.
 Op die manier krijgen we een schatting per jaar.
@@ -78,7 +80,7 @@ $$b_{c} \sim {N(0,\sigma_{c}^2)} $$
 
 $$\Delta b_j \sim {N(0,\sigma_{j}^2)} $$
 
-## Model voor verschillen tussen de meetcycli
+### Model voor verschillen tussen de meetcycli
 
 Voor de meetnetten meet een driejaarlijkse meetcyclus fitten we een model om de verschillen tussen de meetcycli te schatten.
 
@@ -93,7 +95,7 @@ $$b_{l} \sim {N(0,\sigma_{l}^2)} $$
 
 $$b_{c} \sim {N(0,\sigma_{c}^2)} $$
 
-## Model voor jaarlijkse trend
+### Model voor jaarlijkse trend
 
 Lineaire trends veronderstellen dat er een constante wijziging is over de volledige looptijd.
 Het model dat we hiervoor gebruiken is nagenoeg identiek aan het niet-lineaire model.
