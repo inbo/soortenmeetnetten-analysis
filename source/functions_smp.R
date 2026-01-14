@@ -1040,18 +1040,26 @@ derive_index_inla <- function(analyseset_species, indexmodel_nbinom_inla, ref_me
 
 derive_index_meetcyclus_inla <- function(analyseset_species = NULL, indexmodel_nbinom_inla, function_eval = NULL, set_seed = 0) {
   
-  
   var_fixed <- indexmodel_nbinom_inla$names.fixed[-1]
   
   analyseset_species <- indexmodel_nbinom_inla$.args$data
   
-  meetcyclus_ref <- analyseset_species %>%
-    distinct(meetcyclus, jaar) %>%
-    slice_min(jaar)
+  meetcyclus_periodes <- analyseset_species %>%
+    mutate(ref_periode = ifelse(duur_meetcyclus > 1, 
+                                str_c(min(jaar), "_", min(jaar) + duur_meetcyclus - 1),
+                                as.character(min(jaar))),
+           ref_meetcyclus = min(meetcyclus)) %>%
+    group_by(meetcyclus, duur_meetcyclus, ref_periode, ref_meetcyclus) %>%
+    summarise(jaar_min = min(jaar)) %>%
+    ungroup() %>%
+    mutate(jaar_max = jaar_min + duur_meetcyclus - 1,
+           periode = ifelse(duur_meetcyclus > 1, 
+                            str_c(jaar_min, "_", jaar_max),
+                            as.character(jaar_min)))
   
   if (is.null(function_eval)) {
     
-    function_eval <- function(...) {exp(meetcyclus2019_2021)}
+    function_eval <- function(...) {exp(periode2019_2021)}
     
   }
   
@@ -1061,13 +1069,13 @@ derive_index_meetcyclus_inla <- function(analyseset_species = NULL, indexmodel_n
   
   predict_year_inla <- inla.posterior.sample.eval(function_eval, model_inla.samples) %>%
     as.data.frame() %>%
-    mutate(meetcyclus = var_fixed) %>%
+    mutate(periode = var_fixed) %>%
     gather(starts_with("sample"), key = "sample", value = "waarde") %>%
-    group_by(meetcyclus) %>%
+    group_by(periode) %>%
     mutate(mean = mean(waarde),
            sd = sd(waarde)) %>%
     ungroup() %>%
-    group_by(meetcyclus, mean, sd) %>%
+    group_by(periode, mean, sd) %>%
     summarise(qs = quantile(waarde, quantile_values), prob = quantile_values) %>%
     ungroup() %>%
     mutate(l_u = ifelse(prob < 0.5, "lcl", "ucl"),
@@ -1081,14 +1089,16 @@ derive_index_meetcyclus_inla <- function(analyseset_species = NULL, indexmodel_n
     mutate(soort_nl = unique(analyseset_species$soort_nl),
            soort_wet = unique(analyseset_species$soort_wet),
            parameter = "index",
-           meetcyclus_ref = meetcyclus_ref$meetcyclus) %>%
-    select(parameter, soort_nl, soort_wet, meetcyclus, everything())
+           periode = str_remove(periode, "periode")) %>%
+    left_join(meetcyclus_periodes, by = "periode") %>%
+    mutate(periode = str_replace(periode, "_", "-")) %>%
+    mutate(ref_periode = str_replace(ref_periode, "_", "-")) %>%
+    select(parameter, soort_nl, soort_wet, meetcyclus, ref_meetcyclus, periode, ref_periode,  everything())
   
   return(predict_year_inla)
   
 }
   
-
 derive_index_rw_sample <- function(sample) {
   
   s <- sample$latent %>%
@@ -1112,39 +1122,101 @@ derive_index_rw_sample <- function(sample) {
   return(s)
 }
 
+derive_index_meetcyclus_rw_sample <- function(sample) {
+  
+  s <- sample$latent %>%
+    as.data.frame() %>%
+    rownames_to_column(var = "parameter") %>%
+    filter(str_sub(parameter, 1, 10) == "meetcyclus") %>%
+    separate(col = parameter, into = c("var", "meetcyclus_centered"), sep = ":") %>%
+    mutate(meetcyclus_centered = as.numeric(meetcyclus_centered)) %>%
+    select(-var)
+  
+  colnames(s)[2] <- "sample_value"
+  
+  ref_value <- s[s$meetcyclus_centered == 1, "sample_value"]
+  
+  s <- s %>%
+    mutate(index = ifelse(meetcyclus_centered == 1, NA, exp(sample_value - ref_value)),
+           diff_previous_meetcyclus = exp(sample_value - lag(sample_value))) %>%
+    pivot_longer(cols = -meetcyclus_centered,
+                 names_to = "parameter", values_to = "value" )
 
+  return(s)
+}
 
-derive_index_rw_inla <- function(analyseset_species, inlamodel_rw, set_seed = 0) {
+derive_index_rw_inla <- function(analyseset_species, inlamodel_rw, use_meetcyclus = FALSE, set_seed = 0) {
   
   set.seed(set_seed)
   
-  samples <- inla.posterior.sample(1000, inlamodel_rw , seed = set_seed,num.threads = "1:1")
+  samples <- inla.posterior.sample(1000, inlamodel_rw, seed = set_seed, num.threads = "1:1")
   
   quantile_values <- c(0.025, 0.05, 0.20, 0.35,  0.65, 0.80, 0.95, 0.975)
   
-  estimates_jaar <- map_df(samples, derive_index_rw_sample, .id = "sample") %>%
-    group_by(parameter, jaar_centered) %>%
-    mutate(mean = mean(value),
-           sd = sd(value)) %>%
-    ungroup() %>%
-    group_by(parameter, jaar_centered, mean, sd) %>%
-    summarise(qs = quantile(value, quantile_values, na.rm =TRUE), prob = quantile_values) %>%
-    ungroup() %>%
-    mutate(l_u = ifelse(prob < 0.5, "lcl", "ucl"),
-           ci = ifelse(prob %in% c(0.025, 0.975), "0.95",
-                       ifelse(prob %in% c(0.05, 0.95), "0.90",
-                              ifelse(prob %in% c(0.20, 0.80), "0.60",
-                                     ifelse(prob %in% c(0.35, 0.65), "0.30", NA)))),
-           type = str_c(l_u, "_", ci)) %>%
-    select(-prob, -l_u, -ci) %>%
-    spread(key = type, value = qs)  %>%
-    mutate(soort_nl = unique(analyseset_species$soort_nl),
-           soort_wet = unique(analyseset_species$soort_wet),
-           ref_jaar = min(analyseset_species$jaar),
-           jaar = ref_jaar + jaar_centered -1) %>%
-    select(parameter, soort_nl, soort_wet, jaar, ref_jaar, everything())
+  if (!use_meetcyclus) {
+    
+    result <- map_df(samples, derive_index_rw_sample, .id = "sample") %>%
+      group_by(parameter, jaar_centered) %>%
+      mutate(mean = mean(value),
+             sd = sd(value)) %>%
+      ungroup() %>%
+      group_by(parameter, jaar_centered, mean, sd) %>%
+      summarise(qs = quantile(value, quantile_values, na.rm = TRUE), prob = quantile_values) %>%
+      ungroup() %>%
+      mutate(l_u = ifelse(prob < 0.5, "lcl", "ucl"),
+             ci = ifelse(prob %in% c(0.025, 0.975), "0.95",
+                         ifelse(prob %in% c(0.05, 0.95), "0.90",
+                                ifelse(prob %in% c(0.20, 0.80), "0.60",
+                                       ifelse(prob %in% c(0.35, 0.65), "0.30", NA)))),
+             type = str_c(l_u, "_", ci)) %>%
+      select(-prob, -l_u, -ci) %>%
+      spread(key = type, value = qs)  %>%
+      mutate(soort_nl = unique(analyseset_species$soort_nl),
+             soort_wet = unique(analyseset_species$soort_wet),
+             ref_jaar = min(analyseset_species$jaar),
+             jaar = ref_jaar + jaar_centered -1) %>%
+      select(parameter, soort_nl, soort_wet, jaar, ref_jaar, everything())
+    
+  } else {
+    
+    meetcyclus_periodes <- analyseset_species %>%
+      mutate(ref_periode = ifelse(duur_meetcyclus > 1, 
+                         str_c(min(jaar), "-", min(jaar) + duur_meetcyclus - 1),
+                         as.character(min(jaar)))) %>%
+      group_by(meetcyclus, duur_meetcyclus, ref_periode) %>%
+      summarise(jaar_min = min(jaar)) %>%
+      ungroup() %>%
+      mutate(jaar_max = jaar_min + duur_meetcyclus - 1,
+             periode = ifelse(duur_meetcyclus > 1, 
+                              str_c(jaar_min, "-", jaar_max),
+                              as.character(jaar_min)))
+    
+    result <- map_df(samples, derive_index_meetcyclus_rw_sample, .id = "sample") %>%
+      group_by(parameter, meetcyclus_centered) %>%
+      mutate(mean = mean(value),
+             sd = sd(value)) %>%
+      ungroup() %>%
+      group_by(parameter, meetcyclus_centered, mean, sd) %>%
+      summarise(qs = quantile(value, quantile_values, na.rm = TRUE), prob = quantile_values) %>%
+      ungroup() %>%
+      mutate(l_u = ifelse(prob < 0.5, "lcl", "ucl"),
+             ci = ifelse(prob %in% c(0.025, 0.975), "0.95",
+                         ifelse(prob %in% c(0.05, 0.95), "0.90",
+                                ifelse(prob %in% c(0.20, 0.80), "0.60",
+                                       ifelse(prob %in% c(0.35, 0.65), "0.30", NA)))),
+             type = str_c(l_u, "_", ci)) %>%
+      select(-prob, -l_u, -ci) %>%
+      spread(key = type, value = qs)  %>%
+      mutate(soort_nl = unique(analyseset_species$soort_nl),
+             soort_wet = unique(analyseset_species$soort_wet),
+             ref_meetcyclus = min(analyseset_species$meetcyclus),
+             meetcyclus = ref_meetcyclus + meetcyclus_centered - 1) %>%
+      left_join(meetcyclus_periodes, by = "meetcyclus") %>%
+      select(parameter, soort_nl, soort_wet, meetcyclus, ref_meetcyclus, periode, ref_periode, everything())
+    
+  }
   
-  
+ return(result)
 }
 
 derive_prob_rw_inla <- function(analyseset_species, inlamodel_rw, set_seed = 0) {
@@ -1508,58 +1580,170 @@ fit_trendmodel_nbinom_inla <- function(analyseset_species, offset_var = NULL, ge
 }
 
 
-derive_trend <- function(analyseset_species, trendmodel_nbinom) {
+derive_trend <- function(analyseset_species, trendmodel_nbinom, use_meetccylus = FALSE) {
   
-  #gemiddelde jaarlijkse trend
+  if (!use_meetccylus) {
+    
+    #gemiddelde jaarlijkse trend
+    
+    trend_average <- trendmodel_nbinom$marginals.fixed$year_scaled %>%
+      inla.tmarginal(fun = function(x) (exp(x) - 1) * 100) %>%
+      inla.zmarginal(silent = TRUE) %>%
+      data.frame() %>%
+      mutate(parameter = "trend_average",
+             soort_nl = unique(analyseset_species$soort_nl),
+             soort_wet = unique(analyseset_species$soort_wet),
+             jaar_min = min(analyseset_species$jaar),
+             jaar_max = max(analyseset_species$jaar)) %>%
+      select(parameter, soort_nl, soort_wet, jaar_min, jaar_max, mean, sd, lcl_0.95 = quant0.025, ucl_0.95 = quant0.975)
+    
+    trend_quantiles <- trendmodel_nbinom$marginals.fixed$year_scaled %>%
+      inla.tmarginal(fun = function(x) (exp(x) - 1) * 100) %>%
+      inla.qmarginal(p = c(0.05, 0.20, 0.35, 0.65, 0.80, 0.95)) %>%
+      data.frame() %>%
+      mutate(type = c("lcl_0.90", "lcl_0.60", "lcl_0.30", "ucl_0.30", "ucl_0.60", "ucl_0.90")) %>%
+      spread(key = "type", value = ".")
+    
+    trend_average <- trend_average %>%
+      bind_cols(trend_quantiles)
+    
+    #totale trend over volledige periode 
+    
+    periode <- n_distinct(analyseset_species$jaar)
+    
+    trend_totaal <- trendmodel_nbinom$marginals.fixed$year_scaled %>%
+      inla.tmarginal(fun = function(x) (exp(x * (periode - 1)) - 1) * 100) %>%
+      inla.zmarginal(silent = TRUE) %>%
+      data.frame() %>%
+      mutate(parameter = "trend_total",
+             soort_nl = unique(analyseset_species$soort_nl),
+             soort_wet = unique(analyseset_species$soort_wet),
+             jaar_min = min(analyseset_species$jaar),
+             jaar_max = max(analyseset_species$jaar)) %>%
+      select(parameter, soort_nl, soort_wet, jaar_min, jaar_max, mean, sd, lcl_0.95 = quant0.025, ucl_0.95 = quant0.975)
+    
+    trend_totaal_quantiles <- trendmodel_nbinom$marginals.fixed$year_scaled %>%
+      inla.tmarginal(fun = function(x) (exp(x * (periode - 1)) - 1) * 100) %>%
+      inla.qmarginal(p = c(0.05, 0.20, 0.35, 0.65, 0.80, 0.95)) %>%
+      data.frame() %>%
+      mutate(type = c("lcl_0.90", "lcl_0.60", "lcl_0.30", "ucl_0.30", "ucl_0.60", "ucl_0.90")) %>%
+      spread(key = "type", value = ".")
+    
+    trend_totaal <- trend_totaal %>%
+      bind_cols(trend_totaal_quantiles)
+    
+    trend <- bind_rows(trend_average,
+                       trend_totaal)
+    
+  } else {
+    
+    meetcyclus_periodes <- analyseset_species %>%
+      group_by(meetcyclus, duur_meetcyclus) %>%
+      summarise(periode_jaar_min = min(jaar),
+                periode_jaar_max = max(jaar)) %>%
+      ungroup() %>%
+      mutate(periode_min = ifelse(duur_meetcyclus <= 1, 
+                                  as.character(min(periode_jaar_min)),
+                                  str_c(min(periode_jaar_min), "-", min(periode_jaar_max))),
+             periode_max = ifelse(duur_meetcyclus <= 1, 
+                                  as.character(max(periode_jaar_max)),
+                                  str_c(max(periode_jaar_min), "-", max(periode_jaar_max)))) %>%
+      distinct(periode_min, periode_max)
+    
+    #gemiddelde trend per meetcyclus
+    
+    trend_meetcyclus <- trendmodel_nbinom$marginals.fixed$meetcyclus_scaled %>%
+      inla.tmarginal(fun = function(x) (exp(x) - 1) * 100) %>%
+      inla.zmarginal(silent = TRUE) %>%
+      data.frame() %>%
+      mutate(parameter = "trend_meetcyclus",
+             soort_nl = unique(analyseset_species$soort_nl),
+             soort_wet = unique(analyseset_species$soort_wet),
+             jaar_min = min(analyseset_species$jaar),
+             jaar_max = max(analyseset_species$jaar),
+             meetcyclus_min = min(analyseset_species$meetcyclus),
+             meetcyclus_max = max(analyseset_species$meetcyclus),
+             periode_min = meetcyclus_periodes$periode_min,
+             periode_max = meetcyclus_periodes$periode_max) %>%
+      select(parameter, soort_nl, soort_wet, jaar_min, jaar_max,
+             meetcyclus_min, meetcyclus_max, periode_min, periode_max, mean, sd, lcl_0.95 = quant0.025, ucl_0.95 = quant0.975)
+    
+    trend_quantiles <- trendmodel_nbinom$marginals.fixed$meetcyclus_scaled %>%
+      inla.tmarginal(fun = function(x) (exp(x) - 1) * 100) %>%
+      inla.qmarginal(p = c(0.05, 0.20, 0.35, 0.65, 0.80, 0.95)) %>%
+      data.frame() %>%
+      mutate(type = c("lcl_0.90", "lcl_0.60", "lcl_0.30", "ucl_0.30", "ucl_0.60", "ucl_0.90")) %>%
+      spread(key = "type", value = ".")
+    
+    trend_meetcyclus <- trend_meetcyclus %>%
+      bind_cols(trend_quantiles)
+    
+    #gemiddelde trend per jaar
+    
+    meetcycli <- n_distinct(analyseset_species$meetcyclus)
+    periode <- n_distinct(analyseset_species$jaar)
+    
+    trend_jaar <- trendmodel_nbinom$marginals.fixed$meetcyclus_scaled %>%
+      inla.tmarginal(fun = function(x) (exp(x * (meetcycli - 1) / (periode - 1)) - 1) * 100) %>%
+      inla.zmarginal(silent = TRUE) %>%
+      data.frame() %>%
+      mutate(parameter = "trend_jaar",
+             soort_nl = unique(analyseset_species$soort_nl),
+             soort_wet = unique(analyseset_species$soort_wet),
+             jaar_min = min(analyseset_species$jaar),
+             jaar_max = max(analyseset_species$jaar),
+             meetcyclus_min = min(analyseset_species$meetcyclus),
+             meetcyclus_max = max(analyseset_species$meetcyclus),
+             periode_min = meetcyclus_periodes$periode_min,
+             periode_max = meetcyclus_periodes$periode_max) %>%
+      select(parameter, soort_nl, soort_wet, jaar_min, jaar_max,
+             meetcyclus_min, meetcyclus_max, periode_min, periode_max, mean, sd, lcl_0.95 = quant0.025, ucl_0.95 = quant0.975)
+    
+    trend_quantiles <- trendmodel_nbinom$marginals.fixed$meetcyclus_scaled %>%
+      inla.tmarginal(fun = function(x) (exp(x * (meetcycli - 1) / (periode - 1)) - 1) * 100) %>%
+      inla.qmarginal(p = c(0.05, 0.20, 0.35, 0.65, 0.80, 0.95)) %>%
+      data.frame() %>%
+      mutate(type = c("lcl_0.90", "lcl_0.60", "lcl_0.30", "ucl_0.30", "ucl_0.60", "ucl_0.90")) %>%
+      spread(key = "type", value = ".")
+    
+    trend_jaar <- trend_jaar %>%
+      bind_cols(trend_quantiles)
+    
+    #totale trend over volledige periode 
+    
+    trend_totaal <- trendmodel_nbinom$marginals.fixed$meetcyclus_scaled %>%
+      inla.tmarginal(fun = function(x) (exp(x * (meetcycli - 1)) - 1) * 100) %>%
+      inla.zmarginal(silent = TRUE) %>%
+      data.frame() %>%
+      mutate(parameter = "trend_total",
+             soort_nl = unique(analyseset_species$soort_nl),
+             soort_wet = unique(analyseset_species$soort_wet),
+             jaar_min = min(analyseset_species$jaar),
+             jaar_max = max(analyseset_species$jaar),
+             meetcyclus_min = min(analyseset_species$meetcyclus),
+             meetcyclus_max = max(analyseset_species$meetcyclus),
+             periode_min = meetcyclus_periodes$periode_min,
+             periode_max = meetcyclus_periodes$periode_max) %>%
+      select(parameter, soort_nl, soort_wet, jaar_min, jaar_max,
+             meetcyclus_min, meetcyclus_max, periode_min, periode_max, mean, sd, lcl_0.95 = quant0.025, ucl_0.95 = quant0.975)
+    
+    trend_totaal_quantiles <- trendmodel_nbinom$marginals.fixed$meetcyclus_scaled %>%
+      inla.tmarginal(fun = function(x) (exp(x * (meetcycli - 1)) - 1) * 100) %>%
+      inla.qmarginal(p = c(0.05, 0.20, 0.35, 0.65, 0.80, 0.95)) %>%
+      data.frame() %>%
+      mutate(type = c("lcl_0.90", "lcl_0.60", "lcl_0.30", "ucl_0.30", "ucl_0.60", "ucl_0.90")) %>%
+      spread(key = "type", value = ".")
+    
+    trend_totaal <- trend_totaal %>%
+      bind_cols(trend_totaal_quantiles)
+    
+    trend <- bind_rows(trend_meetcyclus,
+                       trend_jaar,
+                       trend_totaal)
+    
+  }
   
-  trend_average <- trendmodel_nbinom$marginals.fixed$year_scaled %>%
-    inla.tmarginal(fun = function(x) (exp(x) - 1) * 100) %>%
-    inla.zmarginal(silent = TRUE) %>%
-    data.frame() %>%
-    mutate(parameter = "trend_average",
-           soort_nl = unique(analyseset_species$soort_nl),
-           soort_wet = unique(analyseset_species$soort_wet),
-           jaar_min = min(analyseset_species$jaar),
-           jaar_max = max(analyseset_species$jaar)) %>%
-    select(parameter, soort_nl, soort_wet, jaar_min, jaar_max, mean, sd, lcl_0.95 = quant0.025, ucl_0.95 = quant0.975)
   
-  trend_quantiles <- trendmodel_nbinom$marginals.fixed$year_scaled %>%
-    inla.tmarginal(fun = function(x) (exp(x) - 1) * 100) %>%
-    inla.qmarginal(p = c(0.05, 0.20, 0.35, 0.65, 0.80, 0.95)) %>%
-    data.frame() %>%
-    mutate(type = c("lcl_0.90", "lcl_0.60", "lcl_0.30", "ucl_0.30", "ucl_0.60", "ucl_0.90")) %>%
-    spread(key = "type", value = ".")
-  
-  trend_average <- trend_average %>%
-    bind_cols(trend_quantiles)
-  
-  #totale trend over volledige periode 
-  
-  periode <- n_distinct(analyseset_species$jaar)
-
-  trend_totaal <- trendmodel_nbinom$marginals.fixed$year_scaled %>%
-    inla.tmarginal(fun = function(x) (exp(x * (periode - 1)) - 1) * 100) %>%
-    inla.zmarginal(silent = TRUE) %>%
-    data.frame() %>%
-    mutate(parameter = "trend_total",
-           soort_nl = unique(analyseset_species$soort_nl),
-           soort_wet = unique(analyseset_species$soort_wet),
-           jaar_min = min(analyseset_species$jaar),
-           jaar_max = max(analyseset_species$jaar)) %>%
-    select(parameter, soort_nl, soort_wet, jaar_min, jaar_max, mean, sd, lcl_0.95 = quant0.025, ucl_0.95 = quant0.975)
-  
-  trend_totaal_quantiles <- trendmodel_nbinom$marginals.fixed$year_scaled %>%
-    inla.tmarginal(fun = function(x) (exp(x * (periode - 1)) - 1) * 100) %>%
-    inla.qmarginal(p = c(0.05, 0.20, 0.35, 0.65, 0.80, 0.95)) %>%
-    data.frame() %>%
-    mutate(type = c("lcl_0.90", "lcl_0.60", "lcl_0.30", "ucl_0.30", "ucl_0.60", "ucl_0.90")) %>%
-    spread(key = "type", value = ".")
-  
-  trend_totaal <- trend_totaal %>%
-    bind_cols(trend_totaal_quantiles)
-  
-  trend <- bind_rows(trend_average,
-                     trend_totaal)
   
   return(trend)
   
@@ -1811,23 +1995,42 @@ classification_tw <- function(lcl, ucl, threshold_low, treshold_high, reference 
 
 }
 
-fit_indexmodel_rw_nbinom_inla <- function(analyseset_species, offset_var = NULL) {
+fit_indexmodel_rw_nbinom_inla <- function(analyseset_species, offset_var = NULL, use_meetcyclus = FALSE) {
   
-  analyseset_species <- analyseset_species %>%
-    mutate(locatie = as.character(locatie),
-           locatie = as.factor(locatie),
-           jaar_centered = jaar - min(jaar),
-           doy = as.numeric(format(datum, "%j")),
-           doy_centered = doy - min(doy))
-  
-  formula_indexmodel <- as.formula("aantal ~ f(jaar_centered, model = \"rw1\", 
+  if (!use_meetcyclus) {
+    
+    analyseset_species <- analyseset_species %>%
+      mutate(locatie = as.character(locatie),
+             locatie = as.factor(locatie),
+             jaar_centered = jaar - min(jaar),
+             doy = as.numeric(format(datum, "%j")),
+             doy_centered = doy - min(doy))
+    
+    formula_indexmodel <- as.formula("aantal ~ f(jaar_centered, model = \"rw1\", 
                                   hyper = list(theta = list(prior = \"pc.prec\", param = c(0.3, 0.05)))) + 
                                 f(doy_centered, model = \"rw2\", 
                                   hyper = list(theta = list(prior = \"pc.prec\", param = c(0.01, 0.05)))) + 
                                  f(locatie, model = \"iid\", 
                                    hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.05))))")
+  } else {
+    
+    analyseset_species <- analyseset_species %>%
+      mutate(locatie = as.character(locatie),
+             locatie = as.factor(locatie),
+             meetcyclus_centered = meetcyclus - min(meetcyclus),
+             doy = as.numeric(format(datum, "%j")),
+             doy_centered = doy - min(doy))
+    
+    formula_indexmodel <- as.formula("aantal ~ f(meetcyclus_centered, model = \"rw1\", 
+                                  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.3, 0.05)))) + 
+                                f(doy_centered, model = \"rw2\", 
+                                  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = \"iid\", 
+                                   hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.05))))")
+    
+  }
   
-  if(is.null(offset_var)) {
+  if (is.null(offset_var)) {
     
     model <- inla(formula_indexmodel,
                                       family = "nbinomial",
@@ -1852,24 +2055,42 @@ fit_indexmodel_rw_nbinom_inla <- function(analyseset_species, offset_var = NULL)
   
 }
 
-fit_trendmodel_rw_nbinom_inla <- function(analyseset_species, offset_var = NULL) {
+fit_trendmodel_rw_nbinom_inla <- function(analyseset_species, offset_var = NULL, use_meetcyclus = FALSE) {
   
-  analyseset_species <- analyseset_species %>%
-    mutate(locatie = as.character(locatie),
-           locatie = as.factor(locatie),
-           year_scaled = jaar - min(jaar),
-           doy = as.numeric(format(datum, "%j")),
-           doy_centered = doy - min(doy))
-  
-  formula_indexmodel <- as.formula("aantal ~ year_scaled + 
+  if (!use_meetcyclus) {
+    
+    analyseset_species <- analyseset_species %>%
+      mutate(locatie = as.character(locatie),
+             locatie = as.factor(locatie),
+             year_scaled = jaar - min(jaar),
+             doy = as.numeric(format(datum, "%j")),
+             doy_centered = doy - min(doy))
+    
+    formula_trendmodel <- as.formula("aantal ~ year_scaled + 
                                 f(doy_centered, model = \"rw2\", 
                                   hyper = list(theta = list(prior = \"pc.prec\", param = c(0.01, 0.05)))) + 
                                  f(locatie, model = \"iid\", 
                                    hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.05))))")
-  
-  if(is.null(offset_var)) {
+  } else {
     
-    model <- inla(formula_indexmodel,
+    analyseset_species <- analyseset_species %>%
+      mutate(locatie = as.character(locatie),
+             locatie = as.factor(locatie),
+             meetcyclus_scaled = meetcyclus - min(meetcyclus),
+             doy = as.numeric(format(datum, "%j")),
+             doy_centered = doy - min(doy))
+    
+    formula_trendmodel <- as.formula("aantal ~ meetcyclus_scaled + 
+                                f(doy_centered, model = \"rw2\", 
+                                  hyper = list(theta = list(prior = \"pc.prec\", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = \"iid\", 
+                                   hyper = list(theta = list(prior = \"pc.prec\", param = c(1, 0.05))))")
+    
+  }
+  
+  if (is.null(offset_var)) {
+    
+    model <- inla(formula_trendmodel,
                   family = "nbinomial",
                   data = analyseset_species,
                   control.compute = list(config = TRUE, waic = TRUE),
@@ -1879,7 +2100,7 @@ fit_trendmodel_rw_nbinom_inla <- function(analyseset_species, offset_var = NULL)
     analyseset_species2 <- analyseset_species %>%
       rename(offset = offset_var)
     
-    model <- inla(formula_indexmodel,
+    model <- inla(formula_trendmodel,
                   family = "nbinomial",
                   data = analyseset_species2,
                   offset = offset,
