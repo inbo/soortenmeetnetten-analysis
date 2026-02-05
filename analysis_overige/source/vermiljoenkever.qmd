@@ -1,0 +1,263 @@
+---
+title: "Dataverkenning meetnet vermiljoenkever"
+format: 
+  html:
+    embed-resources: true
+editor: source
+author: "Toon Westra"
+toc: true
+number-sections: true
+code-fold: true
+lang: nl
+execute:
+  echo: false
+  warning: false
+---
+
+```{r}
+#|label: "setup"  
+#|output: false
+
+library(tidyverse)
+library(INBOtheme)
+library(sf)
+library(leaflet)
+library(DT)
+library(units)
+library(n2khab)
+conflicted::conflicts_prefer(dplyr::filter)
+
+source(file.path(fileman_up("soortenmeetnetten-analysis"), "source/functions_smp.R"))
+data_path <- fileman_up("soortenmeetnetten-queries")
+```
+
+## Data
+
+We maken gebruik van de data ingevoerd in meetnetten.be.
+
+```{r}
+#|label: read-data  
+
+select_scheme <- "Vermiljoenkever"
+
+visits <- get_visits_smp() %>%
+  filter(meetnet == select_scheme)
+
+counts <- get_counts_smp() %>%
+  filter(meetnet == select_scheme)
+
+covars <- get_covariates_smp(linked_to = "sample") %>%
+  filter(meetnet == select_scheme)
+
+locations <- get_locations_smp(only_active = FALSE) %>%
+  filter(meetnet == select_scheme)
+
+werkpakketten_locaties <- read_vc(root = fileman_up("soortenmeetnetten-queries"),
+                               file =  "raw/werkpakketten_locaties") %>%
+  filter(meetnet == select_scheme) %>%
+  filter(str_detect(werkpakket, "meetnet"))
+  
+```
+
+## Voortgang meetnet
+
+```{r}
+#| label: progress  
+
+visits_location <- visits %>%
+  group_by(locatie, protocol, bezoek_status) %>%
+  summarise(datum = str_c(unique(datum), collapse = "; ")) %>%
+  ungroup()
+
+counts_location <- counts %>%
+  group_by(locatie, sample_id) %>%
+  summarise(aantal_tree_tot = sum(aantal),
+            aantal_tree_larve = sum(aantal * (levensstadium == "Larva")),
+            aantal_tree_adult = sum(aantal * (levensstadium == "adult"))) %>%
+  ungroup() %>%
+  group_by(locatie) %>%
+  summarise(n_trees = n_distinct(sample_id),
+            aantal_tot = sum(aantal_tree_tot),
+            aantal_adult = sum(aantal_tree_adult),
+            aantal_larve = sum(aantal_tree_larve),
+            n_trees_present = sum(aantal_tree_tot > 0),
+            n_trees_larve_present = sum(aantal_tree_larve > 0),
+            n_trees_adult_present = sum(aantal_tree_adult > 0)) %>%
+  ungroup()
+
+locations_metadata <- locations %>%
+  st_drop_geometry() %>%
+  select(locatie, is_active)
+
+progress <- werkpakketten_locaties %>%
+  left_join(locations_metadata, by = "locatie") %>%
+  left_join(visits_location, by = c("locatie")) %>%
+  left_join(counts_location, by = "locatie")
+
+```
+
+Er werden 3 werkpakketten aangemaakt:
+
+-   werkpakket jaar 1/3
+-   werkpakket jaar 2/3
+-   werkpakket jaar 3/3
+
+@tbl-progress geeft een overzicht van de afgewerkte locaties per werkpakket en de getelde aantallen.
+Er werd eind 2024 gestart met de locaties in werkpakket jaar 2/3.
+Het zijn voornamelijk de locaties in werkpakket 1/3 die nog afgewerkt moeten worden.
+
+```{r}
+#| label: tbl-progress
+#| tbl-cap: "Overzicht van de afgewerkte meetnetlocaties"
+
+progress %>%
+  select(-meetnet, -protocol) %>%
+  mutate(werkpakket = str_remove(werkpakket, "Veldwerk meetnet "),
+         aantallen = str_c("Adult = ", aantal_adult, "; Larve = ", aantal_larve)) %>%
+  select(werkpakket, locatie, is_active, datum_bezoek = datum, n_bomen = n_trees, aantallen) %>%
+  datatable(rownames = FALSE,
+            filter = "top")
+
+```
+
+## Dataverkenning
+
+@fig-map geeft een overzicht van de:
+
+-   geselecteerde km-hokken
+  - rode polygonen: nog niet bezochte hokken
+  - blauwe polygonen: bezochte hokken
+-   bemonsterde bomen
+  - gele punten: vermiljoenkever aanwezig
+  - rode punten: vermiljoenkever afwezig
+  - label bij punten toont aantal gevonden adulten en larven
+  
+```{r}
+#| label: fig-map
+#| fig-cap: "Kaart met de geselecteerde km-hokken en de bemonsterde bomen"
+
+show_locations <- locations %>%
+  filter(locatie %in% werkpakketten_locaties$locatie) %>%
+  left_join(progress %>%
+              select(locatie, bezoek_status),
+            by = "locatie") %>%
+  mutate(show_color = ifelse(is.na(bezoek_status), "red", "blue"))
+
+show_counts <- counts %>%
+  filter(locatie %in% werkpakketten_locaties$locatie) %>%
+  group_by(locatie, datum, visit_id, sample_id, x, y) %>%
+  summarise(presence = sum(aantal > 0),
+            count_adult = sum(aantal * (levensstadium == "adult")),
+            count_larva = sum(aantal * (levensstadium == "Larva"))) %>%
+  ungroup() %>%
+  st_as_sf(coords = c("x", "y"), 
+           crs = 31370) %>%
+  st_transform(crs = 4326) %>%
+  mutate(show_color = ifelse(presence, "yellow", "red"),
+         show_label = str_c("Adult = ", count_adult, "; Larve = ", count_larva))
+
+show_locations %>%
+  leaflet() %>%
+  addTiles() %>%
+  addPolygons(color = ~show_color, label = ~locatie, group = "Hokken") %>%
+  addCircleMarkers(data = show_counts, color = ~show_color, label = ~show_label, group = "Bemonsterde bomen") %>%
+   addLayersControl(
+     overlayGroups = c("Hokken", "Bemonsterde bomen"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+```
+
+@fig-prop geeft een overzicht van de proporties van de onderzochte bomen met aanwezigheid van vermiljoenkever per locatie.
+
+```{r}
+#| label: fig-prop
+#| fig-cap: "Proportie van de onderzochte bomen met aanwezigheid van vermiljoenkever per locatie"
+
+overzicht_counts <- counts_location %>%
+  filter(locatie %in% werkpakketten_locaties$locatie) %>%
+  mutate(adult_of_larve = round(n_trees_present/ n_trees, 3),
+         adult = round(n_trees_adult_present/ n_trees, 3),
+         larve = round(n_trees_larve_present/ n_trees, 3)) %>%
+  ungroup()
+
+overzicht_proporties <- overzicht_counts %>%
+  select(locatie, adult_of_larve, adult, larve) %>%
+  pivot_longer(cols = c(adult_of_larve, adult, larve),
+               names_to = "levensstadium",
+               values_to = "prop_tree_present")
+
+overzicht_proporties %>%
+  ggplot(aes(x = prop_tree_present, y = levensstadium)) +
+  geom_point(alpha = 0.2, size = 4) +
+  labs(x = "Proportie van de onderzochte bomen met vermiljoenkever per locatie")
+
+```
+@fig-booms toon de distributie van de onderzochte bomen over de verschillende boomsoorten en boomposities.
+
+```{r}
+#| label: fig-booms
+#| fig-cap: "Aanwezigheid vermiljoenkever (adult of larve) voor verschillende boomsoorten en boomposities"
+#| fig-width: 9
+
+counts_tree_species <- counts %>%
+  group_by(locatie, datum, visit_id, sample_id, soort_wet) %>%
+  summarise(aanwezig = sum(aantal) > 0) %>%
+  left_join(covars %>%
+              select(visit_id, sample_id, bezoekvariabele, waarde), 
+            by = c("visit_id", "sample_id")) %>%
+  filter(bezoekvariabele %in% c("boomsoort", "positie boom")) %>%
+  pivot_wider(names_from = "bezoekvariabele",
+              values_from = "waarde")
+
+counts_tree_species %>%
+  ggplot(aes(x = boomsoort, fill = aanwezig)) +
+  geom_bar() +
+  facet_wrap(~`positie boom`) +
+  labs(y = "Aantal onderzochte bomen", fill = "vermiljoenkever aanwezig") +
+  coord_flip()
+```
+```{r}
+#| label: fig-omtrek
+#| fig-cap: "Omtrek van onderzochte bomen met onderscheid tussen aan-en afwezigheid van vermiljoenkever"
+
+counts_omtrek <- counts %>%
+  group_by(locatie, datum, visit_id, sample_id, soort_wet) %>%
+  summarise(aanwezig = sum(aantal) > 0) %>%
+  left_join(covars %>%
+              select(visit_id, sample_id, bezoekvariabele, waarde), 
+            by = c("visit_id", "sample_id")) %>%
+  filter(bezoekvariabele %in% c("omtrek boom")) %>%
+  mutate(waarde = as.numeric(waarde)) %>%
+  pivot_wider(names_from = "bezoekvariabele",
+              values_from = "waarde")
+
+counts_omtrek %>%
+  ggplot(aes(x = `omtrek boom`, fill = aanwezig)) +
+  geom_histogram(bins = 20) +
+  labs(fill  = "vermiljoenkever aanwezig",
+       x = "omtrek boom (cm)") +
+  lims(x = c(0, NA))
+```
+
+```{r}
+#| label: fig-opp
+#| fig-cap: "Breedte en lengte van verwijderde schors"
+
+counts_area <- counts %>%
+  group_by(locatie, datum, visit_id, sample_id, soort_wet) %>%
+  summarise(aanwezig = sum(aantal) > 0) %>%
+  left_join(covars %>%
+              select(visit_id, sample_id, bezoekvariabele, waarde), 
+            by = c("visit_id", "sample_id")) %>%
+  filter(bezoekvariabele %in% c("breedte verwijderde schors", "lengte verwijderde schors")) %>%
+  mutate(waarde = as.numeric(waarde)) %>%
+  pivot_wider(names_from = "bezoekvariabele",
+              values_from = "waarde")
+
+counts_area %>%
+  ggplot(aes(x = `breedte verwijderde schors`, y = `lengte verwijderde schors`, colour = aanwezig)) +
+  geom_point(alpha = 0.6, size = 4) +
+  labs(colour  = "vermiljoenkever aanwezig",
+       x = "breedte verwijderde schors (cm)",
+       y = "lengte verwijderde schors (cm)")
+```
