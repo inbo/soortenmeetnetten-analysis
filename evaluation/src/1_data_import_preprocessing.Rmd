@@ -126,9 +126,9 @@ taken_nu <- read.csv2(paste("../data/taken_niet_uitvoerbaar_2016_2017.csv", sep 
 overzicht_taken_uitgevoerd <- bezoeken %>%
   mutate(jaardoel = ifelse(meetnet == "Kamsalamander" & locatie %in% c("Schuddebeurze - Poel 1", "Dheide - Poel 3"), TRUE, jaardoel)) %>%
   filter(voor_analyse | jaardoel) %>%
-  mutate(winterseizoen = meetnet %in% c("Otter", "Vleermuizen - Wintertellingen"),
+  mutate(winterseizoen = meetnet %in% c("Otter", "Vleermuizen - Wintertellingen", "Vermiljoenkever"),
          jaar = ifelse(winterseizoen, year(datum + 182), jaar)) %>%
-  group_by(soortgroep,  meetnet, protocol, jaar, locatie, taak, bezoek_status, jaardoel) %>%
+  group_by(soortgroep,  meetnet, protocol, jaar, winterseizoen, locatie, taak, bezoek_status, jaardoel) %>%
   summarise(aantal_tellingen = n()) %>%
   ungroup() %>%
   mutate(telling_ingevoerd = 1) %>%
@@ -146,10 +146,10 @@ overzicht_taken_uitgevoerd <- overzicht_taken_uitgevoerd %>%
 
 overzicht_taken_uitgevoerd_wide <- overzicht_taken_uitgevoerd %>%
   spread(key = bezoek_status, value = aantal_tellingen, fill = 0) %>%
-  select(soortgroep, meetnet, protocol, jaar, locatie, is_sample, is_sample_history, is_active, taak, telling_ingevoerd, jaardoel, telling_cp, telling_gvm, telling_nvcp)
+  select(soortgroep, meetnet, protocol, jaar, winterseizoen, locatie, is_sample, is_sample_history, is_active, taak, telling_ingevoerd, jaardoel, telling_cp, telling_gvm, telling_nvcp)
 
 overzicht_locaties <- overzicht_taken_uitgevoerd_wide %>%
-  group_by(soortgroep, meetnet, protocol, jaar, locatie, is_sample, is_sample_history, is_active) %>%
+  group_by(soortgroep, meetnet, protocol, jaar, winterseizoen, locatie, is_sample, is_sample_history, is_active) %>%
   summarise(aantal_taken_cp = sum((telling_cp > 0) * (taak != "Extra telling") * jaardoel),
             aantal_tellingen_cp = sum(telling_cp),
             aantal_tellingen_gvm = sum(telling_gvm),
@@ -159,8 +159,9 @@ overzicht_locaties <- overzicht_taken_uitgevoerd_wide %>%
   left_join(metadata_overzicht, by = c("meetnet","protocol")) %>% #vanaf 2018 rekenen we het aantal tellingen 'geen veldwerk mogelijk' mee 
   mutate(meetcyclus = ifelse(meetnet == "Kamsalamander", 
                              ifelse(jaar == opstartjaar, 1, ceiling((jaar - opstartjaar )/duur_meetcyclus)),
-                             ceiling((jaar - opstartjaar + 1)/duur_meetcyclus)),
+                             ceiling((jaar - opstartjaar + 1 - winterseizoen)/duur_meetcyclus)),
          jaar_in_meetcyclus = (jaar - opstartjaar + 1) - (meetcyclus - 1) * duur_meetcyclus,
+         jaar_in_meetcyclus = ifelse(winterseizoen, jaar_in_meetcyclus - 1, jaar_in_meetcyclus), #jaar 1 is pas afgerond als winterseizoen jaar1-jaar2 is afgewerkt
          jaar_in_meetcyclus = ifelse(meetnet == "Kamsalamander", (jaar - opstartjaar) - (meetcyclus - 1) * duur_meetcyclus + (meetcyclus == 1), jaar_in_meetcyclus),
          is_sample = ifelse(is.na(is_sample), FALSE, is_sample),
          is_sample_history = ifelse(is.na(is_sample_history), TRUE, is_sample_history), #enkele bezoeken voor gedelete locaties
@@ -215,7 +216,7 @@ hulpcalc <- evaluatie_locaties %>%
 #overzicht per meetnet
 overzicht_meetnetten <- evaluatie_locaties %>%
   filter(soortgroep != "0") %>%
-  group_by(is_sample_history, soortgroep, meetnet, protocol, jaar, duur_meetcyclus, meetcyclus, jaar_in_meetcyclus) %>%
+  group_by(is_sample_history, soortgroep, meetnet, protocol, jaar, winterseizoen, duur_meetcyclus, meetcyclus, jaar_in_meetcyclus) %>%
   summarise(aantal_tellingen_cp = sum(aantal_tellingen_cp),
             aantal_tellingen_jaardoel = sum(aantal_tellingen_jaardoel),
             aantal_tellingen_gvm = sum(aantal_tellingen_gvm),
@@ -610,9 +611,11 @@ write.csv2(tabel_stuurgroep, str_c("../output/tabel_stuurgroep_", versie, ".csv"
 ```{r dubbeleBezoeken, message= FALSE, warning= FALSE}
 
 bezoeken_dubbels <- bezoeken %>%
-  group_by(soortgroep, meetnet, protocol, jaar, locatie, datum) %>%
+  left_join(locaties_metadata %>%
+              select(meetnet, locatie, is_sample),
+            by = c("meetnet", "locatie")) %>%
+  group_by(soortgroep, meetnet, protocol, jaar, locatie, is_sample, datum) %>%
   summarise( n_bezoeken_datum = n(),
-             #nVisit_id = n_distinct(visit_id),
              start_time_identiek = ifelse(n_distinct(start_time) > 1, "Nee", "Ja"),
              taak1 = taak[1],
              taak2 = taak[2]) %>%
