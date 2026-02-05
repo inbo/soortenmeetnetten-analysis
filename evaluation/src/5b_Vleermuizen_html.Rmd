@@ -173,11 +173,13 @@ bezoeken_figuur %>%
 bezoeken_afwijkingen <- bezoeken %>% 
   filter(soortgroep %in% soortgroep_sel) %>% 
   filter(jaar == year_evaluation) %>% 
-  filter(bezoek_status_detail != "Conform protocol") %>% 
-  select(link, meetnet,  datum, locatie, eurobats =  jaardoel, "bezoek status" = bezoek_status_detail, opmerkingen = notes) %>%
+  filter(bezoek_status_detail != "Conform protocol") %>%
+  left_join(locaties_metadata %>%
+              select(meetnet, locatie, is_sample),
+            by = c("meetnet", "locatie")) %>%
+  select(link, meetnet,  datum, locatie, eurobats =  is_sample, "bezoek status" = bezoek_status_detail, opmerkingen = notes) %>%
   mutate(opmerkingen = gsub("\n", ". ", opmerkingen))
 ```
-
 
 `r if (nrow(bezoeken_afwijkingen) > 0) {"De volgende tabel geeft een overzicht van de afwijkingen van het protocol"} else {"Er zijn geen bezoeken met afwijkingen van het protocol."}`
 
@@ -205,15 +207,12 @@ if (nrow(bezoeken_afwijkingen) > 0) {
   
 ```
 
-
-
 ### Mogelijke dubbele invoer
-
 
 ```{r}
 bezoeken_dubbels_soortgroep <- bezoeken_dubbels %>%
   filter(soortgroep %in% soortgroep_sel) %>%
-  select(meetnet, protocol, locatie, datum, bezoeken = n_bezoeken_datum, "zelfde begintijdstip" = start_time_identiek, taak1, taak2) %>% 
+  select(meetnet, protocol, locatie, eurobats = is_sample, datum, bezoeken = n_bezoeken_datum, "zelfde begintijdstip" = start_time_identiek) %>% 
   arrange(meetnet, protocol)
 ```
 
