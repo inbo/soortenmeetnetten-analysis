@@ -1451,14 +1451,14 @@ results_occurence %>%
 ```{r}
 results_index_jaar <- results_index_knoflookpad %>%
   bind_rows(results_index_vuursalamander) %>%
-  bind_rows(results_index_jaar_kamsalamander) %>%
-  bind_rows(results_index_jaar_boomkikker) %>%
+  # bind_rows(results_index_jaar_kamsalamander) %>%
+  # bind_rows(results_index_jaar_boomkikker) %>%
   bind_rows(results_index_vroedmeesterpad) %>%
-  mutate(levensstadium = "adult") %>%
-  bind_rows(results_index_jaar_kamsalamander_larve %>%
-              mutate(levensstadium = "larve"),
-            results_index_jaar_boomkikker_larve %>%
-              mutate(levensstadium = "larve")) 
+  mutate(levensstadium = "adult")
+  # bind_rows(results_index_jaar_kamsalamander_larve %>%
+  #             mutate(levensstadium = "larve"),
+  #           results_index_jaar_boomkikker_larve %>%
+  #             mutate(levensstadium = "larve")) 
 
 verschil_jaren <- results_index_jaar %>%
   filter(parameter == "index") %>%
@@ -1474,6 +1474,7 @@ verschil_jaren_refvalue <- verschil_jaren %>%
          klasse = "R") 
 
 verschil_jaren_table <- verschil_jaren %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
   bind_rows(verschil_jaren_refvalue) %>%
   mutate(mean_log = log(mean) + 1,
           lcl_0.90_log = log(lcl_0.90) + 1,
@@ -1482,6 +1483,13 @@ verschil_jaren_table <- verschil_jaren %>%
 
 
 ```{r, fig.height= 7}
+
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
+
 breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
 labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
 

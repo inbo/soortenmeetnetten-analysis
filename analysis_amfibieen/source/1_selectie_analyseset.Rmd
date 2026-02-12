@@ -10,7 +10,7 @@ path = fileman_up("soortenmeetnetten-queries")
 ## Raw data
 
 ```{r}
-visits <- get_visits_smp(species_group = species_group, path = "../data") %>%
+visits <- get_visits_smp(species_group = species_group) %>%
   mutate(protocol = ifelse(protocol == "Amfibieën - Fuiken (v1)", 
                            "Amfibieën - Fuiken", 
                            protocol),
@@ -20,16 +20,16 @@ visits <- get_visits_smp(species_group = species_group, path = "../data") %>%
          protocol = ifelse(protocol == "Rugstreeppad - Transect (v1)", 
                            "Rugstreeppad - Transect", 
                            protocol)) %>%
-  filter(jaar <= 2024)
+  filter(jaar <= 2025)
 
-covar <- get_covariates_smp(path = "../data") 
+covar <- get_covariates_smp() 
 
-covar_sample <- get_covariates_smp(linked_to = "sample", path = "../data")
+covar_sample <- get_covariates_smp(linked_to = "sample")
 
-counts <- get_counts_smp(path = "../data") %>%
-  filter(jaar <= 2024)
+counts <- get_counts_smp() %>%
+  filter(jaar <= 2025)
 
-locations <- get_locations_smp(only_active = FALSE, path = "../data") %>%
+locations <- get_locations_smp(only_active = FALSE) %>%
   st_drop_geometry() %>%
   filter(locatie_type == "locatie")
 
@@ -1300,12 +1300,12 @@ check_na %>%
             filter = "top")
   
 dataset_rugstreeppad_nul %>%
-  filter(jaar == 2024) %>%
+  filter(jaar == 2025) %>%
   distinct(meetnet, locatie, datum, visit_id, zoekinspanning, opmerking) %>%
   write_csv2("../output/rugstreeppad_aantal_missing.csv")
 
 check_tijdstip <- dataset_rugstreeppad %>%
-  filter(jaar == 2024) %>%
+  filter(jaar == 2025) %>%
   filter(is.na(start_time)) %>%
   filter(bezoek_status %in% c("Conform protocol", "Weersomstandigheden ongunstig")) %>%
   distinct(meetnet, locatie, bezoek_status, datum, start_time, visit_id, hoofdteller, zoekinspanning, opmerking)
