@@ -2,7 +2,7 @@
 
 ```{r}
 
-year_planning <- 2025
+year_planning <- 2026
 
 werkpakketten_locaties <- read_vc(root = fileman_up("soortenmeetnetten-queries"),
                                file =  "raw/werkpakketten_locaties")
@@ -41,4 +41,17 @@ overzicht_locaties_cyclus_unique <- overzicht_locaties_cyclus %>%
   summarise(jaar_werkpakket = str_c(unique(jaar_werkpakket), collapse = ";"))
 
 ```
+```{r}
+evaluatie_kam_fuiken <- overzicht_locaties_cyclus_unique %>%
+  filter(meetnet == "Kamsalamander") %>%
+  filter(is_sample, is_active) %>%
+  mutate(status = ifelse(voldoende_data_cyclus, "OK, voldoende data",
+                         ifelse(str_detect(jaar_werkpakket, "2026") & !is.na(jaar_werkpakket), "OK, planning 2026",
+                                ifelse(voldoende_geteld_cyclus, "Voldoende bezocht, onvoldoende data: herbezoeken?", 
+                                       ifelse(!is.na(jaar_werkpakket), "Toevoegen aan werkpakket 2026", 
+                                              ifelse(is.na(jaar_werkpakket),"Nieuwe locatie: Toevoegen aan werkpakket 2026?", NA))))))
+
+evaluatie_kam_fuiken %>%
+  write_csv2("../output/kamsalamander_status_2026.csv")
 ```
+

@@ -1761,7 +1761,7 @@ trend %>%
 # x -> log(trend/100 + 1)
 
 ggsave("../output/trend_jaar_amfibieën.png",
-       width = 5,
+       width = 6,
        height = 4)
 
 ```
