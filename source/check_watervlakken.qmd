@@ -1,0 +1,233 @@
+---
+title: "Update watervlakkenlaag"
+author:
+  name: "Toon Westra"
+  email: "Toon.Westra@inbo.be"
+format: 
+  html:
+    embed-resources: true
+date: "2026-03-11"
+editor: source
+lang: nl
+toc: true
+number-sections: true
+execute:
+  cache: false
+  echo: false
+  warning: false
+---
+
+# Inleiding
+
+Team Zoetwaterhabitat plant een update van de Watervlakkenlaag en verzamelt informatie over nieuwe of verdwenen watervlakken.
+
+
+```{r}
+#| label: setup  
+#| output: false
+#| cache: false
+
+library(knitr)
+options(knitr.kable.NA = '')
+
+library(tidyverse)
+library(INBOtheme)
+library(INBOmd)
+library(inbodb)
+library(sf)
+library(kableExtra)
+library(units)
+library(git2rdata)
+library(n2khab)
+library(DT)
+library(leaflet)
+
+conflicted::conflicts_prefer(dplyr::filter)
+
+```
+
+
+```{r}
+#| label: load-functions
+
+path_functions <- fileman_up("soortenmeetnetten-analysis")
+
+source(file.path(path_functions, "source/functions_smp.R"))
+
+```
+
+```{r}
+watervlakken <- read_watersurfaces()
+```
+
+
+# Soortenmeetnetten: potentieel verdwenen poelen
+
+In de [meetnetten](www.meetnetten.be) voor amfibieën worden sommige locaties op inactief gezet omdat ze verland zijn.
+Dit wordt gedocumenteerd via een opmerkingenveld voor de locatie.
+
+```{r}
+#| label: meetnetten
+
+data_path <- fileman_up("soortenmeetnetten-queries")
+
+locaties_opm <- get_locations_notes_smp() 
+
+locaties_opm_amfibieën <- locaties_opm %>%
+  filter(soortgroep == "amfibieën") %>%
+  filter(str_detect(opmerking_locatie, "verdwenen|verland|droog|verbost"))
+
+locaties <- get_locations_smp(species_group = "amfibieën", only_active = FALSE)
+
+locaties_verdwenen <- locaties %>%
+  st_transform(crs = 31370) %>%
+  select(meetnet, locatie) %>%
+  inner_join(locaties_opm_amfibieën, 
+             by = c("meetnet", "locatie")) %>%
+  st_join(watervlakken %>%
+            select(polygon_id)) %>%
+  select(meetnet, locatie, datum_opmerking, opmerking_locatie, polygon_id) %>%
+  filter(!is.na(polygon_id))
+
+```
+
+@tbl-meetnetten en @fig-meetnetten tonen een selectie van potentieel verdwenen poelen en de bijhorende code van de watervlakkenlaag (polygon_id).
+
+```{r}
+#| label: tbl-meetnetten
+#| tbl-cap: "Potentieel verdwenen watervlakken op basis van de soortenmeetnetten data"
+
+locaties_verdwenen %>%
+  filter(!is.na(polygon_id)) %>%
+  st_drop_geometry() %>%
+  datatable(rownames = FALSE)
+```
+
+```{r}
+#| label: fig-meetnetten
+#| fig-cap: "Kaart met potentieel verdwenen watervlakken op basis van de soortenmeetnetten data"
+
+
+watervlakken_check <- watervlakken %>%
+  filter(polygon_id %in% locaties_verdwenen$polygon_id) %>%
+  st_transform(crs = 4326)
+
+locaties_verdwenen %>%
+  filter(!is.na(polygon_id)) %>%
+  st_transform(crs = 4326) %>%
+  leaflet() %>%
+    addTiles(group = "OSM") %>%
+    addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery (satellite)") %>%
+    addPolygons(data = watervlakken_check, label = ~polygon_id, group = "Watervlakken") %>%
+    addCircleMarkers(label = ~locatie, color = "yellow", group = "Locaties meetnetten") %>%
+    addLayersControl(
+    baseGroups = c(
+      "osm",
+      "World Imagery (satellite)"
+    ),
+    overlayGroups = c("Watervlakken", "Locaties meetnetten"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+    
+```
+
+# Polygonen Habitatkaart 2025 met habitattype 31xx die niet overlappen met de watervlakkenlaag
+
+Polygonen uit de Habitatkaart die aquatische habitattypen bevatten van stilstaande wateren (habitatcode begint met 31) en niet overlappen met watervlakken uit de Watervlakkenlaag, zijn potentieel nieuwe of ontbrekende watervlakken.
+
+We selecteren polygonen uit Habitatkaart versie 2025:
+
++ met minstens 50% van een 31xx habitattype
++ die aangepast zijn in de nieuwe versie van de Habitatkaart (polygoon id bevat 'v2025'; oudere polygonen werden normaal gezien al nagekeken)
+
+```{r}
+habmap <- read_habitatmap_stdized()
+
+habmap_polygons <- habmap$habitatmap_polygons
+habmap_types <- habmap$habitatmap_types
+
+hab_ws <- habmap_types %>%
+  filter(str_detect(type, "3110|3120|3130|3140|3150|3160")) %>%
+  filter(phab >= 50) %>%
+  filter(str_detect(polygon_id, "v2025"))
+
+hab31xx_polygons_check <- habmap_polygons %>%
+  filter(polygon_id %in% hab_ws$polygon_id) %>%
+  st_join(watervlakken %>%
+            select(ws_polygon_id = polygon_id)) %>%
+  filter(is.na(ws_polygon_id)) %>%
+  select(-ws_polygon_id)
+
+hab31xx_polygons_check_buffer <- hab31xx_polygons_check %>%
+  st_buffer(dist = 150)
+
+watervlakken_buffer_select <- hab31xx_polygons_check_buffer %>%
+  st_join(watervlakken %>%
+            select(ws_polygon_id = polygon_id)) %>%
+  filter(!is.na(ws_polygon_id)) %>%
+  st_drop_geometry()
+
+watervlakken_buffer <- watervlakken %>%
+  filter(polygon_id %in% watervlakken_buffer_select$ws_polygon_id) %>%
+  st_transform(crs = 4326)
+```
+
+@tbl-habkaart geeft een overzicht van de geselecteerde polygonen.
+
+```{r}
+#| label: tbl-habkaart
+#| tbl-cap: "Potentieel nieuwe of ontbrekende watervlakken op basis van de Habitatkaart"
+
+hab31xx_polygons_check %>%
+  st_drop_geometry() %>%
+  select(id_habitatkaart = polygon_id, beschrijving_habitat = description_orig) %>%
+  datatable(rownames = FALSE,
+            filter = "top")
+```
+
+De kaart in @fig-habkaart toon de geselecteerde polygonen van de Habitatkaart (blauw polygonen) en de bestaande watervlakken die in een buffer van 150 m rond de geselecteerde Habitatkaart polygonen (groene polygonen).
+
+```{r}
+#| label: fig-habkaart
+#| fig-cap: "Kaart met potentieel nieuwe watervlakken op basis van de Habitatkaart versie 2025"
+
+hab31xx_polygons_check %>%
+  mutate(show_label = str_c(polygon_id, ": ", description_orig)) %>%
+  st_transform(crs = 4326) %>%
+  leaflet() %>%
+    addTiles(group = "OSM") %>%
+    addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery (satellite)") %>%
+    addPolygons(label = ~show_label, group = "Habitatmap polygonen met 31xx") %>%
+    addPolygons(data = watervlakken_buffer, label = ~polygon_id, color = "green", group = "Watervlakken binnen buffer 150m") %>%
+    addLayersControl(
+    baseGroups = c(
+      "osm",
+      "World Imagery (satellite)"
+    ),
+    overlayGroups = c("Habitatmap polygonen met 31xx", "Watervlakken binnen buffer 150m"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+
+```
+
+# Wegschrijven van resultaten
+
+We schreven de resultaten weg in de geopackage 'update_watervlakken.gpkg' met volgende layers
+
++ watervlakken_verdwenen_soortenmeetnetten
++ watervlakken_nieuw_habitatkaart
+
+```{r}
+#| label: write
+#| eval: FALSE
+
+locaties_verdwenen %>%
+  st_transform(crs = 31370) %>%
+  st_write(dsn = "../output/update_watervlakken.gpkg",
+           layer = "watervlakken_verdwenen_soortenmeetnetten")
+
+hab31xx_polygons_check %>%
+  st_write(dsn = "../output/update_watervlakken.gpkg",
+           layer = "watervlakken_nieuw_habitatkaart")
+```
+
