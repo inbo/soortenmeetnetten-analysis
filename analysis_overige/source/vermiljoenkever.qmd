@@ -102,9 +102,7 @@ Er werden 3 werkpakketten aangemaakt:
 -   werkpakket jaar 2/3
 -   werkpakket jaar 3/3
 
-@tbl-progress geeft een overzicht van de afgewerkte locaties per werkpakket en de getelde aantallen.
-Er werd eind 2024 gestart met de locaties in werkpakket jaar 2/3.
-Het zijn voornamelijk de locaties in werkpakket 1/3 die nog afgewerkt moeten worden.
+@tbl-progress geeft een overzicht van de afgewerkte locaties per werkpakket en de getelde aantallen. Er werd eind 2024 gestart met de locaties in werkpakket jaar 2/3. Het zijn voornamelijk de locaties in werkpakket 1/3 die nog afgewerkt moeten worden.
 
 ```{r}
 #| label: tbl-progress
@@ -125,13 +123,13 @@ progress %>%
 @fig-map geeft een overzicht van de:
 
 -   geselecteerde km-hokken
-  - rode polygonen: nog niet bezochte hokken
-  - blauwe polygonen: bezochte hokken
+    -   rode polygonen: nog niet bezochte hokken
+    -   blauwe polygonen: bezochte hokken
 -   bemonsterde bomen
-  - gele punten: vermiljoenkever aanwezig
-  - rode punten: vermiljoenkever afwezig
-  - label bij punten toont aantal gevonden adulten en larven
-  
+    -   gele punten: vermiljoenkever aanwezig
+    -   rode punten: vermiljoenkever afwezig
+    -   label bij punten toont aantal gevonden adulten en larven
+
 ```{r}
 #| label: fig-map
 #| fig-cap: "Kaart met de geselecteerde km-hokken en de bemonsterde bomen"
@@ -192,6 +190,7 @@ overzicht_proporties %>%
   labs(x = "Proportie van de onderzochte bomen met vermiljoenkever per locatie")
 
 ```
+
 @fig-booms toon de distributie van de onderzochte bomen over de verschillende boomsoorten en boomposities.
 
 ```{r}
@@ -216,6 +215,9 @@ counts_tree_species %>%
   labs(y = "Aantal onderzochte bomen", fill = "vermiljoenkever aanwezig") +
   coord_flip()
 ```
+
+@fig-omtrek toont de verdeling van de omtrek van de onderzochte bomen en @fig-opp geeft de verdeling van de lengte en breedte van de verwijderde schors.
+
 ```{r}
 #| label: fig-omtrek
 #| fig-cap: "Omtrek van onderzochte bomen met onderscheid tussen aan-en afwezigheid van vermiljoenkever"
@@ -235,7 +237,8 @@ counts_omtrek %>%
   ggplot(aes(x = `omtrek boom`, fill = aanwezig)) +
   geom_histogram(bins = 20) +
   labs(fill  = "vermiljoenkever aanwezig",
-       x = "omtrek boom (cm)") +
+       x = "omtrek boom (cm)",
+       y = "aantal onderzochte bomen") +
   lims(x = c(0, NA))
 ```
 
