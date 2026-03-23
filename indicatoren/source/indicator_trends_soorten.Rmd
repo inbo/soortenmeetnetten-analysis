@@ -1,0 +1,273 @@
+---
+title: "Titel indicator"
+date: 2026-03-15T09:00:00
+bibliography: ../references.bib
+link-citations: TRUE
+thema: kiezen uit 
+  - 
+  - 
+  - 
+keywords:
+  - 
+  - 
+  - 
+lang: nl
+tab: indicator
+verantwoordelijke:
+- Naam Achternaam <naam.achternaam@inbo.be>
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(
+  message = FALSE,
+  warning = FALSE,
+  echo = FALSE
+)
+library(git2rdata)
+library(plotly)
+library(tidyverse)
+library(INBOtheme)
+library(htmlwidgets)
+library(effectclass)
+
+set.seed(20200520)
+setWidgetIdSeed(20200520)
+conflicted::conflicts_prefer(dplyr::filter)
+```
+
+```{r data_inlezen1}
+
+gegevens_libellen <- bind_rows(
+  read_vc(file = "results_trendmodel_libellen_gebiedstelling",
+                             root = "../data"),
+  read_vc(file = "results_trendmodel_libellen_transecten",
+                             root = "../data"),
+  read_vc(file = "results_trendmodel_rivierrombout",
+                             root = "../data")) 
+
+gegevens_dagvlinders <- bind_rows(
+  read_vc(file = "results_trendmodel_vlinders_eitelling",
+                             root = "../data"),
+  read_vc(file = "results_trendmodel_vlinders_imago_gebied",
+                             root = "../data"),
+  read_vc(file = "results_trendmodel_vlinders_imago_transect",
+                             root = "../data"))   
+
+gegevens_amfibieën <- read_vc(file = "results_trendmodel_amfibieën",
+                             root = "../data")
+
+gegevens <- bind_rows(
+  gegevens_libellen %>%
+    mutate(soortgroep = "libellen"),
+  gegevens_dagvlinders %>%
+    mutate(soortgroep = "dagvlinders"),
+  gegevens_amfibieën %>%
+    mutate(soortgroep = "amfibieën")
+)
+
+```
+
+```{r}
+classification_tw <- function(lcl, ucl, threshold_low, treshold_high, reference = 0) {
+  # assert_that(is.numeric(lcl), is.numeric(ucl), length(lcl) == length(ucl),
+  #             is.numeric(threshold), noNA(threshold), is.number(reference),
+  #             noNA(reference), all(lcl <= ucl))
+  # if (length(threshold) == 1) {
+  #   threshold <- reference + c(-1, 1) * abs(threshold)
+  # } else {
+  #   # assert_that(length(threshold) == 2, min(threshold) < reference,
+  #   #             reference < max(threshold))
+  #   threshold <- sort(threshold)
+  # }
+  # 
+  classification <- ifelse(
+    ucl < treshold_high,
+    ifelse(
+      ucl < reference,
+      ifelse(ucl < threshold_low, "--", ifelse(lcl < threshold_low, "-", "-~")),
+      ifelse(lcl > reference, "+~", ifelse(lcl < threshold_low, "?-", "~"))
+    ),
+    ifelse(
+      lcl > reference,
+      ifelse(lcl > treshold_high, "++", "+"),
+      ifelse(lcl > threshold_low, "?+", "?")
+    )
+  ) %>%
+    factor(levels =  c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?"))
+
+}
+```
+
+```{r trendklasse}
+
+trends <- gegevens %>%
+  filter(parameter == "trend_average") %>%
+  filter(is.na(model_description) | model_description == "without offset") %>%
+   mutate(n_jaar = 6,
+         treshold_low = round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
+         treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1)) %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) %>%
+  select(soortgroep, soort_nl, soort_wet, jaar_min, jaar_max, mean, lcl_0.90, ucl_0.90, klasse)
+```
+
+Hier komt de tekst voor de hoofdlijn. 
+
+```{r}
+
+klasse_color <- c("++" = inbo_groen, "+" = inbo_groen, "--" = inbo_rood, "-" = inbo_rood, "?+" = inbo_grijsblauw, "?-" = inbo_grijsblauw, "?" = inbo_grijsblauw, "~" = inbo_geelgr, "+~" = inbo_groen, "-~" = inbo_rood, "R" = inbo_grijsblauw)
+
+trends %>%
+  ggplot(aes(x = soortgroep, 
+             fill = klasse)) +
+  geom_bar() +
+  labs(x = "Soortgroep",
+       y = "Aantal soorten",
+       fill = "Trend")
+```
+
+```{r}
+trends %>%
+  group_by(soortgroep, klasse) %>%
+  summarise(n_soorten = n(),
+            soorten = str_c(soort_nl, collapse = ", ")) %>%
+  ungroup() %>%
+  kable()
+```
+
+
+```{r staafdiagram lgv-stock10-graph, echo =  FALSE, fig.width = 8, fig.height = 4, fig.cap = "Figuur 1: titel (Bron: …).", fig.pos = "H"}
+p <- ggplot(gegevens, aes(x = Jaar, y = Toename)) +
+  geom_point(aes(text = paste("<br>", "Jaar:", Jaar, "<br>", "Toename:",
+                              sprintf("%0.1f", Toename)))) +
+  geom_line() +
+  labs(y = "Toename (ha/dag)") +
+  scale_x_continuous(breaks = c(1985, 1990, 1995, 2000, 2005, 2010,
+                                2015, 2020, 2025)) +
+  scale_y_continuous(expand = c(0, 0), breaks = c(0, 2, 4, 6, 8,
+                                                  10, 12, 14, 16),
+                     limits = c(0, 17)) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0),
+                                hjust = 0),
+    legend.key.size = unit(0.3, "cm")
+  )
+
+if (interactive() || opts_knit$get("rmarkdown.pandoc.to") == "html") {
+  ggplotly(p, tooltip = c("text")) %>%
+    plotly::config(
+      modeBarButtonsToRemove = list(
+        "lasso2d", "select2d", "hoverClosestCartesian",
+        "hoverCompareCartesian", "toggleSpikelines"
+      ),
+      displaylogo = FALSE
+    )
+} else {
+  p
+}[1.1]
+```
+
+## Definitie
+
+Deze indicator toont …, uitgedrukt in ...
+Eventueel link met beleid schetsen
+
+## Bespreking
+
+Hier beschrijf je wat op de grafiek te zien is. 
+Als je meerdere figuren wil tonen, lees je nogmaals data in, en voeg je het script van de tweede figuur toe. 
+```{r data_inlezen2}
+gegevens <- read_vc("dataset") ```
+
+```{r barplot, fig.cap = "Figuur 2: Titel (Bron: …"}
+p <-
+  script voor figuur 2
+  
+if (interactive() || opts_knit$get("rmarkdown.pandoc.to") == "html") {
+  ggplotly(p, dynamicTicks = TRUE) %>%
+  plotly::config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+} else {
+  p
+}
+```
+
+Bespreking van wat je op figuur 2 ziet.
+
+
+## Referenties
+---
+title: "Metadata over Titel indicator"
+date: 2026-03-15T09:00:00
+bibliography: ../references.bib
+link-citations: TRUE
+thema: idem als in markdown van de indicator
+  - 
+  - 
+  - 
+keywords: idem als in markdown van de indicator
+  -  
+  -  
+  -  
+  -  
+  -  
+lang: nl
+tab: metadata
+verantwoordelijke:
+  - Naam Achternaam <naam.achternaam@inbo.be>
+output: html_document
+---
+
+## Technische informatie
+
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(message = FALSE, warning = FALSE, echo = FALSE)
+library(git2rdata)
+```
+
+```{r databereik}
+databereik <- paste(
+  range(read_vc("dataset")$Jaar),
+  collapse = "-")
+```
+
+- **Periodiciteit**: jaarlijks
+- **Volgende update**: maand 2027
+- **Databereik**: `r databereik`
+
+## Databron
+
+- **Producent**: 
+- **Dataset**: 
+- **Gegevensinzameling**: 
+
+## Berekeningswijze
+Hier geef je zo goed mogelijk weer hoe de cijfers berekend of gebruikt zijn. 
+
+## Opmerkingen bij de gegevenskwaliteit en betrouwbaarheid
+
+Wat weet je hierover??
+
+## Download
+
+```{r child = "../../template/download_tabel.Rmd"}
+```
+
+```{r tsv-tabel, results = "asis"}
+download_tabel(
+  rmd = "titel indicator.Rmd",
+  tsv = c(
+    dataset =
+      "dataset"
+      ),
+  rel_path = file.path("..", "titel indicator")
+)
+```
