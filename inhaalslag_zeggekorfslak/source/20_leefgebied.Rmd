@@ -9,7 +9,7 @@ We maken gebruik van de Habitatkaart 2020.
 In het monitoringsprotocol (Packet et al., 2018) wordt het potentieel leefgebied als volg afgeleid:
 
 + selectie polygonen van de Habitatkaart  met een van volgende bwk-codes: mc, mr, vn, vm, md, hfc
-+ selectie met polygonen
++ selectie van polygonen
   + met een van volgende bwk-codes: mk, mp, sf, va, vc, hc;
   + en gelegen op een afstand van maximaal 100 meter van een een polygoon met mc (grote Zeggenvegetaties)
   
@@ -566,7 +566,6 @@ Hieronder een overzicht van de locaties gesorteerd volgens oppervlakte rbbmc.
 We duiden ook de status van de locaties aan op basis van de reeds ingezamelde gegevens.
 
 ```{r, cache = FALSE}
-
 
 selectie_prioritair <- locaties_prioritair_area_leefgebied %>%
   st_drop_geometry() %>%
