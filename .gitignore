@@ -12,3 +12,8 @@ css/
 *html
 *_cache/
 /cache/
+output
+_book
+*_files
+*.tex
+data
