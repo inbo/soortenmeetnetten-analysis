@@ -1,0 +1,97 @@
+project:
+  type: book
+  preview:
+    port: 4201
+    browser: true
+  render:
+  - '*.md'
+  - '*.qmd'
+  - '!LICENSE.md'
+  - '!README.md'
+  output-dir: output/flandersqmd_libellen
+  post-render: _extensions/inbo/flandersqmd-book/filters/post_render.R
+execute:
+  echo: false
+  warnings: false
+  errors: true
+  message: false
+  freeze: auto
+  cache: false
+format:
+  flandersqmd-book-html: default
+  flandersqmd-book-pdf: default
+lang: nl-BE
+flandersqmd:
+  entity: INBO
+  level: 2
+  title: Trends libellenmeetnetten Vlaanderen
+  subtitle: Periode 2016 - 2025
+  shorttitle: trends-libellen
+  author:
+  - name:
+      given: Toon
+      family: Westra
+    email: toon.westra@inbo.be
+    orcid: 0000-0003-2478-9459
+    affiliation:
+    - Instituut voor Natuur- en Bosonderzoek (INBO)
+    corresponding: true
+  - name:
+      given: Geert
+      family: De Knijf
+    email: geert.deknijf@inbo.be
+    orcid: 0000-0002-7958-1420
+    affiliation:
+      - Instituut voor Natuur- en Bosonderzoek (INBO)
+  reviewer:
+  - name:
+      given: Stijn
+      family: Van Onsem
+    email: geert.deknijf@inbo.be
+    orcid: 0000-0002-7958-1420
+    affiliation:
+    - Instituut voor Natuur- en Bosonderzoek (INBO)
+  rightsholder:
+  - name:
+      given: Instituut voor Natuur- en Bosonderzoek (INBO)
+    email: info@inbo.be
+    ror: 00j54wy13
+  funder:
+  - name:
+      given: Instituut voor Natuur- en Bosonderzoek (INBO)
+    email: info@inbo.be
+    ror: 00j54wy13
+  community: inbo
+  public_report: true
+  reportnr: 3.14
+  doi: 10.5281/zenodo.842223
+  year: 2026
+  colophon: true
+  floatbarrier: section
+book:
+  downloads: pdf
+  open-graph: true
+  body-footer: '{{< footer >}}'
+  navbar:
+    pinned: true
+    right:
+    - icon: facebook
+      href: https://www.facebook.com/INBOVlaanderen/
+    left:
+    - text: Cover
+      file: index.md
+    - text: Inleiding
+      file: inleiding.qmd
+    - text: Methodiek
+      file: methods.qmd
+  chapters:
+  - index.md
+  - abstract.md
+  - inleiding.qmd
+  - methods.qmd
+  - aantallen.qmd
+  - results.qmd
+  - referenties.md
+  appendices:
+    - bijlage2.qmd
+bibliography: references.bib

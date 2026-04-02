@@ -1,0 +1,761 @@
+
+# Resultaten
+
+```{r}
+#| label: setup
+#| include: false
+
+library(tidyverse)
+library(git2rdata)
+library(n2khab)
+library(effectclass)
+library(plotly)
+library(kableExtra)
+library(INBOtheme)
+library(knitr)
+options(knitr.kable.NA = '')
+
+conflicted::conflicts_prefer(dplyr::lag)
+conflicted::conflicts_prefer(dplyr::filter)
+
+source("../source/functions_smp.R")
+```
+
+```{r}
+#| label: read-results
+#| message: false
+
+path_analysis <- fileman_up("analysis_libellen")
+
+name_analysis1 <- "libellen_gebiedstelling"
+versie <- str_c(name_analysis1, "_2026-02-11")
+
+results_index_gebied <- read_vc(file = str_c("results_indexmodel_", name_analysis1),
+                             root = file.path(path_analysis, "output/results", versie))
+results_trend_gebied <- read_vc(file = str_c("results_trendmodel_", name_analysis1),
+                             root = file.path(path_analysis, "output/results", versie))
+
+name_analysis2 <- "libellen_transecten"
+versie <- str_c(name_analysis2, "_2026-02-11")
+
+results_index_transect <- read_vc(file = str_c("results_indexmodel_meetcyclus_", name_analysis2),
+                             root = file.path(path_analysis, "output/results", versie))
+results_trend_transect <- read_vc(file = str_c("results_trendmodel_meetcyclus_", name_analysis2),
+                             root = file.path(path_analysis, "output/results", versie))
+
+name_analysis3 <- "rivierrombout"
+versie <- str_c(name_analysis3, "_2026-02-11")
+
+results_index_rivierrombout <- read_vc(file = str_c("results_indexmodel_", name_analysis3),
+                             root = file.path(path_analysis, "output/results", versie))
+results_trend_rivierrombout <- read_vc(file = str_c("results_trendmodel_", name_analysis3),
+                             root = file.path(path_analysis, "output/results", versie))
+
+```
+
+```{r}
+#| label: trend-klasses
+
+trend_klasses <- data.frame(
+  klasse_naam = c("onbekend", "mogelijke toename",
+             "mogelijke afname", "stabiel", "toename",
+             "afname", "matige toename",
+             "matige afname", "sterke toename",
+             "sterke afname"),
+  trend = c(-0.05, 0.2, -0.1,0, 0.5, -0.3, 0.15, -0.13, 0.7, -0.5),
+  lcl = c(-0.4, -0.1, -0.4, -0.2, 0.1, -0.5, 0.05, -0.20, 0.5, -0.65),
+  ucl = c(0.4, 0.5, 0.1, 0.2,1,-0.1, 0.25, -0.05,  0.9, -0.35)) %>%
+  mutate(klasse = classification(lcl, ucl, threshold = c(-0.25, 0.33), reference = 0),
+         klasse_naam = factor(klasse_naam, levels = c("sterke afname", "afname", "matige afname", "mogelijke afname", "onbekend", "stabiel", "mogelijke toename", "matige toename", "toename", "sterke toename" )),
+         klasse_plot = format(klasse, type = "markdown"))
+
+trend_klasses <- trend_klasses %>%
+  arrange(klasse) %>%
+  mutate(klasse = as.character(klasse)) %>%
+  mutate(tekst = str_c(klasse, " = ", klasse_naam))
+  
+legend_klasses <- str_c(" (", str_c(trend_klasses$tekst, collapse = "; "), ")")
+  
+legend_klasses_index <- str_c(" (R = referentie; ", str_c(trend_klasses$tekst, collapse = "; "), ")")
+```
+
+## Overzicht resultaten voor alle libellensoorten
+
+### Vergelijking tussen de jaren
+
+We tonen de verschillen tussen de jaren enkel voor de meetnetten waarvan de meetnetlocaties jaarlijks geteld worden.
+Voor meetnetten met een driejarige meetcyclus tonen we enkel de de verschillen tussen de meetcycli.
+
+@tbl-index-refjaar geeft een overzicht van de verschillen van jaar tot jaar, waarbij we steeds de aantallen in een bepaald jaar vergelijken met die in een referentiejaar. Als referentiejaar kiezen we hier het jaar waarin het meetnet van start ging. We geven de verschillen weer aan de hand van de trend-klassen zoals besproken in @sec-classificatie, waarbij we -25 % als ondergrens en +33 % als bovengrens nemen.
+
+```{r}
+#| label: tbl-index-refjaar
+#| tbl-cap: "Verschil in aantallen t.o.v. referentiejaar"
+
+results_indexmodel_jaar <- bind_rows( results_index_gebied, 
+                                results_index_rivierrombout)
+
+verschillen_jaren <- results_indexmodel_jaar %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(lcl_0.90)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  select(soort_nl, ref_jaar, jaar, klasse) %>%
+  pivot_wider(names_from = jaar, 
+              values_from =  klasse)
+
+verschillen_jaren %>%
+  rename("Soort" = soort_nl,  Referentiejaar = ref_jaar) %>%
+  kbl(booktabs = TRUE,
+      escape = FALSE,
+      align = "lccccc") %>%
+  kable_styling() %>%
+  add_header_above(c(" " = 2, "Verschil t.o.v. referentiejaar" = 9))
+  
+```
+
+Een andere manier om de jaarlijkse verschillen voor te stellen is door steeds de verschillen tussen twee opeenvolgende jaren te bepalen zoals in @tbl-index-prevjaar.
+Op die manier krijgen we bijkomende informatie over hoe de aantallen variëren over de jaren.
+
+```{r }
+#| label: tbl-index-prevjaar
+
+verschillen_vorigjaar <- results_indexmodel_jaar %>%
+  filter(parameter == "diff_previous_year") %>%
+  mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  select(soort_nl,  periode, klasse) %>%
+  spread(key = "periode", value = "klasse")
+
+verschillen_vorigjaar %>%
+  rename("Soort" = soort_nl) %>%
+  kbl(caption = "Verschil in aantal adulten voor opeenvolgende jaren",
+      booktabs = TRUE,
+      escape = FALSE,
+      align = "lccccccccc") %>%
+  kable_styling() 
+```
+
+### Verschillen tussen de meetcycli
+
+Bij soorten die geteld worden met een meetcyclus van drie jaar, zullen de verschillen tussen de jaren voor een groot deel afhankelijk zijn van welke locaties er elk jaar geteld worden.
+Daarom kunnen we beter periodes van drie jaar (die overeenkomen met een meetcyclus) met elkaar te vergelijken (@tbl-index-meetcyclus).
+
+```{r}
+#| label: tbl-index-meetcyclus
+#| tbl-cap: "Verschil in aantallen t.o.v. referentie meetcyclus"
+
+verschillen_cyclus <- results_index_transect %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1)) %>%
+  select(soort_nl, ref_periode, periode, klasse, mean, lcl_0.90, ucl_0.90) %>%
+  mutate(verschil = round(mean * 100 -100, 0),
+         verschil_lcl = round(lcl_0.90 * 100 -100, 0),
+         verschil_ucl = round(ucl_0.90 * 100 -100, 0),
+         verschil_tbl = str_c(ifelse(verschil > 0, "+", ""),
+                           verschil, "% (",
+                           ifelse(verschil_lcl > 0, "+", ""),
+                           verschil_lcl, "%; ",
+                           ifelse(verschil_ucl > 0, "+", ""),
+                           verschil_ucl, "%)")
+         ) %>%
+  select(-mean, -lcl_0.90, -ucl_0.90, -verschil_lcl, -verschil_ucl, -verschil)
+  
+# 
+# if (html_output) {
+#   verschillen_cyclus <- verschillen_cyclus 
+# } else {
+#   verschillen_cyclus <- verschillen_cyclus %>%
+#     mutate(verschil_tbl = str_replace_all(verschil_tbl, "%", "\\\\%"))
+# }
+
+verschillen_cyclus %>%
+  rename("Nederlandse naam" = soort_nl, "Referentie meetcyclus" = ref_periode, "Meetcyclus" = periode, "Klasse" = klasse, "Verschil" = verschil_tbl) %>%
+  kbl(booktabs = TRUE,
+      escape = FALSE,
+      align = "lccccc") %>%
+kable_styling() 
+```
+
+### Trends
+
+```{r}
+#| label: trend-preprocessing
+
+results_trendmodel_all <- bind_rows(results_trend_gebied,
+                                    results_trend_transect, 
+                                    results_trend_rivierrombout)
+
+trend_all <- results_trendmodel_all %>%
+  mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
+         n_jaar = 6,
+         treshold_low = ifelse(parameter %in% c("trend_average", "trend_jaar"), 
+                               round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
+                               -25),
+         treshold_high = ifelse(parameter %in% c("trend_average", "trend_jaar"),  
+                                round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1),
+                                33)) %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) %>%
+  select(soort_nl, soort_wet, parameter, periode_tekst, mean, lcl_0.90, ucl_0.90, treshold_low, treshold_high, klasse)
+
+overzicht_trend <- results_trendmodel_all %>%
+  arrange(desc(mean)) %>%
+  mutate(trend = round(mean, 1),
+         trend_lcl = round(lcl_0.90, 1),
+         trend_ucl = round(ucl_0.90, 1),
+         trend_tbl = str_c(ifelse(trend > 0, "+", ""),
+                           trend, "% (",
+                           ifelse(trend_lcl > 0, "+", ""),
+                           trend_lcl, "%; ",
+                           ifelse(trend_ucl > 0, "+", ""),
+                           trend_ucl, "%)")
+         )
+
+overzicht_trend_looptijd <- overzicht_trend %>%
+  filter(parameter == "trend_total") %>%
+  select(soort_nl, trend_total = trend_tbl)
+
+overzicht_trend_tabel <- overzicht_trend %>%
+  filter(parameter %in% c("trend_average", "trend_jaar")) %>%
+   mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
+         n_jaar = 6,
+         treshold_low = round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
+         treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1)) %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) %>%
+  left_join(overzicht_trend_looptijd, by = "soort_nl") %>%
+  arrange(soort_nl) 
+
+```
+
+In @tbl-trend geven we een overzicht van de gemiddelde jaarlijkse trend en de totale trend over de meetnetperiode.
+
+```{r}
+#| label: tbl-trend
+#| tbl-cap: "Jaarlijkse wijziging en wijziging over de looptijd"
+
+overzicht_trend_tabel %>%
+  select("Nederlandse naam" = soort_nl, Periode = periode_tekst, Klasse = klasse, "Jaarlijkse wijziging" = trend_tbl, "Wijziging over de looptijd" = trend_total) %>%
+  kbl(align = "lcclcc",
+      booktabs = TRUE,
+      escape = FALSE)  %>%
+  kable_styling(latex_options = "scale_down")
+```
+
+\needspace{50mm}
+
+De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in @fig-results-trend
+De x-as van deze figuur heeft een logaritmische schaal.
+Een halvering (-50 %) is immers een even sterk effect als een verdubbeling (+100 %).
+Opnieuw maken we gebruik van de klassetrends zoals besproken in @sec-classificatie met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over een periode van 6 jaar.
+Voor de gemiddelde jaarlijkse trend komt dit overeen met een ondergens van -5,6 % en een bovengrens van +5,9 %.
+
+```{r}
+#| label: results-trend
+
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
+
+trend <- results_trendmodel_all %>%
+  filter(parameter %in% c("trend_average", "trend_jaar")) %>%
+  mutate(mean_log = log(mean/100 + 1),
+          lcl_0.90_log = log(lcl_0.90/100 + 1),
+         ucl_0.90_log = log(ucl_0.90/100 + 1)) %>%
+  mutate(n_jaar = 6,
+         treshold_low = round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
+         treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1)) %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
+
+```
+
+```{r}
+#| label: fig-results-trend
+#| fig-cap: Schatting en classificatie van trends voor de verschillende soorten met 90%-betrouwbaarheidsinterval
+#| warning: false
+
+volgorde_soorten <- (trend %>%
+  arrange(mean))$meetnet
+
+breaks_log <- log(c(-50, -25, 0, 33, 100)/100 + 1)
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+trend %>%
+  mutate(meetnet = factor(meetnet, levels = volgorde_soorten)) %>%
+  ggplot( aes(x = meetnet, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_hline(aes(yintercept = max(log(treshold_low/100 + 1))), linetype = 3, alpha = 0.8) +
+  geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3, alpha = 0.8) +
+  geom_hline(yintercept = 0, linetype = 2, alpha = 0.8) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Gemiddelde jaarlijkse trend (%)", x = "Soort") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show, limits = c(min(breaks_log), max(breaks_log))) +
+  coord_flip() +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+```
+
+## Resultaten per meetnet {#sec-detailresultaat}
+
+In dit onderdeel van het rapport geven we een overzicht van de resultaten per meetnet.
+
+Voor elk meetnet tonen we:
+
+-   de karakteristieken van het meetnet;
+-   de jaarlijkse monitoringsinspanning;
+-   de gemiddelde jaarlijkse trend.
+
+Wanneer de meetnetlocaties jaarlijks geteld worden tonen we ook:
+
+-   de jaarlijkse verschillen in aantallen met t.o.v. het referentiejaar (eerste jaar van het meetnet);
+-   de verschillen tussen opeenvolgende jaren.
+
+In het geval van een driejarige meetcyclus tonen we verschillen tussen de meetcycli.
+
+Voor een verklaring van de symbolen en referentielijnen in de figuren verwijzen we naar @sec-classificatie).
+
+```{r}
+#| label: preporocessing
+#| message: false
+#| warning: false
+
+verschil_jaren_ref <- results_indexmodel_jaar %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown"))
+  
+verschil_jaren_ref_add <- verschil_jaren_ref %>%
+  distinct(soort_nl, soort_wet, ref_jaar) %>%
+  mutate(jaar = ref_jaar,
+        mean = 1,
+        klasse = "R") 
+
+verschil_jaren_ref <- verschil_jaren_ref %>%
+  bind_rows(verschil_jaren_ref_add) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1) %>%
+  mutate(klasse = str_remove_all(klasse, "`"))
+
+verschil_vorigjaar <- results_indexmodel_jaar %>%
+  filter(parameter == "diff_previous_year") %>%
+  mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1) %>%
+  mutate(klasse = str_remove_all(klasse, "`"))
+
+verschil_meetcyclus <- results_index_transect %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  mutate(mean_log = log(mean) + 1,
+         lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+verschil_meetcyclus_add <- verschil_meetcyclus %>%
+  distinct(soort_nl, soort_wet) %>%
+  mutate(klasse = "R",
+         periode = ifelse(soort_nl == "Bosbeekjuffer", "2018-2020", "2017-2019"),
+         mean = 0,
+         mean_log = 1)
+
+verschil_meetcyclus <- verschil_meetcyclus %>%
+  bind_rows(verschil_meetcyclus_add) %>%
+  mutate(klasse = str_remove_all(klasse, "`"))
+
+monitoring_effort_meetnet <- calculate_monitoring_effort(species_group = "libellen",
+                                                 aggregation_level = "meetnet")
+
+```
+
+### Bosbeekjuffer
+
+```{r}
+m <- "Bosbeekjuffer"
+```
+
+
+```{r}
+#| label: fig-bosbeekjuffer
+#| fig-cap: "Copula bosbeekjuffer (foto: Erik Moonen)"
+#| out-width: "75%"
+
+include_graphics("images/Bosbeekjuffer_klein.jpg")
+```
+
+#### Aantal tellingen, tellers en getelde locaties
+
+@fig-m-bj toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r}
+#| label: fig-m-bj
+#| fig-cap: "Monitoringsinspanning voor het meetnet Bosbeekjuffer"
+#| fig-height: 4
+
+plot_m <- monitoring_effort_meetnet %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+```
+
+#### Vergelijking tussen de meetcycli
+
+@fig-verschilref-bj toont de verschillen t.o.v. referentie meetcyclus.
+
+```{r}
+#| label: fig-verschilref-bj
+#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de bosbeekjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 4
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+verschil_meetcyclus %>%
+  filter(soort_nl == m) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, colour = klasse, label = klasse)) +
+  geom_errorbar(width = 0, size = 15, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_point(size = 7) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Vreschil t.o.v. referentie meetcyclus", x = "Meetcyclus") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+```
+
+#### Trend
+
+```{r}
+
+trend_average_meetnet <- trend_all %>%
+  filter(soort_nl == m) %>%
+  filter(parameter == "trend_jaar") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(trend_klasses, by = "klasse")
+
+trend_total_meetnet <- trend_all %>%
+  filter(soort_nl == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse, ") van de ", m, " in deze periode."))`.
+
+### Speerwaterjuffer
+
+```{r}
+m <- "Speerwaterjuffer"
+```
+
+
+```{r}
+#| label: fig-speerwaterjuffer
+#| fig-cap: "Speerwaterjuffer (foto: Erik Moonen)"
+#| out-width: "75%"
+
+include_graphics("images/Speerwaterjuffer.jpg")
+```
+
+#### Aantal tellingen, tellers en getelde locaties
+
+@fig-m-sj toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r}
+#| label: fig-m-sj
+#| fig-cap: "Monitoringsinspanning voor het meetnet Speerwaterjuffer"
+#| fig-height: 4
+
+plot_m <- monitoring_effort_meetnet %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+```
+
+#### Vergelijking tussen de jaren.
+
+@fig-verschilref-sj toont de verschillen t.o.v. referentiejaar.
+
+```{r}
+#| label: fig-verschilref-sj
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor de speerwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 6
+
+breaks_log <- log(c(0.10, .25, .50, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c( -90, -75, -50, -25, 0, 33, 100), " %")
+
+verschil_jaren_ref %>%
+  filter(soort_nl == m) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = jaar, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 15, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiejaar", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+```
+
+```{r}
+#| label: fig-verschilprev-sj
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor de speerwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 6
+
+breaks_log <- log(c(0.10, .25, .50, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c( -90, -75, -50, -25, 0, 33, 100), " %")
+
+verschil_vorigjaar %>%
+  filter(soort_nl == m) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 15, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_point(aes(colour = klasse), size = 7) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil opeenvolgende jaren", x = "Periode") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide", axis.text.x = element_text(angle = 45))
+
+```
+
+#### Trend
+
+```{r}
+
+trend_average_meetnet <- trend_all %>%
+  filter(soort_nl == m) %>%
+  filter(parameter == "trend_average") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(trend_klasses, by = "klasse")
+
+trend_total_meetnet <- trend_all %>%
+  filter(soort_nl == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse, ") van de ", m, " in deze periode."))`.
+
+
+### Variabele waterjuffer
+
+```{r}
+m <- "Variabele waterjuffer"
+```
+
+
+```{r}
+#| label: fig-vw
+#| fig-cap: "Variabele waterjuffer (foto: Erik Moonen)"
+#| out-width: "75%"
+
+include_graphics("images/variabele_waterjuffer.jpg")
+```
+
+#### Aantal tellingen, tellers en getelde locaties
+
+@fig-m-vw toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r}
+#| label: fig-m-vw
+#| fig-cap: "Monitoringsinspanning voor het meetnet Variabele waterjuffer"
+#| fig-height: 4
+
+plot_m <- monitoring_effort_meetnet %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+```
+
+#### Vergelijking tussen de meetcycli
+
+@fig-verschilref-vw toont de verschillen t.o.v. referentie meetcyclus.
+
+```{r}
+#| label: fig-verschilref-vw
+#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de variabele waterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 4
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+verschil_meetcyclus %>%
+  filter(soort_nl == m) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, colour = klasse, label = klasse)) +
+  geom_errorbar(width = 0, size = 15, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_point(size = 7) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Vreschil t.o.v. referentie meetcyclus", x = "Meetcyclus") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+```
+
+#### Trend
+
+```{r}
+
+trend_average_meetnet <- trend_all %>%
+  filter(soort_nl == m) %>%
+  filter(parameter == "trend_jaar") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(trend_klasses, by = "klasse")
+
+trend_total_meetnet <- trend_all %>%
+  filter(soort_nl == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse, ") van de ", m, " in deze periode."))`.
+
+### Vroege glazenmaker
+
+```{r}
+m <- "Vroege glazenmaker"
+```
+
+
+```{r}
+#| label: fig-vg
+#| fig-cap: "Copula Vroege glazenmaker (foto: Erik Moonen)"
+#| out-width: "75%"
+
+include_graphics("images/vroege_glazenmaker_klein.jpg")
+```
+
+#### Aantal tellingen, tellers en getelde locaties
+
+@fig-m-bj toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r}
+#| label: fig-m-vg
+#| fig-cap: "Monitoringsinspanning voor het meetnet Vroege glazenmaker"
+#| fig-height: 4
+
+plot_m <- monitoring_effort_meetnet %>%
+    filter(meetnet == m) %>%
+    ggplot(aes(x = as.character(jaar), y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal")
+
+ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+```
+
+#### Vergelijking tussen de meetcycli
+
+@fig-verschilref-vg toont de verschillen t.o.v. referentie meetcyclus.
+
+```{r}
+#| label: fig-verschilref-vg
+#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de vroege glazenmaker. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 4
+
+breaks_log <- log(c(0.5, 0.75, 1, 1.33, 2)) + 1
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+verschil_meetcyclus %>%
+  filter(soort_nl == m) %>%
+  ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, x = periode, colour = klasse, label = klasse)) +
+  geom_errorbar(width = 0, size = 15, alpha = 0.3) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_point(size = 7) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Vreschil t.o.v. referentie meetcyclus", x = "Meetcyclus") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+```
+
+#### Trend
+
+```{r}
+
+trend_average_meetnet <- trend_all %>%
+  filter(soort_nl == m) %>%
+  filter(parameter == "trend_jaar") %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(trend_klasses, by = "klasse")
+
+trend_total_meetnet <- trend_all %>%
+  filter(soort_nl == m) %>%
+  filter(parameter == "trend_total")
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %. 
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse, ") van de ", m, " in deze periode."))`.

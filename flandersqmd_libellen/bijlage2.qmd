@@ -1,0 +1,58 @@
+# Bijlage: details van de getelde aantallen {#sec-bijlage-2}
+
+```{r}
+#| label: setup
+#| include: false
+
+library(dplyr)
+library(readr)
+library(DT)
+library(crosstalk)
+```
+
+::: {.content-hidden when-format="html"}
+
+In de [website versie](https://inbo.github.io/soortenmeetnetten-libellenrapport-2021/h-bijlaged.html) van dit rapport vind je een downloadbare tabel met de gedetailleerde telgegevens van zowel de prioritaire soorten als de overige soorten.
+In deze tabel maken we onderscheid tussen vrouwelijke (V) en mannelijke (M) imago's, imago's met onbekend geslacht (imago U), imago's (niet uitgekleurd), larvenhuidjes (V, M en U), copula en eiafzettende libellen.
+
+:::
+
+::: {.content-hidden when-format="pdf"}
+
+In @tbl-bijlage-2 maken we onderscheid tussen vrouwelijke (V) en mannelijke (M) imago's, imago's met onbekend geslacht (imago U), imago's (niet uitgekleurd), larvenhuidjes (V, M en U), copula en eiafzettende libellen.
+Je kan de inhoud naar het klembord kopiëren (door op de 'Copy-knop' te klikken) of downloaden als csv-bestand of excel-bestand (via respectievelijk de 'CSV-knop' en de 'Excel-knop'.
+
+```{r}
+#| label: tbl-bijlage-2
+#| message: false
+#| tbl-cap: "Overzicht van de gedetailleerde telgegevens met onderscheid tussen vrouwelijke (V) en mannelijke (M) imago's, imago's met onbekend geslacht (imago U), imago's (niet uitgekleurd), larvenhuidjes (V, M en U), copula en eiafzettende libellen"
+
+tabel <- read_csv2("tabel_bijlage2.csv")
+
+sd_counts <- SharedData$new(tabel)
+
+bscols(list(bscols(
+            filter_select("Meetnet", "Selecteer meetnet", sd_counts, ~Meetnet),
+            filter_checkbox("Type_soort", "Selecteer de weer te geven soorten:", sd_counts, ~Type_soort)
+            ),
+            datatable(sd_counts, 
+                    rownames = FALSE, 
+                    filter = 'top',
+                    extensions = 'Buttons', 
+                    width = '100%',
+                    options = list(
+                      dom = 'Bfrtip',
+                      autoWidth = TRUE,
+                      pageLength = 10,
+                      buttons = c('copy', 'csv', 'excel'),
+                      columnDefs = list(list(visible = FALSE, targets = c( 2)),
+                                        list(width = '8%', targets = c(0, 1, 2, 3, 4, 5, 6)))
+                      )
+                    ) %>% 
+              formatStyle(columns = colnames(.$x$data), 
+                          `font-size` = '9px')
+        )
+)
+```
+
+:::
