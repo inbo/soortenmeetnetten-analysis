@@ -1,0 +1,55 @@
+..generic:
+  git2rdata: 0.5.0
+  optimize: yes
+  NA string: NA
+  sorting:
+  - parameter
+  - soort_nl
+  - jaar
+  hash: acfdb7897c23852a91efac12cfcba8b674136723
+  data_hash: 89f72235ec3e914194d2d31c3075bd7f54183b56
+parameter:
+  class: character
+soort_nl:
+  class: character
+soort_wet:
+  class: character
+jaar:
+  class: numeric
+  digits: 6
+ref_jaar:
+  class: numeric
+  digits: 6
+jaar_centered:
+  class: numeric
+  digits: 6
+mean:
+  class: numeric
+  digits: 6
+sd:
+  class: numeric
+  digits: 6
+lcl_0.30:
+  class: numeric
+  digits: 6
+lcl_0.60:
+  class: numeric
+  digits: 6
+lcl_0.90:
+  class: numeric
+  digits: 6
+lcl_0.95:
+  class: numeric
+  digits: 6
+ucl_0.30:
+  class: numeric
+  digits: 6
+ucl_0.60:
+  class: numeric
+  digits: 6
+ucl_0.90:
+  class: numeric
+  digits: 6
+ucl_0.95:
+  class: numeric
+  digits: 6

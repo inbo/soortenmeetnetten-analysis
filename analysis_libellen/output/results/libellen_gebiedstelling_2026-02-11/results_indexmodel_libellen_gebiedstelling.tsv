@@ -1,0 +1,136 @@
+meetnet	parameter	soort_nl	soort_wet	jaar	ref_jaar	jaar_centered	mean	sd	lcl_0.30	lcl_0.60	lcl_0.90	lcl_0.95	ucl_0.30	ucl_0.60	ucl_0.90	ucl_0.95
+Gevlekte witsnuitlibel	diff_previous_year	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2016	2016	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Gevlekte witsnuitlibel	diff_previous_year	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2017	2016	2	0.508243	0.17579	0.424759	0.358397	0.270243	0.240153	0.551715	0.631496	0.846408	0.924173
+Gevlekte witsnuitlibel	diff_previous_year	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2018	2016	3	2.76921	0.988887	2.31069	1.92676	1.5453	1.38646	2.96315	3.4287	4.5771	5.13898
+Gevlekte witsnuitlibel	diff_previous_year	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2019	2016	4	0.12978	0.0620908	0.0973234	0.0778547	0.0558562	0.0481616	0.140282	0.173162	0.245306	0.284031
+Gevlekte witsnuitlibel	diff_previous_year	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2020	2016	5	1.7457	0.772368	1.33554	1.11564	0.792077	0.710956	1.89098	2.27901	3.22873	3.64398
+Gevlekte witsnuitlibel	diff_previous_year	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2021	2016	6	2.5374	0.97834	2.04421	1.7367	1.34136	1.18431	2.68855	3.26556	4.4016	4.92905
+Gevlekte witsnuitlibel	diff_previous_year	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2022	2016	7	0.605281	0.223659	0.493032	0.415251	0.309111	0.277503	0.656358	0.768658	1.00388	1.1402
+Gevlekte witsnuitlibel	diff_previous_year	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2023	2016	8	1.68242	0.626811	1.34576	1.17733	0.866896	0.780467	1.8314	2.12108	2.81467	3.12172
+Gevlekte witsnuitlibel	diff_previous_year	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2024	2016	9	0.668854	0.263728	0.540559	0.448209	0.322942	0.294559	0.729068	0.860757	1.14937	1.29808
+Gevlekte witsnuitlibel	diff_previous_year	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2025	2016	10	2.55978	0.969524	2.05788	1.77345	1.32449	1.16881	2.74974	3.28732	4.44344	5.00792
+Kempense heidelibel	diff_previous_year	Kempense heidelibel	Sympetrum depressiusculum	2016	2016	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Kempense heidelibel	diff_previous_year	Kempense heidelibel	Sympetrum depressiusculum	2017	2016	2	0.591193	0.220375	0.484428	0.408569	0.297961	0.256566	0.644556	0.75567	1.00998	1.13179
+Kempense heidelibel	diff_previous_year	Kempense heidelibel	Sympetrum depressiusculum	2018	2016	3	0.539576	0.190721	0.443286	0.387516	0.281979	0.232104	0.583958	0.682526	0.879077	0.982541
+Kempense heidelibel	diff_previous_year	Kempense heidelibel	Sympetrum depressiusculum	2019	2016	4	0.94353	0.328311	0.79078	0.672497	0.507062	0.452066	1.01599	1.17729	1.5144	1.66182
+Kempense heidelibel	diff_previous_year	Kempense heidelibel	Sympetrum depressiusculum	2020	2016	5	0.799444	0.275455	0.666527	0.560972	0.431706	0.37652	0.867732	0.998945	1.32033	1.41662
+Kempense heidelibel	diff_previous_year	Kempense heidelibel	Sympetrum depressiusculum	2021	2016	6	0.874997	0.31888	0.72209	0.622053	0.469348	0.418438	0.931716	1.09213	1.43736	1.64862
+Kempense heidelibel	diff_previous_year	Kempense heidelibel	Sympetrum depressiusculum	2022	2016	7	0.463988	0.174581	0.37951	0.321256	0.228743	0.19937	0.506298	0.592253	0.784389	0.868392
+Kempense heidelibel	diff_previous_year	Kempense heidelibel	Sympetrum depressiusculum	2023	2016	8	0.581734	0.21155	0.480173	0.403068	0.296213	0.245838	0.634419	0.741079	0.981671	1.08444
+Kempense heidelibel	diff_previous_year	Kempense heidelibel	Sympetrum depressiusculum	2024	2016	9	0.815848	0.349654	0.642622	0.540753	0.378665	0.322451	0.887152	1.05656	1.40009	1.61513
+Kempense heidelibel	diff_previous_year	Kempense heidelibel	Sympetrum depressiusculum	2025	2016	10	0.621456	0.326806	0.460837	0.366862	0.218484	0.172257	0.676904	0.819737	1.234	1.49367
+Maanwaterjuffer	diff_previous_year	Maanwaterjuffer	Coenagrion lunulatum	2016	2016	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Maanwaterjuffer	diff_previous_year	Maanwaterjuffer	Coenagrion lunulatum	2017	2016	2	1.52464	0.558997	1.23163	1.09559	0.905861	0.836733	1.57311	1.88645	2.61766	3.01967
+Maanwaterjuffer	diff_previous_year	Maanwaterjuffer	Coenagrion lunulatum	2018	2016	3	0.677681	0.183399	0.597187	0.520352	0.400687	0.364475	0.73367	0.827573	0.980341	1.06276
+Maanwaterjuffer	diff_previous_year	Maanwaterjuffer	Coenagrion lunulatum	2019	2016	4	0.521864	0.175938	0.436548	0.356315	0.259911	0.233803	0.584005	0.675433	0.828718	0.880851
+Maanwaterjuffer	diff_previous_year	Maanwaterjuffer	Coenagrion lunulatum	2020	2016	5	1.05248	0.376263	0.869029	0.767802	0.616543	0.569013	1.09165	1.30331	1.70997	2.00252
+Maanwaterjuffer	diff_previous_year	Maanwaterjuffer	Coenagrion lunulatum	2021	2016	6	0.909124	0.254485	0.800153	0.70911	0.522763	0.478982	0.975667	1.10034	1.38614	1.46857
+Maanwaterjuffer	diff_previous_year	Maanwaterjuffer	Coenagrion lunulatum	2022	2016	7	1.18086	0.396465	0.991585	0.875829	0.684545	0.645796	1.2463	1.44743	1.90388	2.07604
+Maanwaterjuffer	diff_previous_year	Maanwaterjuffer	Coenagrion lunulatum	2023	2016	8	1.18851	0.357331	1.02383	0.892876	0.718832	0.666619	1.2529	1.43774	1.85616	2.03134
+Maanwaterjuffer	diff_previous_year	Maanwaterjuffer	Coenagrion lunulatum	2024	2016	9	1.17941	0.345891	1.01035	0.911939	0.741626	0.703916	1.23944	1.41642	1.81451	1.98925
+Maanwaterjuffer	diff_previous_year	Maanwaterjuffer	Coenagrion lunulatum	2025	2016	10	0.713646	0.227928	0.607832	0.516062	0.383309	0.344236	0.789237	0.895895	1.11798	1.19638
+Sierlijke witsnuitlibel	diff_previous_year	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2020	2020	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Sierlijke witsnuitlibel	diff_previous_year	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2021	2020	2	1.44428	0.765915	1.07093	0.890793	0.601377	0.504339	1.53631	1.88143	2.7357	3.39789
+Sierlijke witsnuitlibel	diff_previous_year	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2022	2020	3	2.38303	1.22799	1.7922	1.49351	1.08252	0.946495	2.47613	3.07474	4.54342	5.33489
+Sierlijke witsnuitlibel	diff_previous_year	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2023	2020	4	2.9851	1.16115	2.44762	2.10596	1.56698	1.41927	3.14459	3.67585	5.03795	5.77585
+Sierlijke witsnuitlibel	diff_previous_year	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2024	2020	5	0.614451	0.239959	0.499397	0.4125	0.305986	0.272941	0.661853	0.784699	1.0445	1.14599
+Sierlijke witsnuitlibel	diff_previous_year	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2025	2020	6	2.11488	0.663469	1.7681	1.56861	1.25376	1.09717	2.26602	2.6024	3.35424	3.64414
+Speerwaterjuffer	diff_previous_year	Speerwaterjuffer	Coenagrion hastulatum	2017	2017	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Speerwaterjuffer	diff_previous_year	Speerwaterjuffer	Coenagrion hastulatum	2018	2017	2	0.990103	0.348527	0.824273	0.710765	0.520219	0.454151	1.05772	1.25306	1.61942	1.78774
+Speerwaterjuffer	diff_previous_year	Speerwaterjuffer	Coenagrion hastulatum	2019	2017	3	1.16755	0.402176	0.975491	0.852083	0.666051	0.58714	1.23364	1.45234	1.89453	2.15502
+Speerwaterjuffer	diff_previous_year	Speerwaterjuffer	Coenagrion hastulatum	2020	2017	4	1.06594	0.355466	0.892107	0.775496	0.614668	0.561581	1.14302	1.32035	1.67455	1.89449
+Speerwaterjuffer	diff_previous_year	Speerwaterjuffer	Coenagrion hastulatum	2021	2017	5	0.99124	0.337763	0.835626	0.714445	0.568442	0.513917	1.06142	1.22162	1.61301	1.81905
+Speerwaterjuffer	diff_previous_year	Speerwaterjuffer	Coenagrion hastulatum	2022	2017	6	0.6766	0.205012	0.58287	0.499215	0.381448	0.341598	0.730903	0.833074	1.04796	1.12909
+Speerwaterjuffer	diff_previous_year	Speerwaterjuffer	Coenagrion hastulatum	2023	2017	7	0.603281	0.210339	0.514075	0.429598	0.324184	0.28544	0.652758	0.745567	0.97351	1.08955
+Speerwaterjuffer	diff_previous_year	Speerwaterjuffer	Coenagrion hastulatum	2024	2017	8	0.498102	0.191958	0.404143	0.338758	0.232599	0.183504	0.549927	0.652515	0.850851	0.922812
+Speerwaterjuffer	diff_previous_year	Speerwaterjuffer	Coenagrion hastulatum	2025	2017	9	0.800852	0.301455	0.658299	0.551984	0.407755	0.361073	0.870614	1.01915	1.33317	1.5195
+Gevlekte witsnuitlibel	index	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2016	2016	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Gevlekte witsnuitlibel	index	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2017	2016	2	0.508243	0.17579	0.424759	0.358397	0.270243	0.240153	0.551715	0.631496	0.846408	0.924173
+Gevlekte witsnuitlibel	index	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2018	2016	3	1.32181	0.442075	1.11159	0.946667	0.726557	0.6599	1.39559	1.65221	2.1812	2.41783
+Gevlekte witsnuitlibel	index	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2019	2016	4	0.163675	0.0821682	0.121828	0.0995665	0.0683723	0.0594578	0.174691	0.216823	0.328925	0.370585
+Gevlekte witsnuitlibel	index	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2020	2016	5	0.251571	0.102745	0.204066	0.168435	0.122774	0.106039	0.272594	0.319513	0.428899	0.489012
+Gevlekte witsnuitlibel	index	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2021	2016	6	0.589956	0.216193	0.485622	0.413197	0.307485	0.279567	0.634518	0.754793	1.00393	1.13064
+Gevlekte witsnuitlibel	index	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2022	2016	7	0.34005	0.13579	0.273411	0.225366	0.1605	0.140558	0.367193	0.438719	0.585491	0.662423
+Gevlekte witsnuitlibel	index	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2023	2016	8	0.527406	0.186051	0.434212	0.376419	0.27358	0.242119	0.569879	0.66652	0.880101	0.977372
+Gevlekte witsnuitlibel	index	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2024	2016	9	0.335263	0.140072	0.265967	0.220684	0.155993	0.132997	0.362439	0.436978	0.614728	0.67731
+Gevlekte witsnuitlibel	index	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2025	2016	10	0.796471	0.323447	0.633139	0.530525	0.393943	0.348222	0.858346	1.02942	1.42424	1.55178
+Kempense heidelibel	index	Kempense heidelibel	Sympetrum depressiusculum	2016	2016	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Kempense heidelibel	index	Kempense heidelibel	Sympetrum depressiusculum	2017	2016	2	0.591193	0.220375	0.484428	0.408569	0.297961	0.256566	0.644556	0.75567	1.00998	1.13179
+Kempense heidelibel	index	Kempense heidelibel	Sympetrum depressiusculum	2018	2016	3	0.311487	0.148314	0.232815	0.193249	0.130102	0.111394	0.34016	0.418574	0.578136	0.673394
+Kempense heidelibel	index	Kempense heidelibel	Sympetrum depressiusculum	2019	2016	4	0.2773	0.132709	0.211398	0.169518	0.116613	0.1041	0.295425	0.369068	0.522103	0.614792
+Kempense heidelibel	index	Kempense heidelibel	Sympetrum depressiusculum	2020	2016	5	0.212714	0.108867	0.157516	0.122634	0.0853072	0.0746231	0.227119	0.284539	0.426038	0.501312
+Kempense heidelibel	index	Kempense heidelibel	Sympetrum depressiusculum	2021	2016	6	0.174216	0.0888362	0.129256	0.104227	0.072541	0.0626103	0.184785	0.229849	0.344741	0.382776
+Kempense heidelibel	index	Kempense heidelibel	Sympetrum depressiusculum	2022	2016	7	0.0771082	0.0429524	0.0556161	0.0430042	0.0292863	0.0238929	0.0835765	0.104008	0.159336	0.193004
+Kempense heidelibel	index	Kempense heidelibel	Sympetrum depressiusculum	2023	2016	8	0.0422874	0.0246114	0.0302562	0.0239283	0.0154998	0.0128133	0.0455013	0.0570966	0.0836736	0.0987745
+Kempense heidelibel	index	Kempense heidelibel	Sympetrum depressiusculum	2024	2016	9	0.0333163	0.0247583	0.022441	0.0170179	0.00989463	0.00799824	0.0351166	0.0446638	0.0732763	0.0904137
+Kempense heidelibel	index	Kempense heidelibel	Sympetrum depressiusculum	2025	2016	10	0.0207093	0.0200816	0.0114205	0.00767214	0.0040329	0.0031067	0.0198437	0.0294263	0.0545339	0.0751377
+Maanwaterjuffer	index	Maanwaterjuffer	Coenagrion lunulatum	2016	2016	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Maanwaterjuffer	index	Maanwaterjuffer	Coenagrion lunulatum	2017	2016	2	1.52464	0.558997	1.23163	1.09559	0.905861	0.836733	1.57311	1.88645	2.61766	3.01967
+Maanwaterjuffer	index	Maanwaterjuffer	Coenagrion lunulatum	2018	2016	3	0.992445	0.341351	0.824222	0.717199	0.567785	0.513405	1.04535	1.23321	1.65507	1.85697
+Maanwaterjuffer	index	Maanwaterjuffer	Coenagrion lunulatum	2019	2016	4	0.495696	0.187073	0.407507	0.344434	0.237879	0.200644	0.540842	0.641918	0.832906	0.969196
+Maanwaterjuffer	index	Maanwaterjuffer	Coenagrion lunulatum	2020	2016	5	0.495154	0.190261	0.402124	0.328192	0.247624	0.211245	0.542314	0.63288	0.842954	0.962403
+Maanwaterjuffer	index	Maanwaterjuffer	Coenagrion lunulatum	2021	2016	6	0.433526	0.170959	0.351123	0.290889	0.217658	0.182225	0.470979	0.549925	0.747623	0.867141
+Maanwaterjuffer	index	Maanwaterjuffer	Coenagrion lunulatum	2022	2016	7	0.486528	0.193271	0.388226	0.33036	0.24843	0.217383	0.528326	0.615825	0.849731	0.954538
+Maanwaterjuffer	index	Maanwaterjuffer	Coenagrion lunulatum	2023	2016	8	0.556425	0.224658	0.44721	0.381098	0.279318	0.237752	0.590029	0.704473	0.996675	1.12481
+Maanwaterjuffer	index	Maanwaterjuffer	Coenagrion lunulatum	2024	2016	9	0.635496	0.268989	0.512031	0.416522	0.302692	0.269598	0.68414	0.81627	1.12587	1.27721
+Maanwaterjuffer	index	Maanwaterjuffer	Coenagrion lunulatum	2025	2016	10	0.437332	0.198319	0.340033	0.274867	0.189766	0.154316	0.473403	0.593592	0.79094	0.891584
+Sierlijke witsnuitlibel	index	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2020	2020	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Sierlijke witsnuitlibel	index	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2021	2020	2	1.44428	0.765915	1.07093	0.890793	0.601377	0.504339	1.53631	1.88143	2.7357	3.39789
+Sierlijke witsnuitlibel	index	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2022	2020	3	3.24643	2.08647	2.22006	1.74936	1.18243	1.01685	3.3541	4.3262	7.01882	8.62713
+Sierlijke witsnuitlibel	index	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2023	2020	4	9.16979	5.71592	5.98525	4.86102	3.17418	2.52079	9.48835	12.773	20.8086	24.1278
+Sierlijke witsnuitlibel	index	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2024	2020	5	5.16833	3.11519	3.60142	2.85016	1.80904	1.45692	5.49118	7.07334	10.6106	13.2246
+Sierlijke witsnuitlibel	index	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2025	2020	6	10.428	6.16776	7.31818	5.74555	3.74793	3.11062	11.0119	14.2369	23.4184	26.8509
+Speerwaterjuffer	index	Speerwaterjuffer	Coenagrion hastulatum	2017	2017	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Speerwaterjuffer	index	Speerwaterjuffer	Coenagrion hastulatum	2018	2017	2	0.990103	0.348527	0.824273	0.710765	0.520219	0.454151	1.05772	1.25306	1.61942	1.78774
+Speerwaterjuffer	index	Speerwaterjuffer	Coenagrion hastulatum	2019	2017	3	1.12209	0.487532	0.898287	0.75112	0.522888	0.468836	1.18903	1.42486	1.98257	2.2804
+Speerwaterjuffer	index	Speerwaterjuffer	Coenagrion hastulatum	2020	2017	4	1.14768	0.528702	0.905391	0.762523	0.502622	0.431468	1.21276	1.46943	2.12115	2.31852
+Speerwaterjuffer	index	Speerwaterjuffer	Coenagrion hastulatum	2021	2017	5	1.08654	0.513594	0.833145	0.687297	0.471232	0.407384	1.16119	1.41409	1.96189	2.30087
+Speerwaterjuffer	index	Speerwaterjuffer	Coenagrion hastulatum	2022	2017	6	0.712035	0.373693	0.532839	0.435606	0.307383	0.256175	0.742329	0.925921	1.39503	1.66668
+Speerwaterjuffer	index	Speerwaterjuffer	Coenagrion hastulatum	2023	2017	7	0.410213	0.218847	0.303464	0.241485	0.164412	0.137418	0.438128	0.549387	0.786314	0.98801
+Speerwaterjuffer	index	Speerwaterjuffer	Coenagrion hastulatum	2024	2017	8	0.195294	0.114014	0.135651	0.101891	0.0686573	0.056741	0.210223	0.27042	0.41832	0.486674
+Speerwaterjuffer	index	Speerwaterjuffer	Coenagrion hastulatum	2025	2017	9	0.151874	0.101724	0.096663	0.0745546	0.0467584	0.0363641	0.159167	0.20948	0.357326	0.409304
+Gevlekte witsnuitlibel	sample_value	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2016	2016	1	0.781243	0.255429	0.683783	0.5628	0.3662	0.288882	0.870052	0.990103	1.22122	1.29341
+Gevlekte witsnuitlibel	sample_value	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2017	2016	2	0.046369	0.249189	-0.0458731	-0.142276	-0.369544	-0.497959	0.150497	0.263497	0.433185	0.496027
+Gevlekte witsnuitlibel	sample_value	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2018	2016	3	1.00724	0.210238	0.925217	0.83766	0.652228	0.605277	1.09006	1.18824	1.33903	1.43431
+Gevlekte witsnuitlibel	sample_value	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2019	2016	4	-1.14041	0.349497	-1.27652	-1.45094	-1.72419	-1.81411	-0.996195	-0.838333	-0.589642	-0.4492
+Gevlekte witsnuitlibel	sample_value	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2020	2016	5	-0.673411	0.245565	-0.761258	-0.879267	-1.0832	-1.15371	-0.584639	-0.475177	-0.265515	-0.200943
+Gevlekte witsnuitlibel	sample_value	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2021	2016	6	0.190622	0.237536	0.0865787	-0.0116856	-0.178803	-0.236879	0.272314	0.389017	0.58866	0.673706
+Gevlekte witsnuitlibel	sample_value	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2022	2016	7	-0.37526	0.263488	-0.475225	-0.595816	-0.82602	-0.895852	-0.270218	-0.156641	0.0631332	0.124314
+Gevlekte witsnuitlibel	sample_value	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2023	2016	8	0.0809706	0.231812	-0.00964594	-0.114159	-0.304635	-0.363113	0.163236	0.276592	0.469328	0.537244
+Gevlekte witsnuitlibel	sample_value	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2024	2016	9	-0.394817	0.279561	-0.492237	-0.628327	-0.854238	-0.962817	-0.2833	-0.160822	0.0621247	0.145146
+Gevlekte witsnuitlibel	sample_value	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2025	2016	10	0.477445	0.246145	0.382599	0.26901	0.0867924	0.0229919	0.56822	0.684903	0.890194	0.95838
+Kempense heidelibel	sample_value	Kempense heidelibel	Sympetrum depressiusculum	2016	2016	1	2.05728	0.380517	1.89905	1.74092	1.43194	1.32518	2.20585	2.38097	2.6922	2.77335
+Kempense heidelibel	sample_value	Kempense heidelibel	Sympetrum depressiusculum	2017	2016	2	1.46386	0.302999	1.35496	1.2152	0.967793	0.866885	1.57768	1.71066	1.94747	2.05456
+Kempense heidelibel	sample_value	Kempense heidelibel	Sympetrum depressiusculum	2018	2016	3	0.786104	0.281768	0.683353	0.554604	0.327682	0.267136	0.889963	1.01027	1.24896	1.36446
+Kempense heidelibel	sample_value	Kempense heidelibel	Sympetrum depressiusculum	2019	2016	4	0.67157	0.270375	0.568462	0.438115	0.248772	0.148236	0.775937	0.90289	1.10114	1.19048
+Kempense heidelibel	sample_value	Kempense heidelibel	Sympetrum depressiusculum	2020	2016	5	0.390357	0.280434	0.292577	0.154642	-0.0789335	-0.140425	0.503185	0.627962	0.852486	0.944768
+Kempense heidelibel	sample_value	Kempense heidelibel	Sympetrum depressiusculum	2021	2016	6	0.196573	0.271464	0.0804714	-0.0368875	-0.236478	-0.325677	0.305035	0.420971	0.665292	0.728099
+Kempense heidelibel	sample_value	Kempense heidelibel	Sympetrum depressiusculum	2022	2016	7	-0.640572	0.288619	-0.744522	-0.875131	-1.11212	-1.22689	-0.527304	-0.405061	-0.180361	-0.0785748
+Kempense heidelibel	sample_value	Kempense heidelibel	Sympetrum depressiusculum	2023	2016	8	-1.24752	0.284746	-1.35305	-1.48134	-1.70718	-1.81918	-1.13833	-1.01594	-0.778979	-0.702196
+Kempense heidelibel	sample_value	Kempense heidelibel	Sympetrum depressiusculum	2024	2016	9	-1.53477	0.351888	-1.66006	-1.83012	-2.10514	-2.24909	-1.40438	-1.25465	-0.951561	-0.837874
+Kempense heidelibel	sample_value	Kempense heidelibel	Sympetrum depressiusculum	2025	2016	10	-2.14288	0.562498	-2.33479	-2.60295	-3.12215	-3.28604	-1.90838	-1.68492	-1.27273	-1.0816
+Maanwaterjuffer	sample_value	Maanwaterjuffer	Coenagrion lunulatum	2016	2016	1	0.50622	0.26007	0.410766	0.28578	0.0734024	-0.0126302	0.609364	0.727281	0.919958	1.02008
+Maanwaterjuffer	sample_value	Maanwaterjuffer	Coenagrion lunulatum	2017	2016	2	0.8711	0.284668	0.756793	0.615369	0.422774	0.361544	0.974345	1.11169	1.32265	1.44768
+Maanwaterjuffer	sample_value	Maanwaterjuffer	Coenagrion lunulatum	2018	2016	3	0.444913	0.215244	0.350112	0.254735	0.0978084	0.0594153	0.526312	0.631657	0.818202	0.878203
+Maanwaterjuffer	sample_value	Maanwaterjuffer	Coenagrion lunulatum	2019	2016	4	-0.266203	0.271467	-0.349381	-0.489881	-0.739354	-0.864081	-0.142428	-0.0236014	0.127328	0.171295
+Maanwaterjuffer	sample_value	Maanwaterjuffer	Coenagrion lunulatum	2020	2016	5	-0.268531	0.227505	-0.348825	-0.456921	-0.657265	-0.731012	-0.175689	-0.0783318	0.0831882	0.15643
+Maanwaterjuffer	sample_value	Maanwaterjuffer	Coenagrion lunulatum	2021	2016	6	-0.403301	0.24007	-0.496277	-0.600696	-0.802537	-0.874809	-0.298425	-0.186669	-0.0392563	0.0265738
+Maanwaterjuffer	sample_value	Maanwaterjuffer	Coenagrion lunulatum	2022	2016	7	-0.285038	0.223241	-0.352125	-0.460623	-0.689776	-0.73715	-0.191273	-0.108154	0.0567911	0.137049
+Maanwaterjuffer	sample_value	Maanwaterjuffer	Coenagrion lunulatum	2023	2016	8	-0.153909	0.228279	-0.241589	-0.339726	-0.51539	-0.584013	-0.0795563	0.0269319	0.233665	0.328642
+Maanwaterjuffer	sample_value	Maanwaterjuffer	Coenagrion lunulatum	2024	2016	9	-0.0272784	0.23529	-0.12306	-0.234634	-0.399101	-0.446375	0.0579469	0.163559	0.378403	0.468636
+Maanwaterjuffer	sample_value	Maanwaterjuffer	Coenagrion lunulatum	2025	2016	10	-0.417973	0.297658	-0.525313	-0.661287	-0.910555	-1.03218	-0.298116	-0.166066	0.0585603	0.161268
+Sierlijke witsnuitlibel	sample_value	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2020	2020	1	-1.16806	0.400084	-1.30822	-1.51531	-1.83426	-1.97457	-1.01009	-0.847316	-0.511956	-0.416012
+Sierlijke witsnuitlibel	sample_value	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2021	2020	2	-0.913591	0.309768	-1.02995	-1.16817	-1.43152	-1.56968	-0.783247	-0.652855	-0.429889	-0.346265
+Sierlijke witsnuitlibel	sample_value	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2022	2020	3	-0.148086	0.239227	-0.249183	-0.335854	-0.510128	-0.59216	-0.0734232	0.0378788	0.251662	0.376108
+Sierlijke witsnuitlibel	sample_value	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2023	2020	4	0.881135	0.269935	0.763635	0.644652	0.44509	0.372677	0.998983	1.11213	1.32479	1.42784
+Sierlijke witsnuitlibel	sample_value	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2024	2020	5	0.322925	0.25031	0.233199	0.107633	-0.0886748	-0.168323	0.412735	0.528017	0.729056	0.799702
+Sierlijke witsnuitlibel	sample_value	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2025	2020	6	1.02568	0.214988	0.941572	0.854429	0.691795	0.594114	1.10825	1.1929	1.39453	1.4477
+Speerwaterjuffer	sample_value	Speerwaterjuffer	Coenagrion hastulatum	2017	2017	1	0.592922	0.329383	0.472534	0.330691	0.0759489	-0.0598649	0.702677	0.848874	1.14327	1.28515
+Speerwaterjuffer	sample_value	Speerwaterjuffer	Coenagrion hastulatum	2018	2017	2	0.52309	0.272382	0.421729	0.301885	0.0741807	-0.0239667	0.627731	0.747016	0.962977	1.05882
+Speerwaterjuffer	sample_value	Speerwaterjuffer	Coenagrion hastulatum	2019	2017	3	0.624679	0.270187	0.52281	0.402676	0.171045	0.114185	0.725895	0.845956	1.07432	1.15354
+Speerwaterjuffer	sample_value	Speerwaterjuffer	Coenagrion hastulatum	2020	2017	4	0.638478	0.272744	0.536352	0.395352	0.194933	0.134508	0.747067	0.876573	1.06095	1.16326
+Speerwaterjuffer	sample_value	Speerwaterjuffer	Coenagrion hastulatum	2021	2017	5	0.577165	0.27093	0.467214	0.341943	0.140378	0.0979587	0.676587	0.816724	1.02705	1.14177
+Speerwaterjuffer	sample_value	Speerwaterjuffer	Coenagrion hastulatum	2022	2017	6	0.141316	0.262687	0.0310563	-0.0864277	-0.26355	-0.342059	0.234291	0.370378	0.583141	0.666499
+Speerwaterjuffer	sample_value	Speerwaterjuffer	Coenagrion hastulatum	2023	2017	7	-0.420824	0.274539	-0.534718	-0.650599	-0.853051	-0.924079	-0.324146	-0.199522	0.0521412	0.123974
+Speerwaterjuffer	sample_value	Speerwaterjuffer	Coenagrion hastulatum	2024	2017	8	-1.1942	0.353105	-1.33992	-1.48773	-1.7875	-1.91931	-1.04206	-0.884294	-0.640181	-0.518841
+Speerwaterjuffer	sample_value	Speerwaterjuffer	Coenagrion hastulatum	2025	2017	9	-1.48263	0.426038	-1.66378	-1.86527	-2.18211	-2.29263	-1.30606	-1.11236	-0.775037	-0.672346

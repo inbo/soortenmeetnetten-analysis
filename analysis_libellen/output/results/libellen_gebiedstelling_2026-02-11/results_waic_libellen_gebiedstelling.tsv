@@ -1,0 +1,6 @@
+meetnet	parameter	soort_nl	soort_wet	indexmodel	trendmodel	diff_waic	type_trend
+Gevlekte witsnuitlibel	waic	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	1227.96	1280.11	52.1482	Niet lineair
+Kempense heidelibel	waic	Kempense heidelibel	Sympetrum depressiusculum	431.25	427.995	-3.25499	Lineair
+Maanwaterjuffer	waic	Maanwaterjuffer	Coenagrion lunulatum	865.287	876.579	11.2922	Niet lineair
+Sierlijke witsnuitlibel	waic	Sierlijke witsnuitlibel	Leucorrhinia caudalis	67.7657	81.7717	14.006	Niet lineair
+Speerwaterjuffer	waic	Speerwaterjuffer	Coenagrion hastulatum	639.476	643.385	3.90871	Niet lineair

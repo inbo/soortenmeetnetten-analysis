@@ -1,0 +1,3 @@
+parameter	soort_nl	soort_wet	jaar_min	jaar_max	mean	sd	lcl_0.95	ucl_0.95	lcl_0.30	lcl_0.60	lcl_0.90	ucl_0.30	ucl_0.60	ucl_0.90	meetnet
+trend_average	Rivierrombout	Gomphus flavipes	2016	2025	15.7692	4.44124	7.27187	24.7431	13.9798	12.0002	8.5848	17.3982	19.474	23.234	Rivierrombout
+trend_total	Rivierrombout	Gomphus flavipes	2016	2025	293.838	139.754	87.9394	631.506	224.602	177.212	109.717	323.574	395.988	555.59	Rivierrombout
