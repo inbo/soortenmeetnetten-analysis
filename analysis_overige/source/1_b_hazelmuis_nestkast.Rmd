@@ -28,6 +28,14 @@ hazelmuis_nestbuis_bezoek %>%
   coord_flip() +
   labs(y = "Aantal nestbuizen")
 ```
+```{r}
+hazelmuis_nestbuis_bezoek %>%
+  group_by(meetnet, soort_nl, levensstadium, activiteit, observation_type, code, description) %>%
+  summarise(n_records = n()) %>%
+  ungroup() %>%
+  kable() %>%
+  kable_styling()
+```
 
 
 
@@ -39,30 +47,52 @@ n_species_nestbuis <- hazelmuis_nestbuis_bezoek %>%
   filter(n_species > 1)
 ``` 
 
-```{r, fig.width= 10, fig.cap= "Voorkomen per bezoek"}
+```{r}
+hazelmuis_nestbuis_bezoek$soort_nl %>%
+  unique()
+```
+
+
+```{r, fig.width= 9,fig.height=8, fig.cap= "Voorkomen per bezoek"}
 hazelmuis_nestbuis_bezoek %>%
   mutate(description = ifelse(observation_type == "versheid muizensporen", description,
                               ifelse(aantal  > 0, "aanwezig", "afwezig")),
-         type = ifelse(observation_type == "versheid muizensporen", activiteit, levensstadium)) %>%
+         type = ifelse(observation_type == "versheid muizensporen", activiteit, levensstadium),
+         type = factor(type, levels = c("adult", "subadult", "adult/subadult", "juveniel", "nest", "keutels", "vraatsporen"))) %>%
   ggplot(aes(x = type, fill = description)) +
   geom_bar() +
-  facet_wrap(~soort_nl ) +
+  facet_wrap(~soort_nl, ncol = 2) +
   coord_flip() +
   theme(legend.position = "bottom")
 ```
 
-```{r, fig.width= 10, fig.cap= "Voorkomen per bezoek"}
+```{r, fig.width= 9,fig.height=8, fig.cap= "Voorkomen per bezoek"}
+hazelmuis_nestbuis_bezoek %>%
+  mutate(description = ifelse(observation_type == "versheid muizensporen", description,
+                              ifelse(aantal  > 0, "aanwezig", "afwezig")),
+         type = ifelse(observation_type == "versheid muizensporen", activiteit, levensstadium),
+         type = factor(type, levels = c("adult", "subadult", "adult/subadult", "juveniel", "nest", "keutels", "vraatsporen"))) %>%
+  filter(description != "afwezig") %>%
+  ggplot(aes(x = type, fill = description)) +
+  geom_bar() +
+  facet_wrap(~soort_nl, ncol = 2) +
+  coord_flip() +
+  theme(legend.position = "bottom")
+```
+
+```{r, fig.width= 10, fig.cap= "Voorkomen individuen per bezoek"}
 hazelmuis_nestbuis_bezoek %>%
   mutate(description = ifelse(observation_type == "versheid muizensporen", description,
                               ifelse(aantal  > 0, "aanwezig", "afwezig")),
          type = ifelse(observation_type == "versheid muizensporen", activiteit, levensstadium)) %>%
-  filter(description != "afwezig") %>%
+  filter(levensstadium != "unknown") %>%
   ggplot(aes(x = type, fill = description)) +
   geom_bar() +
   facet_wrap(~soort_nl, scales = "free" ) +
   coord_flip() +
   theme(legend.position = "bottom")
 ```
+
 ## Data aggregatie
 
 Aggregatie van data:
@@ -106,9 +136,9 @@ hazelmuis_sporen_occurence_wide <- hazelmuis_sporen_occurence %>%
   pivot_wider(names_from = c("soort_nl", "type"),
               values_from = "aanwezig") 
  
-hazelmuis_sporen_occurence_wide <- hazelmuis_sporen_occurence_wide %>%
-  mutate(andere_soorten_sporen = ifelse(is.na(andere_soorten_sporen), FALSE, andere_soorten_sporen),
-         andere_soorten_individuen = ifelse(is.na(andere_soorten_individuen), FALSE, andere_soorten_individuen))
+# hazelmuis_sporen_occurence_wide <- hazelmuis_sporen_occurence_wide %>%
+#   mutate(andere_soorten_sporen = ifelse(is.na(andere_soorten_sporen), FALSE, andere_soorten_sporen),
+#          andere_soorten_individuen = ifelse(is.na(andere_soorten_individuen), FALSE, andere_soorten_individuen))
   
 ```
 
@@ -128,7 +158,8 @@ hazelmuis_nestbuis_occurence %>%
 hazelmuis_nestbuis_occurence %>%
   distinct(meetnet, locatie, sublocatie, jaar, n_bezoeken) %>%
   ggplot(aes(x = jaar, fill = factor(n_bezoeken))) +
-  geom_bar()
+  geom_bar() +
+  labs(y = "Aantal nestbuizen", fill = "Aantal tellingen per nestbuis")
 ```
 
 ```{r, fig.cap = "Invloed van aantal bezoeken op proportie aanwezigheid hazelmuisindividuen en sporen"}
@@ -143,7 +174,7 @@ hazelmuis_nestbuis_occurence %>%
 ```
 
 
-```{r}
+```{r, fig.height= 8, fig.width=9}
 hazelmuis_nestbuis_occurence %>%
   filter(activiteit %in% c("in nestbuis", "nest")) %>%
   mutate(description = ifelse(activiteit == "in nestbuis", ifelse(aanwezig, "aanwezig", "afwezig"),
@@ -151,7 +182,7 @@ hazelmuis_nestbuis_occurence %>%
                                      ifelse(aanwezig_oud_onzeker, "aanwezig - enkel oud of onzeker", "afwezig")))) %>%
   ggplot(aes(x = jaar, fill = description)) +
   geom_bar() +
-  facet_wrap(~ activiteit + soort_nl, scales = "free_y") +
+  facet_wrap(~ activiteit + soort_nl, ncol = 2) +
   theme(legend.position = "bottom")
 ```
 
@@ -248,7 +279,20 @@ indexmodel_iid_0 <- inla(formula = aanwezig ~ 0 + fjaar +
                                   model = "iid", 
                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                        family = "binomial",
-                       data = analyseset_nesten_jaar,
+                       data = analyseset_nesten_jaar %>%
+                       control.compute = list(config = TRUE, waic = TRUE),
+                       control.predictor = list(compute = TRUE))
+
+indexmodel_iid_0_bis <- inla(formula = aanwezig ~ 0 + fjaar +
+                                f(sublocatie, 
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(2, 0.5))))  + 
+                                f(locatie,
+                                  model = "iid", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(2, 0.5)))),
+                       family = "binomial",
+                       data = analyseset_nesten_jaar %>%
+                         filter(jaar <= 2024),
                        control.compute = list(config = TRUE, waic = TRUE),
                        control.predictor = list(compute = TRUE))
 
@@ -421,21 +465,20 @@ data_comb_gebied %>%
 
 ```{r}
 
+model_inla.samples <- inla.posterior.sample(1000, indexmodel_iid_0)
 
-  fun = function(...) {
-    c(plogis(fjaar2020), plogis(fjaar2021), plogis(fjaar2022), plogis(fjaar2023), plogis(fjaar2024),
-      (plogis(fjaar2021) - plogis(fjaar2020)) / plogis(fjaar2020),
-      (plogis(fjaar2022) - plogis(fjaar2020)) / plogis(fjaar2020),
-      (plogis(fjaar2023) - plogis(fjaar2020)) / plogis(fjaar2020),
-      (plogis(fjaar2024) - plogis(fjaar2020)) / plogis(fjaar2020),
-      (plogis(fjaar2022) - plogis(fjaar2021)) / plogis(fjaar2021),
-      (plogis(fjaar2023) - plogis(fjaar2022)) / plogis(fjaar2022),
-      (plogis(fjaar2024) - plogis(fjaar2023)) / plogis(fjaar2023))
-      }
+fun <- function(...) {
+  c(plogis(fjaar2020), plogis(fjaar2021), plogis(fjaar2022), plogis(fjaar2023), plogis(fjaar2024),
+    (plogis(fjaar2021) - plogis(fjaar2020)) / plogis(fjaar2020),
+    (plogis(fjaar2022) - plogis(fjaar2020)) / plogis(fjaar2020),
+    (plogis(fjaar2023) - plogis(fjaar2020)) / plogis(fjaar2020),
+    (plogis(fjaar2024) - plogis(fjaar2020)) / plogis(fjaar2020),
+    (plogis(fjaar2022) - plogis(fjaar2021)) / plogis(fjaar2021),
+    (plogis(fjaar2023) - plogis(fjaar2022)) / plogis(fjaar2022),
+    (plogis(fjaar2024) - plogis(fjaar2023)) / plogis(fjaar2023))
+}
 
-  model_inla.samples <- inla.posterior.sample(1000, indexmodel_iid_0)
-  
-  quantile_values <- c(0.025, 0.05, 0.20, 0.35,  0.65, 0.80, 0.95, 0.975)
+  quantile_values <- c(0.05, 0.95)
   
   results_index <- inla.posterior.sample.eval(fun, model_inla.samples) %>%
     as.data.frame() %>%
@@ -447,7 +490,7 @@ data_comb_gebied %>%
            sd = sd(waarde)) %>%
     ungroup() %>%
     group_by(jaar, jaar_ref, mean, sd) %>%
-    summarise(qs = quantile(waarde, quantile_values), prob = quantile_values) %>%
+    reframe(qs = quantile(waarde, quantile_values), prob = quantile_values) %>%
     ungroup() %>%
     mutate(l_u = ifelse(prob < 0.5, "lcl", "ucl"),
            ci = ifelse(prob %in% c(0.025, 0.975), "0.95",
@@ -1127,7 +1170,8 @@ calc_trend_nestkasten <- function(analyseset, select_seed = 5846){
   return(results_trend)
 }
 
-trend_nestkasten_1 <- calc_trend_nestkasten(analyseset_aantal_nesten_jaar)  
+trend_nestkasten_1 <- calc_trend_nestkasten(analyseset_aantal_nesten_jaar %>%
+                                              filter(jaar <= 2024))  
 
 trendmodel_nestkasten <- inla(formula = aantal ~ year_scaled +  
                                 f(locatie, 
@@ -1143,6 +1187,9 @@ trendmodel_nestkasten <- inla(formula = aantal ~ year_scaled +
 
 trend_aantal_nestkasten <- trendmodel_nestkasten$summary.fixed %>%
   rownames_to_column(var = "parameter")
+
+
+exp(0.1184572)
 ```
 ### Proporties
 
@@ -1171,11 +1218,20 @@ trend <- (trend_nestkasten %>%
 
 # prop jaar 1
 
-prop_model <- tibble(year_scaled = 1:4,
+prop_model <- tibble(year_scaled = 0:4,
                      trend_logit = trend,
                      intercept_logit = intercept) %>%
-  mutate(prop_logit = intercept + year_scaled * trend_logit,
-         prop = plogis(prop_logit)) 
+  mutate(logodds = intercept + year_scaled * trend_logit,
+         odds = exp(logodds),
+         prop = plogis(logodds))
+
+prop_model %>%
+  select(year_scaled, logodds, odds, prop) %>%
+  pivot_longer(cols = c(logodds, odds, prop),
+               names_to = "parameter",
+               values_to = "estimate") %>% 
+  ggplot(aes(x = year_scaled, y = estimate, group = parameter, colour = parameter)) +
+  geom_line()
 
 derive_trend_prop <- function(sample) {
   
@@ -1205,7 +1261,7 @@ derive_trend_prop <- function(sample) {
            sd = sd(value)) %>%
     ungroup() %>%
     group_by(parameter, mean, sd) %>%
-    summarise(qs = quantile(value, quantile_values, na.rm =TRUE), prob = quantile_values) %>%
+    reframe(qs = quantile(value, quantile_values, na.rm =TRUE), prob = quantile_values) %>%
     ungroup() %>%
     mutate(l_u = ifelse(prob < 0.5, "lcl", "ucl"),
            ci = ifelse(prob %in% c(0.025, 0.975), "0.95",

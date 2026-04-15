@@ -1,0 +1,444 @@
+# Methodiek
+
+```{r}
+#| label: setup
+#| include: false
+
+library(dplyr)
+library(ggplot2)
+library(INBOtheme)
+library(kableExtra)
+library(sf)
+library(n2khab)
+library(leaflet)
+library(crosstalk)
+library(DT)
+library(plotly)
+library(effectclass)
+library(knitr)
+
+source("../source/functions_smp.R")
+
+conflicted::conflicts_prefer(dplyr::filter)
+
+```
+
+## Ontwerp van de libellenmeetnetten
+
+In een meetnet tellen vrijwilligers specifieke soorten op vastgelegde locaties via een gestandaardiseerde telmethode.
+Een dergelijke gestructureerde monitoring geeft de beste garantie op betrouwbare informatie over de toestand en trends van soorten op schaal Vlaanderen.
+Het ontwerp van de libellenmeetnetten wordt in detail beschreven in het monitoringsprotocol libellen [@de_knijf_monitoringsprotocol_2019]. Dit is een tweede versie van het monitoringsprotocol waarin enkele aanpassingen zijn gebeurd ten opzichte van de eerste versie [@de_knijf_monitoringsprotocol_2015].
+Het monitoringsprotocol is gebaseerd op de de blauwdruk voor soortenmonitoring [@de_knijf_monitoring_2014].
+
+We vatten de belangrijkste onderdelen van de libellenmeetnetten nog eens kort samen.
+
+### Selectie van de soorten
+
+Voor twee groepen van soorten streven we naar een monitoring op basis van meetnetten: Europees prioritaire soorten en Vlaams prioritaire soorten [@westra_inleiding_2014].
+
++ De **Europees prioritaire soorten** (EPS) zijn de zogenaamde **Natura 2000 - soorten** die op Bijlage II en/of Bijlage IV van de Europese Habitatrichtlijn (HRL) staan.  
+
++ De **Vlaams prioritaire soorten** (VPS) staan niet op een bijlage van de HRL (het zijn dus geen Natura 2000 - soorten), maar ze worden wel als prioritair beschouwd voor het Vlaamse natuurbeleid. 
+
+Bijzondere aandacht gaat naar de Kempense heidelibel. Deze soort staat niet vermeld op de bijlage van de HRL, maar staat wel als kwetsbaar aangeduid op de Europese Rode Lijst van libellen [@kalkman_european_2010].  
+
+In @tbl-soorten tonen we de geselecteerde libellensoorten, de beleidsrelevantie van de soorten en het jaar waarin het meetnet voor die soort van start ging. De volgorde van de libellen in deze tabel is gebaseerd op de taxonomische indeling van de soorten. Ook verder in dit rapport volgen we deze volgorde.  
+
+```{r}
+#| label: scheme-characteristics
+
+libellen_taxonomy <- get_taxonomy_smp() %>%
+  select(genus, meetnet = soort_nl, soort_wet, species_order)
+
+meetnet_characteristics <- get_characteristics_smp(species_group = "libellen") %>%
+  filter(actief == 1) %>%
+  left_join(libellen_taxonomy, by = "meetnet")  %>%
+  filter(is_sample) %>%
+  arrange(species_order) %>%
+  mutate(protocol = ifelse(meetnet %in% c("Beekrombout", "Rivierrombout"), "Transecttelling Larvendhuidjes",
+                           ifelse(protocol == "Libellen - Transect", "Transecttelling imago's",
+                                  ifelse(protocol == "Libellen - Populatietelling per locatie", "Gebiedstelling imago's", NA))))
+
+meetnet_characteristics_results <- meetnet_characteristics %>%
+  filter(!meetnet %in% c("Beekrombout", "Hoogveenglanslibel"))
+```
+
+```{r}
+#| label: tbl-soorten
+#| tbl-cap: "Overzicht van de libellen waarvoor een meetnet bestaat met onderscheid tussen Europees prioritaire (EPS) en Vlaams prioritaire soorten (VPS), en met het jaar waarin de monitoring werd opgestart"
+
+meetnet_characteristics %>%
+    mutate(type_soort = ifelse(meetnet == "Kempense heidelibel", 
+                               str_c(type_soort, footnote_marker_symbol(1, ifelse(is_html_output(), "html", "latex"))), 
+                               type_soort)) %>%
+  select("Nederlandse naam" = meetnet, "Wetenschappelijke naam" = soort_wet, Beleidsrelevantie = type_soort, "Start meetnet" = opstartjaar) %>%
+  kbl(escape = FALSE,
+      booktabs = TRUE,
+      align = c("l", "l", "c", "c")) %>%
+  kable_styling(font_size = ifelse(is_html_output(), 11, 9)) %>%
+  column_spec(2, italic = TRUE) %>%
+    footnote(symbol = "Deze soort staat bovendien als kwetsbaar aangeduid op de Europese Rode Lijst van libellen")
+
+```
+
+\needspace{50mm}
+
+### Telmethode
+
+Libellen worden geteld op basis van de drie volgende veldprotocollen:
+
+- **Transecttelling van imago's**.
+Hierbij worden imago’s (adulten) van libellen op een vaste route (van 100 meter tot maximaal 500 meter lang) langsheen het water geteld.
+Dit is het geval voor de Bosbeekjuffer, Variabele waterjuffer en Vroege glazenmaker.
+
+- **Transecttelling larvenhuidjes**.
+Bij deze methode worden larvenhuidjes geteld en verzameld langs een transect aan het water.
+Dit protocol gebruiken we om de populaties van de Beekrombout en de Rivierrombout op te volgen.
+Bij de Beekrombout tellen we de larvenhuidjes op een oeverlengte van ongeveer 100 meter en bij de Rivierrombout hanteren we een lengte van 500 meter. 
+
+- **Gebiedstelling imago's**.
+Binnen een vooral afgebakend  telgebied nabij de voortplantingslocatie worden de imago’s geteld gedurende een vastgelegde tijd van bv. 1 uur.
+Deze methode laat toe om ook verder weg van het water te zoeken naar de betreffende soort of moeilijker toegankelijke gebieden te tellen, bijvoorbeeld al wadend in het water.
+Dit veldprotocol passen we toe bij de Speerwaterjuffer, Maanwaterjuffer, Sierlijke witsnuitlibel, Gevlekte witsnuitlibel en Kempense heidelibel.
+
+Een overzicht van welk veldprotocol gebruikt wordt per soort vind je in @tbl-characteristics.
+Voor elke soort vermelden we het aantal bezoeken die moeten plaatsvinden per locatie, de telperiode waarin die moeten gebeuren, het aantal tellocaties en met welke cyclus er moet geteld worden. 
+
+Het meetnet Beekrombout zit momenteel nog in een overgangsfase.
+We weten momenteel in grote lijnen waar de populaties zich bevinden, maar de geschikte locaties voor het leggen van de transecten moeten nog deels vastgelegd worden.
+Voor dit meetnet kunnen we dus voorlopig nog geen resultaten tonen.
+
+```{r}
+#| label: tbl-characteristics
+#| tbl-cap: "Overzicht van de karakteristieken van de libellenmeetnetten: aantal bezoeken per jaar, telperiode, aantal locaties en duur van de meetcyclus (aantal jaren)"
+
+meetnet_characteristics_table <- meetnet_characteristics %>%
+  mutate(start_telperiode = format(start_telperiode, "%d/%m"),
+         einde_telperiode = format(einde_telperiode, "%d/%m"),
+         einde_telperiode = ifelse(meetnet == "Sierlijke witsnuitlibel", "20/06", einde_telperiode),
+         start_telperiode = ifelse(meetnet == "Maanwaterjuffer", "20/04", start_telperiode),
+         telperiode = str_c(start_telperiode, " - ", einde_telperiode),
+         n_locaties = ifelse(meetnet == "Vroege glazenmaker", 30, n_locaties)) %>%
+  select(Meetnet = meetnet, Veldprotocol =  protocol, "Aantal bezoeken" = bezoeken,
+         Telperiode = telperiode, "Selectie locaties" = type, "Aantal locaties" = n_locaties ,
+         "Duur meetcyclus" = duur_meetcyclus) %>%
+  unique()
+
+meetnet_characteristics_table %>%
+  kbl(align = c("l", "l", "c", "c", "c", "c", "c" , "c"),
+      booktabs = TRUE) %>%
+  kable_styling(font_size = 8) %>%
+   column_spec(c(3, 6), width = "4em") %>%
+   column_spec(c(7), width = "5em") %>%
+   column_spec(c(2), width = "10em")
+  
+```
+
+### Selectie van de meetnetlocaties
+
+Wanneer er van een bepaalde soort minder dan 30 locaties voorkomen in Vlaanderen, worden alle locaties opgenomen in het meetnet.
+We spreken dan van een integrale monitoring.
+Wanneer er meer dan 30 locaties zijn, is het niet meer haalbaar om al die locaties te tellen.
+We selecteren dan 30 locaties via een willekeurige steekproef.
+@tbl-characteristics geeft voor elk meetnet het aantal locaties en of de soort integraal dan wel via een steekproef wordt geteld.
+De tabel geeft ook de duur van de meetcyclus weer.
+Dit is de periode waarin alle meetnetlocaties geteld worden.
+Een meetcyclus van drie jaar betekent dus dat al de locaties om de drie jaar geteld worden.
+
+::: {.content-hidden when-format="latex"}
+
+Omdat al deze soorten in min of meerdere mate bedreigd zijn [@de_knijf_een_1996] en sommige in zeer kwetsbare vegetaties en biotopen voorkomen, vaak in niet toegankelijke militaire domeinen, maken we de exacte ligging van de meetnetlocaties niet publiek. 
+@fig-locaties geeft wel de *vervaagde* ligging van de meetnetlocaties weer.
+De meetnetlocaties worden hierin weergegeven in het centrum van het 10 x 10 km UTM-hok waarin de locatie is gelegen.
+Sommige UTM-hokken bevatten meerdere meetnetlocaties.
+Hoe donkerder de blauwe kleur van de punten, hoe meer meetnetlocaties.
+Elk punt heeft een label dat aangeeft hoeveel meetnetlocaties per meetnet het UTM-hok bevat.
+De label wordt getoond als je met de muis over de punten gaat.
+Je kan ook een of meerdere meetnetten selecteren via het selectievenster.
+
+```{r}
+#| label: utm-loc
+#| warning: false
+#| message: false
+#| cache: true
+
+if (is_html_output()) {
+  
+  locaties <- get_locations_smp(species_group = "libellen") %>%
+  add_tag_utm(size_km = 10) %>%
+  st_drop_geometry()
+
+locaties_utm <- read_utm(size_km = 10) %>%
+  inner_join(locaties, by = "tag_utm") %>%
+  group_by(tag_utm, meetnet) %>%
+  mutate(label = str_c(unique(meetnet), " (", dplyr::n(), ")")) %>%
+  ungroup() %>%
+  group_by(tag_utm) %>%
+  mutate(label = str_c(unique(label), collapse = ", "),
+         n = dplyr::n(),
+         n_meetnet = n_distinct(meetnet)) %>%
+  ungroup() %>%
+  st_transform(crs = 31370) %>%
+  st_centroid() %>%
+  st_transform(crs = 4326) 
+
+provincies <- read_provincies()
+
+utm10 <- read_utm(size_km = 10)
+
+utm10_vl <- utm10[provincies,] %>%
+  st_transform(crs = 4326) %>%
+  filter(tag_utm %in% locaties_utm$tag_utm)
+
+st_write(utm10_vl, "utm10_vl.gpkg", delete_dsn = TRUE, quiet = TRUE)
+st_write(locaties_utm, "locaties_utm.gpkg", delete_dsn = TRUE, quiet = TRUE)
+  
+}
+```
+
+```{r}
+#| label: fig-locaties
+#| fig-cap: "Locaties van de libellenmeetnetten vervaagd tot op het niveau van een 10 x 10 km UTM-hok"
+#| fig-width: 9
+
+if (is_html_output()) {
+  
+  locaties_shared <- crosstalk::SharedData$new(locaties_utm)
+
+  bscols(
+    list(
+      bscols(
+        widths = c(8, 4),
+        NULL,
+        filter_select("meetnet", "Selecteer meetnet", locaties_shared, ~meetnet)
+    ),
+         leaflet(locaties_shared, options = leafletOptions(maxZoom = 11)) %>%
+                  addTiles() %>%
+                  addCircles(stroke = FALSE, label = ~label, opacity = 0.6, radius = 1500) %>%
+                  addPolygons(data = utm10_vl, weight = 1, color = "blue", fill = FALSE, opacity = 0.5)
+         )
+    )
+}
+```
+
+:::
+
+### Wijzigingen aan het monitoringprotocol vanaf 2026
+
+Vanaf 2026 zullen we een aantal wijzigingen doorvoeren aan de libellenmeetnetten.
+Deze wijzigingen hebben dus nog geen effect op de resultaten die we in de dit rapport tonen,
+maar we lichten ze alvast toe.
+
+Bij bosbeekjuffer en variabele waterjuffer zien we sterke variaties in aantallen tussen de jaren en tussen locaties.
+Het meetnetontwerp waarbij 30 locaties om de 3 jaar geteld worden, resulteert daarom in een onvoldoende nauwkeurige schatting van de trends.
+Daarom schakelen we over naar een jaarlijkse telling van de meetnetlocaties en streven we naar 30 getelde locaties per jaar.
+Deze wijziging leidt uiteraard tot een sterke meerinspanning die door een beperkte groep vrijwilligers moet gedragen worden.
+Daarom hebben we beslist om het meetnet vroege glazenmaker stop te zetten.
+De verspreiding van de soort is sterk toegenomen in de laatste jaren en daarom is de soort minder prioritair om op te volgen.
+Maar we zullen de vinger aan de pols blijven houden op basis van losse waarnemingen.
+
+## Ingezamelde telgegevens
+
+```{r}
+#| label: mon-effort
+#| message: false
+
+monitoring_effort_soortgroep <- calculate_monitoring_effort(species_group = "libellen",
+                                                 aggregation_level = "species_group") %>%
+  mutate(meetnet = "Alle libellenmeetnetten")
+
+monitoring_effort_overall <- calculate_monitoring_effort(species_group = "libellen",
+                                                 aggregation_level = "overall") %>%
+  mutate(meetnet = "Alle libellenmeetnetten")
+
+```
+
+Tellers voeren de telgegevens in via het webportaal [meetnetten.be](https://www.meetnetten.be/) of via de mobiele [meetnetten-app](https://play.google.com/store/apps/details?id=nl.zostera.meetnetten&hl=nl).
+Sinds de start van de meetnetten in 2016 tot en met 2025 hebben `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellers", "aantal"]` tellers `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellingen", "aantal"]` libellentellingen op `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellocaties", "aantal"]` meetnetlocaties ingevoerd.
+
+In @fig-inspanning zien we de evolutie van de tellingen in de tijd voor alle libellenmeetnetten samen.
+Het aantal getelde locaties nam toe in de periode 2016 tot 2018, wat te verklaren is doordat er jaarlijks een aantal nieuwe meetnetten werden opgestart.
+Sinds 2018 zijn alle libellenmeetnetten opgestart en zien we een stagnatie. De ogenschijnlijke lichte achteruitgang kan verklaard worden doordat bepaalde soorten en locaties in een driejarige cyclus worden opgevolgd.
+Het ziet er naar uit dat alle tellers hun locaties jaarlijkse blijven opvolgen en dus goed volhouden.
+
+```{r}
+#| label: fig-inspanning
+#| fig-cap: "Monitoringinspanning voor alle libellenmeetnetten samen"
+
+plot1 <- monitoring_effort_soortgroep %>%
+  ggplot(aes(x = jaar, y = aantal, colour = monitoringsinspanning)) +
+  geom_point() +
+  geom_line() +
+  ylim(0, NA) +
+  labs(x = "Jaar", y = "Aantal") +
+  scale_x_continuous(breaks = c(2016, 2019, 2022, 2025))
+
+if (is_html_output()) {
+  
+  ggplotly(plot1) %>%
+    config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+    )
+  
+} else {
+  
+  plot1
+  
+}
+```
+
+## Dataontsluiting
+
+De databank die onderdeel uitmaakt van [meetnetten.be](www.meetnetten.be) is enkel toegankelijk binnen het INBO.
+Maar op regelmatige basis maakt het INBO datasets publiek toegankelijk via [GBIF](https://www.gbif.org/) (Global Biodiversity Information Facility).
+Omdat het meestal om kwetsbare soorten gaat, passen we op de datasets een vervaging toe van 1, 5 of 10 km toe afhankelijk van de soort.
+De publiek ontsloten datasets bevatten dus niet de exacte tellocaties
+
+Voor de libellenmeetnetten gaat het om volgende datasets:
+
++ Gebiedstelling van imago's [@piesschaert_meetnettenbe_2026-2];
++ Transecttelling van imago's [@piesschaert_meetnettenbe_2026];
++ Transecttelling van larvenhuidjes [@piesschaert_meetnettenbe_2026-1].
+
+## Analyse van de telgegevens
+
+Op basis van de getelde aantallen willen we de trend per soort bepalen op schaal Vlaanderen en de betrouwbaarheid hiervan.
+Met *trend* bedoelen we de procentuele verandering in aantallen van een soort over de periode waarvoor we telgegevens hebben.
+
+Naast trends willen we ook inzicht krijgen hoe de aantallen verschillen van jaar tot jaar of tussen de verschillende 3-jaarlijkse meetcycli.
+
+Voor de analyse maken we gebruik van zogenaamde *generalized linear mixed models* (GLMM).
+Voor een bespreking van de technische achtergrond van deze modellen verwijzen we naar Bijlage ADD_REF
+In Bijlage @sec-bijlage2 geven we informatie over de reproduceerbaarheid van de analyses.
+
+## Interpretatie van de analyseresultaten {#sec-classificatie}
+
+Bij elke schatting van een verschil of trend hoort ook een betrouwbaarheidsinterval dat de onzekerheid op de schatting weergeeft.
+Klassiek onderscheiden we op basis van het betrouwbaarheidsinterval:
+
+-   een significante toename: de ondergrens van het betrouwbaarheidsinterval is groter dan 0;
+-   een significante afname: de bovengrens van het betrouwbaarheidsinterval is kleiner dan 0;
+-   geen significant(e) trend of verschil: het betrouwbaarheidsinterval omvat 0 (de trend kan dus zowel positief als negatief zijn).
+
+Bovenstaande indeling is echter weinig informatief.
+Daarom stellen we een classificatiesysteem voor waarbij het betrouwbaarheidsinterval wordt vergeleken met een referentiewaarde, een onderste drempelwaarde en een bovenste drempelwaarde.
+Als referentiewaarde kiezen we 0 (= geen verandering).
+Voor de onderste drempelwaarde kiezen we een waarde die we als een sterke afname beschouwen: -25 %.
+Op basis van de bovenste drempelwaarde onderscheiden we een sterke toename.
+Hiervoor kiezen de waarde +33 %, wat overeenkomt met eenzelfde relatief effect dan een afname van -25 % (75/100 $\approx$ 100/133).
+Dit classificatiesysteem resulteert in 10 klassen (@fig-trendklasse).
+In @tbl-trendklasse geven we de codes en de beschrijving die bij de verschillende klassen horen.
+
+```{r}
+#| label: fig-trendklasse
+#| fig-cap: "Classificatie van trends of verschillen"
+#| fig-height: 4
+
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
+
+plot_interpretatie <- tribble(
+  ~x, ~y,
+  "stabiel", 0,
+  "toename", 1,
+  "afname", -1,
+  "sterke toename", 1.5,
+  "sterke afname", -1.5,
+  "matige toename",  0.5,
+  "matige afname", -0.5,
+  "mogelijke toename", 0.5,
+  "mogelijke afname", -0.5,
+  "onbekend", 0
+) %>%
+  mutate(
+    s = c(rep(0.25, 7), 0.5, 0.5, 1),
+    lcl = qnorm(0.05, y, s),
+    ucl = qnorm(0.95, y, s),
+    klasse = classification(lcl, ucl, 1)
+  ) %>%
+  arrange(klasse) %>%
+  mutate(
+    x = factor(x, levels = rev(x))
+  ) %>%
+  ggplot(aes(x = x, y = y, ymin = lcl, ymax = ucl, link_sd = s, label = klasse, colour = klasse)) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_hline(yintercept = c(-1, 1), linetype = 3) +
+  geom_errorbar(width = 0, linewidth = 10, alpha = 0.3) +
+  geom_point(size = 7) +
+  geom_text(size = 4, colour = "white") +
+  scale_y_continuous(
+    "Verschil of trend", 
+    breaks = c(-1, 0, 1), 
+    labels = c("-25%", "0%", "+33%")
+  ) +
+  coord_flip() +
+  theme(axis.title.y = element_blank(), legend.position = "hide") +
+  scale_color_manual(values = klasse_color)
+
+plot_interpretatie
+
+```
+
+```{r }
+#| label: trendklasse
+
+trend_klasses <- data.frame(
+  klasse_naam = c("onbekend", "mogelijke toename",
+             "mogelijke afname", "stabiel", "toename",
+             "afname", "matige toename",
+             "matige afname", "sterke toename",
+             "sterke afname"),
+  trend = c(-0.05, 0.2, -0.1,0, 0.5, -0.3, 0.15, -0.13, 0.7, -0.5),
+  lcl = c(-0.4, -0.1, -0.4, -0.2, 0.1, -0.5, 0.05, -0.20, 0.5, -0.65),
+  ucl = c(0.4, 0.5, 0.1, 0.2,1,-0.1, 0.25, -0.05,  0.9, -0.35),
+  klasse_beschrijving = c("Geen significante trend/verandering, geen significant verschil met bovenste en onderste drempelwaarde",
+                          "Geen significante trend/verandering, significant hoger dan onderste drempelwaarde",
+                          "Geen significante trend/verandering, significant lager dan bovenste drempelwaarde",
+                          "Geen significante trend/verandering, significant hoger dan onderste drempelwaarde en lager dan bovenste drempelwaarde",
+                          "Significante positieve trend/verandering, maar geen significant verschil met bovenste drempelwaarde",
+                          "Significante negatieve trend/verandering, maar geen significant verschil met onderste drempelwaarde",
+                          "Significante positieve trend/verandering, significant lager dan bovenste drempelwaarde",
+                          "Significante negatieve trend/verandering, significant hoger dan onderste drempelwaarde",
+                          "Significante positieve trend/verandering, significant hoger dan bovenste drempelwaarde",
+                          "Significante negatieve trend/verandering, significant hoger dan onderste drempelwaarde")) %>%
+  mutate(klasse = classification(lcl, ucl, threshold = c(-0.25, 0.33), reference = 0),
+         klasse_naam = factor(klasse_naam, levels = c("sterke afname", "afname", "matige afname", "mogelijke afname", "onbekend", "stabiel", "mogelijke toename", "matige toename", "toename", "sterke toename" ))
+         ) %>%
+  rowwise() %>%
+  mutate(klasse_output =  ifelse(is_html_output(), as.character(klasse), str_c("$", as.character(klasse), "$")),
+          klasse_output = ifelse(is_html_output(), klasse_output, str_replace_all(klasse_output, "~", "\\\\sim")))
+
+```
+
+Een van de voordelen van dit systeem is het onderscheid tussen 'stabiel' en 'onbekend' wanneer er geen significante trend is.
+In het eerste geval weten we met zekerheid dat er geen sterke toename of afname is.
+In het tweede geval is de onzekerheid dermate groot dat we geen enkele conclusie kunnen trekken op basis van de data.
+
+Ook de klassen 'mogelijke toename' en 'mogelijke afname' geven een meerwaarde.
+Zeker omdat we voor de soortenmeetnetten nog maar enkele jaren aan het tellen zijn waardoor de onzekerheid op de schattingen vrij groot kan zijn.
+Via deze bijkomende klassen verkrijgen we al een indicatie van de trendrichting ook al kunnen we nog geen significante trend detecteren.
+
+\needspace{30mm}
+
+```{r}
+#| label: tbl-trendklasse
+#| tbl-cap: "Classificatie van trends of verschillen"
+
+trend_klasses %>%
+  arrange(klasse) %>%
+  select(Code = klasse_output, Klasse = klasse_naam, Beschrijving = klasse_beschrijving) %>%
+  kbl(align = c("c", "l", "l"),
+        escape = FALSE,
+      booktabs = TRUE) %>%
+  kable_styling(font_size = ifelse(is_html_output(), 11, 9)) %>%
+  column_spec(3, width = "30em")
+
+```
+

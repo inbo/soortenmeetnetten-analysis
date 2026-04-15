@@ -141,6 +141,12 @@ aantal_nestenbuizen <- read_vc(root = fileman_up("soortenmeetnetten-queries"), f
   mutate(sublocatie = str_c(locatie, "-", sublocatie)) %>%
   left_join(visits_nestbuizen, by = "visit_id")
 
+n_nestbuizen <- aantal_nestenbuizen %>%
+  summarise(n = n_distinct(sublocatie))
+
+n_locaties <- aantal_nestenbuizen %>%
+  summarise(n = n_distinct(locatie))
+
 aantal_nestenbuizen_detail <- aantal_nestenbuizen  %>%
   mutate(jaar = year(datum),
          nestbuis = str_extract(sublocatie, str_c(1:50, collapse = "|"))) %>%
