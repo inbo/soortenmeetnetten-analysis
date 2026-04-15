@@ -1,0 +1,11 @@
+meetnet	parameter	soort_nl	soort_wet	jaar_min	jaar_max	mean	sd	lcl_0.95	ucl_0.95	lcl_0.30	lcl_0.60	lcl_0.90	ucl_0.30	ucl_0.60	ucl_0.90
+Gevlekte witsnuitlibel	trend_average	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2016	2025	-6.98851	3.2408	-13.2378	-0.497042	-8.28186	-9.73939	-12.2648	-5.7807	-4.27372	-1.57099
+Kempense heidelibel	trend_average	Kempense heidelibel	Sympetrum depressiusculum	2016	2025	-39.4639	4.08864	-47.2559	-31.1702	-41.1195	-42.9363	-46.0604	-37.974	-36.0582	-32.5743
+Maanwaterjuffer	trend_average	Maanwaterjuffer	Coenagrion lunulatum	2016	2025	-12.092	3.84236	-19.5139	-4.38989	-13.619	-15.3448	-18.3498	-10.6639	-8.88232	-5.67325
+Sierlijke witsnuitlibel	trend_average	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2020	2025	61.6717	17.5213	31.3857	100.968	53.9676	47.1256	35.7375	66.661	75.1925	92.9126
+Speerwaterjuffer	trend_average	Speerwaterjuffer	Coenagrion hastulatum	2017	2025	-27.129	5.64063	-37.7055	-15.5039	-29.4574	-31.9227	-36.115	-25.1345	-22.4641	-17.526
+Gevlekte witsnuitlibel	trend_total	Gevlekte witsnuitlibel	Leucorrhinia pectoralis	2016	2025	-45.5806	17.3924	-72.1571	-4.37162	-54.0775	-60.2471	-69.2142	-41.488	-32.5015	-13.2719
+Kempense heidelibel	trend_total	Kempense heidelibel	Sympetrum depressiusculum	2016	2025	-98.7164	0.832159	-99.6857	-96.5316	-99.1504	-99.3597	-99.615	-98.6417	-98.2135	-97.1191
+Maanwaterjuffer	trend_total	Maanwaterjuffer	Coenagrion lunulatum	2016	2025	-66.4316	13.5654	-85.8428	-33.2239	-73.2312	-77.6813	-83.8858	-63.7582	-56.7053	-40.8732
+Sierlijke witsnuitlibel	trend_total	Sierlijke witsnuitlibel	Leucorrhinia caudalis	2020	2025	1145.21	771.913	289.83	3178.7	764.072	588.01	359.206	1184.94	1549.78	2571.92
+Speerwaterjuffer	trend_total	Speerwaterjuffer	Coenagrion hastulatum	2017	2025	-90.6112	6.291	-97.745	-74.0089	-93.8763	-95.3965	-97.2374	-90.1365	-86.9399	-78.5895

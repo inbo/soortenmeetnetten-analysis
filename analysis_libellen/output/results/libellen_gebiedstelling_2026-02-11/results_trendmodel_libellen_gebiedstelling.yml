@@ -1,0 +1,53 @@
+..generic:
+  git2rdata: 0.5.0
+  optimize: yes
+  NA string: NA
+  sorting:
+  - parameter
+  - soort_nl
+  hash: 5f331e437cb0f34f6abfebe3f28ed7734b587e68
+  data_hash: efb5d488ae3f29ecfc129f492261c9bee60edcf5
+meetnet:
+  class: character
+parameter:
+  class: character
+soort_nl:
+  class: character
+soort_wet:
+  class: character
+jaar_min:
+  class: numeric
+  digits: 6
+jaar_max:
+  class: numeric
+  digits: 6
+mean:
+  class: numeric
+  digits: 6
+sd:
+  class: numeric
+  digits: 6
+lcl_0.95:
+  class: numeric
+  digits: 6
+ucl_0.95:
+  class: numeric
+  digits: 6
+lcl_0.30:
+  class: numeric
+  digits: 6
+lcl_0.60:
+  class: numeric
+  digits: 6
+lcl_0.90:
+  class: numeric
+  digits: 6
+ucl_0.30:
+  class: numeric
+  digits: 6
+ucl_0.60:
+  class: numeric
+  digits: 6
+ucl_0.90:
+  class: numeric
+  digits: 6

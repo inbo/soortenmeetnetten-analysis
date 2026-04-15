@@ -1,0 +1,4 @@
+meetnet	parameter	soort_nl	soort_wet	indexmodel	trendmodel	diff_waic	type_trend
+Bosbeekjuffer	waic	Bosbeekjuffer	Calopteryx virgo	1556.05	1559.06	3.00567	Niet lineair
+Variabele waterjuffer	waic	Variabele waterjuffer	Coenagrion pulchellum	1179.72	1180.66	0.944598	Niet lineair
+Vroege glazenmaker	waic	Vroege glazenmaker	Aeshna isoceles	965.185	964.991	-0.193921	Quasi lineair

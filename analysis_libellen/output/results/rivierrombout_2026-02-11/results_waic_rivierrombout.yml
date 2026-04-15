@@ -1,0 +1,19 @@
+..generic:
+  git2rdata: 0.5.0
+  optimize: yes
+  NA string: NA
+  hash: 8498e0c50f8d99d24876f1e20747f312afa8c47e
+  data_hash: b01b634377595d310435c14bf853af79a997a381
+meetnet:
+  class: character
+indexmodel:
+  class: numeric
+  digits: 6
+trendmodel:
+  class: numeric
+  digits: 6
+diff_waic:
+  class: numeric
+  digits: 6
+type_trend:
+  class: character

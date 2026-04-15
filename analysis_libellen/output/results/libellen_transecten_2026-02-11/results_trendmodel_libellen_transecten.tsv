@@ -1,0 +1,7 @@
+meetnet	parameter	soort_nl	soort_wet	jaar_min	jaar_max	mean	sd	lcl_0.95	ucl_0.95	lcl_0.30	lcl_0.60	lcl_0.90	ucl_0.30	ucl_0.60	ucl_0.90
+Bosbeekjuffer	trend_average	Bosbeekjuffer	Calopteryx virgo	2018	2025	-2.56173	3.43002	-9.14145	4.34495	-3.94004	-5.47476	-8.12379	-1.29502	0.306087	3.19255
+Variabele waterjuffer	trend_average	Variabele waterjuffer	Coenagrion pulchellum	2017	2025	-4.90904	4.00225	-12.5383	3.204	-6.52973	-8.30849	-11.3667	-3.44889	-1.57288	1.834
+Vroege glazenmaker	trend_average	Vroege glazenmaker	Aeshna isoceles	2017	2025	-4.4526	3.01961	-10.2632	1.61357	-5.66032	-7.01408	-9.35909	-3.33349	-1.92777	0.603495
+Bosbeekjuffer	trend_total	Bosbeekjuffer	Calopteryx virgo	2018	2025	-14.4153	21.3729	-48.8995	34.6919	-24.5326	-32.5824	-44.7528	-8.72155	2.16497	24.6156
+Variabele waterjuffer	trend_total	Variabele waterjuffer	Coenagrion pulchellum	2017	2025	-29.7526	24.2834	-65.785	28.7178	-41.7501	-50.0555	-61.9364	-24.4847	-11.9099	15.6634
+Vroege glazenmaker	trend_total	Vroege glazenmaker	Aeshna isoceles	2017	2025	-28.5694	18.3178	-57.9644	13.6732	-37.2644	-44.1181	-54.4516	-23.7566	-14.4185	4.94004
