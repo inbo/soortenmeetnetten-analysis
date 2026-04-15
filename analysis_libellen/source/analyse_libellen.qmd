@@ -1,0 +1,2249 @@
+---
+title: "Analyse libellenmeetnetten"
+subtitle: "Technisch rapport"
+date: "2025-11-19"
+author:
+  name: "Toon Westra, Geert De Knijf, Sam Van De Poel, Hannes Ledegen, Frederic Piesschaert, Thierry Onkelinx"
+  email: "Toon.Westra@inbo.be"
+format: 
+  html:
+    embed-resources: true
+editor: source
+lang: nl
+toc: true
+number-sections: true
+execute:
+  cache: false
+  echo: false
+  warning: false
+---
+
+# Inleiding
+
+Dit technisch rapport overloopt de stappen in de analyse van de libellenmeetnetten:
+
+-   selectie van de dataset gebruikt voor de analyse (=analyseset)
+-   keuze model
+-   validatie model
+-   resultaten
+
+```{r}
+#| label: setup  
+#| output: false
+#| cache: false
+
+library(knitr)
+options(knitr.kable.NA = '')
+
+library(tidyverse)
+library(INBOtheme)
+library(INBOmd)
+library(sf)
+library(INLA)
+library(inlatools)
+library(kableExtra)
+library(units)
+library(effectclass)
+library(openssl)
+library(git2rdata)
+library(n2khab)
+library(DT)
+library(here)
+library(plotly)
+library(crosstalk)
+library(leaflet)
+
+conflicted::conflicts_prefer(plotly::layout)
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::lag)
+conflicted::conflicts_prefer(tidyr::expand)
+```
+
+# Selectie analyseset
+
+```{r}
+#| label: load-functions
+
+path_functions <- fileman_up("soortenmeetnetten-analysis")
+
+source(file.path(path_functions, "source/functions_smp.R"))
+
+```
+
+## Data meetnetten.be
+
+De ruwe data wordt geëxporteerd uit de meetnetten.be-databank via de queries in het script [`get_data_meetnetten.Rmd`](https://github.com/inbo/soortenmeetnetten-queries/blob/master/src/get_data_meetnetten.Rmd) en lokaal opgeslagen.
+
+```{r}
+#| label: selectie-soortgroep
+
+species_group <- "libellen"
+
+protocol_selection <- c("Libellen - Populatietelling per locatie",
+                        "Libellen - Transect",
+                        "Libellen - Larvenhuidjes",
+                        "Libellen - Larvenhuidjes Beekrombout")
+
+```
+
+```{r}
+#| label: read-data-1
+
+locatie_detail <- get_locations_smp(only_active = FALSE) %>%
+  st_drop_geometry() %>%
+  filter(locatie_type == "locatie") %>%
+  select(meetnet, locatie, is_active, is_sample)
+
+visits <- get_visits_smp(species_group = species_group) %>%
+  filter(protocol %in% protocol_selection) %>%
+  select(-sublocatie) %>%
+  mutate(visit_id = as.character(visit_id)) %>%
+  select(soortgroep, meetnet, protocol, locatie, jaar, datum, doy, voor_analyse, jaardoel, bezoek_status, opmerking, hoofdteller, visit_id)
+
+counts_all <- get_counts_smp(species_group = species_group, count_aggregation = "individuals")
+
+counts_all <- counts_all %>%
+  mutate(visit_id = as.character(visit_id)) %>%
+  group_by(visit_id, sublocatie, niet_geteld, checklist, soort_nl, soort_wet, primaire_soort, sample_id) %>%
+  summarise(aantal = sum(aantal)) %>%
+  ungroup() 
+
+counts_details <- get_counts_smp("libellen") %>%
+  mutate(levensstadium = ifelse(levensstadium == "exuvium", "larvenhuidje", levensstadium),
+         type_waarneming = ifelse(activiteit == "copula", "copula",
+                                  ifelse(activiteit == "egg laying", str_c("eiafzettend", geslacht, sep = " "),
+                                         ifelse(levensstadium == "imago (not fully colored)", "imago (niet uitgekleurd)",
+                                                str_c(levensstadium, geslacht, sep = " ")))),
+         type_waarneming = factor(type_waarneming, levels = c("imago F", "imago M", "imago U", "imago (niet uitgekleurd)", "eiafzettend F", "eiafzettend U", "copula", "larvenhuidje F", "larvenhuidje M", "larvenhuidje U"))) 
+
+covars <- get_covariates_smp(species_group = species_group) %>%
+  filter(protocol %in% protocol_selection) %>%
+  select(-eenheid) %>%
+  mutate(bezoekvariabele = str_replace(bezoekvariabele, " ", "_")) %>%
+  pivot_wider(names_from = "bezoekvariabele", values_from = "waarde")  %>%
+  mutate(visit_id = as.character(visit_id),
+         lengte_transect = as.numeric(lengte_transect)) %>%
+  select(visit_id, lengte_transect, telmethode_larvenhuidjes) %>%
+  filter(lengte_transect > 5)
+
+count_period <- get_characteristics_smp() %>%
+    mutate(doy_min = as.numeric(format(start_telperiode, "%j")),
+         doy_max = as.numeric(format(einde_telperiode, "%j"))) %>%
+  group_by(meetnet, protocol) %>%
+  summarise(doy_min = min(doy_min),
+            doy_max = max(doy_max)) %>%
+  ungroup() %>%
+  mutate(doy_mid = doy_min + round((doy_max - doy_min)/2, 0)) %>%
+  distinct(meetnet, protocol, doy_min, doy_max, doy_mid)
+
+dataset <- visits %>%
+  left_join(locatie_detail, by = c("meetnet", "locatie")) %>%
+  left_join(covars, by = "visit_id") %>%
+  left_join(counts_all, by = "visit_id") %>%
+  group_by(meetnet, locatie) %>%
+  mutate(aantal_locatie = sum(aantal * primaire_soort, na.rm = TRUE)) %>%
+  ungroup()
+
+```
+
+## Criteria voor selectie van tellingen
+
+-   We selecteren de meetnetten die al minstens drie jaar lopen.
+
+```{r}
+#| label: selectie-meetnetten
+
+meetnetten_selection <- dataset %>%
+  filter(protocol %in% protocol_selection) %>%
+  group_by(meetnet, protocol) %>%
+  summarise(n_jaar = n_distinct(jaar)) %>%
+  filter(n_jaar >= 3) %>%
+  filter(meetnet != "Hoogveenglanslibel")
+
+```
+
+```{r}
+#| label: tbl-selectie-meetnetten
+#| tbl-cap: "Geselecteerde meetnetten"
+
+meetnetten_selection %>%
+  kable() %>%
+  kable_styling()
+
+```
+
+```{r}
+#| label: filter-selectie-meetnetten
+
+dataset <- dataset %>%
+  filter(meetnet %in% meetnetten_selection$meetnet)
+```
+
+-   We selecteren bezoeken, die geschikt zijn voor analyse (voor_analyse = TRUE)
+
+```{r}
+#| label: selectie-analyse
+
+dataset_selection <- dataset %>%
+  filter(voor_analyse)
+
+visits_reject <- dataset %>%
+  anti_join(dataset_selection, by = "visit_id") %>%
+  distinct(visit_id, meetnet, datum, locatie, bezoek_status, opmerking) 
+
+```
+
+@tbl-selectie-analyse toont de bezoeken die niet geschikt zijn voor analyse.
+
+```{r}
+#| label: tbl-selectie-analyse
+#| tbl-cap: Bezoeken niet geschikt voor analyse
+#| cache: false
+
+visits_reject %>%
+  datatable(rownames = FALSE,
+            filter = "top",
+            options = list(scrollX = TRUE)
+            )
+```
+
+-   We selecteren enkel locaties waar de soort minstens tijdens 1 bezoek werd waargenomen
+
+```{r}
+#| label: selectie-aanwezig
+
+dataset_presence <- dataset_selection %>%
+  filter(!is.na(aantal)) %>%
+  filter(aantal_locatie > 0)
+
+locations_absence <- dataset_selection %>%
+  group_by(meetnet, locatie, is_active, is_sample) %>%
+  summarise(n_visits = n_distinct(visit_id)) %>%
+  ungroup() %>%
+  anti_join(dataset_presence, by = c("meetnet", "locatie"))
+
+```
+
+```{r}
+#| label: tbl-selectie-aanwezig
+#| tbl-cap: "Locaties met enkel nulwaarnemingen"
+
+locations_absence %>%
+  kbl() %>%
+  kable_styling()
+```
+
+## Opgesplitste locaties
+
+-   Meetnet gevlekte witsnuitlibel:
+    -   `Teut Groot ven` in 2020 opgesplitst in `Teut - Waterlelieven` en `Teut - Vier Vijvers`.
+    -   Er zijn enkel nulwaarnemingen in `Teut - Vier Vijvers`
+    -   Voor periode 2016 tot 2019 enkel bezoeken voor `Teut Groot ven`: we gaan er van uit dat de waargenomen individuen in `Teut - Waterlelieven` werden gezien.
+
+```{r}
+#| label: split-location-gw
+
+meetnet_select <- "Gevlekte witsnuitlibel"
+locatie_oud <- "Teut Grootven"
+locatie_nieuw <- c("Teut - Waterlelieven", "Teut - Vier vijvers")
+jaar_splits = 2020
+
+data_rename <- dataset_presence %>%
+  filter(locatie == locatie_oud,
+         meetnet == meetnet_select) %>%
+  mutate(locatie = "Teut - Waterlelieven")
+
+dataset_presence <- dataset_presence %>%
+  anti_join(data_rename, by = "visit_id") %>%
+  bind_rows(data_rename)
+
+```
+
+-   Meetnet speerwaterjuffer:
+    -   `Teut west` vanaf 2020 opgeplitst in `Teut - Waterlelieven` en `Teut - Vier Vijvers`.
+    -   We berekenen de gemiddelde proportie van de getelde aantallen voor `Teut - Waterlelieven` en `Teut - Vier Vijvers`, voor de periode vanaf 2020.
+    -   Voor periode 2017 en 2019 enkel bezoeken voor `Teut West`. We schatten het aantal in `Teut - Vier Vijvers` via random generatie volgens binomiale distributie (`rbinom`), met probabiliteit gelijk aan de gemiddelde proportie in `Teut - Vier Vijvers` voor de periode vanaf 2020.
+
+```{r}
+#| label: split-location-sj
+
+meetnet_select <- "Speerwaterjuffer"
+locatie_oud <- "Teut west"
+locatie_nieuw <- c("Teut - Waterlelieven", "Teut - Vier vijvers")
+jaar_splits = 2020
+
+data_nieuw <- dataset_presence %>%
+  filter(locatie %in% locatie_nieuw,
+         meetnet == meetnet_select)
+
+data_oud <- dataset_presence %>%
+  filter(primaire_soort) %>%
+  filter(locatie == locatie_oud,
+         meetnet == meetnet_select) 
+
+data_nieuw_mean <- data_nieuw %>%
+  filter(primaire_soort) %>%
+  group_by(meetnet, datum) %>%
+  filter(n_distinct(locatie) == 2) %>%
+  ungroup() %>%
+  group_by(meetnet, locatie, datum, jaar) %>%
+  summarise(aantal_tot = sum(aantal)) %>%
+  ungroup() %>%
+  group_by(meetnet, locatie) %>%
+  summarise(mean_aantal = mean(aantal_tot)) %>%
+  ungroup() %>%
+  group_by(meetnet) %>%
+  mutate(aantal_tot = sum(mean_aantal)) %>%
+  ungroup()
+
+prob_4vijvers <- data_nieuw_mean %>%
+  filter(locatie == "Teut - Vier vijvers") %>%
+  filter(aantal_tot != 0) %>%
+  mutate(prob_loc_4vijvers = mean_aantal/aantal_tot) %>%
+  select(meetnet, prob_loc_4vijvers)
+
+split_aantal <- function(aantal, prob, select_seed) {
+  
+  set.seed(select_seed)
+  
+  aantal_split <- rbinom(n = 1, size = aantal, prob = prob)
+  
+  return(aantal_split)
+  
+}
+
+set.seed(54684)
+data_oud_corr <- data_oud %>%
+  mutate(select_seed = round(runif(n = n(), min = 0, max = 100000))) %>%
+  left_join(prob_4vijvers, by = c("meetnet")) %>%
+  rowwise() %>%
+  mutate(aantal_4vijvers = ifelse(is.na(prob_loc_4vijvers), 0,
+                                  split_aantal(aantal, prob_loc_4vijvers, select_seed)),
+         aantal_waterlelie = aantal - aantal_4vijvers) %>%
+  rename(locatie_oud = locatie,
+         aantal_oud = aantal) %>%
+  pivot_longer(cols = c(aantal_4vijvers, aantal_waterlelie),
+               names_to = "locatie",
+               values_to = "aantal") %>%
+  mutate(locatie = ifelse(locatie == "aantal_4vijvers", "Teut - Vier vijvers", 
+                          ifelse(locatie == "aantal_waterlelie", "Teut - Waterlelieven", NA)))
+
+dataset_presence <- dataset_presence %>%
+  anti_join(data_oud, by = c("visit_id", "primaire_soort")) %>%
+  bind_rows(data_oud_corr)
+
+```
+
+## Ontbrekende data
+
+### Locaties die niet meer geteld worden
+
+De geselecteerde dataset bevat tellingen voor locaties die op inactief gezet werden (en waarvoor dus geen tellingen meer ingevoerd kunnen worden).
+
+Het gaat om volgende gevallen:
+
+-   de locatie is niet meer toegankelijk
+-   de soort komt niet meer voor op de locatie/ de locatie is ongeschikt geworden
+
+Onderstaande tabel geeft een overzicht van de locaties waar deze gevallen zich voordoen.
+Om een idee te hebben van het belang van de locatie berekenen we per jaar de proportie van het totaal aantal getelde individuen voor de locatie t.o.v.het totaal aantal getelde individuen voor het hele meetnet.
+De tabel geeft het maximum van deze proportie weer over de verschillende jaren (`prop_locatie_max`).
+
+```{r}
+#| label: missing-data
+
+locatie_doc <- tibble(meetnet = c(rep("Bosbeekjuffer", 5), "Gevlekte witsnuitlibel", "Rivierrombout", "Speerwaterjuffer", "Variabele waterjuffer", "Vroege glazenmaker"),
+                         locatie = c("Afwateringskanaal", "De Kluis - Blommerschot", "Kindernouwbeek", "Prinsenpark", "Rosdel", "Teut Grootven", "Deurne vaartdijk - zuid", "Teut west", "Wellemeersen", "Tiewinkel"),
+                         type_missing = c("Ontoegankelijk", "Locatie niet geschikt", "Locatie niet geschikt", "Locatie niet geschikt", "Locatie niet geschikt", "Locatie opgesplitst", "Ontoegankelijk", "Locatie opgesplitst", "Ontoegankelijk", "Locatie niet geschikt"))
+
+locaties_missing_data <- dataset %>%
+  filter(primaire_soort) %>%
+  filter(meetnet != "Beekrombout") %>%
+  group_by(meetnet, jaar) %>%
+  mutate(aantal_meetnet_jaar = sum(aantal, na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_by(meetnet, jaar, locatie) %>%
+  mutate(aantal_locatie_jaar = sum(aantal)) %>%
+  ungroup() %>%
+  mutate(prop_locatie = aantal_locatie_jaar / aantal_meetnet_jaar) %>%
+  group_by(meetnet, locatie) %>%
+  mutate(prop_locatie_max = round(max(prop_locatie), 3),
+         aantal_locatie_max = max(aantal_locatie_jaar)) %>%
+  filter(!is_active) %>%
+  semi_join(dataset_presence, by = c("meetnet", "locatie")) %>%
+  group_by(meetnet, locatie, is_sample, is_active, aantal_locatie, prop_locatie_max, aantal_locatie_max) %>%
+  summarise(ontoegankelijk = any(bezoek_status == "Geen veldwerk mogelijk - locatie ontoegankelijk"),
+            ongeschikt = any(bezoek_status == "Geen veldwerk mogelijk - locatie ongeschikt"),
+            jaren_bezoek = str_c(unique(jaar), collapse = "; ")) %>%
+  ungroup() %>%
+  left_join(locatie_doc, by = c("meetnet", "locatie")) %>%
+  mutate(type_missing = ifelse(is.na(type_missing),
+                               ifelse(meetnet %in% c("Speerwaterjuffer", "Kempense heidelibel", "Maanwaterjuffer", "Gevlekte witsnuitlibel"), "Soort verdwenen", "?"),
+                               type_missing)) %>%
+  mutate(type_missing = ifelse(ontoegankelijk, "ontoegankelijk", type_missing),
+         analyse = ifelse(type_missing == "Soort verdwenen", "Locatie behouden en nullen toevoegen",
+                          ifelse(locatie %in% c("Deurne vaartdijk - zuid"), "Locatie behouden", "Locatie verwijderen")))
+
+```
+
+```{r}
+#| label: tbl-missing-data
+#| tbl-cap: "Niet actieve locaties waar soort geteld werd"
+
+locaties_missing_data %>%
+  select(meetnet, locatie, prop_locatie_max, jaren_bezoek, type_missing, analyse) %>%
+  datatable(rownames = FALSE)
+```
+
+Hoe gaan we hier mee om in de analyse:
+
+-   Locaties waar soort is verdwenen: bezoeken met nulwaarnemingen toevoegen voor ontbrekende jaren
+
+-   Ontoegankelijke locaties:
+
+    -   Enkel behouden indien al meerdere jaren geteld
+    -   Voorlopig geen imputatie ontbrekende data
+
+```{r}
+#| label: add-zeros
+
+# select equally spread dates within counting period
+random_date <- function(start_date, end_date, i_visit = 1, n_visits = 1, select_seed = NULL) {
+  
+  days_period <- (end_date - start_date)/n_visits
+  
+  if (!is.null(select_seed)) {
+    set.seed(select_seed)
+  }
+  
+  result <- start_date + 
+            (i_visit - 1) * days_period + 
+            runif(1, min = 0, max = days_period)
+  
+}
+
+#aantal bezoeken per meetnet
+meetnet_karakt_visits <- get_characteristics_smp() %>%
+  select(meetnet, protocol, generatie, n_visits = bezoeken, start_telperiode, einde_telperiode)
+
+meetnet_karakt_meetcyclus <- get_characteristics_smp() %>%
+  distinct(meetnet, opstartjaar, duur_meetcyclus)
+
+dataset_presence <- dataset_presence %>%
+  left_join(meetnet_karakt_meetcyclus,
+            by = "meetnet") %>%
+  mutate(meetcyclus = floor((jaar - opstartjaar) / duur_meetcyclus) + 1)
+
+meetnet_meetcyclus <- dataset_presence %>%
+  distinct(meetnet, protocol, meetcyclus, jaar, duur_meetcyclus) %>%
+  group_by(meetnet, protocol, meetcyclus, duur_meetcyclus) %>%
+  summarise(jaar_min = min(jaar),
+           jaar_max = min(jaar) + duur_meetcyclus - 1) %>%
+  ungroup()
+  
+missing_data <- dataset_presence %>%
+  filter(primaire_soort) %>%
+  distinct(meetnet, protocol, locatie, is_active, is_sample, soort_nl, soort_wet, primaire_soort, opstartjaar) %>%
+  left_join(meetnet_meetcyclus) %>%
+  anti_join(dataset_presence, by = c("meetnet", "locatie", "meetcyclus")) %>%
+  arrange(meetnet, locatie, meetcyclus)
+
+dataset_missing0 <- missing_data %>%
+  mutate(jaar = jaar_min) %>% #minimum jaar in meetcyclus
+  inner_join(locaties_missing_data %>%
+               select(meetnet, locatie, type_missing) %>%
+               filter(type_missing == "Soort verdwenen"),
+             by = c("meetnet", "locatie")) %>%
+  left_join(meetnet_karakt_visits, by = c("meetnet", "protocol")) %>%
+  group_by(meetnet, protocol, locatie, jaar, meetcyclus, duur_meetcyclus, opstartjaar, start_telperiode, einde_telperiode, is_active, is_sample, soort_nl, soort_wet, primaire_soort) %>%
+  expand(n_visits, i_visit = 1:n_visits) %>%
+  ungroup() %>%
+  mutate(start_date = dmy(str_c(day(start_telperiode),
+                                month(start_telperiode),
+                                jaar, sep = "-")),
+         end_date = dmy(str_c(day(einde_telperiode),
+                                month(einde_telperiode),
+                                jaar, sep = "-"))) %>%
+  select(-start_telperiode, -einde_telperiode)
+
+set.seed(454922)
+dataset_missing0 <- dataset_missing0 %>%
+  rowwise() %>%
+  mutate(select_seed = round(runif(n = n(), min = 0, max = 100000)),
+         datum = random_date(start_date, end_date, i_visit, n_visits, select_seed = select_seed),
+         doy = as.numeric(format(datum, "%j")),
+         aantal = 0,
+         type_data = "missing_0",
+         is_sample = TRUE)  %>%
+  select(-select_seed, -start_date, -end_date, -n_visits, -i_visit)
+
+```
+
+```{r}
+#| label: add-missing-data 
+
+dataset_remove <- dataset_presence %>%
+  inner_join(locaties_missing_data %>%
+              select(meetnet, locatie, analyse), 
+            by = c("meetnet", "locatie")) %>%
+  filter(analyse == "Locatie verwijderen")
+
+dataset_presence <- dataset_presence %>%
+  anti_join(dataset_remove, by = "visit_id") %>%
+  mutate(type_data = "counted") %>%
+  bind_rows(dataset_missing0)
+  
+```
+
+### Ontbrekende teljaren in actieve locaties
+
+```{r}
+#| label: missing-data-active 
+
+missing_data_meetcyclus <- missing_data %>%
+  filter(is_active) %>%
+  select(meetnet, is_sample, is_active, locatie, meetcyclus, jaar_min, jaar_max) %>%
+  mutate(periode = ifelse(jaar_min == jaar_max, jaar_min, str_c(jaar_min, "-", jaar_max)))
+
+```
+
+```{r}
+#| label: tbl-missing-data-active
+#| tbl-cap: "Meetcycli of jaren waarin er geen tellingen werden uitgevoerd voor meetnetlocatie"
+
+missing_data_meetcyclus %>%
+  filter(meetnet != "Beekrombout") %>%
+  filter(periode != "2024-2026") %>%
+  group_by(meetnet, is_sample, is_active, locatie) %>%
+  summarise(meetcyclus = str_c(unique(periode), collapse = "; ")) %>%
+  ungroup() %>%
+  datatable(rownames = FALSE, filter = "top")
+```
+
+Voorlopig geen imputatie.
+
+## Steekproeflocaties
+
+-   We selecteren enkel locaties die behoren tot de steekproef
+
+```{r}
+#| label: select-sample
+
+dataset_presence_sample <- dataset_presence %>%
+  filter(!((!is_sample) & meetnet %in% c("Variabele waterjuffer", "Bosbeekjuffer", "Vroege glazenmaker")))
+
+locations_not_sample <- dataset_presence %>%
+  group_by(meetnet, locatie) %>%
+  summarise(n_visits = n_distinct(visit_id),
+            aantal_tot = sum(aantal * primaire_soort)) %>%
+  ungroup() %>%
+  anti_join(dataset_presence_sample, by = c("meetnet", "locatie")) 
+
+```
+
+```{r}
+#| label: tbl-select-sample
+
+if (nrow(locations_not_sample) > 0) {
+  
+  locations_not_sample %>%
+  kable(caption = "Locaties die niet tot de steekproef behoren") %>%
+  kable_styling()
+  
+}
+```
+
+## Validatie tellingen
+
+```{r}
+#| label: select-validatie
+
+max_year <- 2025
+
+dataset_presence_sample <- dataset_presence_sample %>%
+  filter(jaar <= max_year)
+```
+
+De tellingen zijn gevalideerd t.e.m. het jaar `r max_year`.
+
+## Bewaar analyseset
+
+We bewaren 2 analysesets:
+
+-   gebiedstelling per locatie
+-   transecttelling
+
+We bewaren ook de detailtellingen.
+
+### Gebiedstelling per locatie
+
+```{r}
+#| label: write-gebiedstelling
+
+protocol_selection <- "Libellen - Populatietelling per locatie"
+name_analysis1 <- "libellen_gebiedstelling"
+
+analyseset_gebied <- dataset_presence_sample %>%
+  filter(protocol == protocol_selection) %>%
+  filter(primaire_soort) %>%
+  select(soortgroep, meetnet, protocol, locatie, is_active, is_sample, meetcyclus, opstartjaar, duur_meetcyclus, jaar, datum, doy, visit_id, voor_analyse, bezoek_status, opmerking, soort_nl, soort_wet, aantal, type_data, opmerking)
+
+write_vc(analyseset_gebied, 
+       file = str_c("analyseset_", name_analysis1), 
+       root = "../output/temp", 
+       sorting = c("meetnet", "locatie", "datum", "visit_id"), 
+       strict = FALSE)
+```
+
+### Transecttelling
+
+```{r}
+#| label: write-transect
+
+species_group <- "libellen"
+protocol_selection <- c("Libellen - Transect", "Libellen - Larvenhuidjes", "Libellen - Larvenhuidjes Beekrombout")
+
+name_analysis2 <- "libellen_transecten"
+
+analyseset_transect <- dataset_presence_sample %>%
+  filter(protocol %in% protocol_selection) %>%
+  filter(primaire_soort) %>%
+  select(soortgroep, meetnet, protocol, locatie, is_active, is_sample, meetcyclus, opstartjaar, duur_meetcyclus, jaar, datum, doy, visit_id, lengte_transect, voor_analyse, bezoek_status, opmerking, soort_nl, soort_wet, aantal, type_data, opmerking)
+
+overzicht_missing <- analyseset_transect %>%
+  filter(is.na(lengte_transect)) %>%
+  select(meetnet, locatie, visit_id, datum) %>%
+  filter(meetnet != "Rivierrombout")
+
+overzicht_missing_locatie <- analyseset_transect %>%
+  group_by(meetnet, locatie) %>%
+  summarise(bezoeken = n(),
+            prop_ingevuld = round(sum(!is.na(lengte_transect))/n(), 2),
+            verschillende_lengtes = n_distinct(lengte_transect, na.rm = TRUE)) %>%
+  ungroup()
+
+write.csv2(overzicht_missing, "../output/transect_length_missing.csv", row.names = FALSE)
+write.csv2(overzicht_missing_locatie, "../output/transect_length_missing_locatie.csv", row.names = FALSE)
+```
+
+Voor Rivierrombout komt de transectlengte overeen met de lengte van de locatie (=lijn) in meetnetten.be
+
+```{r}
+#| label: length-transect-rr
+
+transect_rivierrombout <- get_locations_smp(only_active = FALSE) %>% 
+  filter(meetnet == "Rivierrombout") %>%
+  st_transform(crs = 31370) %>%
+  group_by(locatie) %>%
+  mutate(lengte_locatie = round(drop_units(st_length(geom)), 0)) %>%
+  ungroup() %>%
+  st_drop_geometry() %>%
+  select(meetnet, locatie, lengte_locatie)
+
+```
+
+Voor andere soorten wordt de transectlengte ingevoerd in meetnetten.be.
+Als de transectlengte ontbreekt voor een bezoek (niet ingevoerd) nemen we:
+
+-   de transectlengte van een bezoek op dezelfde datum en dezelfde locatie van een ander meetnet (locaties van Vroege glazenmaker en Variabele waterjuffer overlappen gedeeltelijk)
+
+-   de gemiddelde transectlengte voor de meetnetlocatie (indien geen bezoek op dezelfde datum en dezelfde locatie van een ander meetnet)
+
+```{r}
+#| label: length-transect-other
+
+proportion_missing <- analyseset_transect %>%
+  group_by(meetnet) %>%
+  summarise(n_missing = sum(is.na(lengte_transect)),
+            n_tot = n(),
+            prop_missiing  = n_missing/n_tot) %>%
+  ungroup()
+  
+transect_other <- analyseset_transect %>%
+  filter(meetnet != "Rivierrombout") %>%
+  distinct(meetnet, locatie, datum, visit_id, lengte_transect) %>%
+  group_by(meetnet) %>%
+  mutate(mean_meetnet = round(mean(lengte_transect, na.rm = TRUE), 0)) %>%
+  ungroup() %>%
+  group_by(locatie) %>%
+  mutate(mean_locatie = round(mean(lengte_transect, na.rm = TRUE), 0)) %>%
+  ungroup() %>%
+  group_by(locatie, datum) %>%
+  mutate(mean_locatie_datum = round(mean(lengte_transect, na.rm = TRUE), 0)) %>%
+  ungroup() %>%
+  mutate(lengte_transect_est = ifelse(!is.na(lengte_transect), lengte_transect,
+                                      ifelse(!is.nan(mean_locatie_datum), mean_locatie_datum,
+                                             ifelse(!is.na(mean_locatie), mean_locatie, mean_meetnet)))) %>%
+  select(meetnet, locatie, datum, visit_id, lengte_transect = lengte_transect_est)
+
+```
+
+```{r}
+#| label: length-transect-combine
+
+analyseset_rivierrombout <- analyseset_transect %>%
+  filter(meetnet == "Rivierrombout") %>%
+  left_join(transect_rivierrombout, by = c("meetnet", "locatie")) %>%
+  mutate(lengte_transect = ifelse(is.na(lengte_transect), lengte_locatie, lengte_transect)) %>%
+  select(-lengte_locatie)
+
+analyseset_other <- analyseset_transect %>%
+  filter(meetnet != "Rivierrombout") %>%
+  select(-lengte_transect) %>%
+  inner_join(transect_other, by = c("meetnet", "locatie", "datum", "visit_id"))
+  
+analyseset_transect <- bind_rows(analyseset_rivierrombout,
+                              analyseset_other)
+
+write_vc(analyseset_transect, file = str_c("analyseset_", name_analysis2), 
+       root = "../output/temp", 
+       sorting = c("meetnet", "locatie", "datum", "visit_id"), 
+       strict = FALSE)
+  
+```
+
+```{r}
+
+counts_all_detail <- counts_details %>%
+  filter(!is.na(type_waarneming)) %>%
+  group_by(meetnet, locatie, datum, jaar, visit_id, checklist, primaire_soort, soort_nl, soort_wet, type_waarneming) %>%
+  summarise(aantal = sum(aantal), 
+            .groups = "drop_last") %>%
+  ungroup()
+
+counts_all <- counts_details %>%
+  mutate(aantal = ifelse(type_waarneming %in% c("copula", "eiafzettend"), aantal * 2, aantal)) %>%
+  summarise(aantal = sum(aantal),
+            .by = c(meetnet, locatie, datum, jaar, visit_id, checklist, primaire_soort, soort_nl, soort_wet))
+
+write_vc(counts_all_detail, file = "counts_all_details", 
+       root = "../output/counts", 
+       sorting = c("meetnet", "locatie", "datum", "visit_id", "soort_nl", "type_waarneming"), 
+       strict = FALSE)
+
+write_vc(counts_all, file = "counts_all", 
+       root = "../output/counts", 
+       sorting = c("meetnet", "locatie", "datum", "visit_id", "soort_nl"), 
+       strict = FALSE)
+```
+
+
+
+```{r}
+#| label: copy-analyseset-folder
+
+names_analysis <- c(name_analysis1, name_analysis2)
+
+mypath <- here(str_c("output/temp"))
+
+hashes <-
+    tibble(filepath = str_c(mypath, "/",
+        list.files(path = mypath,
+            recursive = TRUE)
+      )) %>%
+    mutate(version = Sys.time(),
+           filename = str_match(filepath, "(.+\\/)*(.+)")[,3],
+           name_analysis = str_extract(filename, str_c(names_analysis, collapse =  "|")),
+           md5 = map(filepath, function(x) {
+                           file(x) %>% md5 %>% str_c(collapse = '')
+                         }) %>% as.character,
+           sha256 = map(filepath, function(x) {
+                          file(x) %>% sha256 %>% str_c(collapse = '')
+                          }) %>% as.character
+           ) %>%
+    select(name_analysis,
+           version,
+           filename,
+           md5,
+           sha256) %>%
+  filter(str_detect(filename, "analyseset"))
+
+path <- fileman_up("analysis_libellen")
+file_name <- file.path(path,"output/analysis_hashes.tsv")
+
+if (!file.exists(file_name)) {
+  
+  new_analysis <- TRUE
+  
+  analysis_hashes <- hashes
+
+} else {
+  
+  analysis_hashes <- read_vc(file = "analysis_hashes", root = file.path(path,"output/"))
+  
+  hashes_new <- hashes %>%
+    anti_join(analysis_hashes, by = c("name_analysis", "filename", "md5", "sha256"))
+  
+  new_analysis <- nrow(hashes_new) > 0
+  
+  analysis_hashes <- bind_rows(analysis_hashes,
+                               hashes)
+  
+  names_analysis <- unique(hashes_new$name_analysis) 
+  
+}
+
+if (new_analysis) {
+  
+  for (name_analysis in names_analysis) {
+    
+     new_path <- str_c("../output/analyseset/", name_analysis, "_", Sys.Date())
+     
+     if (!dir.exists(new_path)) {
+       
+       dir.create(new_path)
+       
+     }
+       
+       file.copy(from = str_c(mypath, "/analyseset_", name_analysis,".tsv"), 
+                 to = str_c(new_path,  "/analyseset_", name_analysis,".tsv"), 
+                 overwrite = TRUE)
+       
+       file.copy(from = str_c(mypath, "/analyseset_", name_analysis,".yml"), 
+                 to = str_c(new_path, "/analyseset_", name_analysis,".yml"), 
+                 overwrite = TRUE)
+      
+  }
+  
+  analysis_hashes %>%
+       write_vc(file = "analysis_hashes", 
+                root = "../output", 
+                sorting = c("name_analysis", "version", "filename"), strict = FALSE)
+  
+  } 
+
+```
+
+# Dataverkenning
+
+```{r}
+#| label: read-data-2
+
+name_analysis1 <- "libellen_gebiedstelling"
+
+name_analyseset <- str_c("analyseset_", name_analysis1)
+versie <- str_c(name_analysis1, "_2026-02-10")
+
+analyseset_gebied <- read_vc(file = name_analyseset,
+                               root = str_c("../output/analyseset/", versie)) %>%
+  mutate(doy = as.numeric(format(datum, "%j")))
+
+name_analysis2 <- "libellen_transecten"
+
+name_analyseset <- str_c("analyseset_", name_analysis2)
+versie <- str_c(name_analysis2, "_2026-02-10")
+
+analyseset_transect <- read_vc(file = name_analyseset,
+                               root = str_c("../output/analyseset/", versie)) %>%
+  mutate(doy = as.numeric(format(datum, "%j")))
+
+dataset <- analyseset_transect %>%
+  bind_rows(analyseset_gebied) %>%
+  group_by(meetcyclus, meetnet) %>%
+  mutate(min_jaar_meetcyclus = min(jaar)) %>%
+  ungroup() %>%
+  mutate(periode = ifelse(duur_meetcyclus == 1, as.character(jaar), str_c(min_jaar_meetcyclus, "-", min_jaar_meetcyclus - 1 + duur_meetcyclus)))
+
+```
+
+```{r}
+#| label: calc
+
+dataset_summary <- dataset %>%
+  arrange(jaar) %>%
+  group_by(meetnet, jaar, locatie) %>%
+  summarise(aantal_loc_average = mean(aantal),
+         aantal_loc_max = max(aantal),
+         aantal_loc_tot = sum(aantal)) %>%
+  ungroup() %>%
+  group_by(meetnet, jaar) %>%
+  mutate(aantal_meetnet_average = mean(aantal_loc_average),
+         aantal_meetnet_max = mean(aantal_loc_max),
+         aantal_meetnet_tot = mean(aantal_loc_tot)) %>%
+  ungroup()
+
+dataset_meetcyclus_summary <- dataset %>%
+  arrange(jaar) %>%
+  group_by(meetnet, periode, locatie) %>%
+  summarise(aantal_loc_average = mean(aantal),
+         aantal_loc_max = max(aantal),
+         aantal_loc_tot = sum(aantal)) %>%
+  ungroup() %>%
+  group_by(meetnet, periode) %>%
+  mutate(aantal_meetnet_average = mean(aantal_loc_average),
+         aantal_meetnet_max = mean(aantal_loc_max),
+         aantal_meetnet_tot = mean(aantal_loc_tot)) %>%
+  ungroup()
+```
+
+```{r}
+#| label: locaties
+
+locaties_libellen <- get_locations_smp(species_group = "libellen", only_active = FALSE) 
+
+locaties_libellen_dataset <- locaties_libellen %>%
+  semi_join(dataset,
+            by = c("meetnet", "locatie")
+            )
+
+locaties_libellen_point <- locaties_libellen_dataset %>%
+  select(meetnet, locatie) %>%
+  st_point_on_surface() %>%
+  left_join(dataset_summary, by = c("meetnet", "locatie")) %>%
+  mutate(relative_size = 5 + round(sqrt(aantal_loc_max) / max(sqrt(aantal_loc_max)) * 20))
+
+locaties_libellen_lines <- locaties_libellen_dataset %>%
+  filter(meetnet %in% c("Rivierrombout", "Beekrombout"))
+
+locaties_libellen_polygonen <- locaties_libellen_dataset %>%
+  filter(!meetnet %in% c("Rivierrombout", "Beekrombout"))
+
+```
+
+In @fig-kaart tonen we de maximum getelde aantallen per meetnetlocatie per jaar:
+
++ de grootte van de punten is evenredig met de maximum getelde aantallen
++ rode punten zijn nulwaarnemingen
+
+```{r}
+#| label: filters
+#| cache: false
+
+data_shared_locaties <- SharedData$new(locaties_libellen_point)
+
+bscols(
+filter_slider("jaar", "Jaar", data_shared_locaties, ~jaar),
+filter_select("meetnet", "Selecteer meetnet", data_shared_locaties, ~meetnet)
+)
+
+```
+
+```{r}
+#| label: fig-kaart
+#| fig-cap: "Gemiddelde getelde aantallen per meetnetlocatie"
+#| cache: false
+
+data_shared_locaties %>%
+  leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = locaties_libellen_polygonen, color = "grey", label = ~str_c(meetnet, " - ", locatie)) %>%
+  addPolylines(data = locaties_libellen_lines, color = "grey", label = ~str_c(meetnet, " - ", locatie)) %>%
+  addCircleMarkers(label = ~str_c(meetnet, " - ", locatie, ": max aantal = ", aantal_loc_max), radius = ~relative_size, stroke = FALSE, fillOpacity = 0.2, fillColor = ~ifelse(aantal_loc_max > 0, "blue", "red")) 
+```
+
+
+Per meetnet tonen we grafieken met:
+
++ de maximum getelde aantallen per meetnetlocatie en per jaar
++ de gemiddelde maximum getelde aantallen per locatie en per jaar voor het volledige meetnet
+
+Voor rivierrombout en beekrombout tonen we:
+
++ de totale getelde aantallen per meetnetlocatie en per jaar
++ de gemiddelde totale getelde aantallen per locatie en per jaar voor het volledige meetnet
+
+::: {.panel-tabset}
+
+## Maanwaterjuffer
+
+```{r}
+#| label: mj
+
+meetnet_sel <- "Maanwaterjuffer"
+
+dataset_soort <- dataset_summary %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~jaar, 
+            y = ~aantal_loc_max, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Speerwaterjuffer
+
+```{r}
+
+meetnet_sel <- "Speerwaterjuffer"
+
+dataset_soort <- dataset_summary %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~jaar, 
+            y = ~aantal_loc_max, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Kempense heidelibel
+
+```{r}
+
+meetnet_sel <- "Kempense heidelibel"
+
+dataset_soort <- dataset_summary %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~jaar, 
+            y = ~aantal_loc_max, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Gevlekte witsnuitlibel
+
+```{r}
+
+meetnet_sel <- "Gevlekte witsnuitlibel"
+
+dataset_soort <- dataset_summary %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~jaar, 
+            y = ~aantal_loc_max, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Sierlijke witsnuitlibel
+
+```{r}
+
+meetnet_sel <- "Sierlijke witsnuitlibel"
+
+dataset_soort <- dataset_summary %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~jaar, 
+            y = ~aantal_loc_max, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Rivierrombout
+
+```{r}
+
+meetnet_sel <- "Rivierrombout"
+
+dataset_soort <- dataset_summary %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_tot, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Totaal meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~jaar, 
+            y = ~aantal_loc_tot, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Beekrombout
+
+```{r}
+
+meetnet_sel <- "Beekrombout"
+
+dataset_soort <- dataset_summary %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_tot, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Totaal meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~jaar, 
+            y = ~aantal_loc_tot, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+
+## Variabele waterjuffer
+
+```{r}
+
+meetnet_sel <- "Variabele waterjuffer"
+
+dataset_soort <- dataset_meetcyclus_summary %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~periode, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~periode, 
+            y = ~aantal_loc_max, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Meetcyclus"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+## Vroege glazenmaker
+
+```{r}
+
+meetnet_sel <- "Vroege glazenmaker"
+
+dataset_soort <- dataset_meetcyclus_summary %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~periode, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~periode, 
+            y = ~aantal_loc_max, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Meetcyclus"),
+         yaxis = list(title = "Getelde aantallen"))
+```
+## Bosbeekjuffer
+
+```{r}
+
+meetnet_sel <- "Bosbeekjuffer"
+
+dataset_soort <- dataset_meetcyclus_summary %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~periode, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~periode, 
+            y = ~aantal_loc_max, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Meetcyclus"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+:::
+
+# Analyse
+
+## Transecttelling
+
+```{r}
+#| label: load-data
+
+name_analysis2 <- "libellen_transecten"
+
+name_analyseset <- str_c("analyseset_", name_analysis2)
+versie <- str_c(name_analysis2, "_2026-02-10")
+
+analyseset_transect <- read_vc(file = name_analyseset,
+                               root = str_c("../output/analyseset/", versie))
+
+```
+
+### Keuze model
+
+Voor variabele waterjuffer, vroege glazenmaker en bosbeekjuffer kiezen we een model met volgende kenmerken:
+
+-   Seizoenseffect
+    -   tweede orde random walk voor dagnummer
+-   Locatie-effect
+    -   random intercept voor locatie
+-   Zoekinspanning: het logaritme van van de transectlengte/50 als offset
+-   Tijdseffect
+    -   Meetcyclus = 3 jaar
+        -   Verschillen tussen meetcycli: meetcyclus als factor (index per meetcyclus)
+        -   Gemiddelde verschil tussen meetcycli: meetcyclus als continue variabele (trend meetcyclus)
+        -   Trend meetcyclus herrekenen naar jaarlijkse trend.
+        
+Voor rivierrombout kiezen we wolgend model
+
+-   We sommeren de aantallen per locatie en per jaar
+-   Locatie-effect
+    -   random intercept voor locatie
+-   Zoekinspanning:
+    -   we nemen de som van de transectlengte voor alle bezoeken binnen een jaar per locatie
+    -   als offset nemen we het logaritme van de gesommeerde transectlengte / 500
+-   Tijdseffect
+    -   Meetcyclus = 1 jaar
+        -   Verschillen tussen de jaren: jaar als eerste orde random walk (index per jaar)
+        -   Gemiddelde jaarlijkse verschil: jaar als continue variabele (trend)
+
+```{r}
+#| label: analysis-jaarmodel
+
+seed <- 15486
+
+analyseset_transect_by_species <- analyseset_transect %>%
+  filter(!meetnet %in% c("Beekrombout", "Rivierrombout")) %>%
+  mutate(log_section_50 = log(lengte_transect/50)) %>%
+  group_by(meetnet) %>%
+  nest() %>%
+  mutate(offset_var = "log_section_50",
+         use_seed = seed,
+         use_meetcyclus = FALSE)
+
+models_inla <- analyseset_transect_by_species %>%
+  mutate(indexmodel = pmap(list(data, offset_var, use_meetcyclus), fit_indexmodel_rw_nbinom_inla),
+         trendmodel = map2(data, offset_var, fit_trendmodel_rw_nbinom_inla))
+
+results_indexmodel <- models_inla %>%
+  transmute(index = pmap(list(data, indexmodel, use_meetcyclus, use_seed), derive_index_rw_inla)) %>%
+  unnest(cols = c(meetnet, index))
+
+results_trendmodel_jaar  <- models_inla %>%
+  transmute(trend = map2(data, trendmodel, derive_trend)) %>%
+  unnest(cols = c(meetnet, trend))
+
+waic_index  <- models_inla %>%
+  transmute(waic_index =  map2(data, indexmodel, get_waic)) %>%
+  select(meetnet, waic_index) %>%
+  unnest() %>%
+  mutate(model = "indexmodel")
+
+waic_trend  <- models_inla %>%
+  transmute(waic_trend =  map2(data, trendmodel, get_waic)) %>%
+  select(meetnet, waic_trend) %>%
+  unnest() %>%
+  mutate(model = "trendmodel")
+
+results_waic <- bind_rows(waic_index, 
+                         waic_trend) %>%
+  spread(key = "model", value = "waic") %>%
+  mutate(diff_waic = trendmodel - indexmodel,
+         type_trend = ifelse(diff_waic > 0,
+                               "Niet lineair",
+                               ifelse(diff_waic > -2,
+                                      "Quasi lineair", "Lineair")))
+
+```
+
+```{r}
+#| label: analysis-rivierrombout
+
+seed <- 1546849
+
+analyseset_rivierrombout <- analyseset_transect %>%
+  filter(meetnet == "Rivierrombout") %>%
+  group_by(meetnet, protocol, locatie, jaar,  soort_nl, soort_wet) %>%
+  summarise(aantal = sum(aantal),
+            lengte_transect = sum(lengte_transect),
+            n_bezoeken = n_distinct(datum)) %>%
+  ungroup() %>%
+  mutate(log_section_500 = log(lengte_transect/500),
+         locatie = as.factor(locatie),
+          jaar_centered = jaar - min(jaar),
+         year_scaled = jaar_centered)
+
+indexmodel_rivierrombout <- inla(aantal ~ f(jaar_centered, model = "rw1", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.3, 0.05)))) +
+                                 f(locatie, model = "iid", 
+                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                              family = "nbinomial",
+                              data = analyseset_rivierrombout,
+                              offset = log_section_500,
+                              control.compute = list(config = TRUE, waic = TRUE),
+                              control.predictor = list(compute = TRUE))
+
+results_indexmodel_rivierrombout <- derive_index_rw_inla(analyseset_species = analyseset_rivierrombout,
+                                           inlamodel_rw = indexmodel_rivierrombout
+                                            )
+
+trendmodel_rivierrombout <- inla(aantal ~ year_scaled +
+                                 f(locatie, model = "iid", 
+                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                              family = "nbinomial",
+                              data = analyseset_rivierrombout,
+                              offset = log_section_500,
+                              control.compute = list(config = TRUE, waic = TRUE),
+                              control.predictor = list(compute = TRUE))
+
+results_trendmodel_rivierrombout <- derive_trend(analyseset_species = analyseset_rivierrombout,
+                                                 trendmodel_nbinom = trendmodel_rivierrombout) %>%
+  mutate(meetnet = "Rivierrombout") %>%
+  select(meetnet, everything())
+
+waic_index  <- get_waic(analyseset_rivierrombout, indexmodel_rivierrombout) %>%
+  select(meetnet = soort_nl, waic) %>%
+  mutate(model = "indexmodel")
+
+waic_trend  <- get_waic(analyseset_rivierrombout, trendmodel_rivierrombout) %>%
+  select(meetnet = soort_nl, waic) %>%
+  mutate(model = "trendmodel")
+
+results_waic_rivierrombout <- bind_rows(waic_index, 
+                         waic_trend) %>%
+  spread(key = "model", value = "waic") %>%
+  mutate(diff_waic = trendmodel - indexmodel,
+         type_trend = ifelse(diff_waic > 0,
+                               "Niet lineair",
+                               ifelse(diff_waic > -2,
+                                      "Quasi lineair", "Lineair")))
+
+```
+
+```{r}
+#| label: analysis-meetcyclusmodel
+
+analyseset_meetcyclus <- analyseset_transect %>%
+  mutate(log_section_50 = log(lengte_transect/50)) %>%
+  filter(duur_meetcyclus > 1) %>%
+  group_by(meetnet, meetcyclus) %>%
+  filter((min(jaar) + duur_meetcyclus - 1) <= max_year) %>%
+  mutate(periode = str_c(min(jaar), "_", min(jaar) + duur_meetcyclus - 1)) %>%
+  ungroup() %>%
+  mutate(locatie = as.factor(locatie),
+         doy_scaled = doy - min(doy))
+
+indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ periode  + 
+                                f(doy_scaled, model = "rw2", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = "iid", 
+                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                              family = "nbinomial",
+                              data = analyseset_meetcyclus %>%
+                                filter(meetnet == "Bosbeekjuffer"),
+                              offset = log_section_50,
+                              control.compute = list(config = TRUE, waic = TRUE),
+                              control.predictor = list(compute = TRUE))
+
+seed <- 551515
+
+index_meetcyclus_bj <- derive_index_meetcyclus_inla(
+  indexmodel_nbinom_inla = indexmodel_doyrw2_iid_meetcyclus,
+  function_eval = function(...) {c(exp(periode2021_2023))},
+  set_seed = seed)
+
+indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ periode  + 
+                                f(doy_scaled, model = "rw2", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = "iid", 
+                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                              family = "nbinomial",
+                              data = analyseset_meetcyclus %>%
+                                filter(meetnet == "Variabele waterjuffer"),
+                              offset = log_section_50,
+                              control.compute = list(config = TRUE, waic = TRUE),
+                              control.predictor = list(compute = TRUE))
+
+index_meetcyclus_vwj <- derive_index_meetcyclus_inla(
+  indexmodel_nbinom_inla = indexmodel_doyrw2_iid_meetcyclus,
+  function_eval = function(...) {c(exp(periode2020_2022), exp(periode2023_2025))},
+  set_seed = seed)
+
+indexmodel_doyrw2_iid_meetcyclus <- inla(aantal ~ periode  + 
+                                f(doy_scaled, model = "rw2", 
+                                  hyper = list(theta = list(prior = "pc.prec", param = c(0.01, 0.05)))) + 
+                                 f(locatie, model = "iid", 
+                                   hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
+                              family = "nbinomial",
+                              data = analyseset_meetcyclus %>%
+                                filter(meetnet == "Vroege glazenmaker"),
+                              offset = log_section_50,
+                              control.compute = list(config = TRUE, waic = TRUE),
+                              control.predictor = list(compute = TRUE))
+
+set.seed(54545)
+
+index_meetcyclus_vg <- derive_index_meetcyclus_inla(
+  indexmodel_nbinom_inla = indexmodel_doyrw2_iid_meetcyclus,
+  function_eval = function(...) {c(exp(periode2020_2022), exp(periode2023_2025))},
+  set_seed = seed)
+
+result_indexmodel_meetcyclus <- index_meetcyclus_bj %>%
+  bind_rows(index_meetcyclus_vwj) %>%
+  bind_rows(index_meetcyclus_vg)
+
+models_trend_meetcyclus <- analyseset_meetcyclus %>%
+  filter(meetnet %in% analyseset_meetcyclus$soort_nl) %>%
+  group_by(meetnet) %>%
+  nest() %>%
+  mutate(offset_var = "log_section_50",
+         use_seed = seed,
+         use_meetcyclus = TRUE) %>%
+  mutate(trendmodel = pmap(list(data, offset_var, use_meetcyclus), fit_trendmodel_rw_nbinom_inla))
+
+results_trendmodel_meetcyclus  <- models_trend_meetcyclus %>%
+  transmute(trend = pmap(list(data, trendmodel, use_meetcyclus), derive_trend)) %>%
+  unnest(cols = c(meetnet, trend))
+
+```
+
+```{r}
+#| label: write-result
+#| output: false
+
+results_indexmodel %>%
+  filter(parameter != "sample_value") %>%
+  write_vc(file = str_c("results_indexmodel_", name_analysis2), 
+        
+         sorting = c("parameter", "soort_nl", "jaar"),
+         strict = FALSE)
+
+result_indexmodel_meetcyclus %>%
+  write_vc(file = str_c("results_indexmodel_meetcyclus_", name_analysis2), 
+         root = "../output/temp", 
+         sorting = c("parameter", "soort_nl", "meetcyclus"),
+         strict = FALSE)
+
+results_indexmodel_rivierrombout %>%
+  filter(parameter != "sample_value") %>%
+  write_vc(file = "results_indexmodel_rivierrombout", 
+         root = "../output/temp", 
+         sorting = c("parameter", "soort_nl", "jaar"),
+         strict = FALSE)
+
+results_trendmodel_jaar %>%
+  write_vc(file = str_c("results_trendmodel_", name_analysis2), 
+         root = "../output/temp", 
+         sorting = c("parameter", "soort_nl"), strict = FALSE)
+
+results_trendmodel_meetcyclus %>%
+  write_vc(file = str_c("results_trendmodel_meetcyclus_", name_analysis2), 
+         root = "../output/temp", 
+         sorting = c("parameter", "soort_nl"), strict = FALSE)
+
+results_trendmodel_rivierrombout %>%
+  write_vc(file = "results_trendmodel_rivierrombout", 
+         root = "../output/temp", 
+         sorting = c("parameter", "soort_nl"),
+         strict = FALSE)
+
+results_waic %>%
+  write_vc(file = str_c("results_waic_", name_analysis2), 
+         root = "../output/temp", 
+         sorting = c("parameter", "soort_nl"),
+         strict = FALSE)
+
+results_waic_rivierrombout %>%
+  write_vc(file = "results_waic_rivierrombout", 
+         root = "../output/temp", 
+         strict = FALSE)
+
+```
+
+### Validatie model
+
+```{r}
+#| label: validatie
+
+model_validation <- models_inla %>%
+  transmute(dispersion_check_model = map(indexmodel, dispersion_check),
+            distribution_check_model = map(indexmodel, fast_distribution_check),
+            iid_check = map(indexmodel, check_random_effect)
+            )
+
+dispersion <- model_validation %>%
+  transmute(dispersion_data = map(dispersion_check_model, "data"),
+            dispersion_model = map(dispersion_check_model, "model")) %>%
+  select(meetnet, dispersion_data, dispersion_model) %>%
+  unnest(c(dispersion_data, dispersion_model))
+
+distribution <- model_validation %>%
+  select(meetnet, distribution_check_model) %>%
+  unnest(distribution_check_model) %>%
+  filter(lcl < 0.98 & ucl < 1)
+
+iid_checked <- model_validation %>%
+  select(meetnet, iid_check) %>%
+  unnest(iid_check)
+
+```
+
+#### Dispersie
+
+```{r}
+#| label: fig-dispersie
+#| fig-cap: "Dispersie"
+
+ggplot(data = dispersion, aes(x = dispersion_model)) +
+      geom_density() +
+      geom_vline(data = dispersion, aes(xintercept = dispersion_data), linetype = 2) +
+      facet_wrap(~meetnet, scales = "free_x")
+     
+```
+
+#### Distributie
+
+```{r, fig.height= 8}
+
+#| label: fig-distributie
+#| fig-cap: "Distributie"
+
+distribution %>%
+  mutate(
+      median = .data$ecdf / .data$median,
+      lcl = .data$ecdf / .data$lcl,
+      ucl = .data$ecdf / .data$ucl
+    ) %>%
+  ggplot(aes_string(x = "x", y = "median")) +
+   # geom_blank(data = data.frame(x = min(x$x), median = c(0.95, 1.05))) +
+    geom_hline(yintercept = 1, linetype = 2) +
+    geom_line(aes_string(y = "lcl"), linetype = 3, alpha = 0.5) +
+    geom_line(aes_string(y = "ucl"), linetype = 3, alpha = 0.5) +
+    geom_ribbon(alpha = 0.1, aes_string(ymin = "lcl", ymax = "ucl")) +
+    geom_line() +
+    scale_y_continuous("observed / expected", labels = scales::percent) +
+    facet_wrap(~meetnet, scales = "free")
+```
+
+#### Random effect
+
+```{r}
+#| label: fig-random-effect
+#| fig-cap: "Random effect"
+
+iid_checked_plot <- iid_checked %>%
+  group_by(meetnet) %>%
+  mutate(x_c = sim_iid - mean(sim_iid),
+         y = exp(x_c + log(1))) %>%
+  ungroup()
+
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      facet_wrap(~meetnet + sigma_tekst, scales = "free")
+    
+```
+
+## Gebiedstelling
+
+```{r}
+#| label: load-data-gebied
+
+name_analysis1 <- "libellen_gebiedstelling"
+
+name_analyseset <- str_c("analyseset_", name_analysis1)
+versie <- str_c(name_analysis1, "_2026-02-10")
+
+analyseset_gebied <- read_vc(file = name_analyseset,
+                               root = str_c("../output/analyseset/", versie))
+
+```
+
+### Keuze model
+
+We kiezen voor het zelfde model als bij de transecttellingen maar dan zonder offset (geen zoekinspanning bepaald).
+
+```{r}
+#| label: analysis-gebied
+
+seed <- 20211124
+
+set.seed(seed)
+
+analyseset_locations_by_species <- analyseset_gebied %>%
+  group_by(meetnet) %>%
+  nest() %>%
+  mutate(use_seed = seed,
+         use_meetcyclus = FALSE)
+
+models_inla <- analyseset_locations_by_species %>%
+  mutate(indexmodel = map(data, fit_indexmodel_rw_nbinom_inla),
+         trendmodel = map(data, fit_trendmodel_rw_nbinom_inla))
+
+results_indexmodel_gebied <- models_inla %>%
+  transmute(index = pmap(list(data, indexmodel, use_meetcyclus, use_seed), derive_index_rw_inla)) %>%
+  unnest(cols = c(meetnet, index))
+
+results_trendmodel_gebied  <- models_inla %>%
+  transmute(trend = map2(data, trendmodel, derive_trend)) %>%
+  select(meetnet, trend) %>%
+  unnest()
+
+waic_index_gebied  <- models_inla %>%
+  transmute(waic_index =  map2(data, indexmodel, get_waic)) %>%
+  select(meetnet, waic_index) %>%
+  unnest() %>%
+  mutate(model = "indexmodel")
+
+waic_trend_gebied  <- models_inla %>%
+  transmute(waic_trend =  map2(data, trendmodel, get_waic)) %>%
+  select(meetnet, waic_trend) %>%
+  unnest() %>%
+  mutate(model = "trendmodel")
+
+results_waic_gebied <- bind_rows(waic_index_gebied, 
+                         waic_trend_gebied) %>%
+  spread(key = "model", value = "waic") %>%
+  mutate(diff_waic = trendmodel - indexmodel,
+         type_trend = ifelse(diff_waic > 0,
+                               "Niet lineair",
+                               ifelse(diff_waic > -2,
+                                      "Quasi lineair", "Lineair")))
+```
+
+```{r}
+#| label: results-gebied
+#| output: false
+
+results_indexmodel_gebied %>%
+  filter(parameter != "sample_vaue") %>%
+  write_vc(file = str_c("results_indexmodel_", name_analysis1), 
+         root = "../output/temp", 
+         sorting = c("parameter", "soort_nl", "jaar"),
+         strict = FALSE)
+
+results_trendmodel_gebied %>%
+  write_vc(file = str_c("results_trendmodel_", name_analysis1), 
+         root = "../output/temp", 
+         sorting = c("parameter", "soort_nl"), strict = FALSE)
+
+results_waic_gebied %>%
+  write_vc(file = str_c("results_waic_", name_analysis1), 
+         root = "../output/temp", 
+         sorting = c("parameter", "soort_nl"),
+         strict = FALSE)
+
+```
+
+### Validatie
+
+```{r}
+#| label: validatie-gebied
+
+model_validation <- models_inla %>%
+  transmute(dispersion_check_model = map(indexmodel, dispersion_check),
+            distribution_check_model = map(indexmodel, fast_distribution_check),
+            iid_check = map(indexmodel, check_random_effect)
+            )
+
+dispersion <- model_validation %>%
+  transmute(dispersion_data = map(dispersion_check_model, "data"),
+            dispersion_model = map(dispersion_check_model, "model")) %>%
+  select(meetnet, dispersion_data, dispersion_model) %>%
+  unnest(c(dispersion_data, dispersion_model))
+
+distribution <- model_validation %>%
+  select(meetnet, distribution_check_model) %>%
+  unnest(distribution_check_model) %>%
+  filter(lcl < 0.98 & ucl < 1)
+
+iid_checked <- model_validation %>%
+  select(meetnet, iid_check) %>%
+  unnest(iid_check)
+
+```
+
+#### Dispersie
+
+```{r}
+#| label: fig-dispersie-gebied
+#| fig-cap: Dispersie
+
+ggplot(data = dispersion, aes(x = dispersion_model)) +
+      geom_density() +
+      geom_vline(data = dispersion, aes(xintercept = dispersion_data), linetype = 2) +
+      facet_wrap(~meetnet, scales = "free_x")
+
+```
+
+#### Distributie
+
+```{r}
+#| label: fig-distributie-gebied
+#| fig-cap: Distributie
+
+distribution %>%
+  mutate(
+      median = .data$ecdf / .data$median,
+      lcl = .data$ecdf / .data$lcl,
+      ucl = .data$ecdf / .data$ucl
+    ) %>%
+  ggplot(aes_string(x = "x", y = "median")) +
+   # geom_blank(data = data.frame(x = min(x$x), median = c(0.95, 1.05))) +
+    geom_hline(yintercept = 1, linetype = 2) +
+    geom_line(aes_string(y = "lcl"), linetype = 3, alpha = 0.5) +
+    geom_line(aes_string(y = "ucl"), linetype = 3, alpha = 0.5) +
+    geom_ribbon(alpha = 0.1, aes_string(ymin = "lcl", ymax = "ucl")) +
+    geom_line() +
+    scale_y_continuous("observed / expected", labels = scales::percent) +
+    facet_wrap(~meetnet, scales = "free")
+```
+
+#### Random effect
+
+```{r}
+#| label: fig-randomeffect-gebied
+#| fig-cap: Random effect
+
+iid_checked_plot <- iid_checked %>%
+  group_by(meetnet) %>%
+  mutate(x_c = sim_iid - mean(sim_iid),
+         y = exp(x_c + log(1))) %>%
+  ungroup()
+
+iid_checked_plot %>%
+  mutate(sigma_tekst = str_c("sigma = ", round(sigma, 3))) %>%
+  ggplot(aes(x = y)) +
+      geom_density() +
+      scale_x_continuous("relative effect", labels = scales::percent) +
+      facet_wrap(~meetnet + sigma_tekst, scales = "free")
+    
+```
+
+## Resultaten
+
+### Vergelijking tussen de jaren
+
+```{r}
+#| label: results-jaar-ref
+
+results_indexmodel_all <- bind_rows( results_indexmodel_gebied, 
+                                results_indexmodel_rivierrombout)
+
+verschil_jaren_ref <- results_indexmodel_all %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown"))
+  
+verschil_jaren_ref_add <- verschil_jaren_ref %>%
+  distinct(soort_nl, soort_wet, ref_jaar) %>%
+  mutate(jaar = ref_jaar,
+        mean = 1,
+         klasse = "R") 
+
+verschil_jaren_ref <- verschil_jaren_ref %>%
+  bind_rows(verschil_jaren_ref_add) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+  
+```
+
+```{r}
+#| label: fig-jaar
+#| fig-cap: Verschillen t.o.v. referentiejaar
+#| fig-height: 9
+
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500), " %")
+
+verschil_jaren_ref %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 6, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiejaar", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide") +
+  facet_wrap(~soort_nl, scales = "free_y") +
+  scale_x_continuous(breaks = c(2016, 2019, 2022, 2025))
+
+ggsave("../output/libellen_index.png",
+       width = 9,
+       height = 6)
+```
+
+```{r}
+#| eval: FALSE
+#| label: fig-jaar-english
+#| fig-cap: Verschillen t.o.v. referentiejaar
+#| fig-height: 9
+
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
+
+breaks_log <- log(c(0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.33, 2, 3, 6, 19)) + 1
+labels_show <- str_c(c(-99, -90, -75, -50, -25, 0, 33, 100, 200, 500, 2000), " %")
+
+verschil_jaren_ref %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 6, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Difference to reference year ", x = "Year") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  scale_x_continuous(breaks = c(2016, 2019, 2022, 2025)) +
+  theme(legend.position = "hide", strip.text = element_text(face = "italic")) +
+  facet_wrap(~soort_wet, scales = "free_y")
+
+ggsave("../output/libellen_index_engels.png",
+       width = 9,
+       height = 7)
+```
+
+```{r}
+#| eval: FALSE
+#| label: fig-jaar-english2
+#| fig-cap: Verschillen t.o.v. referentiejaar
+#| fig-height: 9
+
+verschil_jaren_ref %>%
+  mutate(lcl_0.90_log = ifelse(is.na(lcl_0.90_log), 1, lcl_0.90_log),
+         ucl_0.90_log = ifelse(is.na(ucl_0.90_log), 1, ucl_0.90_log)) %>%
+  ggplot(aes(x = jaar, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log)) +
+  geom_line(alpha = 0.6, size = 1) +
+  geom_ribbon(alpha = 0.2) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  labs(y = "Difference to reference year ", x = "Year") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  scale_x_continuous(breaks = c(2016, 2019, 2022, 2025)) +
+  theme(legend.position = "hide", strip.text = element_text(face = "italic")) +
+  facet_wrap(~soort_wet, scales = "free_y")
+
+ggsave("../output/libellen_index_engels2.png",
+       width = 9,
+       height = 6)
+```
+
+```{r}
+#| label: results-jaar-previous
+
+verschil_vorigjaar <- results_indexmodel_all %>%
+  filter(parameter == "diff_previous_year") %>%
+  mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+  
+```
+
+```{r}
+#| label: fig-jaar-previous
+#| fig-cap: Verschil t.o.v. vorig jaar
+
+verschil_vorigjaar %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = periode, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 6, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil opeenvolgende jarenr", x = "Jaar") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide",
+        axis.text.x = element_text(angle = 45)) +
+  facet_wrap(~soort_nl, scales = "free_y")
+```
+
+### Vergelijking tussen de meetcycli
+
+```{r}
+#| label: results-meetcyclus
+
+verschil_meetcyclus <- result_indexmodel_meetcyclus %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  mutate(mean_log = log(mean) + 1,
+         lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+verschil_meetcyclus_add <- verschil_meetcyclus %>%
+  distinct(soort_nl, soort_wet) %>%
+  mutate(klasse = "R",
+         periode = ifelse(soort_nl == "Bosbeekjuffer", "2018 - 2020", "2017-2019"),
+         mean = 0,
+         mean_log = 1)
+
+verschil_meetcyclus <- verschil_meetcyclus %>%
+  bind_rows(verschil_meetcyclus_add)
+```
+
+```{r}
+#| label: fig-results-meetcyclus
+#| fig-cap: Verschil t.o.v. referntiemeetcyclus
+
+verschil_meetcyclus %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = periode, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Verschil t.o.v. referentiemeetcyclus", x = "Meetcyclus") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide", 
+        axis.text.x = element_text(angle = 45)) +
+  facet_wrap(~soort_nl, scales = "free")
+```
+```{r}
+#| label: fig-results-meetcyclus-eng
+#| fig-cap: Verschil t.o.v. referntiemeetcyclus
+#| eval: FALSE
+
+verschil_meetcyclus %>%
+  mutate(klasse = str_remove_all(klasse, "`")) %>%
+  ggplot(aes(x = periode, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Difference to ref. monitoring cycle", x = "Monitoring cycle") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide", 
+        axis.text.x = element_text(angle = 45), strip.text = element_text(face = "italic")) +
+  facet_wrap(~soort_wet, scales = "free")
+
+ggsave("../output/libellen_index_meetcyclus_engels.png",
+       width = 7,
+       height = 3.5)
+```
+
+
+```{r}
+#| label: fig-results-meetcyclus-eng2
+#| fig-cap: Verschil t.o.v. referntiemeetcyclus
+#| eval: FALSE
+
+verschil_meetcyclus %>%
+  mutate(lcl_0.90_log = ifelse(is.na(lcl_0.90_log), 1, lcl_0.90_log),
+         ucl_0.90_log = ifelse(is.na(ucl_0.90_log), 1, ucl_0.90_log)) %>%
+  ggplot(aes(x = periode, y = mean_log, group = soort_wet, ymin = lcl_0.90_log, ymax = ucl_0.90_log)) +
+  geom_line(alpha = 0.6, size = 1) +
+  geom_ribbon(alpha = 0.2) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+  geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+  labs(y = "Difference to ref. monitoring cycle", x = "Monitoring cycle") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+  theme(legend.position = "hide", 
+        axis.text.x = element_text(angle = 45), strip.text = element_text(face = "italic")) +
+  facet_wrap(~soort_wet, scales = "free")
+
+ggsave("../output/libellen_index_meetcyclus_engels2.png",
+       width = 7,
+       height = 3.5)
+```
+
+### Trends
+
+```{r}
+#| label: results-trend
+
+results_trendmodel_all <- bind_rows(results_trendmodel_jaar %>%
+                                      filter(!soort_nl %in% c("Variabele waterjuffer", "Vroege glazenmaker", "Bosbeekjuffer")),
+                                    results_trendmodel_meetcyclus,
+                                    results_trendmodel_gebied,
+                                    results_trendmodel_rivierrombout)
+
+klasse_color <- c("++" = inbo_groen, "+" = inbo_groen, "--" = inbo_rood, "-" = inbo_rood, "?+" = inbo_grijsblauw, "?-" = inbo_grijsblauw, "?" = inbo_grijsblauw, "~" = inbo_geelgr, "+~" = inbo_groen, "-~" = inbo_rood, "R" = inbo_grijsblauw)
+
+trend <- results_trendmodel_all %>%
+  filter(parameter %in% c("trend_average", "trend_jaar")) %>%
+  mutate(mean_log = log(mean/100 + 1),
+          lcl_0.90_log = log(lcl_0.90/100 + 1),
+         ucl_0.90_log = log(ucl_0.90/100 + 1)) %>%
+  mutate(n_jaar = 6,
+         treshold_low = round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
+         treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1)) %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0)) 
+
+```
+
+```{r}
+#| label: fig-results-trend
+#| fig-cap: Schatting en classificatie van trends voor de verschillende soorten met 90%-betrouwbaarheidsinterval
+
+volgorde_soorten <- (trend %>%
+  arrange(mean))$meetnet
+
+breaks_log <- log(c(-50, -25, 0, 33, 100)/100 + 1)
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+trend %>%
+  mutate(meetnet = factor(meetnet, levels = volgorde_soorten)) %>%
+  ggplot( aes(x = meetnet, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_hline(aes(yintercept = max(log(treshold_low/100 +1))), linetype = 3, alpha = 0.8) +
+  geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3, alpha = 0.8) +
+  geom_hline(yintercept = 0, linetype = 2, alpha = 0.8) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Gemiddelde jaarlijkse trend (%)", x = "Soort") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show, limits = c(min(breaks_log), max(breaks_log))) +
+  coord_flip() +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+ggsave("../output/libellen_trend.png",
+       width = 5,
+       height = 3.5)
+```
+
+```{r}
+#| label: fig-results-trend-eng
+#| fig-cap: Schatting en classificatie van trends voor de verschillende soorten met 90%-betrouwbaarheidsinterval
+#| eval: false
+
+volgorde_soorten <- (trend %>%
+  arrange(mean))$soort_wet
+
+breaks_log <- log(c(-50, -25, 0, 33, 100)/100 + 1)
+labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+
+trend %>%
+  mutate(soort_wet = factor(soort_wet, levels = volgorde_soorten)) %>%
+  ggplot( aes(x = soort_wet, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_hline(aes(yintercept = max(log(treshold_low/100 +1))), linetype = 3, alpha = 0.8) +
+  geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3, alpha = 0.8) +
+  geom_hline(yintercept = 0, linetype = 2, alpha = 0.8) +
+  geom_errorbar(width = 0, size = 10, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Mean yearly trend (%)", x = "Species") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show, limits = c(min(breaks_log), max(breaks_log))) +
+  coord_flip() +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide", axis.text.y = element_text(face = "italic"))
+
+ggsave("../output/libellen_trend_eng.png",
+       width = 6,
+       height = 4)
+```
+
+```{r}
+
+names_analysis <- c(name_analysis1, name_analysis2, "rivierrombout")
+
+mypath <- "../output/temp"
+
+hashes <-
+    tibble(filepath = str_c(mypath, "/",
+        list.files(path = mypath,
+            recursive = TRUE)
+      )) %>%
+    mutate(version = Sys.Date(),
+           filename = str_match(filepath, "(.+\\/)*(.+)")[,3],
+           name_analysis = str_extract(filename, str_c(names_analysis, collapse =  "|")),
+           md5 = map(filepath, function(x) {
+                           file(x) %>% md5 %>% str_c(collapse = '')
+                         }) %>% as.character,
+           sha256 = map(filepath, function(x) {
+                          file(x) %>% sha256 %>% str_c(collapse = '')
+                          }) %>% as.character
+           ) %>%
+    select(name_analysis,
+           version,
+           filename,
+           md5,
+           sha256) %>%
+  filter(str_detect(filename, "result"))
+
+file_name <- "../output/analysis_hashes.tsv"
+
+if (!file.exists(file_name)) {
+  
+  new_analysis <- TRUE
+  
+  analysis_hashes <- hashes
+  
+  hashes_new <- analysis_hashes
+
+} else {
+  
+  analysis_hashes <- read_vc(file = "analysis_hashes", root = "../output")
+  
+  hashes_new <- hashes %>%
+    anti_join(analysis_hashes, by = c("name_analysis", "filename", "md5", "sha256"))
+  
+  new_analysis <- nrow(hashes_new) > 0
+  
+  analysis_hashes <- bind_rows(analysis_hashes,
+                               hashes)
+  
+  names_analysis <- unique(hashes_new$name_analysis) 
+  
+}
+
+if (new_analysis) {
+  
+  for (i in 1:nrow(hashes_new)) {
+    
+     path_to <- str_c("../output/results/", hashes_new$name_analysis[i], "_", hashes_new$version[i])
+     
+     if (!dir.exists(path_to)) {
+       
+     dir.create(path_to)
+       
+     }
+       
+       file.copy(from = str_c(mypath,"/", hashes_new$filename[i]), 
+                 to = str_c(path_to, "/", hashes_new$filename[i]), 
+                 overwrite = TRUE)
+
+  }
+  
+     analysis_hashes %>%
+       write_vc(file = "analysis_hashes", root = "../output", sorting = c("name_analysis", "version", "filename"), strict = FALSE)
+}
+
+
+```
+
+```{r}
+#| eval: false
+
+read_vc(file = "analysis_hashes", root = "../output") %>%
+  datatable(rownames = FALSE)
+```
+
+## Gebruikte functies
+
+-   fit_indexmodel_rw_nbinom_inla
+
+```{r}
+fit_indexmodel_rw_nbinom_inla
+```
+
+-   fit_trendmodel_rw_nbinom_inla
+
+```{r}
+fit_trendmodel_rw_nbinom_inla
+```
+
+-   derive_index_rw_sample
+
+```{r}
+derive_index_rw_sample
+```
+
+-   derive_index_rw_inla
+
+```{r}
+derive_index_rw_inla
+```
+
+-   derive_trend
+
+```{r}
+derive_trend
+```
+
+
