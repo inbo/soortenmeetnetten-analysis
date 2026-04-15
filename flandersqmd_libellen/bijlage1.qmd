@@ -1,0 +1,108 @@
+# Bijlage: beschrijving van de analyse {#sec-bijlage-1}
+
+## Selectie van gegevens voor de analyse 
+
+De gegevens die we gebruiken voor de analyse moeten aan volgende voorwaarden voldoen:
+
++ de gegevens zijn afkomstig van tellocaties waar de doelsoort van het meetnet al minstens tijdens één bezoek werd waargenomen (locaties met enkel nulwaarnemingen zijn niet relevant voor het bepalen van trends of verschillen tussen de jaren);
+
++ de gegevens werden ingezameld volgens het veldwerkprotocol.
+
+In een aantal meetnetlocaties is de doelsoort in de loop van het meetnet verdwenen.
+Een deel van deze meetnetlocaties wordt daarom niet meer geteld en op inactief gezet in het meetnetten-portaal.
+Als dat het geval is, voegen we nulwaarnemingen toe aan de gegevensset voor alle jaren dat de locatie op inactief staat.
+Dit is nodig om op een correcte manier de trend te schatten.
+
+## Model voor verschillen tussen de jaren
+
+Via een statistisch model analyseren we de getelde aantallen als functie van het jaar en het dagnummer.
+Op die manier krijgen we een schatting per jaar en houden we ook rekening met het seizoenseffect op de getelde aantallen.
+We voegen ook een locatie-effect toe aan het model onder de vorm van een *random intercept*.
+Hiermee geven we aan dat tellingen op eenzelfde locatie gecorreleerd zijn. 
+
+Op basis van dit model maken we een schatting van de jaarlijkse index.
+Dit is het procentueel verschil in aantallen tussen een bepaald jaar en een referentiejaar.
+Daarnaast maken we ook een schatting van het relatief verschil tussen opeenvolgende jaren.
+
+We maken gebruik van een generalised linear mixed model (GLMM), waarbij we aannemen dat het getelde aantal $C_{ldj}$ op locatie $l$, dag $d$ en jaar $j$ een negatief binomiale distributie volgt met gemiddelde $\mu_{ldj}$ en overdispersie parameter $k$.
+
+$$C_{ldj} \sim {NB}(\mu_{ldj}, k)$$
+
+$$\operatorname{E}[C_{ldj}]=\mu_{ldj}$$
+$$\operatorname{var}(C_{ldj})=\mu_{ldj}+\frac{\mu_{ldj}^2}{k}$$
+
+We maken gebruik van  onderstaande link functie.
+
+$$\log(\mu_{ldj}) = \eta_{ldj}$$
+De lineaire predictor $\log(\mu_{ldj})$ hangt af van volgende termen:
+
++ $b_{l}$: een random intercept voor locatie $l$.
+Het volgt een normale distributie met gemiddelde 0 en variantie $\sigma_{l}^2$.
+
++ $b_{d}$ het effect van jaar $d$. Dit effect modelleert een tweede orde random walk.
+Het tweede orde verschil $\Delta^2 b_d=b_d - 2b_{d-1} + b_{d-2}$ volgt een normale verdeling met gemiddelde 0 en variantie $\sigma_{d}^2$.
+
++ $b_{j}$ het effect van jaar $j$. Dit effect modelleert een eerste orde random walk.
+Het verschil tussen twee opeenvolgende jaren $\Delta b_j=b_j - b_{j-1}$ volgt een normale verdeling met gemiddelde 0 en variantie $\sigma_{j}^2$.
+
+$$\eta_{ldj}= \beta_{0} + b_{l} + b_{d} + b_{j}$$
+
+$$b_{l} \sim {N(0,\sigma_{l}^2)} $$
+
+$$\Delta^2 b_d \sim {N(0,\sigma_{d}^2)} $$
+$$\Delta b_j \sim {N(0,\sigma_{j}^2)} $$
+
+## Model voor verschillen tussen de meetcycli
+
+Voor de meetnetten meet een driejaarlijkse meetcyclus (bosbeekjuffer, vroege glazenmaker en variabele waterjuffer) fitten we een model om de verschillen tussen de meetcycli te schatten.
+
+Omdat deze meetnetten gebruik maken van transecttellingen, moeten het model ook rekening houden met de transectlengte. 
+De transectlengte heeft immers invloed op de zoekinspanning en dus ook op de getelde aantallen.
+Dit doen we door de transectlengte (in meter) gedeeld door 50 als *offset* toe te voegen aan het model.
+Hierdoor worden de resultaten uitgedrukt als (verschil in) aantallen per 50 meter transectlengte.
+
+Verder is het model analoog aan het model voor het verschillen tussen de jaren.
+Het enige verschil is dat we gebruik maken van $\beta_{m}M_{m}$, het effect van meetcyclus $m$, i.p.v. het jaareffect $b_{j}$.
+
+We krijgen dan:
+
+$$\eta_{lcm}= \beta_{0} + \beta_{m}M_{m} + b_{l} + b_{d}$$
+
+$$b_{l} \sim {N(0,\sigma_{l}^2)} $$
+
+$$\Delta^2 b_d \sim {N(0,\sigma_{d}^2)} $$
+
+## Model voor jaarlijkse trend
+
+Om de lineaire trend te schatten gebruiken we jaar als continue variabele $J$. Verder is het model identiek aan het eerder beschreven model voor verschillen tussen de jaren. 
+
+Dit model gebruiken we voor volgende schattingen:
+
+* gemiddelde jaarlijkse lineaire trend in aantallen, m.a.w. de percentage vooruitgang of achteruitgang per jaar;
+
+* totale trend in aantallen over de volledige periode, m.a.w. de percentage vooruitgang of achteruitgang over de hele periode. 
+
+We krijgen dus:
+
+$$\eta_{ldj}= \beta_{0} + \beta_{1}J +  b_{l} +  b_{d}$$
+
+waarbij $e^{\beta_1}$ de relatieve trend weergeeft.
+
+## Modellen voor rivierrombout
+
+Bij rivierrombout worden de getelde larvenhuidjes bij elk bezoek weggenomen en is het totaal van de getelde larvenhuidjes over alle bezoeken binnen een jaar een proxy voor de lokale populatiegrootte.
+Het model voor rivierrombout maakt daarom gebruik van de totale getelde aantallen per jaar en per locatie.
+We houden ook rekening met de zoekinspanning door de som van de transectlengte (voor alle bezoeken binnen een jaar aan een locatie) gedeeld door 500 als offset toe te voegen aan het model.
+
+De gebruikte modellen voor rivierrombout zijn verder identiek aan het model voor de verschillen tussen de jaren en het model voor de jaarlijkse trend, maar dan zonder het seizoenseffect $b_{d}$.
+
+# Bijlage: Reproduceerbaarheid van de analyses {#sec-bijlage-r}
+
+De analyses werden uitgevoerd via de programmeertaal R [@R]. De R-scripts staan onder versiebeheer via volgende GitHub repository: [inbo/soortenmeetnetten-analysis](https://github.com/inbo/soortenmeetnetten-analysis) en zijn publiek toegankelijk.
+
+Meer specifiek gebeuren de analyses voor de libellenmeetnetten via de scripts in de folder [inbo/soortenmeetnetten-analysis/analysis_amfibien/source (commit 8043773)](https://github.com/inbo/soortenmeetnetten-analysis/tree/8043773448933ef1b875e734c5efd8c7cf1aa586/analysis_amfibieen/source).
+
+De analyseresultaten zijn terug te vinden in de folder [inbo/soortenmeetnetten-analysis/analysis_amfibien/output/results (commit 8043773)](https://github.com/inbo/soortenmeetnetten-analysis/tree/8043773448933ef1b875e734c5efd8c7cf1aa586/analysis_amfibieen/output/results)
+
+De ruwe data die we gebruiken voor de analyse zijn niet publiek beschikbaar omdat het om gevoelige data gaat.
+De ruwe data zijn wel beschikbaar via [deze Google Drive folder](https://drive.google.com/drive/folders/17pNKbLcSZxPd6BjNaGEfhjOQG2iZgC9J), die enkel toegankelijk is op verzoek.

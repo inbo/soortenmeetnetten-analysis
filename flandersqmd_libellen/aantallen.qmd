@@ -24,11 +24,14 @@ library(DT)
 library(plotly)
 library(effectclass)
 library(htmltools)
+library(knitr)
 
 source("../source/functions_smp.R")
 
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(plotly::layout)
+
+html_output <- is_html_output()
 ```
 
 In dit onderdeel geven we een overzicht van de getelde aantallen.
@@ -75,7 +78,7 @@ counts_all <- read_vc(file = "counts_all",
 #| message: false
 
 libellen_taxonomy <- get_taxonomy_smp() %>%
-  select(genus, meetnet = soort_nl, soort_wet, species_order)
+  select(soort_wet, species_order)
 
 periodes <- dataset %>%
   distinct(meetnet, jaar, periode)
@@ -103,7 +106,8 @@ summary_verspreiding_periode <- counts_all %>%
 
 summary_table <- summary_counts_periode %>%
   left_join(summary_verspreiding_periode, by = c("meetnet", "primaire_soort", "periode", "soort_nl", "soort_wet")) %>%
-  arrange(soort_nl, periode)
+  left_join(libellen_taxonomy, by = "soort_wet") %>%
+  arrange(species_order, periode)
   
 summary_table_sec <- counts_all %>%
   filter(!primaire_soort) %>%
@@ -128,6 +132,7 @@ summary_year_sec <- counts_all %>%
   ungroup() %>%
   mutate(prop_aanwezig = round(n_aanwezig/n_locaties_secundair * 100, 1),
          aantal_mean = round(aantal_tot/n_tellingen_secundair, 1))
+
 ```
 
 ## Aantallen voor de prioritaire soorten 
@@ -143,7 +148,7 @@ De @tbl-aantaltot toont per soort en per jaar:
 
 ```{r}
 #| label: tbl-aantaltot
-#| tbl-cap: "Overzicht getelde aantallen voor de prioritaire soorten (Totaal = totaal aantal getelde individuen, Gemiddeld = gemiddeld aantal getelde individuen per bezoek, Locaties = aantal meetnetlocaties waar de soort werd waargenomen, Proportie = proportie van de bezochte meetnetlocaties waar de soort werd waargenomen)"
+#| tbl-cap: "Overzicht getelde aantallen voor de prioritaire soorten (Totaal = totaal aantal getelde individuen, Gemiddeld = gemiddeld aantal getelde individuen per bezoek, Locaties = aantal meetnetlocaties waar de soort werd waargenomen)"
 
 summary_table %>% 
   filter(!is.na(soort_nl)) %>%
@@ -151,15 +156,16 @@ summary_table %>%
   filter(periode != "2024-2026") %>%
   filter(primaire_soort) %>%
   mutate(soort_nl = factor(soort_nl)) %>%
-  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet,  Jaar = periode, "Totaal" = aantal_tot, "Gemiddeld" = aantal_mean, "Locaties" = n_aanwezig, "Proportie aanwezig (%)" = prop_aanwezig) %>%
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet,  Jaar = periode, "Totaal" = aantal_tot, "Gemiddeld" = aantal_mean, "Locaties" = n_aanwezig) %>%
   kbl(booktabs = TRUE,
       longtable = TRUE,
       align = "llccccc") %>%
   kable_styling(bootstrap_options = c( "condensed"),
+                font_size = ifelse(is_html_output(), 11, 9),
                 latex_options = c("scale_down", "repeat_header"),
                 repeat_header_text = "(vervolg)") %>%
   column_spec(2, italic = TRUE) %>%
-  collapse_rows(c(1,2, 3), target = 1, valign = "top", latex_hline = "major") %>%
+  collapse_rows(c(1,2), valign = "top", latex_hline = "major") %>%
   scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
 ```
 
@@ -175,7 +181,7 @@ summary_counts_type <- counts_all_details %>%
   filter(!is.na(primaire_soort)) %>%
   inner_join(periodes, by = c("meetnet", "jaar")) %>%
   mutate(soort_nl = factor(soort_nl)) %>%
-  left_join(select(libellen_taxonomy, meetnet, species_order), by = "meetnet")  %>%
+  left_join(libellen_taxonomy, by = "soort_wet")  %>%
   arrange(species_order, periode, type_waarneming) %>%
   group_by(meetnet, soort_nl, type_waarneming) %>%
   mutate(totaal_type = sum(aantal)) %>%
@@ -238,14 +244,13 @@ Voor rivierrombout en beekrombout tonen we:
 
 ::: {.panel-tabset}
 
-#### Maanwaterjuffer
+#### Bosbeekjuffer
 
-```{r}
-#| label: mj
+```{r, eval = html_output}
 
-meetnet_sel <- "Maanwaterjuffer"
+meetnet_sel <- "Bosbeekjuffer"
 
-dataset_soort <- dataset_summary %>%
+dataset_soort <- dataset_meetcyclus_summary %>%
   filter(meetnet == meetnet_sel)
 
 data_shared_soort <- SharedData$new(dataset_soort)
@@ -254,22 +259,22 @@ bscols(widths = c(6, NA),
 filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
 )
 
-plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
+plot_ly(data_shared_soort, x = ~periode, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
         mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
-  add_trace(data = data_shared_soort, x = ~jaar, 
+  add_trace(data = data_shared_soort, x = ~periode, 
             y = ~aantal_loc_max, color = ~locatie, 
             mode = "lines+markers",
             name = ~locatie,
             line = list(width = 1, dash = "dash")) %>%
   layout(title = meetnet_sel,
-         xaxis = list(title = "Jaar"),
+         xaxis = list(title = "Meetcyclus"),
          yaxis = list(title = "Getelde aantallen"))
 
 ```
 
 #### Speerwaterjuffer
 
-```{r}
+```{r, eval = html_output}
 
 meetnet_sel <- "Speerwaterjuffer"
 
@@ -295,11 +300,95 @@ plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_max, color = "black",
 
 ```
 
-#### Kempense heidelibel
+#### Maanwaterjuffer
 
-```{r}
+```{r, eval = html_output}
+#| label: mj
 
-meetnet_sel <- "Kempense heidelibel"
+meetnet_sel <- "Maanwaterjuffer"
+
+dataset_soort <- dataset_summary %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+show_filter <- bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~jaar, 
+            y = ~aantal_loc_max, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Getelde aantallen"))
+
+```
+
+#### Variabele waterjuffer
+
+```{r, eval = html_output}
+
+meetnet_sel <- "Variabele waterjuffer"
+
+dataset_soort <- dataset_meetcyclus_summary %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+bscols(widths = c(6, NA),
+filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+)
+
+plot_ly(data_shared_soort, x = ~periode, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+  add_trace(data = data_shared_soort, x = ~periode, 
+            y = ~aantal_loc_max, color = ~locatie, 
+            mode = "lines+markers",
+            name = ~locatie,
+            line = list(width = 1, dash = "dash")) %>%
+  layout(title = meetnet_sel,
+         xaxis = list(title = "Meetcyclus"),
+         yaxis = list(title = "Getelde aantallen"))
+```
+
+#### Vroege glazenmaker
+
+```{r, eval = html_output}
+
+meetnet_sel <- "Vroege glazenmaker"
+
+dataset_soort <- dataset_meetcyclus_summary %>%
+  filter(meetnet == meetnet_sel)
+
+data_shared_soort <- SharedData$new(dataset_soort)
+
+  bscols(widths = c(6, NA),
+       filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
+       )
+  
+  plot_ly(data_shared_soort, x = ~periode, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
+    add_trace(data = data_shared_soort, x = ~periode, 
+              y = ~aantal_loc_max, color = ~locatie, 
+              mode = "lines+markers",
+              name = ~locatie,
+              line = list(width = 1, dash = "dash")) %>%
+    layout(title = meetnet_sel,
+           xaxis = list(title = "Meetcyclus"),
+           yaxis = list(title = "Getelde aantallen"))
+
+```
+
+#### Rivierrombout
+
+```{r, eval = html_output}
+
+meetnet_sel <- "Rivierrombout"
 
 dataset_soort <- dataset_summary %>%
   filter(meetnet == meetnet_sel)
@@ -323,11 +412,11 @@ plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_max, color = "black",
 
 ```
 
-#### Gevlekte witsnuitlibel
+#### Beekrombout
 
-```{r}
+```{r, eval = html_output}
 
-meetnet_sel <- "Gevlekte witsnuitlibel"
+meetnet_sel <- "Beekrombout"
 
 dataset_soort <- dataset_summary %>%
   filter(meetnet == meetnet_sel)
@@ -353,7 +442,7 @@ plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_max, color = "black",
 
 #### Sierlijke witsnuitlibel
 
-```{r}
+```{r, eval = html_output}
 
 meetnet_sel <- "Sierlijke witsnuitlibel"
 
@@ -379,39 +468,11 @@ plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_max, color = "black",
 
 ```
 
-#### Rivierrombout
+#### Gevlekte witsnuitlibel
 
-```{r}
+```{r, eval = html_output}
 
-meetnet_sel <- "Rivierrombout"
-
-dataset_soort <- dataset_summary %>%
-  filter(meetnet == meetnet_sel)
-
-data_shared_soort <- SharedData$new(dataset_soort)
-
-bscols(widths = c(6, NA),
-filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
-)
-
-plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_tot, color = "black", type = 'scatter',
-        mode = "lines+markers", line = list(width = 4), name = "Totaal meetnet") %>%
-  add_trace(data = data_shared_soort, x = ~jaar, 
-            y = ~aantal_loc_tot, color = ~locatie, 
-            mode = "lines+markers",
-            name = ~locatie,
-            line = list(width = 1, dash = "dash")) %>%
-  layout(title = meetnet_sel,
-         xaxis = list(title = "Jaar"),
-         yaxis = list(title = "Getelde aantallen"))
-
-```
-
-#### Beekrombout
-
-```{r}
-
-meetnet_sel <- "Beekrombout"
+meetnet_sel <- "Gevlekte witsnuitlibel"
 
 dataset_soort <- dataset_summary %>%
   filter(meetnet == meetnet_sel)
@@ -422,10 +483,10 @@ bscols(widths = c(6, NA),
 filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
 )
 
-plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_tot, color = "black", type = 'scatter',
-        mode = "lines+markers", line = list(width = 4), name = "Totaal meetnet") %>%
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
+        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
   add_trace(data = data_shared_soort, x = ~jaar, 
-            y = ~aantal_loc_tot, color = ~locatie, 
+            y = ~aantal_loc_max, color = ~locatie, 
             mode = "lines+markers",
             name = ~locatie,
             line = list(width = 1, dash = "dash")) %>%
@@ -435,14 +496,13 @@ plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_tot, color = "black",
 
 ```
 
+#### Kempense heidelibel
 
-#### Variabele waterjuffer
+```{r, eval = html_output}
 
-```{r}
+meetnet_sel <- "Kempense heidelibel"
 
-meetnet_sel <- "Variabele waterjuffer"
-
-dataset_soort <- dataset_meetcyclus_summary %>%
+dataset_soort <- dataset_summary %>%
   filter(meetnet == meetnet_sel)
 
 data_shared_soort <- SharedData$new(dataset_soort)
@@ -451,72 +511,19 @@ bscols(widths = c(6, NA),
 filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
 )
 
-plot_ly(data_shared_soort, x = ~periode, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
+plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
         mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
-  add_trace(data = data_shared_soort, x = ~periode, 
+  add_trace(data = data_shared_soort, x = ~jaar, 
             y = ~aantal_loc_max, color = ~locatie, 
             mode = "lines+markers",
             name = ~locatie,
             line = list(width = 1, dash = "dash")) %>%
   layout(title = meetnet_sel,
-         xaxis = list(title = "Meetcyclus"),
+         xaxis = list(title = "Jaar"),
          yaxis = list(title = "Getelde aantallen"))
 
 ```
 
-#### Vroege glazenmaker
-
-```{r}
-
-meetnet_sel <- "Vroege glazenmaker"
-
-dataset_soort <- dataset_meetcyclus_summary %>%
-  filter(meetnet == meetnet_sel)
-
-data_shared_soort <- SharedData$new(dataset_soort)
-
-bscols(widths = c(6, NA),
-filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
-)
-
-plot_ly(data_shared_soort, x = ~periode, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
-        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
-  add_trace(data = data_shared_soort, x = ~periode, 
-            y = ~aantal_loc_max, color = ~locatie, 
-            mode = "lines+markers",
-            name = ~locatie,
-            line = list(width = 1, dash = "dash")) %>%
-  layout(title = meetnet_sel,
-         xaxis = list(title = "Meetcyclus"),
-         yaxis = list(title = "Getelde aantallen"))
-```
-#### Bosbeekjuffer
-
-```{r}
-
-meetnet_sel <- "Bosbeekjuffer"
-
-dataset_soort <- dataset_meetcyclus_summary %>%
-  filter(meetnet == meetnet_sel)
-
-data_shared_soort <- SharedData$new(dataset_soort)
-
-bscols(widths = c(6, NA),
-filter_select("locatie", "Selecteer locatie", data_shared_soort, ~locatie)
-)
-
-plot_ly(data_shared_soort, x = ~periode, y =  ~aantal_meetnet_max, color = "black", type = 'scatter',
-        mode = "lines+markers", line = list(width = 4), name = "Gemiddelde meetnet") %>%
-  add_trace(data = data_shared_soort, x = ~periode, 
-            y = ~aantal_loc_max, color = ~locatie, 
-            mode = "lines+markers",
-            name = ~locatie,
-            line = list(width = 1, dash = "dash")) %>%
-  layout(title = meetnet_sel,
-         xaxis = list(title = "Meetcyclus"),
-         yaxis = list(title = "Getelde aantallen"))
-
-```
 :::
 
 :::
@@ -532,7 +539,6 @@ Dat maakt dat de aantallen voor de overige soorten niet altijd representatief zi
 In @tbl-overige geven we het totaal aantal getelde individuen van de overige soorten voor alle libellenmeetnetten samen.
 De soorten worden gerangschikt volgens getelde aantallen van hoog naar laag.
 Azuurwaterjuffer is dus de meest getelde soort.
-De tabel bevat ook prioritaire soorten, maar dit zijn dan de aantallen die geteld werden in locaties van andere meetnetten.
 
 \needspace{50mm}
 
@@ -541,11 +547,13 @@ De tabel bevat ook prioritaire soorten, maar dit zijn dan de aantallen die getel
 #| tbl-cap: "Totaal aantal getelde overige soorten voor alle libellenmeetnetten samen"
 
 summary_table_sec %>%
+  filter(! soort_nl %in% summary_counts_periode$meetnet) %>%
   arrange(desc(aantal_tot)) %>%
   select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Totaal" = aantal_tot) %>%
   kbl(longtable = TRUE,
       booktabs = TRUE) %>%
   kable_styling(bootstrap_options = c( "condensed"),
+                font_size = ifelse(is_html_output(), 11, 9),
                 latex_options = c("scale_down", "repeat_header"),
                 repeat_header_text = "(vervolg)") %>%
   column_spec(2, italic = TRUE) %>%
@@ -569,8 +577,10 @@ soorten_max <- (summary_table_sec %>%
 dataset_sec_year <- summary_year_sec %>%
   filter(soort_nl %in% soorten_max) %>%
   filter(jaar >= 2018)
+
+if (is_html_output()) {
   
-data_shared_soort <- SharedData$new(dataset_sec_year)
+  data_shared_soort <- SharedData$new(dataset_sec_year)
 
 bscols(widths = c(6, NA),
 filter_select("soort_nl", "Selecteer soort", data_shared_soort, ~soort_nl)
@@ -587,7 +597,8 @@ plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_tot, color = ~soort_nl,
         mode = "lines+markers", line = list(width = 1, dash = "dash")) %>%
   layout(xaxis = list(title = "Jaar"),
          yaxis = list(title = "Totaal getelde aantallen"))
-       
+  
+}
 ```
 
 :::

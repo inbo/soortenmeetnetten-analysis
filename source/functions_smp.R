@@ -133,7 +133,7 @@ get_counts_smp <- function(species_group = NULL,
       counts_smp <- counts_smp %>%
         filter(type_aantal != "maximum samen gezien") %>%
         mutate(levensstadium = ifelse(levensstadium %in% c("imago (niet uitgekleurd)", "imago (not fully colored)"), "imago", levensstadium),
-          multiply_count = ifelse(activiteit == "copula" | (activiteit == "eiafzettend" & geslacht == "U"), 2, 1)) %>%
+          multiply_count = ifelse(activiteit == "copula" | (activiteit %in% c("eiafzettend", "egg laying") & geslacht == "U"), 2, 1)) %>%
         group_by(soortgroep, meetnet, protocol, jaar, datum, doy, locatie,  sublocatie, visit_id, niet_geteld, checklist,  soort_nl, soort_wet, primaire_soort, sample_id, levensstadium) %>%
         summarise(aantal = sum(aantal * multiply_count)) %>%
         ungroup()
