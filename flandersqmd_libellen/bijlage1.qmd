@@ -1,4 +1,4 @@
-# Bijlage: beschrijving van de analyse {#sec-bijlage-1}
+# Beschrijving van de analyse {#sec-bijlage-1}
 
 ## Selectie van gegevens voor de analyse 
 
@@ -95,14 +95,3 @@ Het model voor rivierrombout maakt daarom gebruik van de totale getelde aantalle
 We houden ook rekening met de zoekinspanning door de som van de transectlengte (voor alle bezoeken binnen een jaar aan een locatie) gedeeld door 500 als offset toe te voegen aan het model.
 
 De gebruikte modellen voor rivierrombout zijn verder identiek aan het model voor de verschillen tussen de jaren en het model voor de jaarlijkse trend, maar dan zonder het seizoenseffect $b_{d}$.
-
-# Bijlage: Reproduceerbaarheid van de analyses {#sec-bijlage-r}
-
-De analyses werden uitgevoerd via de programmeertaal R [@R]. De R-scripts staan onder versiebeheer via volgende GitHub repository: [inbo/soortenmeetnetten-analysis](https://github.com/inbo/soortenmeetnetten-analysis) en zijn publiek toegankelijk.
-
-Meer specifiek gebeuren de analyses voor de libellenmeetnetten via de scripts in de folder [inbo/soortenmeetnetten-analysis/analysis_amfibien/source (commit 8043773)](https://github.com/inbo/soortenmeetnetten-analysis/tree/8043773448933ef1b875e734c5efd8c7cf1aa586/analysis_amfibieen/source).
-
-De analyseresultaten zijn terug te vinden in de folder [inbo/soortenmeetnetten-analysis/analysis_amfibien/output/results (commit 8043773)](https://github.com/inbo/soortenmeetnetten-analysis/tree/8043773448933ef1b875e734c5efd8c7cf1aa586/analysis_amfibieen/output/results)
-
-De ruwe data die we gebruiken voor de analyse zijn niet publiek beschikbaar omdat het om gevoelige data gaat.
-De ruwe data zijn wel beschikbaar via [deze Google Drive folder](https://drive.google.com/drive/folders/17pNKbLcSZxPd6BjNaGEfhjOQG2iZgC9J), die enkel toegankelijk is op verzoek.
