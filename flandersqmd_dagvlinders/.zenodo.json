@@ -1,0 +1,64 @@
+{
+  "description": "<p>The species monitoring programme <a href=\"https://www.meetnetten.be\">meetnetten.be<\/a> aims at collecting reliable information on priority species in Flanders. It consists of a series of monitoring schemes which were designed by the Research Institute for Nature and Forest (INBO). Species are counted by volunteers in a standardized way under the coordination of the NGO Natuurpunt.<\/p> <p>This report shows the results of the dragonfly monitoring schemes for the period 2016 - 2020. In Flanders we see following trends:<\/p> <ul> <li>a strong increase in abundance for the Common Clubtail (<em>Gomphus vulgatissimus<\/em>) and the the Lilypad Whiteface (<em>Leucorrhinia caudalis<\/em>)<\/li> <li>a decrease in abundance for the Beautiful Demoiselle (<em>Calopteryx virgo<\/em>) and the Yellow-spotted Whiteface (<em>Leucorrhinia pectoralis<\/em>)<\/li> <li>a strong decrease in abundance for the Spearhead Bluet (<em>Coenagrion hastulatum<\/em>), the Crescent Bluet (<em>Coenagrion lunulatum<\/em>) and the Spotted Darter (<em>Sympetrum depressiusculum<\/em>)<\/li> <\/ul> <p>The trend for the Variable Bluet (<em>Coenagrion pulchellum<\/em>) and Green-eyed Hawker (<em>Aeshna isoceles<\/em>) is uncertain. Starting from 2026 the monitoring sites for the Variable Bluet will be counted yearly, which will increase the precision of the trend estimates.<\/p>",
+  "title": "Trends op basis van de libellenmeetnetten (2016 - 2025). Citizen science monitoring in Vlaanderen.",
+  "shorttitle": "trends-libellen",
+  "upload_type": "publication",
+  "access_right": "open",
+  "license": "CC-BY-4.0",
+  "language": "nld",
+  "keywords": [
+    "monitoring"
+  ],
+  "publication_type": "publication-report",
+  "publisher": "INBO",
+  "contributors": [
+    {
+      "name": "Westra, Toon",
+      "affiliation": "Research Institute for Nature and Forest (INBO)",
+      "orcid": "0000-0003-2478-9459",
+      "type": "contactperson"
+    },
+    {
+      "name": "Van Onsem, Stijn",
+      "affiliation": "Research Institute for Nature and Forest (INBO)",
+      "orcid": "0000-0002-7958-1420",
+      "type": "other"
+    },
+    {
+      "name": "Research Institute for Nature and Forest (INBO)",
+      "type": "rightsholder"
+    }
+  ],
+  "creators": [
+    {
+      "name": "Westra, Toon",
+      "affiliation": "Research Institute for Nature and Forest (INBO)",
+      "orcid": "0000-0003-2478-9459"
+    },
+    {
+      "name": "De Knijf, Geert",
+      "affiliation": "Research Institute for Nature and Forest (INBO)",
+      "orcid": "0000-0002-7958-1420"
+    },
+    {
+      "name": "Ledegen, Hannes",
+      "affiliation": "Natuurpunt Studie",
+      "orcid": "0000-0003-4158-7568"
+    },
+    {
+      "name": "Van de Poel, Sam",
+      "affiliation": "Natuurpunt Studie",
+      "orcid": "0000-0001-6251-3766"
+    },
+    {
+      "name": "Onkelinx, Thierry",
+      "affiliation": "Research Institute for Nature and Forest (INBO)",
+      "orcid": "0000-0001-8804-4216"
+    }
+  ],
+  "communities": [
+    {
+      "identifier": "inbo"
+    }
+  ]
+}

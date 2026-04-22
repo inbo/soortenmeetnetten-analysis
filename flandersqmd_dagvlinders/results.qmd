@@ -1,0 +1,1276 @@
+---
+editor: 
+  markdown: 
+    wrap: sentence
+---
+
+# Resultaten
+
+```{r}
+#| label: setup
+#| include: false
+
+library(tidyverse)
+library(git2rdata)
+library(n2khab)
+library(effectclass)
+library(plotly)
+library(kableExtra)
+library(INBOtheme)
+library(knitr)
+library(scales)
+options(knitr.kable.NA = '')
+
+conflicted::conflicts_prefer(dplyr::lag)
+conflicted::conflicts_prefer(dplyr::filter)
+
+source("../source/functions_smp.R")
+```
+
+```{r}
+#| label: read-results
+#| message: false
+
+path_analysis <- fileman_up("analysis_vlinders")
+
+name_analysis1 <- "vlinders_imago_gebied"
+versie <- str_c(name_analysis1, "_2026-01-19")
+
+results_index_gebied <- read_vc(file = str_c("results_indexmodel_", name_analysis1),
+                             root = file.path(path_analysis, "output/results", versie))
+results_trend_gebied <- read_vc(file = str_c("results_trendmodel_", name_analysis1),
+                             root = file.path(path_analysis, "output/results", versie))
+
+name_analysis2 <- "vlinders_imago_transect"
+versie <- str_c(name_analysis2, "_2026-01-19")
+
+results_index_meetcyclus_transect <- read_vc(file = str_c("results_indexmodel_meetcyclus_", name_analysis2),
+                             root = file.path(path_analysis, "output/results", versie))
+results_trend_meetcyclus_transect <- read_vc(file = str_c("results_trendmodel_meetcyclus_", name_analysis2),
+                             root = file.path(path_analysis, "output/results", versie))
+results_index_jaar_transect <- read_vc(file = str_c("results_indexmodel_", name_analysis2),
+                             root = file.path(path_analysis, "output/results", versie))
+results_trend_jaar_transect <- read_vc(file = str_c("results_trendmodel_", name_analysis2),
+                             root = file.path(path_analysis, "output/results", versie))
+
+name_analysis3 <- "vlinders_eitelling"
+versie <- str_c(name_analysis3, "_2026-01-19")
+
+results_index_eitelling <- read_vc(file = str_c("results_indexmodel_", name_analysis3),
+                             root = file.path(path_analysis, "output/results", versie))
+results_trend_eitelling  <- read_vc(file = str_c("results_trendmodel_", name_analysis3),
+                             root = file.path(path_analysis, "output/results", versie))
+
+```
+
+```{r}
+#| label: trend-klasses
+
+trend_klasses <- data.frame(
+  klasse_naam = c("onbekend", "mogelijke toename",
+             "mogelijke afname", "stabiel", "toename",
+             "afname", "matige toename",
+             "matige afname", "sterke toename",
+             "sterke afname"),
+  trend = c(-0.05, 0.2, -0.1,0, 0.5, -0.3, 0.15, -0.13, 0.7, -0.5),
+  lcl = c(-0.4, -0.1, -0.4, -0.2, 0.1, -0.5, 0.05, -0.20, 0.5, -0.65),
+  ucl = c(0.4, 0.5, 0.1, 0.2,1,-0.1, 0.25, -0.05,  0.9, -0.35)) %>%
+  mutate(klasse = classification(lcl, ucl, threshold = c(-0.25, 0.33), reference = 0),
+         klasse_naam = factor(klasse_naam, levels = c("sterke afname", "afname", "matige afname", "mogelijke afname", "onbekend", "stabiel", "mogelijke toename", "matige toename", "toename", "sterke toename" )),
+         klasse_output = format(klasse, type = "markdown")) %>%
+  arrange(klasse) %>%
+  mutate(tekst = str_c(as.character(klasse), " = ", klasse_naam),
+         klasse = as.character(klasse))
+
+legend_klasses <- str_c(" (", str_c(trend_klasses$tekst, collapse = "; "), ")")
+
+legend_klasses_index <- str_c(" (R = referentie; ", str_c(trend_klasses$tekst, collapse = "; "), ")")
+```
+
+We geven eerst een overzicht van de resultaten van alle prioritaire dagvlinders.
+Daarna tonen we de meer gedetailleerde resultaten per meetnet.
+
+## Overzicht van de resultaten
+
+### Vergelijking tussen de jaren
+
+We tonen de verschillen tussen de jaren enkel voor de meetnetten waarvan de meetnetlocaties jaarlijks geteld worden.
+Voor meetnetten met een driejarige meetcyclus tonen we enkel de de verschillen tussen de meetcycli.
+
+@tbl-index-refjaar geeft een overzicht van de verschillen van jaar tot jaar, waarbij we steeds de aantallen in een bepaald jaar vergelijken met die in een referentiejaar.
+Als referentiejaar kiezen we hier het jaar waarin het meetnet van start ging.
+We geven de verschillen weer aan de hand van de trend-klassen zoals besproken in @sec-classificatie, waarbij we -25 % als ondergrens en +33 % als bovengrens nemen.
+
+```{r}
+#| label: tbl-index-refjaar
+#| tbl-cap: "Verschil in aantallen t.o.v. referentiejaar"
+
+results_indexmodel_jaar <- bind_rows( results_index_gebied, 
+                                results_index_jaar_transect %>%
+                                  filter(!meetnet %in% results_index_meetcyclus_transect$soort_nl),
+                                results_index_eitelling %>%
+                                  filter(model_description == "without offset"))
+
+verschillen_jaren <- results_indexmodel_jaar %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(lcl_0.90)) %>%
+  rowwise() %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+          klasse_output =  ifelse(is_html_output(), as.character(klasse), str_c("$", as.character(klasse), "$")),
+          klasse_output = ifelse(is_html_output(), klasse_output, str_replace_all(klasse_output, "~", "\\\\sim"))) %>%
+  select(soort_nl, ref_jaar, jaar, klasse_output) %>%
+  arrange(jaar) %>%
+  pivot_wider(names_from = jaar, 
+              values_from =  klasse_output)
+
+verschillen_jaren %>%
+  arrange(soort_nl) %>%
+  rename("Soort" = soort_nl,  Referentiejaar = ref_jaar) %>%
+  kbl(booktabs = TRUE,
+      escape = FALSE,
+      align = "lcccccccccc") %>%
+  kable_styling(font_size = ifelse(is_html_output(), 11, 9)) %>%
+  add_header_above(c(" " = 2, "Verschil t.o.v. referentiejaar" = 9))
+  
+```
+
+Een andere manier om de jaarlijkse verschillen voor te stellen is door steeds de verschillen tussen twee opeenvolgende jaren te bepalen zoals in @tbl-index-prevjaar.
+Op die manier krijgen we bijkomende informatie over hoe de aantallen variëren over de jaren.
+
+```{r }
+#| label: tbl-index-prevjaar
+#| tbl-cap: "Verschil in aantal adulten voor opeenvolgende jaren"
+
+verschillen_vorigjaar <- results_indexmodel_jaar %>%
+  filter(parameter == "diff_previous_year") %>%
+  mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
+  filter(!is.na(mean)) %>%
+    rowwise() %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+          klasse_output =  ifelse(is_html_output(), as.character(klasse), str_c("$", as.character(klasse), "$")),
+          klasse_output = ifelse(is_html_output(), klasse_output, str_replace_all(klasse_output, "~", "\\\\sim"))) %>%
+  select(soort_nl,  periode, klasse_output) %>%
+  spread(key = "periode", value = "klasse_output")
+
+verschillen_vorigjaar %>%
+  rename("Soort" = soort_nl) %>%
+  kbl(booktabs = TRUE,
+      escape = FALSE,
+      align = "lccccccccc") %>%
+  kable_styling(font_size = ifelse(is_html_output(), 11, 9)) %>%
+  column_spec(c(2:10), "1cm")
+```
+
+\needspace{70mm}
+
+### Verschillen tussen de meetcycli
+
+Bij soorten die geteld worden met een meetcyclus van drie jaar, zullen de verschillen tussen de jaren voor een groot deel afhankelijk zijn van welke locaties er elk jaar geteld worden.
+Daarom kunnen we beter periodes van drie jaar (die overeenkomen met een meetcyclus) met elkaar te vergelijken (@tbl-index-meetcyclus).
+
+```{r}
+#| label: tbl-index-meetcyclus
+#| tbl-cap: "Verschil in aantallen t.o.v. referentie meetcyclus"
+
+verschillen_cyclus <- results_index_meetcyclus_transect %>%
+  rowwise() %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+          klasse_output =  ifelse(is_html_output(), as.character(klasse), str_c("$", as.character(klasse), "$")),
+          klasse_output = ifelse(is_html_output(), klasse_output, str_replace_all(klasse_output, "~", "\\\\sim"))) %>%
+  select(soort_nl, ref_periode, periode, klasse_output)
+
+verschillen_cyclus %>%
+  rename("Nederlandse naam" = soort_nl, "Referentie meetcyclus" = ref_periode, "Meetcyclus" = periode, "Klasse" = klasse_output) %>%
+  kbl(booktabs = TRUE,
+      escape = FALSE,
+      align = "lccccc") %>%
+kable_styling(font_size = ifelse(is_html_output(), 11, 9)) 
+```
+
+### Trends
+
+```{r}
+#| label: trend-preprocessing
+
+results_trendmodel_all <- bind_rows(results_trend_gebied,
+                                    results_trend_eitelling %>%
+                                      filter(model_description == "without offset"),
+                                    results_trend_jaar_transect %>%
+                                      filter(!soort_nl %in% results_trend_meetcyclus_transect$soort_nl), 
+                                    results_trend_meetcyclus_transect )
+
+if (is_html_output()) {
+  
+  overzicht_trend <- results_trendmodel_all %>%
+  arrange(desc(mean)) %>%
+  mutate(trend = round(mean, 1),
+         trend_lcl = round(lcl_0.90, 1),
+         trend_ucl = round(ucl_0.90, 1),
+         trend_tbl = str_c(ifelse(trend > 0, "+", ""),
+                           trend, "% (",
+                           ifelse(trend_lcl > 0, "+", ""),
+                           trend_lcl, "%; ",
+                           ifelse(trend_ucl > 0, "+", ""),
+                           trend_ucl, "%)"))
+  
+} else {
+  overzicht_trend <- results_trendmodel_all %>%
+  arrange(desc(mean)) %>%
+  mutate(trend = round(mean, 1),
+         trend_lcl = round(lcl_0.90, 1),
+         trend_ucl = round(ucl_0.90, 1),
+         trend_tbl = str_c(ifelse(trend > 0, "+", ""),
+                           trend, "\\% (",
+                           ifelse(trend_lcl > 0, "+", ""),
+                           trend_lcl, "\\%; ",
+                           ifelse(trend_ucl > 0, "+", ""),
+                           trend_ucl, "\\%)"))
+
+}
+
+overzicht_trend_looptijd <- overzicht_trend %>%
+  filter(parameter == "trend_total") %>%
+  select(soort_nl, trend_total = trend_tbl)
+
+overzicht_trend_tabel <- overzicht_trend %>%
+  filter(parameter %in% c("trend_average", "trend_jaar")) %>%
+   mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
+         n_jaar = 6,
+         treshold_low = round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
+         treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1)) %>%
+  rowwise() %>%
+  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0),
+                   klasse_output =  ifelse(is_html_output(), as.character(klasse), str_c("$", as.character(klasse), "$")),
+          klasse_output = ifelse(is_html_output(), klasse_output, str_replace_all(klasse_output, "~", "\\\\sim"))) %>%
+  left_join(overzicht_trend_looptijd, by = "soort_nl") %>%
+  arrange(soort_nl) 
+
+```
+
+In @tbl-trend geven we een overzicht van de gemiddelde jaarlijkse trend en de totale trend over de meetnetperiode.
+
+```{r}
+#| label: tbl-trend
+#| tbl-cap: "Jaarlijkse wijziging en wijziging over de looptijd"
+
+overzicht_trend_tabel %>%
+  select("Nederlandse naam" = soort_nl, Periode = periode_tekst, Klasse = klasse_output, "Jaarlijkse wijziging" = trend_tbl, "Wijziging over de looptijd" = trend_total) %>%
+  kbl(align = "lcclcc",
+      booktabs = TRUE,
+      escape = FALSE)  %>%
+  kable_styling(font_size = ifelse(is_html_output(), 11, 9))
+```
+
+\needspace{50mm}
+
+De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in @fig-results-trend De x-as van deze figuur heeft een logaritmische schaal.
+Een halvering (-50 %) is immers een even sterk effect als een verdubbeling (+100 %).
+Opnieuw maken we gebruik van de klassetrends zoals besproken in @sec-classificatie met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over een periode van 6 jaar.
+Voor de gemiddelde jaarlijkse trend komt dit overeen met een ondergens van -5,6 % en een bovengrens van +5,9 %.
+
+```{r}
+#| label: results-trend
+
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
+
+trend <- results_trendmodel_all %>%
+  filter(parameter %in% c("trend_average", "trend_jaar")) %>%
+  mutate(mean_log = log(mean/100 + 1),
+          lcl_0.90_log = log(lcl_0.90/100 + 1),
+         ucl_0.90_log = log(ucl_0.90/100 + 1)) %>%
+  mutate(n_jaar = 6,
+         treshold_low = round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
+         treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1),
+         klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0))
+
+```
+
+```{r}
+#| label: fig-results-trend
+#| fig-cap: Schatting en classificatie van trends voor de verschillende soorten met 90%-betrouwbaarheidsinterval
+#| warning: false
+#| fig-height: 5
+
+volgorde_soorten <- (trend %>%
+  arrange(mean))$meetnet
+
+breaks_log <- log(c(-60, -50, -25, 0, 33)/100 + 1)
+labels_show <- str_c(c(-60, -50, -25, 0, 33), " %")
+
+trend %>%
+  mutate(meetnet = factor(meetnet, levels = volgorde_soorten)) %>%
+  ggplot( aes(x = meetnet, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
+  geom_hline(aes(yintercept = max(log(treshold_low/100 + 1))), linetype = 3, alpha = 0.8) +
+  geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3, alpha = 0.8) +
+  geom_hline(yintercept = 0, linetype = 2, alpha = 0.8) +
+  geom_errorbar(width = 0, size = 8, alpha = 0.3) +
+  geom_point(size = 7, alpha = 0.6) +
+  geom_text(size = 4, colour = "black") +
+  labs(y = "Gemiddelde jaarlijkse trend (%)", x = "Soort") +
+  scale_y_continuous(breaks = breaks_log, labels = labels_show, limits = c(min(breaks_log), max(breaks_log))) +
+  coord_flip() +
+  scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide")
+
+```
+
+```{r}
+#| label: preprocessing
+#| message: false
+#| warning: false
+
+verschil_jaren_ref <- results_indexmodel_jaar %>%
+  filter(parameter == "index") %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown"))
+  
+verschil_jaren_ref_add <- verschil_jaren_ref %>%
+  distinct(soort_nl, soort_wet, ref_jaar) %>%
+  mutate(jaar = ref_jaar,
+        mean = 1,
+        klasse = "R") 
+
+verschil_jaren_ref <- verschil_jaren_ref %>%
+  bind_rows(verschil_jaren_ref_add) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1) %>%
+  mutate(klasse = str_remove_all(klasse, "`"))
+
+verschil_vorigjaar <- results_indexmodel_jaar %>%
+  filter(parameter == "diff_previous_year") %>%
+  mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
+  filter(!is.na(mean)) %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  mutate(mean_log = log(mean) + 1,
+          lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1) %>%
+  mutate(klasse = str_remove_all(klasse, "`"))
+
+verschil_meetcyclus <- results_index_meetcyclus_transect %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  mutate(mean_log = log(mean) + 1,
+         lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+verschil_meetcyclus_add <- verschil_meetcyclus %>%
+  distinct(soort_nl, soort_wet) %>%
+  mutate(klasse = "R",
+         periode = ifelse(soort_nl == "Oranje zandoogje", "2017-2019", "2016-2018"),
+         mean = 0,
+         mean_log = 1)
+
+verschil_meetcyclus <- verschil_meetcyclus %>%
+  bind_rows(verschil_meetcyclus_add) %>%
+  mutate(klasse = str_remove_all(klasse, "`"))
+
+monitoring_effort_meetnet <- calculate_monitoring_effort(species_group = "dagvlinders",
+                                                 aggregation_level = "meetnet")
+
+trend_average <- trend %>%
+  mutate(klasse = as.character(klasse)) %>%
+  left_join(trend_klasses, by = "klasse")
+
+```
+
+```{r}
+#| label: plot-functions
+
+plot_monitoring_effort <- function(data_monitoring_effort, is_html = is_html_output()) {
+  
+  plot_m <- data_monitoring_effort %>%
+    ggplot(aes(x = jaar, y = aantal, colour = monitoringsinspanning, group = monitoringsinspanning)) +
+    geom_point() +
+    geom_line() +
+    ylim(0, NA) +
+    labs(x = "Jaar", y = "Aantal") +
+    scale_x_continuous(breaks = pretty_breaks())
+
+if (is_html) {
+  
+  plot_m <- ggplotly(plot_m)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+      ),
+    displaylogo = FALSE
+    )
+  }
+  
+  return(plot_m)
+  
+}
+
+plot_diff <- function(data_diff,
+                          klasse_color_scale,
+                          type = "diff_ref_year",
+                          use_breaks = c(0.10, .25, .50, 0.75, 1, 1.33, 2, 3.5)
+                          ) {
+  
+  breaks_log <- log(use_breaks) + 1
+  labels_show <- str_c((use_breaks - 1) * 100, " %")
+  
+  if (type == "diff_ref_year") {
+    
+    plot <- data_diff %>%
+      ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log,
+                 x = jaar, label = klasse, colour = klasse)) +
+      geom_errorbar(width = 0, size = 15, alpha = 0.3) +
+      geom_hline(yintercept = 1, linetype = 2) +
+      geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+      geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+      geom_point(aes(colour = klasse), size = 7) +
+      geom_text(size = 4, colour = "black") +
+      labs(y = "Verschil t.o.v. referentiejaar", x = "Jaar") +
+      scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+      scale_x_continuous(breaks = pretty_breaks()) +
+      scale_color_manual(values = klasse_color_scale) +
+      theme(legend.position = "hide")
+    
+    } else if (type == "diff_ref_cycle") {
+      
+      plot <- data_diff %>%
+        ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log,
+                   x = periode, colour = klasse, label = klasse)) +
+        geom_errorbar(width = 0, size = 15, alpha = 0.3) +
+        geom_hline(yintercept = 1, linetype = 2) +
+        geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+        geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+        geom_point(size = 7) +
+        geom_text(size = 4, colour = "black") +
+        labs(y = "Vreschil t.o.v. referentie meetcyclus", x = "Meetcyclus") +
+        scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+        scale_color_manual(values = klasse_color_scale) +
+        theme(legend.position = "hide")
+      
+    } else if (type == "diff_prev_year") {
+      
+      plot <- data_diff %>%
+        ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log,
+                   x = periode, label = klasse, colour = klasse)) +
+        geom_errorbar(width = 0, size = 15, alpha = 0.3) +
+        geom_hline(yintercept = 1, linetype = 2) +
+        geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+        geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+        geom_point(aes(colour = klasse), size = 7) +
+        geom_text(size = 4, colour = "black") +
+        labs(y = "Verschil opeenvolgende jaren", x = "Periode") +
+        scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+        scale_color_manual(values = klasse_color) +
+        theme(legend.position = "hide", axis.text.x = element_text(angle = 45))
+      }
+  
+  return(plot)
+  
+}
+```
+
+\pagebreak
+
+## Aardbeivlinder {#sec-aardbeivlinder}
+
+```{r}
+m <- "Aardbeivlinder"
+```
+
+```{r}
+#| label: fig-aardbeivlinder
+#| fig-cap: "aardbeivlinder (foto: Valérie Goethals)"
+#| out-width: "50%"
+
+include_graphics("images/aardbeivlinder.jpg")
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+@fig-m-av toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r}
+#| label: fig-m-av
+#| fig-cap: "Monitoringsinspanning voor het meetnet Aardbeivlinder"
+#| fig-height: 3.5
+
+monitoring_effort_meetnet %>%
+  filter(meetnet == m) %>%
+  plot_monitoring_effort()
+```
+
+### Vergelijking tussen de jaren.
+
+@fig-verschilref-av toont de verschillen t.o.v. referentiejaar en @fig-verschilprev-av de verschillen tussen opeenvolgende jaren.
+
+```{r}
+#| label: fig-verschilref-av
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor de aardbeivlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 5
+
+verschil_jaren_ref %>%
+  filter(soort_nl == m) %>%
+  plot_diff(type = "diff_ref_year", klasse_color_scale = klasse_color)
+
+```
+
+```{r}
+#| label: fig-verschilprev-av
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor de aardbeivlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 5
+
+verschil_vorigjaar %>%
+  filter(soort_nl == m) %>%
+  plot_diff(klasse_color_scale = klasse_color, type = "diff_prev_year")
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_plot, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+
+\pagebreak
+
+## Argusvlinder {#sec-argusvlinder}
+
+```{r}
+m <- "Argusvlinder"
+```
+
+```{r}
+#| label: fig-argusvlinder
+#| fig-cap: "Argusvlinder (foto: Valérie Goethals)"
+#| out-width: "50%"
+
+include_graphics("images/argusvlinder.jpg")
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+@fig-m-argusvlinder toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r}
+#| label: fig-m-argusvlinder
+#| fig-cap: "Monitoringsinspanning voor het meetnet Argusvlinder"
+#| fig-height: 3.5
+
+monitoring_effort_meetnet %>%
+  filter(meetnet == m) %>%
+  plot_monitoring_effort()
+```
+
+### Vergelijking tussen de meetcycli
+
+@fig-verschilref-argusvlinder toont de verschillen t.o.v. referentie meetcyclus.
+
+```{r}
+#| label: fig-verschilref-argusvlinder
+#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de Argusvlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 4
+
+verschil_meetcyclus %>%
+  filter(soort_nl == m) %>%
+  plot_diff(klasse_color_scale = klasse_color, type = "diff_ref_cycle")
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+
+\pagebreak
+
+## Bruin dikkopje {#sec-bruin-dikkopje}
+
+```{r}
+m <- "Bruin dikkopje"
+```
+
+```{r}
+#| label: fig-bd
+#| fig-cap: "Bruin dikkopje (foto: Valérie Goethals)"
+#| out-width: "50%"
+
+include_graphics("images/bruin_dikkopje.jpg")
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+@fig-m-bd toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r}
+#| label: fig-m-bd
+#| fig-cap: "Monitoringsinspanning voor het meetnet Bruin dikkopje"
+#| fig-height: 3.5
+
+monitoring_effort_meetnet %>%
+  filter(meetnet == m) %>%
+  plot_monitoring_effort()
+```
+
+### Vergelijking tussen de jaren.
+
+@fig-verschilref-bd toont de verschillen t.o.v. referentiejaar en @fig-verschilprev-bd de verschillen tussen opeenvolgende jaren.
+
+```{r}
+#| label: fig-verschilref-bd
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor Bruin dikkopje. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 5
+
+verschil_jaren_ref %>%
+  filter(soort_nl == m) %>%
+  plot_diff(type = "diff_ref_year", klasse_color_scale = klasse_color)
+
+```
+
+```{r}
+#| label: fig-verschilprev-bd
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor Bruin dikkopje. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 5
+
+verschil_vorigjaar %>%
+  filter(soort_nl == m) %>%
+  plot_diff(type = "diff_prev_year", klasse_color_scale = klasse_color)
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+
+\pagebreak
+
+## Bruine eikenpage {#sec-bruine-eikenpage}
+
+```{r}
+m <- "Bruine eikenpage"
+```
+
+```{r}
+#| label: fig-be
+#| fig-cap: "Bruine eikenpager (foto: Valérie Goethals)"
+#| out-width: "50%"
+
+include_graphics("images/bruine_eikenpage.jpg")
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+@fig-m-be toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r}
+#| label: fig-m-be
+#| fig-cap: "Monitoringsinspanning voor het meetnet Bruine eikenpage"
+#| fig-height: 3.5
+
+monitoring_effort_meetnet %>%
+  filter(meetnet == m) %>%
+  plot_monitoring_effort()
+```
+
+### Vergelijking tussen de jaren.
+
+@fig-verschilref-be toont de verschillen t.o.v. referentiejaar en @fig-verschilprev-be de verschillen tussen opeenvolgende jaren.
+
+```{r}
+#| label: fig-verschilref-be
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor Bruine eikenpage. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 5
+
+verschil_jaren_ref %>%
+  filter(soort_nl == m) %>%
+  plot_diff(type = "diff_ref_year", klasse_color_scale = klasse_color)
+
+```
+
+```{r}
+#| label: fig-verschilprev-be
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor Bruin dikkopje. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 5
+
+verschil_vorigjaar %>%
+  filter(soort_nl == m) %>%
+  plot_diff(type = "diff_prev_year", klasse_color_scale = klasse_color)
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+
+\pagebreak
+
+## Gentiaanblauwtje {#sec-gentiaanblauwtje}
+
+```{r}
+m <- "Gentiaanblauwtje"
+```
+
+```{r}
+#| label: fig-gb
+#| fig-cap: "Gentiaanblauwtje (foto: Dirk Maes)"
+#| out-width: "50%"
+
+include_graphics("images/gentiaanblauwtje2.jpg")
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+@fig-m-gb toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r}
+#| label: fig-m-gb
+#| fig-cap: "Monitoringsinspanning voor het meetnet Gentiaanblauwtje"
+#| fig-height: 3.5
+
+monitoring_effort_meetnet %>%
+  filter(meetnet == m) %>%
+  plot_monitoring_effort()
+```
+
+### Vergelijking tussen de jaren.
+
+@fig-verschilref-gb toont de verschillen t.o.v. referentiejaar en @fig-verschilprev-gb de verschillen tussen opeenvolgende jaren.
+
+```{r}
+#| label: fig-verschilref-gb
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor Gentiaanblauwtje. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 5.5
+
+verschil_jaren_ref %>%
+  filter(soort_nl == m) %>%
+  plot_diff(type = "diff_ref_year", klasse_color_scale = klasse_color)
+
+```
+
+```{r}
+#| label: fig-verschilprev-gb
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor Gentiaanblauwtje. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 5.5
+
+verschil_vorigjaar %>%
+  filter(soort_nl == m) %>%
+  plot_diff(type = "diff_prev_year", klasse_color_scale = klasse_color)
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+
+\pagebreak
+
+## Grote weerschijnvlinder {#sec-grote-weerschijnvlinder}
+
+```{r}
+m <- "Grote weerschijnvlinder"
+```
+
+```{r}
+#| label: fig-gw
+#| fig-cap: "Grote weerschijnvlinder (foto: Valérie Goethals)"
+#| out-width: "50%"
+
+include_graphics("images/Grote weerschijnvlinder.jpg")
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+@fig-m-gw toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r}
+#| label: fig-m-gw
+#| fig-cap: "Monitoringsinspanning voor het meetnet Grote weerschijnvlinder"
+#| fig-height: 3.5
+
+monitoring_effort_meetnet %>%
+  filter(meetnet == m) %>%
+  plot_monitoring_effort()
+```
+
+### Vergelijking tussen de jaren.
+
+@fig-verschilref-gw toont de verschillen t.o.v. referentiejaar en @fig-verschilprev-gw de verschillen tussen opeenvolgende jaren.
+
+```{r}
+#| label: fig-verschilref-gw
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor Grote weerschijnvlinder De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 5
+
+verschil_jaren_ref %>%
+  filter(soort_nl == m) %>%
+  plot_diff(type = "diff_ref_year", klasse_color_scale = klasse_color)
+
+```
+
+```{r}
+#| label: fig-verschilprev-gw
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor Grote weerschijnvlinder De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 5
+
+verschil_vorigjaar %>%
+  filter(soort_nl == m) %>%
+  plot_diff(type = "diff_prev_year", klasse_color_scale = klasse_color)
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+
+\pagebreak
+
+## Heivlinder {#sec-heivlinder}
+
+```{r}
+m <- "Heivlinder"
+```
+
+```{r}
+#| label: fig-hv
+#| fig-cap: "Heivlinder (foto: Valérie Goethals)"
+#| out-width: "50%"
+
+include_graphics("images/Heivlinder.jpg")
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+@fig-m-hv toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r}
+#| label: fig-m-hv
+#| fig-cap: "Monitoringsinspanning voor het meetnet Heivlinder"
+#| fig-height: 3.5
+
+monitoring_effort_meetnet %>%
+  filter(meetnet == m) %>%
+  plot_monitoring_effort()
+```
+
+### Vergelijking tussen de meetcycli
+
+@fig-verschilref-hv toont de verschillen t.o.v. referentie meetcyclus.
+
+```{r}
+#| label: fig-verschilref-hv
+#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de Heivlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 4
+
+verschil_meetcyclus %>%
+  filter(soort_nl == m) %>%
+  plot_diff(klasse_color_scale = klasse_color, type = "diff_ref_cycle")
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+
+\pagebreak
+
+## Klaverblauwtje {#sec-klaverblauwtje}
+
+```{r}
+m <- "Klaverblauwtje"
+```
+
+```{r}
+#| label: fig-kb
+#| fig-cap: "Klaverblauwtje (foto: Valérie Goethals)"
+#| out-width: "50%"
+
+include_graphics("images/Klaverblauwtje_vrouwtje.jpg")
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+@fig-m-kb toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r}
+#| label: fig-m-kb
+#| fig-cap: "Monitoringsinspanning voor het meetnet Klaverblauwtje"
+#| fig-height: 3.5
+
+monitoring_effort_meetnet %>%
+  filter(meetnet == m) %>%
+  plot_monitoring_effort()
+```
+
+### Vergelijking tussen de jaren.
+
+@fig-verschilref-kb toont de verschillen t.o.v. referentiejaar en @fig-verschilprev-kb de verschillen tussen opeenvolgende jaren.
+
+```{r}
+#| label: fig-verschilref-kb
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor Klaverblauwtje De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 4
+
+verschil_jaren_ref %>%
+  filter(soort_nl == m) %>%
+  plot_diff(type = "diff_ref_year", klasse_color_scale = klasse_color)
+
+```
+
+```{r}
+#| label: fig-verschilprev-kb
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor Kommavlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 4
+
+verschil_vorigjaar %>%
+  filter(soort_nl == m) %>%
+  plot_diff(type = "diff_prev_year", klasse_color_scale = klasse_color)
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+
+\pagebreak
+
+## Kommavlinder {#sec-kommavlinder}
+
+```{r}
+m <- "Kommavlinder"
+```
+
+```{r}
+#| label: fig-kv
+#| fig-cap: "Kommavlinder (foto: Dirk Maes)"
+#| out-width: "50%"
+
+include_graphics("images/Kommavlinder.jpg")
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+@fig-m-kv toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r}
+#| label: fig-m-kv
+#| fig-cap: "Monitoringsinspanning voor het meetnet Kommavlinder"
+#| fig-height: 3.5
+
+monitoring_effort_meetnet %>%
+  filter(meetnet == m) %>%
+  plot_monitoring_effort()
+```
+
+### Vergelijking tussen de jaren.
+
+@fig-verschilref-kv toont de verschillen t.o.v. referentiejaar en @fig-verschilprev-kv de verschillen tussen opeenvolgende jaren.
+
+```{r}
+#| label: fig-verschilref-kv
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor Kommavlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 5.5
+
+verschil_jaren_ref %>%
+  filter(soort_nl == m) %>%
+  plot_diff(type = "diff_ref_year", klasse_color_scale = klasse_color)
+
+```
+
+```{r}
+#| label: fig-verschilprev-kv
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor Kommavlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 5.5
+verschil_vorigjaar %>%
+  filter(soort_nl == m) %>%
+  plot_diff(type = "diff_prev_year", klasse_color_scale = klasse_color)
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+
+\pagebreak
+
+## Moerasparelmoervlinder {#sec-moerasparelmoervlinder}
+
+```{r}
+m <- "Moerasparelmoervlinder"
+```
+
+```{r}
+#| label: fig-mp
+#| fig-cap: "Moerasparelmoervlinder (foto: Valérie Goethals)"
+#| out-width: "50%"
+
+include_graphics("images/Moerasparelmoervlinder.jpg")
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+@fig-m-mp toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r}
+#| label: fig-m-mp
+#| fig-cap: "Monitoringsinspanning voor het meetnet Moerasparelmoervlinder"
+#| fig-height: 3.5
+
+monitoring_effort_meetnet %>%
+  filter(meetnet == m) %>%
+  plot_monitoring_effort()
+```
+
+### Vergelijking tussen de jaren.
+
+@fig-verschilref-mp toont de verschillen t.o.v. referentiejaar en @fig-verschilprev-mp de verschillen tussen opeenvolgende jaren.
+
+```{r}
+#| label: fig-verschilref-mp
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor Moerasparelmoervlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 4
+
+verschil_jaren_ref %>%
+  filter(soort_nl == m) %>%
+  plot_diff(type = "diff_ref_year", klasse_color_scale = klasse_color)
+
+```
+
+```{r}
+#| label: fig-verschilprev-mp
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor Moerasparelmoervlinder De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 4
+
+verschil_vorigjaar %>%
+  filter(soort_nl == m) %>%
+  plot_diff(type = "diff_prev_year", klasse_color_scale = klasse_color)
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+
+\pagebreak
+
+## Oranje zandoogje {#sec-oranje-zandoogje}
+
+```{r}
+m <- "Oranje zandoogje"
+```
+
+```{r}
+#| label: fig-oz
+#| fig-cap: "Oranje zandoogje (foto: Valérie Goethals)"
+#| out-width: "50%"
+
+include_graphics("images/Oranje zandoogje.jpg")
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+@fig-m-oz toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r}
+#| label: fig-m-oz
+#| fig-cap: "Monitoringsinspanning voor het meetnet Oranje zandoogje"
+#| fig-height: 3.5
+
+monitoring_effort_meetnet %>%
+  filter(meetnet == m) %>%
+  plot_monitoring_effort()
+```
+
+### Vergelijking tussen de meetcycli
+
+@fig-verschilref-oz toont de verschillen t.o.v. referentie meetcyclus.
+
+```{r}
+#| label: fig-verschilref-oz
+#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de Oranje zandoogje. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 4
+
+verschil_meetcyclus %>%
+  filter(soort_nl == m) %>%
+  plot_diff(klasse_color_scale = klasse_color, type = "diff_ref_cycle")
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+
+\pagebreak
+
+## Veldparelmoervlinder {#sec-veldparelmoervlinder}
+
+```{r}
+m <- "Veldparelmoervlinder"
+```
+
+```{r}
+#| label: fig-vp
+#| fig-cap: "Veldparelmoervlinder (foto: Dirk Maes)"
+#| out-width: "50%"
+
+include_graphics("images/Veldparelmoervlinder.jpg")
+```
+
+### Aantal tellingen, tellers en getelde locaties
+
+@fig-m-vp toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+
+```{r}
+#| label: fig-m-vp
+#| fig-cap: "Monitoringsinspanning voor het meetnet Veldparelmoervlinder"
+#| fig-height: 3.5
+
+monitoring_effort_meetnet %>%
+  filter(meetnet == m) %>%
+  plot_monitoring_effort()
+```
+
+### Vergelijking tussen de jaren.
+
+@fig-verschilref-vp toont de verschillen t.o.v. referentiejaar en @fig-verschilprev-vp de verschillen tussen opeenvolgende jaren.
+
+```{r}
+#| label: fig-verschilref-vp
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor Veldparelmoervlinder De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 5.5
+
+verschil_jaren_ref %>%
+  filter(soort_nl == m) %>%
+  plot_diff(type = "diff_ref_year", klasse_color_scale = klasse_color)
+
+```
+
+```{r}
+#| label: fig-verschilprev-vp
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v referentiejaar met het 90%-betrouwbaarheidsinterval voor Veldparelmoervlinder De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig.height: 4
+#| fig.width: 5.5
+
+verschil_vorigjaar %>%
+  filter(soort_nl == m) %>%
+  plot_diff(type = "diff_prev_year", klasse_color_scale = klasse_color)
+
+```
+
+### Trend
+
+```{r}
+
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
+
+```
+
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
