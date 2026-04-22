@@ -1,0 +1,3 @@
+parameter	soort_nl	soort_wet	model_description	indexmodel	trendmodel	diff_waic	type_trend	meetnet
+waic	Gentiaanblauwtje	Gentiaanblauwtje	with offset	1433.63	1439.42	5.7966	Niet lineair	Gentiaanblauwtje
+waic	Gentiaanblauwtje	Gentiaanblauwtje	without offset	1477	1473.77	-3.22947	Lineair	Gentiaanblauwtje

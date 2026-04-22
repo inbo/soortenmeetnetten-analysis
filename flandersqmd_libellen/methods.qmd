@@ -104,9 +104,9 @@ Dit veldprotocol passen we toe bij de Speerwaterjuffer, Maanwaterjuffer, Sierlij
 Een overzicht van welk veldprotocol gebruikt wordt per soort vind je in @tbl-characteristics.
 Voor elke soort vermelden we het aantal bezoeken die moeten plaatsvinden per locatie, de telperiode waarin die moeten gebeuren, het aantal tellocaties en met welke cyclus er moet geteld worden. 
 
-Het meetnet Beekrombout zit momenteel nog in een overgangsfase.
-We weten momenteel in grote lijnen waar de populaties zich bevinden, maar de geschikte locaties voor het leggen van de transecten moeten nog deels vastgelegd worden.
-Voor dit meetnet kunnen we dus voorlopig nog geen resultaten tonen.
+Voor het meetnet Beekrombout hebben we in de periode 2019 - 2022 eerst een inhaalslag uitgevoerd om de populaties te lokaliseren en geschikte oevertransecten vast te leggen.
+Drie transecten werden vastgelegd, die sinds 2024 systematisch geteld worden.
+Maar gezien de korte tijdreeks kunnen we voor dit meetnet nog geen resultaten tonen.
 
 ```{r}
 #| label: tbl-characteristics
@@ -232,9 +232,9 @@ maar we lichten ze alvast toe.
 Bij bosbeekjuffer en variabele waterjuffer zien we sterke variaties in aantallen tussen de jaren en tussen locaties.
 Het meetnetontwerp waarbij 30 locaties om de 3 jaar geteld worden, resulteert daarom in een onvoldoende nauwkeurige schatting van de trends.
 Daarom schakelen we over naar een jaarlijkse telling van de meetnetlocaties en streven we naar 30 getelde locaties per jaar.
-Deze wijziging leidt uiteraard tot een sterke meerinspanning die door een beperkte groep vrijwilligers moet gedragen worden.
-Daarom hebben we beslist om het meetnet vroege glazenmaker stop te zetten.
-De verspreiding van de soort is sterk toegenomen in de laatste jaren en daarom is de soort minder prioritair om op te volgen.
+
+Het meetnet Vroege glazenmaker zal vanaf 2026 stopgezet worden.
+De verspreiding van de vroege glazenmaker is sterk toegenomen in de laatste jaren en daarom is de soort minder prioritair om op te volgen.
 Maar we zullen de vinger aan de pols blijven houden op basis van losse waarnemingen.
 
 ## Ingezamelde telgegevens
@@ -312,8 +312,9 @@ Met *trend* bedoelen we de procentuele verandering in aantallen van een soort ov
 Naast trends willen we ook inzicht krijgen hoe de aantallen verschillen van jaar tot jaar of tussen de verschillende 3-jaarlijkse meetcycli.
 
 Voor de analyse maken we gebruik van zogenaamde *generalized linear mixed models* (GLMM).
-Voor een bespreking van de technische achtergrond van deze modellen verwijzen we naar Bijlage ADD_REF
-In Bijlage @sec-bijlage2 geven we informatie over de reproduceerbaarheid van de analyses.
+Voor een bespreking van de technische achtergrond van deze modellen verwijzen we naar @sec-bijlage-1.
+
+In @sec-bijlage-r geven we informatie over de reproduceerbaarheid van de analyses.
 
 ## Interpretatie van de analyseresultaten {#sec-classificatie}
 

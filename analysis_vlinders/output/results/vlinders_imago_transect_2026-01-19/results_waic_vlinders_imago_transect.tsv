@@ -1,0 +1,10 @@
+meetnet	parameter	soort_nl	soort_wet	indexmodel	trendmodel	diff_waic	type_trend
+Aardbeivlinder	waic	Aardbeivlinder	Pyrgus malvae	1040.26	1041.1	0.839093	Niet lineair
+Argusvlinder	waic	Argusvlinder	Lasiommata megera	1703.79	1724.03	20.2406	Niet lineair
+Bruin dikkopje	waic	Bruin dikkopje	Erynnis tages	784.391	787.667	3.27626	Niet lineair
+Heivlinder	waic	Heivlinder	Hipparchia semele	1671.75	1706.81	35.0671	Niet lineair
+Klaverblauwtje	waic	Klaverblauwtje	Cyaniris semiargus	386.452	404.427	17.9745	Niet lineair
+Kommavlinder	waic	Kommavlinder	Hesperia comma	739.048	784.453	45.4047	Niet lineair
+Moerasparelmoervlinder	waic	Moerasparelmoervlinder	Euphydryas aurinia	343.042	345.583	2.54028	Niet lineair
+Oranje zandoogje	waic	Oranje zandoogje	Pyronia tithonus	1955.14	1966.22	11.0766	Niet lineair
+Veldparelmoervlinder	waic	Veldparelmoervlinder	Melitaea cinxia	2162.88	2166.11	3.22633	Niet lineair

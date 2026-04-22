@@ -1,0 +1,5 @@
+meetnet	parameter	soort_nl	soort_wet	jaar_min	jaar_max	mean	sd	lcl_0.95	ucl_0.95	lcl_0.30	lcl_0.60	lcl_0.90	ucl_0.30	ucl_0.60	ucl_0.90
+Bruine eikenpage	trend_average	Bruine eikenpage	Satyrium ilicis	2018	2025	-6.77525	3.38982	-13.2837	0.0500599	-8.13493	-9.65132	-12.2739	-5.52394	-3.94346	-1.0909
+Grote weerschijnvlinder	trend_average	Grote weerschijnvlinder	Apatura iris	2018	2025	-22.2393	4.71134	-31.3024	-12.8018	-24.126	-26.2519	-29.9097	-20.4788	-18.2873	-14.3628
+Bruine eikenpage	trend_total	Bruine eikenpage	Satyrium ilicis	2018	2025	-37.0841	16.2372	-63.1398	0.361031	-44.7908	-50.8655	-60.0256	-32.819	-24.5429	-7.3832
+Grote weerschijnvlinder	trend_total	Grote weerschijnvlinder	Apatura iris	2018	2025	-81.4474	8.04926	-92.7892	-61.6608	-85.529	-88.142	-91.6991	-79.8932	-75.6758	-66.2161

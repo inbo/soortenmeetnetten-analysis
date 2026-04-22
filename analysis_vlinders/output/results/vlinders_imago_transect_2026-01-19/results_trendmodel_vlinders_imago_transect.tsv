@@ -1,0 +1,19 @@
+meetnet	parameter	soort_nl	soort_wet	jaar_min	jaar_max	mean	sd	lcl_0.95	ucl_0.95	lcl_0.30	lcl_0.60	lcl_0.90	ucl_0.30	ucl_0.60	ucl_0.90
+Aardbeivlinder	trend_average	Aardbeivlinder	Pyrgus malvae	2017	2025	-16.557	2.8816	-22.102	-10.7698	-17.7097	-19.0021	-21.2398	-15.4883	-14.1466	-11.7325
+Argusvlinder	trend_average	Argusvlinder	Lasiommata megera	2016	2024	-8.17471	2.20345	-12.4565	-3.79632	-9.045	-10.0435	-11.7832	-7.34234	-6.32356	-4.51102
+Bruin dikkopje	trend_average	Bruin dikkopje	Erynnis tages	2017	2025	-22.971	2.32986	-27.4724	-18.3084	-23.8976	-24.9459	-26.7678	-22.1019	-21.0207	-19.0804
+Heivlinder	trend_average	Heivlinder	Hipparchia semele	2016	2024	-9.32785	2.06141	-13.3218	-5.21899	-10.1453	-11.0767	-12.6961	-8.55317	-7.59796	-5.8932
+Klaverblauwtje	trend_average	Klaverblauwtje	Cyaniris semiargus	2021	2025	-48.7717	5.65747	-59.0962	-36.8307	-51.1788	-53.5868	-57.5998	-46.867	-44.1447	-38.9888
+Kommavlinder	trend_average	Kommavlinder	Hesperia comma	2016	2025	-15.5277	4.19234	-23.5189	-7.03015	-17.2256	-19.0894	-22.2928	-13.9977	-12.0326	-8.46476
+Moerasparelmoervlinder	trend_average	Moerasparelmoervlinder	Euphydryas aurinia	2020	2025	-7.88077	10.1759	-26.3598	13.816	-12.2094	-16.4835	-23.6571	-4.54331	0.343771	9.7815
+Oranje zandoogje	trend_average	Oranje zandoogje	Pyronia tithonus	2017	2025	0.0668984	2.06634	-3.93331	4.19091	-0.753197	-1.68545	-3.30653	0.841508	1.79943	3.5122
+Veldparelmoervlinder	trend_average	Veldparelmoervlinder	Melitaea cinxia	2016	2025	-9.0626	3.60952	-15.9682	-1.78257	-10.5191	-12.1323	-14.9067	-7.73251	-6.04341	-2.99778
+Aardbeivlinder	trend_total	Aardbeivlinder	Pyrgus malvae	2017	2025	-75.7006	6.8202	-86.4473	-59.8076	-78.975	-81.4772	-85.1986	-73.9788	-70.4831	-63.149
+Argusvlinder	trend_total	Argusvlinder	Lasiommata megera	2016	2024	-48.6323	9.92399	-65.508	-26.6226	-53.1625	-57.1224	-63.3266	-45.6686	-40.7002	-30.8726
+Bruin dikkopje	trend_total	Bruin dikkopje	Erynnis tages	2017	2025	-87.2842	3.11323	-92.3459	-80.1637	-88.7501	-89.9321	-91.73	-86.4416	-84.8603	-81.615
+Heivlinder	trend_total	Heivlinder	Hipparchia semele	2016	2024	-53.6476	8.48884	-68.1423	-34.8676	-57.5078	-60.9072	-66.2545	-51.0954	-46.8551	-38.4837
+Klaverblauwtje	trend_total	Klaverblauwtje	Cyaniris semiargus	2021	2025	-92.5946	3.40124	-97.2052	-84.0744	-94.3214	-95.3626	-96.7721	-92.0312	-90.267	-86.1423
+Kommavlinder	trend_total	Kommavlinder	Hesperia comma	2016	2025	-76.0796	11.1379	-91.0625	-48.0987	-81.7671	-85.15	-89.6833	-74.265	-68.4578	-54.8797
+Moerasparelmoervlinder	trend_total	Moerasparelmoervlinder	Euphydryas aurinia	2020	2025	-25.1029	44.6074	-78.4272	91.033	-47.9047	-59.4314	-74.1449	-20.7762	1.71456	59.4793
+Oranje zandoogje	trend_total	Oranje zandoogje	Pyronia tithonus	2017	2025	1.74377	16.9161	-27.4676	38.8868	-5.87204	-12.7191	-23.5927	6.93381	15.3375	31.8108
+Veldparelmoervlinder	trend_total	Veldparelmoervlinder	Melitaea cinxia	2016	2025	-54.9951	16.5231	-79.1259	-14.931	-63.2325	-68.7898	-76.6251	-51.5369	-42.9369	-23.9507

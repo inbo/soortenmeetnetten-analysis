@@ -711,6 +711,21 @@ write_vc(analyseset_gb, file = str_c("analyseset_", name_analysis3),
 ```
 
 ```{r}
+
+counts_all_detail <- dataset %>%
+  group_by(meetnet, locatie, datum, jaar, visit_id, checklist, primaire_soort, soort_nl, soort_wet, levensstadium) %>%
+  summarise(aantal = sum(aantal), 
+            .groups = "drop_last") %>%
+  ungroup()
+
+write_vc(counts_all_detail, file = "counts_all", 
+       root = "../output/counts", 
+       sorting = c("meetnet", "locatie", "datum", "visit_id", "soort_nl"), 
+       strict = FALSE)
+
+```
+
+```{r}
 #| label: copy-files
 #| output: false
 
