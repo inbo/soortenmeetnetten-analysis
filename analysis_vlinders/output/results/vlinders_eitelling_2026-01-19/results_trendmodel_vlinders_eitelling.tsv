@@ -1,0 +1,5 @@
+parameter	soort_nl	soort_wet	jaar_min	jaar_max	mean	sd	lcl_0.95	ucl_0.95	lcl_0.30	lcl_0.60	lcl_0.90	ucl_0.30	ucl_0.60	ucl_0.90	model_description	meetnet
+trend_average	Gentiaanblauwtje	Gentiaanblauwtje	2016	2025	-15.7373	3.83406	-23.0487	-7.97125	-17.2896	-18.9953	-21.9267	-14.3361	-12.539	-9.27978	with offset	Gentiaanblauwtje
+trend_average	Gentiaanblauwtje	Gentiaanblauwtje	2016	2025	-19.6484	3.93706	-27.1467	-11.6647	-21.2454	-22.9952	-25.9988	-18.2123	-16.3648	-13.0116	without offset	Gentiaanblauwtje
+trend_total	Gentiaanblauwtje	Gentiaanblauwtje	2016	2025	-76.9328	9.79585	-90.5516	-52.6413	-81.8917	-84.9914	-89.234	-75.161	-70.0542	-58.37	with offset	Gentiaanblauwtje
+trend_total	Gentiaanblauwtje	Gentiaanblauwtje	2016	2025	-84.7827	6.99161	-94.2282	-67.2428	-88.3511	-90.4863	-93.354	-83.6268	-79.9784	-71.4747	without offset	Gentiaanblauwtje

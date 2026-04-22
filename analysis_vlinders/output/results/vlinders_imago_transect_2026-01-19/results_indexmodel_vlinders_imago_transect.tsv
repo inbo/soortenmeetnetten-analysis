@@ -1,0 +1,153 @@
+meetnet	parameter	soort_nl	soort_wet	jaar	ref_jaar	jaar_centered	mean	sd	lcl_0.30	lcl_0.60	lcl_0.90	lcl_0.95	ucl_0.30	ucl_0.60	ucl_0.90	ucl_0.95
+Aardbeivlinder	diff_previous_year	Aardbeivlinder	Pyrgus malvae	2017	2017	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Aardbeivlinder	diff_previous_year	Aardbeivlinder	Pyrgus malvae	2018	2017	2	1.08249	0.211242	0.988477	0.912043	0.775711	0.723511	1.13776	1.23995	1.45862	1.54295
+Aardbeivlinder	diff_previous_year	Aardbeivlinder	Pyrgus malvae	2019	2017	3	0.713579	0.149225	0.654631	0.584543	0.47697	0.440876	0.767036	0.830881	0.96815	1.01805
+Aardbeivlinder	diff_previous_year	Aardbeivlinder	Pyrgus malvae	2020	2017	4	0.931759	0.189782	0.846433	0.781798	0.686621	0.648324	0.966494	1.0646	1.29478	1.4034
+Aardbeivlinder	diff_previous_year	Aardbeivlinder	Pyrgus malvae	2021	2017	5	0.976993	0.194924	0.884527	0.81872	0.707941	0.675076	1.01928	1.12504	1.32091	1.44887
+Aardbeivlinder	diff_previous_year	Aardbeivlinder	Pyrgus malvae	2022	2017	6	0.761468	0.146205	0.700921	0.639312	0.532174	0.501924	0.81206	0.879569	1.00375	1.07118
+Aardbeivlinder	diff_previous_year	Aardbeivlinder	Pyrgus malvae	2023	2017	7	0.761767	0.158808	0.693896	0.627375	0.506567	0.474079	0.807523	0.892543	1.03172	1.10644
+Aardbeivlinder	diff_previous_year	Aardbeivlinder	Pyrgus malvae	2024	2017	8	0.987203	0.218643	0.887266	0.808554	0.695702	0.655051	1.03671	1.13965	1.37257	1.48702
+Aardbeivlinder	diff_previous_year	Aardbeivlinder	Pyrgus malvae	2025	2017	9	1.13851	0.283786	0.994794	0.912748	0.779155	0.724707	1.19701	1.33525	1.66254	1.78207
+Argusvlinder	diff_previous_year	Argusvlinder	Lasiommata megera	2016	2016	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Argusvlinder	diff_previous_year	Argusvlinder	Lasiommata megera	2017	2016	2	0.771799	0.142596	0.714563	0.651529	0.549956	0.513789	0.816427	0.887424	1.03269	1.07331
+Argusvlinder	diff_previous_year	Argusvlinder	Lasiommata megera	2018	2016	3	0.711717	0.138626	0.659515	0.598626	0.484731	0.44713	0.757774	0.820375	0.94792	0.987109
+Argusvlinder	diff_previous_year	Argusvlinder	Lasiommata megera	2019	2016	4	0.966758	0.212402	0.866315	0.802552	0.693997	0.651245	1.00516	1.10569	1.37472	1.48201
+Argusvlinder	diff_previous_year	Argusvlinder	Lasiommata megera	2020	2016	5	0.819687	0.146828	0.761232	0.693357	0.596896	0.553649	0.865089	0.939294	1.07454	1.13136
+Argusvlinder	diff_previous_year	Argusvlinder	Lasiommata megera	2021	2016	6	0.807051	0.181115	0.74113	0.655139	0.499269	0.453336	0.880587	0.95263	1.09479	1.15296
+Argusvlinder	diff_previous_year	Argusvlinder	Lasiommata megera	2022	2016	7	1.39193	0.400018	1.1898	1.10311	0.945918	0.878784	1.43109	1.61959	2.22364	2.43216
+Argusvlinder	diff_previous_year	Argusvlinder	Lasiommata megera	2023	2016	8	1.24673	0.268014	1.11454	1.03532	0.895366	0.839899	1.30511	1.44109	1.72103	1.89155
+Argusvlinder	diff_previous_year	Argusvlinder	Lasiommata megera	2024	2016	9	1.08166	0.230216	0.973251	0.902787	0.757755	0.710197	1.13676	1.24758	1.49263	1.6204
+Bruin dikkopje	diff_previous_year	Bruin dikkopje	Erynnis tages	2017	2017	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Bruin dikkopje	diff_previous_year	Bruin dikkopje	Erynnis tages	2018	2017	2	0.941944	0.210228	0.847198	0.76227	0.642817	0.595342	1.00136	1.10222	1.29453	1.39687
+Bruin dikkopje	diff_previous_year	Bruin dikkopje	Erynnis tages	2019	2017	3	0.805303	0.164899	0.73021	0.66377	0.560368	0.524082	0.853728	0.943406	1.09487	1.16267
+Bruin dikkopje	diff_previous_year	Bruin dikkopje	Erynnis tages	2020	2017	4	0.526523	0.12355	0.47726	0.423735	0.330271	0.299488	0.566641	0.620597	0.749025	0.79
+Bruin dikkopje	diff_previous_year	Bruin dikkopje	Erynnis tages	2021	2017	5	1.0354	0.251367	0.913297	0.825819	0.695881	0.657668	1.09473	1.21993	1.50524	1.63333
+Bruin dikkopje	diff_previous_year	Bruin dikkopje	Erynnis tages	2022	2017	6	1.09293	0.249652	0.979329	0.891317	0.745267	0.694383	1.15259	1.26982	1.57407	1.71724
+Bruin dikkopje	diff_previous_year	Bruin dikkopje	Erynnis tages	2023	2017	7	0.58829	0.149278	0.521712	0.462824	0.3698	0.331278	0.633496	0.708693	0.847915	0.914168
+Bruin dikkopje	diff_previous_year	Bruin dikkopje	Erynnis tages	2024	2017	8	0.732891	0.195041	0.644478	0.574624	0.467971	0.419539	0.77942	0.879022	1.08202	1.15742
+Bruin dikkopje	diff_previous_year	Bruin dikkopje	Erynnis tages	2025	2017	9	0.980679	0.268382	0.855801	0.770967	0.621176	0.58172	1.04144	1.16277	1.44228	1.60645
+Heivlinder	diff_previous_year	Heivlinder	Hipparchia semele	2016	2016	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Heivlinder	diff_previous_year	Heivlinder	Hipparchia semele	2017	2016	2	0.591311	0.122687	0.537257	0.492094	0.41057	0.383018	0.62689	0.678413	0.80186	0.867518
+Heivlinder	diff_previous_year	Heivlinder	Hipparchia semele	2018	2016	3	0.602961	0.139459	0.537922	0.484621	0.393461	0.368034	0.646177	0.713791	0.851903	0.898853
+Heivlinder	diff_previous_year	Heivlinder	Hipparchia semele	2019	2016	4	0.877968	0.193061	0.793894	0.723317	0.597202	0.551298	0.930698	1.02278	1.21965	1.31307
+Heivlinder	diff_previous_year	Heivlinder	Hipparchia semele	2020	2016	5	1.35997	0.315901	1.21772	1.10085	0.929886	0.868155	1.42889	1.58943	1.90993	2.08535
+Heivlinder	diff_previous_year	Heivlinder	Hipparchia semele	2021	2016	6	1.2013	0.268352	1.08249	0.980577	0.825616	0.733937	1.27253	1.40059	1.69797	1.81036
+Heivlinder	diff_previous_year	Heivlinder	Hipparchia semele	2022	2016	7	1.27796	0.300576	1.13881	1.03972	0.89041	0.822606	1.35733	1.48094	1.80267	1.97712
+Heivlinder	diff_previous_year	Heivlinder	Hipparchia semele	2023	2016	8	0.814066	0.181295	0.732699	0.672306	0.549967	0.502162	0.868836	0.955761	1.13744	1.20602
+Heivlinder	diff_previous_year	Heivlinder	Hipparchia semele	2024	2016	9	0.777937	0.168253	0.705275	0.640363	0.524761	0.477899	0.828131	0.915908	1.0838	1.14621
+Klaverblauwtje	diff_previous_year	Klaverblauwtje	Cyaniris semiargus	2021	2021	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Klaverblauwtje	diff_previous_year	Klaverblauwtje	Cyaniris semiargus	2022	2021	2	0.926325	0.31772	0.768522	0.655639	0.520325	0.475613	1.00445	1.15981	1.51119	1.7042
+Klaverblauwtje	diff_previous_year	Klaverblauwtje	Cyaniris semiargus	2023	2021	3	0.881674	0.262299	0.756618	0.659194	0.515313	0.469916	0.952014	1.08979	1.33058	1.47616
+Klaverblauwtje	diff_previous_year	Klaverblauwtje	Cyaniris semiargus	2024	2021	4	0.140757	0.0681283	0.106112	0.0838869	0.0569286	0.0482143	0.150167	0.190299	0.277745	0.310049
+Klaverblauwtje	diff_previous_year	Klaverblauwtje	Cyaniris semiargus	2025	2021	5	1.102	0.545197	0.840919	0.687893	0.495793	0.409991	1.17992	1.41167	2.05013	2.36135
+Kommavlinder	diff_previous_year	Kommavlinder	Hesperia comma	2016	2016	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Kommavlinder	diff_previous_year	Kommavlinder	Hesperia comma	2017	2016	2	1.05828	0.388873	0.870132	0.73578	0.550869	0.49486	1.13652	1.32885	1.79239	2.02203
+Kommavlinder	diff_previous_year	Kommavlinder	Hesperia comma	2018	2016	3	0.354077	0.160397	0.275658	0.231416	0.162079	0.139309	0.376073	0.453689	0.648459	0.794187
+Kommavlinder	diff_previous_year	Kommavlinder	Hesperia comma	2019	2016	4	0.168897	0.0918678	0.121852	0.0900075	0.0567377	0.0472387	0.185556	0.229549	0.351717	0.402065
+Kommavlinder	diff_previous_year	Kommavlinder	Hesperia comma	2020	2016	5	0.903175	0.509541	0.656677	0.52235	0.348635	0.305044	0.935804	1.18789	1.83506	2.32958
+Kommavlinder	diff_previous_year	Kommavlinder	Hesperia comma	2021	2016	6	3.39721	1.97932	2.38856	1.92661	1.29959	1.14707	3.5578	4.55567	7.05811	8.28643
+Kommavlinder	diff_previous_year	Kommavlinder	Hesperia comma	2022	2016	7	2.61685	1.18764	1.9844	1.70828	1.28354	1.1288	2.79633	3.43139	4.80674	5.45004
+Kommavlinder	diff_previous_year	Kommavlinder	Hesperia comma	2023	2016	8	0.741777	0.324572	0.58562	0.469445	0.331645	0.277857	0.807093	0.962081	1.34784	1.53831
+Kommavlinder	diff_previous_year	Kommavlinder	Hesperia comma	2024	2016	9	1.44548	0.676051	1.12469	0.915415	0.646616	0.53388	1.54173	1.84834	2.7762	3.20664
+Kommavlinder	diff_previous_year	Kommavlinder	Hesperia comma	2025	2016	10	1.10958	0.559216	0.834699	0.673792	0.46383	0.400724	1.16984	1.45663	2.20464	2.6394
+Moerasparelmoervlinder	diff_previous_year	Moerasparelmoervlinder	Euphydryas aurinia	2020	2020	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Moerasparelmoervlinder	diff_previous_year	Moerasparelmoervlinder	Euphydryas aurinia	2021	2020	2	0.87857	0.199876	0.894609	0.732932	0.453274	0.390307	0.990444	1.01009	1.06939	1.11733
+Moerasparelmoervlinder	diff_previous_year	Moerasparelmoervlinder	Euphydryas aurinia	2022	2020	3	0.959055	0.18849	0.949227	0.861137	0.644251	0.536642	1.00427	1.02943	1.19304	1.32885
+Moerasparelmoervlinder	diff_previous_year	Moerasparelmoervlinder	Euphydryas aurinia	2023	2020	4	1.1598	0.389603	0.9989	0.977818	0.885133	0.849002	1.07007	1.25997	1.89624	2.29189
+Moerasparelmoervlinder	diff_previous_year	Moerasparelmoervlinder	Euphydryas aurinia	2024	2020	5	1.07564	0.242386	0.992359	0.958624	0.840549	0.77524	1.03723	1.14723	1.56238	1.82396
+Moerasparelmoervlinder	diff_previous_year	Moerasparelmoervlinder	Euphydryas aurinia	2025	2020	6	0.919549	0.207148	0.923378	0.794593	0.490939	0.41405	1.00053	1.02581	1.1528	1.23944
+Oranje zandoogje	diff_previous_year	Oranje zandoogje	Pyronia tithonus	2017	2017	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Oranje zandoogje	diff_previous_year	Oranje zandoogje	Pyronia tithonus	2018	2017	2	1.02056	0.157445	0.967738	0.900403	0.767243	0.70279	1.07993	1.14404	1.25872	1.3101
+Oranje zandoogje	diff_previous_year	Oranje zandoogje	Pyronia tithonus	2019	2017	3	1.40027	0.298101	1.23802	1.15385	1.04297	1.00189	1.46085	1.60546	1.97503	2.1907
+Oranje zandoogje	diff_previous_year	Oranje zandoogje	Pyronia tithonus	2020	2017	4	1.03541	0.156005	0.974944	0.912486	0.792911	0.759684	1.079	1.15341	1.31584	1.37642
+Oranje zandoogje	diff_previous_year	Oranje zandoogje	Pyronia tithonus	2021	2017	5	0.929472	0.139918	0.87812	0.812859	0.697692	0.648229	0.979166	1.04667	1.15774	1.21986
+Oranje zandoogje	diff_previous_year	Oranje zandoogje	Pyronia tithonus	2022	2017	6	0.934617	0.146707	0.877393	0.820241	0.699609	0.649485	0.983342	1.04415	1.18693	1.23236
+Oranje zandoogje	diff_previous_year	Oranje zandoogje	Pyronia tithonus	2023	2017	7	1.1198	0.208916	1.0127	0.952443	0.855418	0.832767	1.15892	1.27722	1.53361	1.64223
+Oranje zandoogje	diff_previous_year	Oranje zandoogje	Pyronia tithonus	2024	2017	8	0.80249	0.130924	0.750156	0.691246	0.578284	0.540913	0.862723	0.910877	1.0146	1.04999
+Oranje zandoogje	diff_previous_year	Oranje zandoogje	Pyronia tithonus	2025	2017	9	0.847051	0.139447	0.797264	0.727003	0.615616	0.577674	0.901497	0.962664	1.0658	1.11891
+Veldparelmoervlinder	diff_previous_year	Veldparelmoervlinder	Melitaea cinxia	2016	2016	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Veldparelmoervlinder	diff_previous_year	Veldparelmoervlinder	Melitaea cinxia	2017	2016	2	0.788951	0.207731	0.708447	0.604229	0.427493	0.379738	0.891852	0.966765	1.1025	1.16305
+Veldparelmoervlinder	diff_previous_year	Veldparelmoervlinder	Melitaea cinxia	2018	2016	3	1.35677	0.407707	1.12867	1.04017	0.922937	0.875934	1.40298	1.59622	2.18752	2.38746
+Veldparelmoervlinder	diff_previous_year	Veldparelmoervlinder	Melitaea cinxia	2019	2016	4	1.15405	0.253847	1.02966	0.962229	0.842094	0.780697	1.18799	1.32319	1.61599	1.75973
+Veldparelmoervlinder	diff_previous_year	Veldparelmoervlinder	Melitaea cinxia	2020	2016	5	0.972496	0.192515	0.899574	0.818931	0.693186	0.641411	1.01895	1.10206	1.30555	1.41986
+Veldparelmoervlinder	diff_previous_year	Veldparelmoervlinder	Melitaea cinxia	2021	2016	6	0.8319	0.184646	0.762214	0.683089	0.531782	0.478635	0.897539	0.972986	1.11435	1.18075
+Veldparelmoervlinder	diff_previous_year	Veldparelmoervlinder	Melitaea cinxia	2022	2016	7	0.967377	0.216481	0.882444	0.811658	0.654765	0.60408	1.00234	1.10723	1.36336	1.50875
+Veldparelmoervlinder	diff_previous_year	Veldparelmoervlinder	Melitaea cinxia	2023	2016	8	0.917234	0.201658	0.845649	0.762956	0.615371	0.563865	0.967122	1.05001	1.2629	1.39121
+Veldparelmoervlinder	diff_previous_year	Veldparelmoervlinder	Melitaea cinxia	2024	2016	9	0.750543	0.182815	0.66874	0.58367	0.449167	0.401589	0.840195	0.913397	1.02979	1.07799
+Veldparelmoervlinder	diff_previous_year	Veldparelmoervlinder	Melitaea cinxia	2025	2016	10	0.950295	0.225759	0.862989	0.780406	0.63276	0.566262	0.998881	1.10162	1.32053	1.44762
+Aardbeivlinder	index	Aardbeivlinder	Pyrgus malvae	2017	2017	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Aardbeivlinder	index	Aardbeivlinder	Pyrgus malvae	2018	2017	2	1.08249	0.211242	0.988477	0.912043	0.775711	0.723511	1.13776	1.23995	1.45862	1.54295
+Aardbeivlinder	index	Aardbeivlinder	Pyrgus malvae	2019	2017	3	0.762705	0.180694	0.685036	0.61597	0.489686	0.442664	0.811935	0.907407	1.07751	1.1395
+Aardbeivlinder	index	Aardbeivlinder	Pyrgus malvae	2020	2017	4	0.696175	0.162156	0.621525	0.560466	0.457245	0.420977	0.744092	0.824682	0.974374	1.06189
+Aardbeivlinder	index	Aardbeivlinder	Pyrgus malvae	2021	2017	5	0.669063	0.165182	0.590782	0.529312	0.442465	0.404874	0.713443	0.806633	0.960597	1.01312
+Aardbeivlinder	index	Aardbeivlinder	Pyrgus malvae	2022	2017	6	0.500352	0.123588	0.43722	0.399144	0.323845	0.299518	0.538665	0.599621	0.722423	0.78227
+Aardbeivlinder	index	Aardbeivlinder	Pyrgus malvae	2023	2017	7	0.376755	0.108967	0.322496	0.285236	0.233047	0.203989	0.404145	0.463043	0.58711	0.635677
+Aardbeivlinder	index	Aardbeivlinder	Pyrgus malvae	2024	2017	8	0.364163	0.107741	0.307905	0.277899	0.214306	0.196971	0.387352	0.451645	0.567904	0.606906
+Aardbeivlinder	index	Aardbeivlinder	Pyrgus malvae	2025	2017	9	0.407231	0.136187	0.340071	0.290515	0.228885	0.211161	0.437847	0.508084	0.670225	0.717264
+Argusvlinder	index	Argusvlinder	Lasiommata megera	2016	2016	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Argusvlinder	index	Argusvlinder	Lasiommata megera	2017	2016	2	0.771799	0.142596	0.714563	0.651529	0.549956	0.513789	0.816427	0.887424	1.03269	1.07331
+Argusvlinder	index	Argusvlinder	Lasiommata megera	2018	2016	3	0.545689	0.132418	0.487326	0.430689	0.345674	0.307464	0.582213	0.654509	0.786172	0.827283
+Argusvlinder	index	Argusvlinder	Lasiommata megera	2019	2016	4	0.510599	0.101385	0.465062	0.424808	0.356119	0.339211	0.54189	0.589411	0.682292	0.72622
+Argusvlinder	index	Argusvlinder	Lasiommata megera	2020	2016	5	0.412753	0.0869144	0.375676	0.340637	0.280725	0.264254	0.440008	0.482596	0.569634	0.604708
+Argusvlinder	index	Argusvlinder	Lasiommata megera	2021	2016	6	0.332651	0.100617	0.288002	0.248333	0.181172	0.158751	0.365453	0.417282	0.509489	0.547941
+Argusvlinder	index	Argusvlinder	Lasiommata megera	2022	2016	7	0.437979	0.102421	0.392796	0.352362	0.28283	0.259614	0.46652	0.51847	0.624614	0.661858
+Argusvlinder	index	Argusvlinder	Lasiommata megera	2023	2016	8	0.530417	0.105078	0.483421	0.436994	0.377215	0.3568	0.566	0.612454	0.710704	0.770045
+Argusvlinder	index	Argusvlinder	Lasiommata megera	2024	2016	9	0.566153	0.133094	0.507242	0.450451	0.370702	0.338079	0.611504	0.672727	0.796977	0.868779
+Bruin dikkopje	index	Bruin dikkopje	Erynnis tages	2017	2017	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Bruin dikkopje	index	Bruin dikkopje	Erynnis tages	2018	2017	2	0.941944	0.210228	0.847198	0.76227	0.642817	0.595342	1.00136	1.10222	1.29453	1.39687
+Bruin dikkopje	index	Bruin dikkopje	Erynnis tages	2019	2017	3	0.746141	0.182239	0.661721	0.592715	0.49462	0.454279	0.796375	0.88607	1.06933	1.17002
+Bruin dikkopje	index	Bruin dikkopje	Erynnis tages	2020	2017	4	0.385088	0.104906	0.336107	0.298031	0.232729	0.204567	0.413127	0.468723	0.564979	0.624527
+Bruin dikkopje	index	Bruin dikkopje	Erynnis tages	2021	2017	5	0.38624	0.100927	0.333309	0.30081	0.248496	0.228347	0.411063	0.467547	0.576931	0.619305
+Bruin dikkopje	index	Bruin dikkopje	Erynnis tages	2022	2017	6	0.410407	0.101471	0.364039	0.32364	0.270267	0.251633	0.431995	0.488303	0.608596	0.656089
+Bruin dikkopje	index	Bruin dikkopje	Erynnis tages	2023	2017	7	0.235276	0.0644403	0.204536	0.183333	0.141042	0.132148	0.250522	0.284172	0.347565	0.382927
+Bruin dikkopje	index	Bruin dikkopje	Erynnis tages	2024	2017	8	0.167285	0.0473479	0.145463	0.128085	0.102257	0.0915544	0.178546	0.202303	0.253155	0.278508
+Bruin dikkopje	index	Bruin dikkopje	Erynnis tages	2025	2017	9	0.158523	0.0454287	0.136347	0.121594	0.095893	0.0877779	0.169438	0.191293	0.241383	0.267822
+Heivlinder	index	Heivlinder	Hipparchia semele	2016	2016	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Heivlinder	index	Heivlinder	Hipparchia semele	2017	2016	2	0.591311	0.122687	0.537257	0.492094	0.41057	0.383018	0.62689	0.678413	0.80186	0.867518
+Heivlinder	index	Heivlinder	Hipparchia semele	2018	2016	3	0.34874	0.0791906	0.308723	0.281444	0.234692	0.220663	0.372163	0.4123	0.493673	0.517376
+Heivlinder	index	Heivlinder	Hipparchia semele	2019	2016	4	0.298453	0.0640658	0.267836	0.242208	0.202773	0.190503	0.321257	0.349865	0.415669	0.436704
+Heivlinder	index	Heivlinder	Hipparchia semele	2020	2016	5	0.394657	0.0792532	0.357857	0.326243	0.275114	0.259819	0.419967	0.461688	0.536099	0.562553
+Heivlinder	index	Heivlinder	Hipparchia semele	2021	2016	6	0.464009	0.0989911	0.417003	0.385874	0.312327	0.285628	0.493596	0.542228	0.633597	0.672176
+Heivlinder	index	Heivlinder	Hipparchia semele	2022	2016	7	0.575944	0.112744	0.526639	0.486381	0.412409	0.379956	0.609972	0.662302	0.770863	0.828966
+Heivlinder	index	Heivlinder	Hipparchia semele	2023	2016	8	0.459555	0.0999944	0.418345	0.37635	0.317528	0.289854	0.484691	0.53653	0.641911	0.697175
+Heivlinder	index	Heivlinder	Hipparchia semele	2024	2016	9	0.349608	0.0776986	0.312606	0.284072	0.237918	0.220287	0.370027	0.412143	0.492962	0.522959
+Klaverblauwtje	index	Klaverblauwtje	Cyaniris semiargus	2021	2021	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Klaverblauwtje	index	Klaverblauwtje	Cyaniris semiargus	2022	2021	2	0.926325	0.31772	0.768522	0.655639	0.520325	0.475613	1.00445	1.15981	1.51119	1.7042
+Klaverblauwtje	index	Klaverblauwtje	Cyaniris semiargus	2023	2021	3	0.778025	0.253952	0.655718	0.57843	0.430614	0.402408	0.840891	0.966969	1.22086	1.33837
+Klaverblauwtje	index	Klaverblauwtje	Cyaniris semiargus	2024	2021	4	0.103517	0.0508976	0.079176	0.0637061	0.0456143	0.0383737	0.108908	0.136776	0.194809	0.227467
+Klaverblauwtje	index	Klaverblauwtje	Cyaniris semiargus	2025	2021	5	0.102064	0.0463481	0.0785162	0.0636987	0.0455142	0.0404541	0.110588	0.13459	0.193773	0.221813
+Kommavlinder	index	Kommavlinder	Hesperia comma	2016	2016	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Kommavlinder	index	Kommavlinder	Hesperia comma	2017	2016	2	1.05828	0.388873	0.870132	0.73578	0.550869	0.49486	1.13652	1.32885	1.79239	2.02203
+Kommavlinder	index	Kommavlinder	Hesperia comma	2018	2016	3	0.356701	0.174502	0.270909	0.218638	0.149354	0.130984	0.379169	0.469824	0.68279	0.780222
+Kommavlinder	index	Kommavlinder	Hesperia comma	2019	2016	4	0.0565044	0.0388954	0.0374912	0.0283055	0.0170875	0.0134942	0.0599533	0.0765069	0.127717	0.143455
+Kommavlinder	index	Kommavlinder	Hesperia comma	2020	2016	5	0.0447656	0.0290747	0.0306944	0.0221889	0.0131012	0.0106973	0.0473551	0.0631052	0.0974179	0.119922
+Kommavlinder	index	Kommavlinder	Hesperia comma	2021	2016	6	0.124938	0.0673108	0.0910752	0.0734431	0.049653	0.0410907	0.131675	0.1639	0.251299	0.29515
+Kommavlinder	index	Kommavlinder	Hesperia comma	2022	2016	7	0.296913	0.151701	0.223896	0.178095	0.118092	0.10026	0.316471	0.390285	0.574815	0.636863
+Kommavlinder	index	Kommavlinder	Hesperia comma	2023	2016	8	0.201171	0.101086	0.149515	0.119309	0.0787995	0.0684196	0.219941	0.273414	0.384752	0.442405
+Kommavlinder	index	Kommavlinder	Hesperia comma	2024	2016	9	0.261494	0.124961	0.195939	0.159945	0.109539	0.0929925	0.280895	0.348846	0.519693	0.59432
+Kommavlinder	index	Kommavlinder	Hesperia comma	2025	2016	10	0.271435	0.158512	0.18366	0.14423	0.094804	0.0828327	0.292323	0.379753	0.568954	0.641544
+Moerasparelmoervlinder	index	Moerasparelmoervlinder	Euphydryas aurinia	2020	2020	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Moerasparelmoervlinder	index	Moerasparelmoervlinder	Euphydryas aurinia	2021	2020	2	0.87857	0.199876	0.894609	0.732932	0.453274	0.390307	0.990444	1.01009	1.06939	1.11733
+Moerasparelmoervlinder	index	Moerasparelmoervlinder	Euphydryas aurinia	2022	2020	3	0.844409	0.242346	0.842019	0.632617	0.341788	0.291341	0.984816	1.00817	1.07353	1.14415
+Moerasparelmoervlinder	index	Moerasparelmoervlinder	Euphydryas aurinia	2023	2020	4	0.919806	0.213813	0.89971	0.762761	0.52286	0.46291	0.994943	1.03253	1.23146	1.36779
+Moerasparelmoervlinder	index	Moerasparelmoervlinder	Euphydryas aurinia	2024	2020	5	0.971581	0.256743	0.929655	0.818154	0.570872	0.510179	1.00842	1.07059	1.36404	1.55057
+Moerasparelmoervlinder	index	Moerasparelmoervlinder	Euphydryas aurinia	2025	2020	6	0.891692	0.297675	0.868326	0.688174	0.361509	0.286754	0.993986	1.03567	1.24832	1.3623
+Oranje zandoogje	index	Oranje zandoogje	Pyronia tithonus	2017	2017	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Oranje zandoogje	index	Oranje zandoogje	Pyronia tithonus	2018	2017	2	1.02056	0.157445	0.967738	0.900403	0.767243	0.70279	1.07993	1.14404	1.25872	1.3101
+Oranje zandoogje	index	Oranje zandoogje	Pyronia tithonus	2019	2017	3	1.40615	0.260584	1.28477	1.19154	1.05077	0.99913	1.47012	1.6066	1.89717	2.02536
+Oranje zandoogje	index	Oranje zandoogje	Pyronia tithonus	2020	2017	4	1.43429	0.232991	1.33196	1.23032	1.10358	1.06178	1.49447	1.62087	1.85715	1.97915
+Oranje zandoogje	index	Oranje zandoogje	Pyronia tithonus	2021	2017	5	1.32075	0.233099	1.20991	1.13411	0.988922	0.937283	1.38601	1.49678	1.72506	1.87158
+Oranje zandoogje	index	Oranje zandoogje	Pyronia tithonus	2022	2017	6	1.2203	0.220771	1.12214	1.04382	0.89455	0.839945	1.28601	1.38492	1.59538	1.70531
+Oranje zandoogje	index	Oranje zandoogje	Pyronia tithonus	2023	2017	7	1.34268	0.232497	1.23267	1.13962	1.01694	0.977195	1.40658	1.52433	1.75855	1.84467
+Oranje zandoogje	index	Oranje zandoogje	Pyronia tithonus	2024	2017	8	1.06238	0.180654	0.987515	0.908102	0.788747	0.738425	1.11975	1.20589	1.38304	1.44939
+Oranje zandoogje	index	Oranje zandoogje	Pyronia tithonus	2025	2017	9	0.892339	0.177968	0.816821	0.742484	0.617115	0.571835	0.94955	1.03778	1.20804	1.28988
+Veldparelmoervlinder	index	Veldparelmoervlinder	Melitaea cinxia	2016	2016	1	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+Veldparelmoervlinder	index	Veldparelmoervlinder	Melitaea cinxia	2017	2016	2	0.788951	0.207731	0.708447	0.604229	0.427493	0.379738	0.891852	0.966765	1.1025	1.16305
+Veldparelmoervlinder	index	Veldparelmoervlinder	Melitaea cinxia	2018	2016	3	1.01927	0.243329	0.920629	0.817885	0.660059	0.618049	1.08082	1.20222	1.44781	1.57358
+Veldparelmoervlinder	index	Veldparelmoervlinder	Melitaea cinxia	2019	2016	4	1.15816	0.318415	1.01124	0.89882	0.739112	0.691687	1.23817	1.40771	1.7344	1.85254
+Veldparelmoervlinder	index	Veldparelmoervlinder	Melitaea cinxia	2020	2016	5	1.11244	0.337491	0.948425	0.842219	0.699006	0.635051	1.17903	1.32871	1.73301	1.91238
+Veldparelmoervlinder	index	Veldparelmoervlinder	Melitaea cinxia	2021	2016	6	0.904484	0.272046	0.77537	0.682766	0.525466	0.470787	0.96539	1.10305	1.40948	1.53713
+Veldparelmoervlinder	index	Veldparelmoervlinder	Melitaea cinxia	2022	2016	7	0.855638	0.260756	0.73033	0.646147	0.490693	0.447602	0.917567	1.05011	1.35887	1.49406
+Veldparelmoervlinder	index	Veldparelmoervlinder	Melitaea cinxia	2023	2016	8	0.764151	0.222236	0.664919	0.581709	0.440647	0.392877	0.820677	0.936318	1.13394	1.26363
+Veldparelmoervlinder	index	Veldparelmoervlinder	Melitaea cinxia	2024	2016	9	0.568227	0.202861	0.473341	0.380099	0.285692	0.25808	0.624646	0.729714	0.944745	1.05023
+Veldparelmoervlinder	index	Veldparelmoervlinder	Melitaea cinxia	2025	2016	10	0.532226	0.207589	0.431544	0.355037	0.246987	0.213127	0.588335	0.686187	0.940155	1.0261

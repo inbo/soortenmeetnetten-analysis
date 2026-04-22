@@ -1,0 +1,68 @@
+..generic:
+  git2rdata: 0.5.0
+  optimize: yes
+  NA string: NA
+  sorting:
+  - parameter
+  - soort_nl
+  - meetcyclus
+  - regio
+  hash: ba53154e0ee98dd1dca0b2e1e4ecefe6162512d7
+  data_hash: dc96e4931a1c395f1bd0b884d0c7b35ae78a5673
+parameter:
+  class: character
+soort_nl:
+  class: character
+soort_wet:
+  class: character
+meetcyclus:
+  class: numeric
+  digits: 6
+ref_meetcyclus:
+  class: numeric
+  digits: 6
+periode:
+  class: character
+ref_periode:
+  class: character
+mean:
+  class: numeric
+  digits: 6
+sd:
+  class: numeric
+  digits: 6
+lcl_0.30:
+  class: numeric
+  digits: 6
+lcl_0.60:
+  class: numeric
+  digits: 6
+lcl_0.90:
+  class: numeric
+  digits: 6
+lcl_0.95:
+  class: numeric
+  digits: 6
+ucl_0.30:
+  class: numeric
+  digits: 6
+ucl_0.60:
+  class: numeric
+  digits: 6
+ucl_0.90:
+  class: numeric
+  digits: 6
+ucl_0.95:
+  class: numeric
+  digits: 6
+duur_meetcyclus:
+  class: numeric
+  digits: 6
+jaar_min:
+  class: numeric
+  digits: 6
+jaar_max:
+  class: numeric
+  digits: 6
+regio:
+  class: character
