@@ -46,6 +46,8 @@ versie <- str_c(name_analysis2, "_2026-01-19")
 
 results_index_meetcyclus_transect <- read_vc(file = str_c("results_indexmodel_meetcyclus_", name_analysis2),
                              root = file.path(path_analysis, "output/results", versie))
+results_index_meetcyclus_transect_regio <- read_vc(file = str_c("results_indexmodel_regio_", name_analysis2),
+                             root = file.path(path_analysis, "output/results", versie))
 results_trend_meetcyclus_transect <- read_vc(file = str_c("results_trendmodel_meetcyclus_", name_analysis2),
                              root = file.path(path_analysis, "output/results", versie))
 results_index_jaar_transect <- read_vc(file = str_c("results_indexmodel_", name_analysis2),
@@ -88,22 +90,25 @@ legend_klasses_index <- str_c(" (R = referentie; ", str_c(trend_klasses$tekst, c
 ```
 
 We geven eerst een overzicht van de resultaten van alle prioritaire dagvlinders.
-Daarna tonen we de meer gedetailleerde resultaten per meetnet.
+Daarna tonen we de meer gedetailleerde resultaten per soort.
 
 ## Overzicht van de resultaten
 
 ### Vergelijking tussen de jaren
 
 We tonen de verschillen tussen de jaren enkel voor de meetnetten waarvan de meetnetlocaties jaarlijks geteld worden.
-Voor meetnetten met een driejarige meetcyclus tonen we enkel de de verschillen tussen de meetcycli.
+Voor meetnetten met een driejarige meetcyclus tonen we enkel de verschillen tussen de meetcycli.
 
 @tbl-index-refjaar geeft een overzicht van de verschillen van jaar tot jaar, waarbij we steeds de aantallen in een bepaald jaar vergelijken met die in een referentiejaar.
 Als referentiejaar kiezen we hier het jaar waarin het meetnet van start ging.
 We geven de verschillen weer aan de hand van de trend-klassen zoals besproken in @sec-classificatie, waarbij we -25 % als ondergrens en +33 % als bovengrens nemen.
+We zien voor de meeste soorten en in de meeste jaren een sterke afname (`--`) in aantallen t.o.v. referentiejaar.
+Enkel voor Moerasparelmoervlinder en Veldparelmoervlinder lijkt de schade nog mee te vallen.
+Maar voor Veldparelmoervlinder zien we toch een significante afname (`-`) in aantallen t.o.v. het referentiejaar in 2024 en 2025 
 
 ```{r}
 #| label: tbl-index-refjaar
-#| tbl-cap: "Verschil in aantallen t.o.v. referentiejaar"
+#| tbl-cap: "Verschil in aantallen t.o.v. referentiejaar (zie @tbl-trendklasse voor de betekenis van de symbolen)"
 
 results_indexmodel_jaar <- bind_rows( results_index_gebied, 
                                 results_index_jaar_transect %>%
@@ -135,11 +140,12 @@ verschillen_jaren %>%
 ```
 
 Een andere manier om de jaarlijkse verschillen voor te stellen is door steeds de verschillen tussen twee opeenvolgende jaren te bepalen zoals in @tbl-index-prevjaar.
-Op die manier krijgen we bijkomende informatie over hoe de aantallen variëren over de jaren.
+Zo zien we in welke jaren er een sterke afname in aantallen plaats vond: 2018 bleek een heel slecht jaar voor de Kommavlinder, 2019 voor de Grote weerschijnvlinder en de Kommavlinder, 2020 voor Bruin dikkopje en 2024 voor Klaverblauwtje.
+Er zijn maar enkele jaren waar we een toename in aantallen zien: 2021 bleek een goed jaar voor Bruine eikenpage en Kommavlinder en ook in 2022 namen de aantallen van Kommavlinder toe t.o.v. het jaar voordien. 
 
 ```{r }
 #| label: tbl-index-prevjaar
-#| tbl-cap: "Verschil in aantal adulten voor opeenvolgende jaren"
+#| tbl-cap: "Verschil in aantal adulten voor opeenvolgende jaren (zie @tbl-trendklasse voor de betekenis van de symbolen)"
 
 verschillen_vorigjaar <- results_indexmodel_jaar %>%
   filter(parameter == "diff_previous_year") %>%
@@ -168,9 +174,12 @@ verschillen_vorigjaar %>%
 Bij soorten die geteld worden met een meetcyclus van drie jaar, zullen de verschillen tussen de jaren voor een groot deel afhankelijk zijn van welke locaties er elk jaar geteld worden.
 Daarom kunnen we beter periodes van drie jaar (die overeenkomen met een meetcyclus) met elkaar te vergelijken (@tbl-index-meetcyclus).
 
+Hier zien we een sterke afname in aantallen voor argusvlinder en heivlinder in de periode 2019-2021 t.o.v. de periode 2016-2018.
+Oranje zandoogje lijkt de enige soort die stand houdt met een mogelijke toename in aantallen in de periode 2020-2022 en stabiele aantallen in de periode 2023-2025 (in vergelijking met de periode 2017-2019).
+
 ```{r}
 #| label: tbl-index-meetcyclus
-#| tbl-cap: "Verschil in aantallen t.o.v. referentie meetcyclus"
+#| tbl-cap: "Verschil in aantallen t.o.v. referentie meetcyclus (zie @tbl-trendklasse voor de betekenis van de symbolen)"
 
 verschillen_cyclus <- results_index_meetcyclus_transect %>%
   rowwise() %>%
@@ -249,9 +258,20 @@ overzicht_trend_tabel <- overzicht_trend %>%
 
 In @tbl-trend geven we een overzicht van de gemiddelde jaarlijkse trend en de totale trend over de meetnetperiode.
 
+De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in @fig-results-trend De x-as van deze figuur heeft een logaritmische schaal.
+Een halvering (-50 %) is immers een even sterk effect als een verdubbeling (+100 %).
+Opnieuw maken we gebruik van de klassetrends zoals besproken in @sec-classificatie met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over een periode van 6 jaar.
+Voor de gemiddelde jaarlijkse trend komt dit overeen met een ondergens van -5,6 % en een bovengrens van +5,9 %.
+
+Enkel voor Oranje zandoogje is de trend in aantallen stabiel (voor de periode 2017-2025).
+Maar over een langere periode (1991-2025) zien we op basis van de algemene vlindermonitoring een achteruitgang in aantallen van Oranje zandoogje [@maes_2025].
+
+Voor Moerasparelmoervlinder is de trend nog onzeker.
+Voor alle andere soorten zien we een afname of sterke afname, waarbij Klaverblauwtje de sterkste achteruitgang vertoont.
+
 ```{r}
 #| label: tbl-trend
-#| tbl-cap: "Jaarlijkse wijziging en wijziging over de looptijd"
+#| tbl-cap: "Jaarlijkse wijziging en wijziging over de looptijd (zie @tbl-trendklasse voor de betekenis van de symbolen)"
 
 overzicht_trend_tabel %>%
   select("Nederlandse naam" = soort_nl, Periode = periode_tekst, Klasse = klasse_output, "Jaarlijkse wijziging" = trend_tbl, "Wijziging over de looptijd" = trend_total) %>%
@@ -262,11 +282,6 @@ overzicht_trend_tabel %>%
 ```
 
 \needspace{50mm}
-
-De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in @fig-results-trend De x-as van deze figuur heeft een logaritmische schaal.
-Een halvering (-50 %) is immers een even sterk effect als een verdubbeling (+100 %).
-Opnieuw maken we gebruik van de klassetrends zoals besproken in @sec-classificatie met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over een periode van 6 jaar.
-Voor de gemiddelde jaarlijkse trend komt dit overeen met een ondergens van -5,6 % en een bovengrens van +5,9 %.
 
 ```{r}
 #| label: results-trend
@@ -371,6 +386,24 @@ verschil_meetcyclus <- verschil_meetcyclus %>%
   bind_rows(verschil_meetcyclus_add) %>%
   mutate(klasse = str_remove_all(klasse, "`"))
 
+verschil_meetcyclus_regio <- results_index_meetcyclus_transect_regio %>%
+  mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
+         klasse = format(klasse, type = "markdown")) %>%
+  mutate(mean_log = log(mean) + 1,
+         lcl_0.90_log = log(lcl_0.90) + 1,
+         ucl_0.90_log = log(ucl_0.90) + 1)
+
+verschil_meetcyclus_add <- verschil_meetcyclus_regio %>%
+  distinct(soort_nl, soort_wet, regio) %>%
+  mutate(klasse = "R",
+         periode = ifelse(soort_nl == "Oranje zandoogje", "2017-2019", "2016-2018"),
+         mean = 0,
+         mean_log = 1)
+
+verschil_meetcyclus_regio <- verschil_meetcyclus_regio %>%
+  bind_rows(verschil_meetcyclus_add) %>%
+  mutate(klasse = str_remove_all(klasse, "`"))
+
 monitoring_effort_meetnet <- calculate_monitoring_effort(species_group = "dagvlinders",
                                                  aggregation_level = "meetnet")
 
@@ -446,6 +479,23 @@ plot_diff <- function(data_diff,
         geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
         geom_point(size = 7) +
         geom_text(size = 4, colour = "black") +
+        labs(y = "Vreschil t.o.v. referentie meetcyclus", x = "Meetcyclus") +
+        scale_y_continuous(breaks = breaks_log, labels = labels_show) +
+        scale_color_manual(values = klasse_color_scale) +
+        theme(legend.position = "hide")
+      
+    } else if (type == "diff_ref_cycle_regio") {
+      
+      plot <- data_diff %>%
+        ggplot(aes(y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log,
+                   x = periode, colour = klasse, label = klasse)) +
+        geom_errorbar(width = 0, size = 15, alpha = 0.3) +
+        geom_hline(yintercept = 1, linetype = 2) +
+        geom_hline(yintercept = log(0.75) + 1, linetype = 3) +
+        geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
+        geom_point(size = 7) +
+        geom_text(size = 4, colour = "black") +
+        facet_wrap(~regio) +
         labs(y = "Vreschil t.o.v. referentie meetcyclus", x = "Meetcyclus") +
         scale_y_continuous(breaks = breaks_log, labels = labels_show) +
         scale_color_manual(values = klasse_color_scale) +
@@ -540,7 +590,7 @@ trend_average_meetnet <- trend_average %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_plot, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_plot, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 \pagebreak
 
@@ -574,17 +624,32 @@ monitoring_effort_meetnet %>%
 
 ### Vergelijking tussen de meetcycli
 
-@fig-verschilref-argusvlinder toont de verschillen t.o.v. referentie meetcyclus.
+@fig-verschilref-argusvlinder toont de verschillen t.o.v. referentie meetcyclus voor Vlaanderen.
+Daarnaast tonen we in @fig-verschilref-argusvlinder-regio ook de verschillen voor de twee regio's die het grootste deel van het verspreidingsgebied vormen.
+Het is opvallend dat in de kustduinen en polders de aantallen sterk achteruitgaan, terwijl we in de omgeving van de Antwerpse haven een mogelijke toename zien.
+Verder komt de soort ook nog in het zuidoosten van Limburg voor, maar er zijn onvoldoende gegevens om daarvoor een afzonderlijke analyse uit te voeren.
 
 ```{r}
 #| label: fig-verschilref-argusvlinder
-#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de Argusvlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de Argusvlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is."
 #| fig.height: 4
 #| fig.width: 4
 
 verschil_meetcyclus %>%
   filter(soort_nl == m) %>%
   plot_diff(klasse_color_scale = klasse_color, type = "diff_ref_cycle")
+
+```
+
+```{r}
+#| label: fig-verschilref-argusvlinder-regio
+#| fig-cap: "Verschillen in aantallen per regio t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de Argusvlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is."
+#| fig.height: 4
+#| fig.width: 6
+
+verschil_meetcyclus_regio %>%
+  filter(soort_nl == m) %>%
+  plot_diff(klasse_color_scale = klasse_color, type = "diff_ref_cycle_regio")
 
 ```
 
@@ -598,7 +663,7 @@ trend_average_meetnet <- trend_average %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 \pagebreak
 
@@ -668,7 +733,7 @@ trend_average_meetnet <- trend_average %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 \pagebreak
 
@@ -683,7 +748,7 @@ m <- "Bruine eikenpage"
 #| fig-cap: "Bruine eikenpager (foto: Valérie Goethals)"
 #| out-width: "50%"
 
-include_graphics("images/bruine_eikenpage.jpg")
+include_graphics("images/bruine_eikenpage_landscape.jpg")
 ```
 
 ### Aantal tellingen, tellers en getelde locaties
@@ -738,7 +803,7 @@ trend_average_meetnet <- trend_average %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 \pagebreak
 
@@ -808,7 +873,7 @@ trend_average_meetnet <- trend_average %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 \pagebreak
 
@@ -878,7 +943,7 @@ trend_average_meetnet <- trend_average %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 \pagebreak
 
@@ -912,7 +977,9 @@ monitoring_effort_meetnet %>%
 
 ### Vergelijking tussen de meetcycli
 
-@fig-verschilref-hv toont de verschillen t.o.v. referentie meetcyclus.
+@fig-verschilref-hv toont de verschillen t.o.v. referentie meetcyclus voor Vlaanderen.
+Als we naar de verschillen per regio kijken (@fig-verschilref-hv-regio) zien we sterk contrasterende resultaten voor de periode 2019-2021, met in de Kempen een zeer sterke afname in aantallen en in de kustduinen een mogelijke toename in aantallen.
+In de periode 2022-2024 zien we een toename in aantallen in de Kempen en een afname in de kustduinen wat resulteert in lager aantallen in beide regio's t.o.v. de referentieperiode 2016-2018.
 
 ```{r}
 #| label: fig-verschilref-hv
@@ -926,6 +993,19 @@ verschil_meetcyclus %>%
 
 ```
 
+```{r}
+#| label: fig-verschilref-hv-regio
+#| fig-cap: "Verschillen in aantallen per regio t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de Heivlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is."
+#| fig.height: 4
+#| fig.width: 6
+
+verschil_meetcyclus_regio %>%
+  filter(soort_nl == m) %>%
+  mutate(regio = ifelse(regio == "Kust", "Kustduinen", "Kempen")) %>%
+  plot_diff(klasse_color_scale = klasse_color, type = "diff_ref_cycle_regio")
+
+```
+
 ### Trend
 
 ```{r}
@@ -936,7 +1016,7 @@ trend_average_meetnet <- trend_average %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 \pagebreak
 
@@ -1006,7 +1086,7 @@ trend_average_meetnet <- trend_average %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 \pagebreak
 
@@ -1075,7 +1155,7 @@ trend_average_meetnet <- trend_average %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 \pagebreak
 
@@ -1145,7 +1225,7 @@ trend_average_meetnet <- trend_average %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 \pagebreak
 
@@ -1203,7 +1283,7 @@ trend_average_meetnet <- trend_average %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam %in% c("onbekend", "stabiel"), str_c("De trend is dus **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 \pagebreak
 
@@ -1273,4 +1353,4 @@ trend_average_meetnet <- trend_average %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`

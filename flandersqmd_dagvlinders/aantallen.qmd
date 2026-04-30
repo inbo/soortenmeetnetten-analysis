@@ -149,7 +149,7 @@ summary_year_sec <- counts_all %>%
 
 ```{r}
 #| label: tbl-aantaltot
-#| tbl-cap: "Overzicht getelde aantallen voor de prioritaire soorten (Totaal = totaal aantal getelde individuen, Gemiddeld = gemiddeld aantal getelde individuen per bezoek, Locaties = aantal meetnetlocaties waar de soort werd waargenomen)"
+#| tbl-cap: "Overzicht van de getelde aantallen voor de prioritaire soorten (Totaal = totaal aantal getelde individuen, Gemiddeld = gemiddeld aantal getelde individuen per bezoek, Locaties = aantal meetnetlocaties waar de soort werd waargenomen)"
 
 table <- summary_table %>% 
   filter(!is.na(soort_nl)) %>%
@@ -566,8 +566,9 @@ Elk dagvlindermeetnet is specifiek ontworpen voor één bepaalde doelsoort.
 Naast deze doelsoort die moet geteld worden, de zogenoemde prioritaire soorten, is het ook mogelijk om andere aanwezige dagvlinders op de tellocatie op die dag te noteren.
 Deze gegevens kunnen zeker een meerwaarde zijn, maar we moeten wel voorzichtig zijn bij het interpreteren of analyseren van deze gegevens.
 Zowel de tellocaties als de telperiode zijn immers specifiek gekozen voor de doelsoorten.
-Dat maakt dat de aantallen voor de overige soorten niet altijd representatief zijn voor een uitspraak op schaal Vlaanderen.
-  
+De fenologie van de algemene soorten valt niet altijd samen met die van de prioritaire soorten, waardoor we de pieken in de vliegtijd van de algemene soorten kunnen missen.
+Daarnaast zijn de geselecteerde locaties voor de prioritaire soorten niet altijd representatief voor een uitspraak over de algemene soorten op schaal Vlaanderen.
+
 In @tbl-overige geven we het totaal aantal getelde individuen van de overige soorten voor alle dagvlindermeetnetten samen.
 De soorten worden gerangschikt volgens getelde aantallen van hoog naar laag.
 

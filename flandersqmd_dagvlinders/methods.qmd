@@ -310,7 +310,7 @@ Voor de dagvlindermeetnetten gaat het om volgende datasets:
 
 + Gebiedstelling van imago's [@piesschaert_meetnettenbe_2026-4];
 + Transecttelling van imago's [@piesschaert_meetnettenbe_2026-3];
-+ Transecttelling van larvenhuidjes [@piesschaert_meetnettenbe_2026-5].
++ Eitelling [@piesschaert_meetnettenbe_2026-5].
 
 ## Analyse van de telgegevens
 
@@ -344,7 +344,7 @@ In @tbl-trendklasse geven we de codes en de beschrijving die bij de verschillend
 
 ```{r}
 #| label: fig-trendklasse
-#| fig-cap: "Classificatie van trends of verschillen"
+#| fig-cap: "Visuele voorstelling van de classificatie van trends of verschillen"
 #| fig-height: 4
 
 c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
@@ -438,7 +438,7 @@ Via deze bijkomende klassen verkrijgen we al een indicatie van de trendrichting 
 
 ```{r}
 #| label: tbl-trendklasse
-#| tbl-cap: "Classificatie van trends of verschillen"
+#| tbl-cap: "Beschrijving van de classificatie van trends of verschillen"
 
 trend_klasses %>%
   arrange(klasse) %>%
