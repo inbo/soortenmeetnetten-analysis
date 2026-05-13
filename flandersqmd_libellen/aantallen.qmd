@@ -83,7 +83,8 @@ libellen_taxonomy <- get_taxonomy_smp() %>%
 periodes <- dataset %>%
   distinct(meetnet, jaar, periode)
 
-summary_counts_periode <- counts_all %>%
+summary_counts_bezoek_periode <- counts_all %>%
+  filter(!meetnet %in% c("Rivierrombout", "Beekrombout")) %>%
   inner_join(periodes, by = c("meetnet", "jaar")) %>%
   group_by(meetnet, periode, jaar, locatie, primaire_soort, soort_nl, soort_wet, visit_id) %>%
   summarise(aantal_bezoek = sum(aantal)) %>%
@@ -93,12 +94,26 @@ summary_counts_periode <- counts_all %>%
             aantal_mean = round(mean(aantal_bezoek), 1)) %>%
   ungroup()
 
+summary_counts_jaar_periode <- counts_all %>%
+  filter(meetnet %in% c("Rivierrombout", "Beekrombout")) %>%
+  inner_join(periodes, by = c("meetnet", "jaar")) %>%
+  group_by(meetnet, periode, jaar, locatie, primaire_soort, soort_nl, soort_wet) %>%
+  summarise(aantal_jaar = sum(aantal)) %>%
+  ungroup() %>%
+  group_by(meetnet, primaire_soort, soort_nl, soort_wet, periode) %>%
+  summarise(aantal_tot = sum(aantal_jaar),
+            aantal_mean = round(mean(aantal_jaar), 1)) %>%
+  ungroup()
+
+summary_counts_periode <- summary_counts_bezoek_periode %>%
+  bind_rows(summary_counts_jaar_periode)
+
 summary_verspreiding_periode <- counts_all %>%
   inner_join(periodes, by = c("meetnet", "jaar")) %>%
   group_by(meetnet, locatie, periode, primaire_soort, soort_nl, soort_wet) %>%
   summarise(aanwezig = sum(aantal) > 0) %>%
   ungroup() %>%
-  group_by(meetnet, periode, primaire_soort, soort_nl, soort_wet, ) %>%
+  group_by(meetnet, periode, primaire_soort, soort_nl, soort_wet) %>%
   summarise(n_aanwezig = sum(aanwezig),
             n_locaties = n_distinct(locatie)) %>%
   ungroup() %>%
@@ -137,24 +152,30 @@ summary_year_sec <- counts_all %>%
 
 ## Aantallen voor de prioritaire soorten 
 
-### Totale aantallen en gemiddelde aantallen per bezoek
+### Totale en gemiddelde aantallen
 
-De @tbl-aantaltot toont per soort en per jaar:
+In @tbl-aantaltot-imago geven we voor de transect- en gebiedstellingen van imago's per soort en per jaar:
 
-- het totaal aantal getelde individuen;
-- het gemiddeld aantal getelde individuen per bezoek;
-- het aantal meetnetlocaties waar de soort werd waargenomen;
-- de proportie van de bezochte meetnetlocaties waar de soort werd waargenomen.
+- het totaal aantal getelde imago's;
+- het gemiddeld aantal getelde imago's per bezoek;
+- het aantal meetnetlocaties waar de soort werd waargenomen.
+
+In @tbl-aantaltot-larvenhuidje geven we voor de transecttellingen van larvenhuidjes per soort en per jaar:
+
+- het totaal aantal getelde larvenhuidjes over alle locaties;
+- het gemiddelde van het totaal aantal getelde larvenhuidjes per locatie;
+- het aantal meetnetlocaties waar een larvenhuidje van de soort werd waargenomen.
 
 ```{r}
-#| label: tbl-aantaltot
-#| tbl-cap: "Overzicht getelde aantallen voor de prioritaire soorten (Totaal = totaal aantal getelde individuen, Gemiddeld = gemiddeld aantal getelde individuen per bezoek, Locaties = aantal meetnetlocaties waar de soort werd waargenomen)"
+#| label: tbl-aantaltot-imago
+#| tbl-cap: "Overzicht getelde aantallen voor de transect- en gebiedstellingen van imago's (Totaal = totaal aantal getelde imago's, Gemiddeld = gemiddeld aantal getelde imago's per bezoek, Locaties = aantal meetnetlocaties waar de soort werd waargenomen)"
 
 summary_table %>% 
   filter(!is.na(soort_nl)) %>%
   filter(!is.na(primaire_soort)) %>%
   filter(periode != "2024-2026") %>%
   filter(primaire_soort) %>%
+  filter(!meetnet %in% c("Rivierrombout", "Beekrombout")) %>%
   mutate(soort_nl = factor(soort_nl)) %>%
   select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet,  Jaar = periode, "Totaal" = aantal_tot, "Gemiddeld" = aantal_mean, "Locaties" = n_aanwezig) %>%
   kbl(booktabs = TRUE,
@@ -168,6 +189,29 @@ summary_table %>%
   collapse_rows(c(1,2), valign = "top", latex_hline = "major") %>%
   scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
 ```
+
+```{r}
+#| label: tbl-aantaltot-larvenhuidje
+#| tbl-cap: "Overzicht getelde aantallen voor transecttellingen van larvenhuidjes (Totaal = totaal aantal getelde larvenhuidjes, Gemiddeld = gemiddelde van totaal aantal getelde larvenhuidjes per locatie, Locaties = aantal meetnetlocaties waar een larvenhuidje van de soort werd waargenomen)"
+
+summary_table %>% 
+  filter(!is.na(soort_nl)) %>%
+  filter(!is.na(primaire_soort)) %>%
+  filter(periode != "2024-2026") %>%
+  filter(primaire_soort) %>%
+  filter(meetnet %in% c("Rivierrombout", "Beekrombout")) %>%
+  mutate(soort_nl = factor(soort_nl)) %>%
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet,  Jaar = periode, "Totaal" = aantal_tot, "Gemiddeld" = aantal_mean, "Locaties" = n_aanwezig) %>%
+  kbl(booktabs = TRUE,
+      align = "llccccc") %>%
+  kable_styling(bootstrap_options = c( "condensed"),
+                font_size = ifelse(is_html_output(), 11, 9)) %>%
+  column_spec(2, italic = TRUE) %>%
+  collapse_rows(c(1,2), valign = "top", latex_hline = "major") %>%
+  scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
+```
+
+\needspace{150mm}
 
 Bij de gebiedstellingen en de transecttellingen van imago's vragen we om, indien mogelijk, ook het geslacht (mannetjes, vrouwtjes of onbepaald) te vermelden en indicaties voor lokale reproductie (tandem of copula, eiafzettend of larvenhuidjes).
 Voor een overzicht van deze detailgegevens verwijzen we naar @sec-bijlage-2.
@@ -199,7 +243,7 @@ summary_counts_type %>%
   write_csv2("tabel_bijlage2.csv")
 ```
 
-### Aantallen per meetnetlocatie
+### Aantallen per meetnetlocatie {#sec-aantallen-locatie}
 
 ::: {.content-hidden when-format="html"}
 

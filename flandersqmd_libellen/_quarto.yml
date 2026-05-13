@@ -88,13 +88,12 @@ flandersqmd:
   publisher: INBO
   keywords: monitoring
   public_report: true
-  reportnr: 3.14
-  doi: 10.5281/zenodo.842223
+  reportnr: 37
+  doi: 10.21436/inbor.148382180
   year: 2026
   colophon: true
   floatbarrier: section
-  depotnr: '555'
-  coverdescription: Libel
+  coverdescription: Larve Rivierrombout (foto: Robort Pieters)
 book:
   downloads: pdf
   open-graph: true

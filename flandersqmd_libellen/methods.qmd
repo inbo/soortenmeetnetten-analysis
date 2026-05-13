@@ -36,13 +36,18 @@ We vatten de belangrijkste onderdelen van de libellenmeetnetten nog eens kort sa
 
 Voor twee groepen van soorten streven we naar een monitoring op basis van meetnetten: Europees prioritaire soorten en Vlaams prioritaire soorten [@westra_inleiding_2014].
 
-+ De **Europees prioritaire soorten** (EPS) zijn de zogenaamde **Natura 2000 - soorten** die op Bijlage II en/of Bijlage IV van de Europese Habitatrichtlijn (HRL) staan.  
++ De **Europees prioritaire soorten** (EPS) zijn de zogenaamde **Natura 2000 - soorten** die op Bijlage II en/of Bijlage IV van de Europese Habitatrichtlijn (HRL) staan.
 
-+ De **Vlaams prioritaire soorten** (VPS) staan niet op een bijlage van de HRL (het zijn dus geen Natura 2000 - soorten), maar ze worden wel als prioritair beschouwd voor het Vlaamse natuurbeleid. 
++ De **Vlaams prioritaire soorten** (VPS) staan niet op een bijlage van de HRL (het zijn dus geen Natura 2000 - soorten), maar ze worden wel als prioritair beschouwd voor het Vlaamse natuurbeleid.
 
-Bijzondere aandacht gaat naar de Kempense heidelibel. Deze soort staat niet vermeld op de bijlage van de HRL, maar staat wel als kwetsbaar aangeduid op de Europese Rode Lijst van libellen [@kalkman_european_2010].  
+Bij de selectie van de VPS [@de_knijf_monitoring_2014] ging er bijzonder aandacht naar de Kempense heidelibel.
+Deze soort staat niet vermeld op de bijlage van de HRL, maar staat wel als Kwetsbaar aangeduid op de eerste Europese Rode Lijst van libellen [@kalkman_european_2010]
+In de nieuwe Europese Rode Lijst van libellen [@deknijf_2024], behoud de Kempense heidelibel zijn status als Kwetsbaar.
+Maar ook de Maanwaterjuffer en de Speerwaterjuffer werden allebei beoordeeld als Kwetsbaar.
 
-In @tbl-soorten tonen we de geselecteerde libellensoorten, de beleidsrelevantie van de soorten en het jaar waarin het meetnet voor die soort van start ging. De volgorde van de libellen in deze tabel is gebaseerd op de taxonomische indeling van de soorten. Ook verder in dit rapport volgen we deze volgorde.  
+In @tbl-soorten tonen we de geselecteerde libellensoorten, de beleidsrelevantie van de soorten en het jaar waarin het meetnet voor die soort van start ging.
+De volgorde van de libellen in deze tabel is gebaseerd op de taxonomische indeling van de soorten.
+Ook verder in dit rapport volgen we deze volgorde.
 
 ```{r}
 #| label: scheme-characteristics
@@ -68,7 +73,7 @@ meetnet_characteristics_results <- meetnet_characteristics %>%
 #| tbl-cap: "Overzicht van de libellen waarvoor een meetnet bestaat met onderscheid tussen Europees prioritaire (EPS) en Vlaams prioritaire soorten (VPS), en met het jaar waarin de monitoring werd opgestart"
 
 meetnet_characteristics %>%
-    mutate(type_soort = ifelse(meetnet == "Kempense heidelibel", 
+    mutate(type_soort = ifelse(meetnet %in% c("Kempense heidelibel", "Maanwaterjuffer", "Speerwaterjuffer"), 
                                str_c(type_soort, footnote_marker_symbol(1, ifelse(is_html_output(), "html", "latex"))), 
                                type_soort)) %>%
   select("Nederlandse naam" = meetnet, "Wetenschappelijke naam" = soort_wet, Beleidsrelevantie = type_soort, "Start meetnet" = opstartjaar) %>%
@@ -81,7 +86,7 @@ meetnet_characteristics %>%
 
 ```
 
-\needspace{50mm}
+\needspace{80mm}
 
 ### Telmethode
 
@@ -92,13 +97,14 @@ Hierbij worden imago’s (adulten) van libellen op een vaste route (van 100 mete
 Dit is het geval voor de Bosbeekjuffer, Variabele waterjuffer en Vroege glazenmaker.
 
 - **Transecttelling larvenhuidjes**.
-Bij deze methode worden larvenhuidjes geteld en verzameld langs een transect aan het water.
+Deze methode is een specifiek geval van een transsecttelling, waarbij enkel de larvenhuidjes worden geteld en verzameld langs een transect aan het water.
+Deze methode is uiterst geschikt om bepaalde soorten, vooral Rombouten, op te volgen die als imago moeilijk waar te nemen zijn.
 Dit protocol gebruiken we om de populaties van de Beekrombout en de Rivierrombout op te volgen.
-Bij de Beekrombout tellen we de larvenhuidjes op een oeverlengte van ongeveer 100 meter en bij de Rivierrombout hanteren we een lengte van 500 meter. 
+Bij de Beekrombout tellen we de larvenhuidjes op een oeverlengte van 50 à 100 meter en bij de Rivierrombout hanteren we een lengte van 500 meter. 
 
 - **Gebiedstelling imago's**.
-Binnen een vooral afgebakend  telgebied nabij de voortplantingslocatie worden de imago’s geteld gedurende een vastgelegde tijd van bv. 1 uur.
-Deze methode laat toe om ook verder weg van het water te zoeken naar de betreffende soort of moeilijker toegankelijke gebieden te tellen, bijvoorbeeld al wadend in het water.
+Binnen een vooral afgebakend  telgebied nabij de voortplantingslocatie worden de imago’s geteld gedurende een vastgelegde tijd van ongeveer. 1 uur.
+Deze methode laat toe om ook verder weg van het water, vaak in het aangrenzend terrestrisch habitat, te zoeken naar de betreffende soort of de waterpartij gerichter te onderzoeken, bijvoorbeeld al wadend in het water. 
 Dit veldprotocol passen we toe bij de Speerwaterjuffer, Maanwaterjuffer, Sierlijke witsnuitlibel, Gevlekte witsnuitlibel en Kempense heidelibel.
 
 Een overzicht van welk veldprotocol gebruikt wordt per soort vind je in @tbl-characteristics.
@@ -229,9 +235,9 @@ Vanaf 2026 zullen we een aantal wijzigingen doorvoeren aan de libellenmeetnetten
 Deze wijzigingen hebben dus nog geen effect op de resultaten die we in de dit rapport tonen,
 maar we lichten ze alvast toe.
 
-Bij bosbeekjuffer en variabele waterjuffer zien we sterke variaties in aantallen tussen de jaren en tussen locaties.
+Bij Bosbeekjuffer en Variabele waterjuffer zien we sterke variaties in aantallen tussen de jaren en tussen locaties.
 Het meetnetontwerp waarbij 30 locaties om de 3 jaar geteld worden, resulteert daarom in een onvoldoende nauwkeurige schatting van de trends.
-Daarom schakelen we over naar een jaarlijkse telling van de meetnetlocaties en streven we naar 30 getelde locaties per jaar.
+Daarom schakelen we over naar een jaarlijkse telling van de meetnetlocaties en streven we naar 30 locaties die driemaal per jaar geteld worden.
 
 Het meetnet Vroege glazenmaker zal vanaf 2026 stopgezet worden.
 De verspreiding van de vroege glazenmaker is sterk toegenomen in de laatste jaren en daarom is de soort minder prioritair om op te volgen.
@@ -258,7 +264,7 @@ Sinds de start van de meetnetten in 2016 tot en met 2025 hebben `r monitoring_ef
 
 In @fig-inspanning zien we de evolutie van de tellingen in de tijd voor alle libellenmeetnetten samen.
 Het aantal getelde locaties nam toe in de periode 2016 tot 2018, wat te verklaren is doordat er jaarlijks een aantal nieuwe meetnetten werden opgestart.
-Sinds 2018 zijn alle libellenmeetnetten opgestart en zien we een stagnatie. De ogenschijnlijke lichte achteruitgang kan verklaard worden doordat bepaalde soorten en locaties in een driejarige cyclus worden opgevolgd.
+Sinds 2018 zijn alle libellenmeetnetten opgestart en zien we een stagnatie.
 Het ziet er naar uit dat alle tellers hun locaties jaarlijkse blijven opvolgen en dus goed volhouden.
 
 ```{r}
@@ -426,7 +432,7 @@ Ook de klassen 'mogelijke toename' en 'mogelijke afname' geven een meerwaarde.
 Zeker omdat we voor de soortenmeetnetten nog maar enkele jaren aan het tellen zijn waardoor de onzekerheid op de schattingen vrij groot kan zijn.
 Via deze bijkomende klassen verkrijgen we al een indicatie van de trendrichting ook al kunnen we nog geen significante trend detecteren.
 
-\needspace{30mm}
+\needspace{60mm}
 
 ```{r}
 #| label: tbl-trendklasse
