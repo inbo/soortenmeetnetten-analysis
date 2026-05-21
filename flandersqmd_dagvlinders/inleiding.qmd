@@ -23,9 +23,9 @@ In 2022 verscheen een eerste rapport met de resultaten van de soortspecifieke da
 Het huidige rapport bevat een update van deze resultaten gebaseerd op de data van de periode 2016 - 2025.
 We geven eerst wat achtergrond over het [ontwerp van de dagvlindermeetnetten](#sec-ontwerp) en de [analyse van de telgegevens].
 Daarna maken we een [verkenning van de getelde aantallen] en geven we een [overzicht van de resultaten] van de statistische analyses.
-Ten slotte bespreken we de resultaten voor elk meetnet: [Aardbeivlinder](#sec-aardbeivlinder), [Argusvlinder](#sec-argusvlinder), [Bruin dikkopje](#sec-bruind-dikkopje), [Bruine eikenpage](#sec-bruine-eikenpage), [Gentiaanblauwtje](#sec-gentiaanblauwtje), [Grote weerschijnvlinder](#sec-grote-weerschijnvlinder), [Heivlinder](#sec-heivlinder), [Klaverblauwtje](#sec-klaverblauwtje), [Kommavlinder](#sec-kommavlinder), [Moerasparelmoervlinder](#sec-moerasparelmoervlinder), [Oranje zandoogje](#sec-oranje-zandoogje) en [Veldparelmoervlinder](#sec-veldparelmoervlinder).
+Ten slotte bespreken we de resultaten voor elk meetnet: [Aardbeivlinder](#sec-aardbeivlinder), [Argusvlinder](#sec-argusvlinder), [Bruin dikkopje](#sec-bruin-dikkopje), [Bruine eikenpage](#sec-bruine-eikenpage), [Gentiaanblauwtje](#sec-gentiaanblauwtje), [Grote weerschijnvlinder](#sec-grote-weerschijnvlinder), [Heivlinder](#sec-heivlinder), [Klaverblauwtje](#sec-klaverblauwtje), [Kommavlinder](#sec-kommavlinder), [Moerasparelmoervlinder](#sec-moerasparelmoervlinder), [Oranje zandoogje](#sec-oranje-zandoogje) en [Veldparelmoervlinder](#sec-veldparelmoervlinder).
 
 Naast de soortspeciefieke dagvlindermeetnetten, bestaat er in Vlaanderen ook het meetnet Algemene Vlindermonitoring voor het opvolgen van algemenere dagvlindersoorten.
 Dit meetnet loopt al sinds 1991. Voor de resultaten van dit meetnet verwijzen we naar @maes_2025.
 
-`r ifelse(!html_output, "Dit rapport bevat enkele interactieve figuren die alleen kunnen bekeken worden op de [website versie](https://inbo.github.io/soortenmeetnetten-dagvlinderrapport-2022/) van dit rapport.", "")`
+`r ifelse(!html_output, "Dit rapport bevat enkele interactieve figuren die alleen kunnen bekeken worden op de [website versie](https://www.vlaanderen.be/inbo/rapporten/dagvlindermeetnetten-trends-2016-2025/index.html) van dit rapport.", "")`

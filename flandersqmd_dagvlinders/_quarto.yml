@@ -27,7 +27,7 @@ flandersqmd:
   level: 2
   title: Trends op basis van de dagvlindermeetnetten (2016 - 2025)
   subtitle: Citizen science monitoring in Vlaanderen
-  shorttitle: trends-dagvlinders
+  shorttitle: dagvlindermeetnetten-trends-2016-2025
   author:
   - name:
       given: Toon
@@ -87,12 +87,12 @@ flandersqmd:
   publisher: INBO
   keywords: monitoring
   public_report: true
-  reportnr: x.xx
-  doi: 10.5281/zenodo.842223
+  reportnr: 38
+  doi: 10.21436/inbor.148382491
   year: 2026
   colophon: true
   floatbarrier: section
-  depotnr: 'xx'
+  depotnr: 'D/2026/3241/189'
   coverdescription: Bruine eikenpage
 book:
   downloads: pdf

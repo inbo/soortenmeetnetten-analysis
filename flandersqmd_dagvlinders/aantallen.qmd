@@ -28,6 +28,16 @@ library(knitr)
 
 source("../source/functions_smp.R")
 
+if (is_html_output()) {
+  
+  theme_set(theme_inbo(base_size = 10))
+  
+} else {
+  
+  theme_set(theme_inbo(base_size = 8))
+  
+}
+
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(plotly::layout)
 
@@ -178,7 +188,7 @@ table %>%
 
 ::: {.content-hidden when-format="html"}
 
-In de [website versie](https://inbo.github.io/soortenmeetnetten-libellenrapport-2021/h-bijlaged.html) LINK AANPASSEN van dit rapport vind je grafieken met de getelde aantallen per meetnetlocatie.
+In de [website versie](https://www.vlaanderen.be/inbo/rapporten/dagvlindermeetnetten-trends-2016-2025/aantallen.html) van dit rapport vind je interactieve grafieken met de getelde aantallen per meetnetlocatie.
 
 :::
 
@@ -568,6 +578,7 @@ Deze gegevens kunnen zeker een meerwaarde zijn, maar we moeten wel voorzichtig z
 Zowel de tellocaties als de telperiode zijn immers specifiek gekozen voor de doelsoorten.
 De fenologie van de algemene soorten valt niet altijd samen met die van de prioritaire soorten, waardoor we de pieken in de vliegtijd van de algemene soorten kunnen missen.
 Daarnaast zijn de geselecteerde locaties voor de prioritaire soorten niet altijd representatief voor een uitspraak over de algemene soorten op schaal Vlaanderen.
+De algemene vlindersoorten worden in Vlaanderen opgevolgd in een ander meetnet en worden apart geanalyseerd [@maes_2025].
 
 In @tbl-overige geven we het totaal aantal getelde individuen van de overige soorten voor alle dagvlindermeetnetten samen.
 De soorten worden gerangschikt volgens getelde aantallen van hoog naar laag.
@@ -582,12 +593,10 @@ summary_table_sec %>%
   filter(!soort_nl %in% summary_counts_periode$meetnet) %>%
   arrange(desc(aantal_tot)) %>%
   select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Totaal" = aantal_tot) %>%
-  kbl(longtable = TRUE,
-      booktabs = TRUE) %>%
+  kbl(booktabs = TRUE) %>%
   kable_styling(bootstrap_options = c( "condensed"),
                 font_size = ifelse(is_html_output(), 11, 9),
-                latex_options = c("scale_down", "repeat_header"),
-                repeat_header_text = "(vervolg)") %>%
+                latex_options = c("scale_down")) %>%
   column_spec(2, italic = TRUE) %>%
   scroll_box(width = "100%", height = "600px", fixed_thead = TRUE)
 ```

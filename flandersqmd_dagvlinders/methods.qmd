@@ -19,6 +19,16 @@ library(knitr)
 
 source("../source/functions_smp.R")
 
+if (is_html_output()) {
+  
+  theme_set(theme_inbo(base_size = 10))
+  
+} else {
+  
+  theme_set(theme_inbo(base_size = 8))
+  
+}
+
 conflicted::conflicts_prefer(dplyr::filter)
 
 ```
@@ -50,7 +60,8 @@ We vatten de belangrijkste onderdelen van de dagvlindermeetnetten nog eens kort 
 
 Voor twee groepen van soorten streven we naar een monitoring op basis van meetnetten: Europees prioritaire soorten en Vlaams prioritaire soorten [@westra_inleiding_2014].
 
-+ De **Europees prioritaire soorten** (EPS) zijn de zogenaamde **Natura 2000 - soorten** die op Bijlage II en/of Bijlage IV van de Europese Habitatrichtlijn (HRL) staan.  
++ De **Europees prioritaire soorten** (EPS) zijn de zogenaamde **Natura 2000 - soorten** die op Bijlage II en/of Bijlage IV van de Europese Habitatrichtlijn (HRL) staan.
+In Vlaanderen gaat het enkel om de Moerasparelmoervlinder.
 
 + De **Vlaams prioritaire soorten** (VPS) staan niet op een bijlage van de HRL (het zijn dus geen Natura 2000 - soorten), maar ze worden wel als prioritair beschouwd voor het Vlaamse natuurbeleid.
 
@@ -140,8 +151,8 @@ meetnet_telperiode_table %>%
 
 Wanneer er van een bepaalde soort minder dan 30 locaties voorkomen in Vlaanderen, worden alle locaties opgenomen in het meetnet.
 We spreken dan van een integrale monitoring.
-Wanneer er meer dan 30 locaties zijn, is het niet meer haalbaar om al die locaties te tellen.
-We selecteren dan 30 locaties via een willekeurige steekproef.
+Wanneer er meer dan 30 locaties zijn, is het niet meer haalbaar om alle locaties te tellen.
+We selecteren dan 30 locaties via een aselecte steekproef.
 @tbl-selectie geeft voor elk meetnet het aantal locaties en of de soort integraal dan wel via een steekproef wordt geteld.
 De tabel geeft ook de duur van de meetcyclus weer.
 Dit is de periode waarin alle meetnetlocaties geteld worden.
@@ -304,7 +315,7 @@ if (is_html_output()) {
 De databank die onderdeel uitmaakt van [meetnetten.be](www.meetnetten.be) is enkel toegankelijk binnen het INBO.
 Maar op regelmatige basis maakt het INBO datasets publiek toegankelijk via [GBIF](https://www.gbif.org/) (Global Biodiversity Information Facility).
 Omdat het meestal om kwetsbare soorten gaat, passen we op de datasets een vervaging toe van 1, 5 of 10 km toe afhankelijk van de soort.
-De publiek ontsloten datasets bevatten dus niet de exacte tellocaties
+De publiek ontsloten datasets bevatten dus niet de exacte tellocaties.
 
 Voor de dagvlindermeetnetten gaat het om volgende datasets:
 
@@ -334,11 +345,11 @@ Klassiek onderscheiden we op basis van het betrouwbaarheidsinterval:
 -   geen significant(e) trend of verschil: het betrouwbaarheidsinterval omvat 0 (de trend kan dus zowel positief als negatief zijn).
 
 Bovenstaande indeling is echter weinig informatief.
-Daarom stellen we een classificatiesysteem voor waarbij het betrouwbaarheidsinterval wordt vergeleken met een referentiewaarde, een onderste drempelwaarde en een bovenste drempelwaarde.
+Daarom gebruiken we een classificatiesysteem waarbij het betrouwbaarheidsinterval wordt vergeleken met een referentiewaarde, een onderste drempelwaarde en een bovenste drempelwaarde [@onkelinx_2024].
 Als referentiewaarde kiezen we 0 (= geen verandering).
-Voor de onderste drempelwaarde kiezen we een waarde die we als een sterke afname beschouwen: -25 %.
+Voor de onderste drempelwaarde kiezen we een waarde die we als een sterke afname beschouwen: -25%.
 Op basis van de bovenste drempelwaarde onderscheiden we een sterke toename.
-Hiervoor kiezen de waarde +33 %, wat overeenkomt met eenzelfde relatief effect dan een afname van -25 % (75/100 $\approx$ 100/133).
+Hiervoor kiezen we de waarde +33%, wat overeenkomt met eenzelfde relatief effect dan een afname van -25% (75/100 $\approx$ 100/133).
 Dit classificatiesysteem resulteert in 10 klassen (@fig-trendklasse).
 In @tbl-trendklasse geven we de codes en de beschrijving die bij de verschillende klassen horen.
 

@@ -5,7 +5,8 @@ De R-scripts staan onder versiebeheer via volgende GitHub repository: [inbo/soor
 
 Meer specifiek gebeuren de analyses voor de dagvlindermeetnetten via de scripts in de folder [inbo/soortenmeetnetten-analysis/analysis_vlinders/source (commit 1bc95bd)](https://github.com/inbo/soortenmeetnetten-analysis/tree/260bd5941c40a40bdb9d0a1f73a29022dadbe8c0/analysis_vlinders/source).
 
-De analyseresultaten zijn terug te vinden in de folder [inbo/soortenmeetnetten-analysis/analysis_vlinders/output/results (commit 1bc95bd)](https://github.com/inbo/soortenmeetnetten-analysis/tree/1bc95bdee54cd0cd52f617ed9c5bc2fd3739eab2/analysis_vlinders/output/results)
+De analyseresultaten zijn terug te vinden in de folder [inbo/soortenmeetnetten-analysis/analysis_vlinders/output/results (commit 1bc95bd)](https://github.com/inbo/soortenmeetnetten-analysis/tree/1bc95bdee54cd0cd52f617ed9c5bc2fd3739eab2/analysis_vlinders/output/results).
+De bestanden met resultaten kunnen in R ingelezen worden via het `git2rdata` package [@onkelinx_2026].
 
 De ruwe data die we gebruiken voor de analyse zijn niet publiek beschikbaar omdat het om gevoelige data gaat.
 De ruwe data zijn wel beschikbaar via [deze Google Drive folder](https://drive.google.com/drive/folders/1Id3J4n78W9jRfMJa72VGVfnJu_FlrtPJ), die enkel toegankelijk is op verzoek.
