@@ -27,7 +27,7 @@ flandersqmd:
   level: 2
   title: Trends op basis van de libellenmeetnetten (2016 - 2025)
   subtitle: Citizen science monitoring in Vlaanderen
-  shorttitle: trends-libellen
+  shorttitle: libellenmeetnetten-trends-2016-2025
   author:
   - name:
       given: Toon
@@ -89,11 +89,12 @@ flandersqmd:
   keywords: monitoring
   public_report: true
   reportnr: 37
+  depotnr: "D/2026/3241/190"
   doi: 10.21436/inbor.148382180
   year: 2026
   colophon: true
   floatbarrier: section
-  coverdescription: Larve Rivierrombout (foto: Robort Pieters)
+  coverdescription: "Larve Rivierrombout (foto: Robort Pieters)"
 book:
   downloads: pdf
   open-graph: true

@@ -19,6 +19,16 @@ library(knitr)
 
 source("../source/functions_smp.R")
 
+if (is_html_output()) {
+  
+  theme_set(theme_inbo(base_size = 10))
+  
+} else {
+  
+  theme_set(theme_inbo(base_size = 8))
+  
+}
+
 conflicted::conflicts_prefer(dplyr::filter)
 
 ```
@@ -124,7 +134,7 @@ meetnet_characteristics_table <- meetnet_characteristics %>%
          einde_telperiode = ifelse(meetnet == "Sierlijke witsnuitlibel", "20/06", einde_telperiode),
          start_telperiode = ifelse(meetnet == "Maanwaterjuffer", "20/04", start_telperiode),
          telperiode = str_c(start_telperiode, " - ", einde_telperiode),
-         n_locaties = ifelse(meetnet == "Vroege glazenmaker", 30, n_locaties)) %>%
+         n_locaties = ifelse(meetnet %in% c("Vroege glazenmaker", "Variabele waterjuffer"), 30, n_locaties)) %>%
   select(Meetnet = meetnet, Veldprotocol =  protocol, "Aantal bezoeken" = bezoeken,
          Telperiode = telperiode, "Selectie locaties" = type, "Aantal locaties" = n_locaties ,
          "Duur meetcyclus" = duur_meetcyclus) %>%
@@ -144,8 +154,8 @@ meetnet_characteristics_table %>%
 
 Wanneer er van een bepaalde soort minder dan 30 locaties voorkomen in Vlaanderen, worden alle locaties opgenomen in het meetnet.
 We spreken dan van een integrale monitoring.
-Wanneer er meer dan 30 locaties zijn, is het niet meer haalbaar om al die locaties te tellen.
-We selecteren dan 30 locaties via een willekeurige steekproef.
+Wanneer er meer dan 30 locaties zijn, is het niet meer haalbaar om alle locaties te tellen.
+We selecteren dan 30 locaties via een aselecte steekproef.
 @tbl-characteristics geeft voor elk meetnet het aantal locaties en of de soort integraal dan wel via een steekproef wordt geteld.
 De tabel geeft ook de duur van de meetcyclus weer.
 Dit is de periode waarin alle meetnetlocaties geteld worden.
@@ -332,11 +342,11 @@ Klassiek onderscheiden we op basis van het betrouwbaarheidsinterval:
 -   geen significant(e) trend of verschil: het betrouwbaarheidsinterval omvat 0 (de trend kan dus zowel positief als negatief zijn).
 
 Bovenstaande indeling is echter weinig informatief.
-Daarom stellen we een classificatiesysteem voor waarbij het betrouwbaarheidsinterval wordt vergeleken met een referentiewaarde, een onderste drempelwaarde en een bovenste drempelwaarde.
+Daarom gebruiken we een classificatiesysteem waarbij het betrouwbaarheidsinterval wordt vergeleken met een referentiewaarde, een onderste drempelwaarde en een bovenste drempelwaarde [@onkelinx_2024].
 Als referentiewaarde kiezen we 0 (= geen verandering).
-Voor de onderste drempelwaarde kiezen we een waarde die we als een sterke afname beschouwen: -25 %.
+Voor de onderste drempelwaarde kiezen we een waarde die we als een sterke afname beschouwen: -25%.
 Op basis van de bovenste drempelwaarde onderscheiden we een sterke toename.
-Hiervoor kiezen de waarde +33 %, wat overeenkomt met eenzelfde relatief effect dan een afname van -25 % (75/100 $\approx$ 100/133).
+Hiervoor kiezen we de waarde +33%, wat overeenkomt met eenzelfde relatief effect dan een afname van -25% (75/100 $\approx$ 100/133).
 Dit classificatiesysteem resulteert in 10 klassen (@fig-trendklasse).
 In @tbl-trendklasse geven we de codes en de beschrijving die bij de verschillende klassen horen.
 

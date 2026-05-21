@@ -28,6 +28,16 @@ library(knitr)
 
 source("../source/functions_smp.R")
 
+if (is_html_output()) {
+  
+  theme_set(theme_inbo(base_size = 10))
+  
+} else {
+  
+  theme_set(theme_inbo(base_size = 8))
+  
+}
+
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(plotly::layout)
 
@@ -247,7 +257,7 @@ summary_counts_type %>%
 
 ::: {.content-hidden when-format="html"}
 
-In de [website versie](https://inbo.github.io/soortenmeetnetten-libellenrapport-2021/h-bijlaged.html) LINK AANPASSEN van dit rapport vind je grafieken met de getelde aantallen per meetnetlocatie.
+In de [website versie](https://www.vlaanderen.be/inbo/rapporten/libellenmeetnetten-trends-2016-2025/aantallen.html) van dit rapport vind je interactieve grafieken met de getelde aantallen per meetnetlocatie.
 
 :::
 

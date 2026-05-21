@@ -16,6 +16,16 @@ library(knitr)
 library(scales)
 options(knitr.kable.NA = '')
 
+if (is_html_output()) {
+  
+  theme_set(theme_inbo(base_size = 10))
+  
+} else {
+  
+  theme_set(theme_inbo(base_size = 8))
+  
+}
+
 conflicted::conflicts_prefer(dplyr::lag)
 conflicted::conflicts_prefer(dplyr::filter)
 
@@ -91,7 +101,7 @@ We tonen de verschillen tussen de jaren enkel voor de meetnetten waarvan de meet
 Voor meetnetten met een driejarige meetcyclus tonen we enkel de verschillen tussen de meetcycli.
 
 @tbl-index-refjaar geeft een overzicht van de verschillen van jaar tot jaar, waarbij we steeds de aantallen in een bepaald jaar vergelijken met die in een referentiejaar.
-Als referentiejaar kiezen we hier het jaar waarin het meetnet van start ging. We geven de verschillen weer aan de hand van de trend-klassen zoals besproken in @sec-classificatie, waarbij we -25 % als ondergrens en +33 % als bovengrens nemen.
+Als referentiejaar kiezen we hier het jaar waarin het meetnet van start ging. We geven de verschillen weer aan de hand van de trend-klassen zoals besproken in @sec-classificatie, waarbij we -25% als ondergrens en +33% als bovengrens nemen.
 
 ```{r}
 #| label: tbl-index-refjaar
@@ -133,7 +143,7 @@ Een sterke toename in aantallen t.o.v. het voorgaande jaar zien we in 2018 voor 
 
 verschillen_vorigjaar <- results_indexmodel_jaar %>%
   filter(parameter == "diff_previous_year") %>%
-  mutate(periode = str_c(lag(jaar), " - ", jaar )) %>%
+  mutate(periode = str_c(lag(jaar), "-", jaar )) %>%
   filter(!is.na(mean)) %>%
     rowwise() %>%
   mutate(klasse = classification(lcl_0.90, ucl_0.90, threshold = c(0.75, 1.33), reference = 1),
@@ -158,7 +168,7 @@ verschillen_vorigjaar %>%
 Bij soorten die geteld worden met een meetcyclus van drie jaar, zullen de verschillen tussen de jaren voor een groot deel afhankelijk zijn van welke locaties er elk jaar geteld worden.
 Daarom kunnen we beter periodes van drie jaar (die overeenkomen met een meetcyclus) met elkaar te vergelijken (@tbl-index-meetcyclus).
 
-We zien hier enkel voor de Bosbeekjuffer een significante verschil: een afname in aantallen in de periode 2021-2023 t.o.v. de periode 2018 - 2020. 
+We zien hier enkel voor de Bosbeekjuffer een significante verschil: een afname in aantallen in de periode 2021-2023 t.o.v. de periode 2018-2020. 
 
 ```{r}
 #| label: tbl-index-meetcyclus
@@ -191,28 +201,28 @@ results_trendmodel_all <- bind_rows(results_trend_gebied,
 if (is_html_output()) {
   
   overzicht_trend <- results_trendmodel_all %>%
-  arrange(desc(mean)) %>%
-  mutate(trend = round(mean, 1),
-         trend_lcl = round(lcl_0.90, 1),
-         trend_ucl = round(ucl_0.90, 1),
-         trend_tbl = str_c(ifelse(trend > 0, "+", ""),
+    arrange(desc(mean)) %>%
+    mutate(trend = sprintf("%.1f", round(mean, 1)),
+         trend_lcl = sprintf("%.1f", round(lcl_0.90, 1)),
+         trend_ucl = sprintf("%.1f", round(ucl_0.90, 1)),
+         trend_tbl = str_c(ifelse(mean > 0, "+", ""),
                            trend, "% (",
-                           ifelse(trend_lcl > 0, "+", ""),
+                           ifelse(lcl_0.90 > 0, "+", ""),
                            trend_lcl, "%; ",
-                           ifelse(trend_ucl > 0, "+", ""),
+                           ifelse(ucl_0.90 > 0, "+", ""),
                            trend_ucl, "%)"))
   
 } else {
   overzicht_trend <- results_trendmodel_all %>%
-  arrange(desc(mean)) %>%
-  mutate(trend = round(mean, 1),
-         trend_lcl = round(lcl_0.90, 1),
-         trend_ucl = round(ucl_0.90, 1),
-         trend_tbl = str_c(ifelse(trend > 0, "+", ""),
+    arrange(desc(mean)) %>%
+    mutate(trend = sprintf("%.1f", round(mean, 1)),
+         trend_lcl = sprintf("%.1f", round(lcl_0.90, 1)),
+         trend_ucl = sprintf("%.1f", round(ucl_0.90, 1)),
+         trend_tbl = str_c(ifelse(mean > 0, "+", ""),
                            trend, "\\% (",
-                           ifelse(trend_lcl > 0, "+", ""),
+                           ifelse(lcl_0.90 > 0, "+", ""),
                            trend_lcl, "\\%; ",
-                           ifelse(trend_ucl > 0, "+", ""),
+                           ifelse(ucl_0.90 > 0, "+", ""),
                            trend_ucl, "\\%)"))
 
 }
@@ -232,7 +242,7 @@ overzicht_trend_tabel <- overzicht_trend %>%
                    klasse_output =  ifelse(is_html_output(), as.character(klasse), str_c("$", as.character(klasse), "$")),
           klasse_output = ifelse(is_html_output(), klasse_output, str_replace_all(klasse_output, "~", "\\\\sim"))) %>%
   left_join(overzicht_trend_looptijd, by = "soort_nl") %>%
-  arrange(soort_nl) 
+  arrange(klasse) 
 
 ```
 
@@ -240,9 +250,9 @@ In @tbl-trend geven we een overzicht van de gemiddelde jaarlijkse trend en de to
 
 De gemiddelde jaarlijkse trend wordt visueel voorgesteld in @fig-results-trend
 De x-as van deze figuur heeft een logaritmische schaal.
-Een halvering (-50 %) is immers een even sterk effect als een verdubbeling (+100 %).
-Opnieuw maken we gebruik van de klassetrends zoals besproken in @sec-classificatie met -25 % als ondergrens en +33 % als bovengrens voor de totale trend over een periode van 6 jaar.
-Voor de gemiddelde jaarlijkse trend komt dit overeen met een ondergens van -5,6 % en een bovengrens van +5,9 %.
+Een halvering (-50%) is immers een even sterk effect als een verdubbeling (+100%).
+Opnieuw maken we gebruik van de klassetrends zoals besproken in @sec-classificatie met -25% als ondergrens en +33% als bovengrens voor de totale trend over een periode van 6 jaar.
+Voor de gemiddelde jaarlijkse trend komt dit overeen met een ondergens van -5.6% en een bovengrens van +5.9%.
 
 De Sierlijke witsnuitlibel neemt het sterkst toe in aantallen.
 Daarbij moeten we wel vermelden dat we (voorlopig) nog maar één populatie in Vlaanderen hebben.
@@ -299,7 +309,7 @@ volgorde_soorten <- (trend %>%
   arrange(mean))$meetnet
 
 breaks_log <- log(c(-50, -25, 0, 33, 100)/100 + 1)
-labels_show <- str_c(c(-50, -25, 0, 33, 100), " %")
+labels_show <- str_c(c(-50, -25, 0, 33, 100), "%")
 
 trend %>%
   mutate(meetnet = factor(meetnet, levels = volgorde_soorten)) %>%
@@ -414,7 +424,7 @@ plot_diff <- function(data_diff,
                           ) {
   
   breaks_log <- log(use_breaks) + 1
-  labels_show <- str_c((use_breaks - 1) * 100, " %")
+  labels_show <- str_c((use_breaks - 1) * 100, "%")
   
   if (type == "diff_ref_year") {
     
@@ -480,7 +490,6 @@ m <- "Bosbeekjuffer"
 ```{r}
 #| label: fig-bosbeekjuffer
 #| fig-cap: "Copula bosbeekjuffer (foto: Erik Moonen)"
-#| out-width: "75%"
 
 include_graphics("images/Bosbeekjuffer_klein.jpg")
 ```
@@ -506,7 +515,7 @@ monitoring_effort_meetnet %>%
 
 ```{r}
 #| label: fig-verschilref-bj
-#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de bosbeekjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is."
+#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de bosbeekjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is."
 #| fig.height: 3.5
 #| fig.width: 3
 
@@ -527,8 +536,8 @@ trend_average_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r sprintf("%.1f", round(trend_average_meetnet$mean, 1))`% met een 90%-betrouwbaarheidsinterval tussen `r sprintf("%.1f", round(trend_average_meetnet$lcl_0.90, 1))`% en `r sprintf("%.1f", round(trend_average_meetnet$ucl_0.90, 1))`%.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 Deze  soort wordt geteld volgens een driejarige meetcyclus, waarbij het aantal tellingen en het aantal getelde locaties vrij sterk schommelt van jaar tot jaar.
 Hierbij lijkt er een patroon voor te komen waarbij men de eerste twee jaar van een meetcyclus eerder een beperkte aantal locaties opvolgt om dan in het laatste jaar van de meetcyclus een extra inspanning te doen om alle resterende locaties geteld te krijgen.
@@ -548,9 +557,8 @@ m <- "Speerwaterjuffer"
 ```{r}
 #| label: fig-speerwaterjuffer
 #| fig-cap: "Speerwaterjuffer (foto: Dirk Eysermans)"
-#| out-width: "75%"
 
-include_graphics("images/Speerwaterjuffer.jpg")
+include_graphics("images/Speerwaterjuffer_klein.jpg")
 ```
 
 ### Aantal tellingen, tellers en getelde locaties
@@ -574,7 +582,9 @@ In 2023 en 2024 zien we een significante afname in de aantallen t.o.v. het voorg
 
 ```{r}
 #| label: fig-verschilref-sj
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Speerwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Speerwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
+#| fig.height: 3.5
+#| fig.width: 5
 
 verschil_jaren_ref %>%
   filter(soort_nl == m) %>%
@@ -584,7 +594,7 @@ verschil_jaren_ref %>%
 
 ```{r}
 #| label: fig-verschilprev-sj
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Speerwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Speerwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
 #| fig.height: 3.5
 #| fig.width: 5
 
@@ -606,8 +616,8 @@ trend_average_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %. 
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r sprintf("%.1f", round(trend_average_meetnet$mean, 1))`% met een 90%-betrouwbaarheidsinterval tussen `r sprintf("%.1f", round(trend_average_meetnet$lcl_0.90, 1))`% en `r sprintf("%.1f", round(trend_average_meetnet$ucl_0.90, 1))`%.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 Niet alleen de trend in aantallen is afnemend, ook het aantal locaties waar er nog een populatie voorkomt in Vlaanderen nam in de loop der jaren af.
 Op dit moment zijn de aantallen op twee meetnetlocaties dermate laag, dat we moeten vrezen voor het verdwijnen van de lokale populatie in de komende jaren.
@@ -624,9 +634,8 @@ m <- "Maanwaterjuffer"
 ```{r}
 #| label: fig-maanwaterjuffer
 #| fig-cap: "Maanwaterjuffer (foto: Erik Moonen)"
-#| out-width: "75%"
 
-include_graphics("images/Maanwaterjuffer.jpg")
+include_graphics("images/Maanwaterjuffer_klein.jpg")
 ```
 
 ### Aantal tellingen, tellers en getelde locaties
@@ -645,12 +654,12 @@ monitoring_effort_meetnet %>%
 
 ### Vergelijking tussen de jaren.
 
-Sinds 2019 zijn de aantallen significant lager dan in het referentiejaar, met uitzondering van 2014 (@fig-verschilref-m).
+Sinds 2019 zijn de aantallen significant lager dan in het referentiejaar, met uitzondering van 2014 (@fig-verschilref-mj).
 We zien dat de afname vooral in 2018 en 2019 heeft plaats gevonden (@fig-verschilprev-mj). 
 
 ```{r}
 #| label: fig-verschilref-mj
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Maanwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Maanwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
 #| fig.height: 3.5
 #| fig.width: 5.5
 
@@ -662,7 +671,7 @@ verschil_jaren_ref %>%
 
 ```{r}
 #| label: fig-verschilprev-mj
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Maanwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Maanwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
 #| fig.height: 3.5
 #| fig.width: 5.5
 
@@ -683,8 +692,8 @@ trend_average_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %. 
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r sprintf("%.1f", round(trend_average_meetnet$mean, 1))`% met een 90%-betrouwbaarheidsinterval tussen `r sprintf("%.1f", round(trend_average_meetnet$lcl_0.90, 1))`% en `r sprintf("%.1f", round(trend_average_meetnet$ucl_0.90, 1))`%.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 De sterke afname is deels te verklaren door het verdwijenen van een populatie in één meetnetlocatie.
 
@@ -704,9 +713,8 @@ m <- "Variabele waterjuffer"
 ```{r}
 #| label: fig-vw
 #| fig-cap: "Variabele waterjuffer (foto: Erik Moonen)"
-#| out-width: "75%"
 
-include_graphics("images/variabele_waterjuffer.jpg")
+include_graphics("images/variabele_waterjuffer_klein.jpg")
 ```
 
 ### Aantal tellingen, tellers en getelde locaties
@@ -734,7 +742,7 @@ Door over te schakelen van een driejarige naar een jaarlijkse meetcyclus probere
 
 ```{r}
 #| label: fig-verschilref-vw
-#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de Variabele waterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de Variabele waterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
 #| fig.height: 3.5
 #| fig.width: 3.5
 
@@ -755,8 +763,8 @@ trend_average_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %. 
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r sprintf("%.1f", round(trend_average_meetnet$mean, 1))`% met een 90%-betrouwbaarheidsinterval tussen `r sprintf("%.1f", round(trend_average_meetnet$lcl_0.90, 1))`% en `r sprintf("%.1f", round(trend_average_meetnet$ucl_0.90, 1))`%.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 \pagebreak
 
@@ -770,7 +778,6 @@ m <- "Vroege glazenmaker"
 ```{r}
 #| label: fig-vg
 #| fig-cap: "Vroege glazenmaker (foto: Robert Pieters)"
-#| out-width: "75%"
 
 include_graphics("images/vroege_glazenmaker_klein.jpg")
 ```
@@ -796,7 +803,7 @@ Net zoals bij Variabele waterjuffer, zien we hier geen duidelijke verschillen tu
 
 ```{r}
 #| label: fig-verschilref-vg
-#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de Vroege glazenmaker. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de Vroege glazenmaker. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
 #| fig.height: 3.5
 #| fig.width: 3.5
 
@@ -817,11 +824,8 @@ trend_average_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %. 
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
-
-*We stellen in dit rapport dat soort minder prioritair is omdat ze veel algemener is geworden.*
-*Hebben we bronnen om dit te staven en kunnen we verklaren waarom we geen toename zien via de meetnetten?*
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r sprintf("%.1f", round(trend_average_meetnet$mean, 1))`% met een 90%-betrouwbaarheidsinterval tussen `r sprintf("%.1f", round(trend_average_meetnet$lcl_0.90, 1))`% en `r sprintf("%.1f", round(trend_average_meetnet$ucl_0.90, 1))`%.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 \pagebreak
 
@@ -855,7 +859,7 @@ Deze recente afname werd ook in bijvoorbeeld Duitsland vastgesteld (pers. com. F
 
 ```{r}
 #| label: fig-verschilref-rr
-#| fig-cap: "Jaarlijkse verschillen in aantal larvenhuidjes t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Rivierrombout. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is."
+#| fig-cap: "Jaarlijkse verschillen in aantal larvenhuidjes t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Rivierrombout. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is."
 #| fig.height: 3.5
 #| fig.width: 5.5
 
@@ -868,7 +872,7 @@ verschil_jaren_ref %>%
 
 ```{r}
 #| label: fig-verschilprev-rr
-#| fig-cap: "Jaarlijkse verschillen in aantal larvenhuidjes t.o.v het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Rivierrombout. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is."
+#| fig-cap: "Jaarlijkse verschillen in aantal larvenhuidjes t.o.v het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Rivierrombout. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is."
 #| fig.height: 3.5
 #| fig.width: 5.5
 
@@ -884,9 +888,8 @@ verschil_vorigjaar %>%
 ```{r}
 #| label: fig-rivierrombout
 #| fig-cap: "Larve rivierrombout (foto: Robert Pieters)"
-#| out-width: "75%"
 
-include_graphics("images/Rivierrombout_larve.jpg")
+include_graphics("images/Rivierrombout_larve_klein.jpg")
 ```
 
 ### Trend
@@ -900,8 +903,8 @@ trend_average_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %. 
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r sprintf("%.1f", round(trend_average_meetnet$mean, 1))`% met een 90%-betrouwbaarheidsinterval tussen `r sprintf("%.1f", round(trend_average_meetnet$lcl_0.90, 1))`% en `r sprintf("%.1f", round(trend_average_meetnet$ucl_0.90, 1))`%.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 \pagebreak
 
@@ -915,9 +918,8 @@ m <- "Sierlijke witsnuitlibel"
 ```{r}
 #| label: fig-sierlijke-witsnuitlibel
 #| fig-cap: "Sierlijke witsnuitlibel (foto: Robert Pieters)"
-#| out-width: "75%"
 
-include_graphics("images/sierlijke_witsnuitlibel.jpg")
+include_graphics("images/sierlijke_witsnuitlibel_klein.jpg")
 ```
 
 ### Aantal tellingen, tellers en getelde locaties
@@ -940,7 +942,7 @@ monitoring_effort_meetnet %>%
 
 ```{r}
 #| label: fig-verschilref-sw
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Sierlijke witsnuitlibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Sierlijke witsnuitlibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
 #| fig.height: 3.5
 #| fig.width: 4.5
 
@@ -952,7 +954,7 @@ verschil_jaren_ref %>%
 
 ```{r}
 #| label: fig-verschilprev-sw
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgande jaar met het 90%-betrouwbaarheidsinterval voor de Sierlijke witsnuitlibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgande jaar met het 90%-betrouwbaarheidsinterval voor de Sierlijke witsnuitlibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
 #| fig.height: 3.5
 #| fig.width: 4.5
 
@@ -975,8 +977,8 @@ trend_average_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %. 
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r sprintf("%.1f", round(trend_average_meetnet$mean, 1))`% met een 90%-betrouwbaarheidsinterval tussen `r sprintf("%.1f", round(trend_average_meetnet$lcl_0.90, 1))`% en `r sprintf("%.1f", round(trend_average_meetnet$ucl_0.90, 1))`%.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 De Sierlijke witsnuitlibel vertoont de laatste 20 jaar een duidelijke toename in West-Europa [@deknijf_2024] en heeft een groot deel van zijn areaal uit begin 20^ste^ eeuw terug gekoloniseerd.
 Dit deed zich ook in Vlaanderen voor, maar in tegenstelling tot de buurlanden en -regio’s komt er hier slechts één populatie voor.
@@ -1015,7 +1017,7 @@ Ook valt het niet uit te sluiten dat er in zogenaamd goede jaren (bijvoorbeeld 2
 
 ```{r}
 #| label: fig-verschilref-gw
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Gevlekte witsnuitlibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Gevlekte witsnuitlibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
 #| fig.height: 3.5
 #| fig.width: 5.5
 
@@ -1027,7 +1029,7 @@ verschil_jaren_ref %>%
 
 ```{r}
 #| label: fig-verschilprev-gw
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Gevlekte witsnuitlibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Gevlekte witsnuitlibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
 #| fig.height: 3.5
 #| fig.width: 5.5
 
@@ -1041,7 +1043,6 @@ verschil_vorigjaar %>%
 ```{r}
 #| label: fig-gevlekte-witsnuitlibel
 #| fig-cap: "Gevlekte witsnuitlibel (foto: Erik Moonen)"
-#| out-width: "75%"
 
 include_graphics("images/Gevlekte_witsnuitlibel_klein.jpg")
 ```
@@ -1057,8 +1058,8 @@ trend_average_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %. 
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r sprintf("%.1f", round(trend_average_meetnet$mean, 1))`% met een 90%-betrouwbaarheidsinterval tussen `r sprintf("%.1f", round(trend_average_meetnet$lcl_0.90, 1))`% en `r sprintf("%.1f", round(trend_average_meetnet$ucl_0.90, 1))`%.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 \pagebreak
 
@@ -1072,7 +1073,6 @@ m <- "Kempense heidelibel"
 ```{r}
 #| label: fig-kempense-heidelibel
 #| fig-cap: "Kempense heidelibel (foto: Erik Moonen)"
-#| out-width: "75%"
 
 include_graphics("images/kempense_heidelibel_klein.jpg")
 ```
@@ -1097,7 +1097,9 @@ monitoring_effort_meetnet %>%
 
 ```{r}
 #| label: fig-verschilref-kh
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Kempense heidelibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Kempense heidelibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
+#| fig.height: 3.5
+#| fig.width: 5
 
 verschil_jaren_ref %>%
   filter(soort_nl == m) %>%
@@ -1107,7 +1109,7 @@ verschil_jaren_ref %>%
 
 ```{r}
 #| label: fig-verschilprev-kh
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Kempense heidelibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0 %), de ondergrens (-25 %) en de bovengrens (+33 %) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Kempense heidelibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
 #| fig.height: 3.5
 #| fig.width: 5.5
 
@@ -1120,6 +1122,8 @@ verschil_vorigjaar %>%
 
 ```
 
+\needspace{260mm}
+
 ### Trend
 
 ```{r}
@@ -1131,8 +1135,8 @@ trend_average_meetnet <- trend %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r round(trend_average_meetnet$mean, 1)` % met een 90%-betrouwbaarheidsinterval tussen `r round(trend_average_meetnet$lcl_0.90, 1)` % en `r round(trend_average_meetnet$ucl_0.90, 1)` %. 
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`.
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r sprintf("%.1f", round(trend_average_meetnet$mean, 1))`% met een 90%-betrouwbaarheidsinterval tussen `r sprintf("%.1f", round(trend_average_meetnet$lcl_0.90, 1))`% en `r sprintf("%.1f", round(trend_average_meetnet$ucl_0.90, 1))`%.
+`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 De Kempense heidelibel komt momenteel nog maar in één gebied in Vlaanderen voor, waar de soort geteld wordt op 2 tellocaties.
 De afgelopen jaren namen de aantallen zo sterk af dat er in 2025, ondanks verschillende bezoeken aan het gebied, slechts één mannetje en één vrouwtje werd waargenomen.

@@ -39,7 +39,7 @@ De lineaire predictor $\log(\mu_{ldj})$ hangt af van volgende termen:
 + $b_{l}$: een random intercept voor locatie $l$.
 Het volgt een normale distributie met gemiddelde 0 en variantie $\sigma_{l}^2$.
 
-+ $b_{d}$ het effect van jaar $d$. Dit effect modelleert een tweede orde random walk.
++ $b_{d}$ het effect van de dag in het jaar $d$. Dit effect modelleert een tweede orde random walk.
 Het tweede orde verschil $\Delta^2 b_d=b_d - 2b_{d-1} + b_{d-2}$ volgt een normale verdeling met gemiddelde 0 en variantie $\sigma_{d}^2$.
 
 + $b_{j}$ het effect van jaar $j$. Dit effect modelleert een eerste orde random walk.
@@ -54,7 +54,7 @@ $$\Delta b_j \sim {N(0,\sigma_{j}^2)} $$
 
 ## Model voor verschillen tussen de meetcycli
 
-Voor de meetnetten meet een driejaarlijkse meetcyclus (bosbeekjuffer, vroege glazenmaker en variabele waterjuffer) fitten we een model om de verschillen tussen de meetcycli te schatten.
+Voor de meetnetten meet een driejaarlijkse meetcyclus (Bosbeekjuffer, Vroege glazenmaker en Variabele waterjuffer) fitten we een model om de verschillen tussen de meetcycli te schatten.
 
 Omdat deze meetnetten gebruik maken van transecttellingen, moeten het model ook rekening houden met de transectlengte. 
 De transectlengte heeft immers invloed op de zoekinspanning en dus ook op de getelde aantallen.
@@ -90,8 +90,18 @@ waarbij $e^{\beta_1}$ de relatieve trend weergeeft.
 
 ## Modellen voor rivierrombout
 
-Bij rivierrombout worden de getelde larvenhuidjes bij elk bezoek weggenomen en is het totaal van de getelde larvenhuidjes over alle bezoeken binnen een jaar een proxy voor de lokale populatiegrootte.
-Het model voor rivierrombout maakt daarom gebruik van de totale getelde aantallen per jaar en per locatie.
+Bij Rivierrombout worden de getelde larvenhuidjes bij elk bezoek weggenomen en is het totaal van de getelde larvenhuidjes over alle bezoeken binnen een jaar een proxy voor de lokale populatiegrootte.
+Het model voor Rivierrombout maakt daarom gebruik van de totale getelde aantallen per jaar en per locatie.
 We houden ook rekening met de zoekinspanning door de som van de transectlengte (voor alle bezoeken binnen een jaar aan een locatie) gedeeld door 500 als offset toe te voegen aan het model.
 
-De gebruikte modellen voor rivierrombout zijn verder identiek aan het model voor de verschillen tussen de jaren en het model voor de jaarlijkse trend, maar dan zonder het seizoenseffect $b_{d}$.
+De gebruikte modellen voor Rivierrombout zijn verder identiek aan het model voor de verschillen tussen de jaren en het model voor de jaarlijkse trend, maar dan zonder het seizoenseffect $b_{d}$.
+
+## Modellen fitten
+
+We fitten de statische modellen in R [@R] met het INLA package [@rue_2009].
+INLA gebruikt een Bayesiaanse benadering om de modellen te fitten.
+Daarom moeten we priors specificeren voor de parameters en hyperparameters.
+
+- $\sigma^2_l$ krijgt een `penalised complexity` [@simpson_2017] prior zodat $Prob(\sigma_l > 1) = 0.05$.
+- $\sigma^2_d$ krijgt een `penalised complexity` prior zodat $Prob(\sigma_j > 0.01) = 0.05$.
+- $\sigma^2_j$ krijgt een `penalised complexity` prior zodat $Prob(\sigma_c > 0.3) = 0.01$.

@@ -48,4 +48,4 @@ We geven eerst wat achtergrond over het [ontwerp van de libellenmeetnetten] en d
 Daarna maken we een [verkenning van de getelde aantallen] en geven we een [overzicht van de resultaten] van de statistische analyses.
 Ten slotte bespreken we de resultaten voor elk meetnet: [Bosbeekjuffer](#sec-bosbeekjuffer), [Speerwaterjuffer](#sec-speerwaterjuffer), [Maanwaterjuffer](#sec-maanwaterjuffer), [Variabele waterjuffer](#sec-variabele-waterjuffer), [Vroege glazenmaker](#sec-vroege-glazenmaker), [Rivierrombout](#sec-rivierrombout), [Sierlijke witsnuitlibel](#sec-sierlijke-witsnuitlibel), [Gevlekte witsnuitlibel](#sec-gevlekte-witsnuitlibel) en [Kempense heidelibel](#sec-kempense-heidelibel).
 
-`r ifelse(doc.type != "html", "Dit rapport bevat enkele interactieve figuren die alleen kunnen bekeken worden op de [website versie](https://inbo.github.io/soortenmeetnetten-libellenrapport-2021/) van dit rapport. LINK UPDATEN", "")`
+`r ifelse(doc.type != "html", "Dit rapport bevat enkele interactieve figuren die alleen kunnen bekeken worden op de [website versie](https://www.vlaanderen.be/inbo/rapporten/libellenmeetnetten-trends-2016-2025/index.html) van dit rapport.", "")`
