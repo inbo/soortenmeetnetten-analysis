@@ -154,8 +154,7 @@ summary_year_sec <- counts_all %>%
 
 - het totaal aantal getelde individuen;
 - het gemiddeld aantal getelde individuen per bezoek;
-- het aantal meetnetlocaties waar de soort werd waargenomen;
-- de proportie van de bezochte meetnetlocaties waar de soort werd waargenomen.
+- het aantal meetnetlocaties waar de soort werd waargenomen.
 
 ```{r}
 #| label: tbl-aantaltot
@@ -593,7 +592,8 @@ summary_table_sec %>%
   filter(!soort_nl %in% summary_counts_periode$meetnet) %>%
   arrange(desc(aantal_tot)) %>%
   select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Totaal" = aantal_tot) %>%
-  kbl(booktabs = TRUE) %>%
+  kbl(booktabs = TRUE,
+      linesep = "") %>%
   kable_styling(bootstrap_options = c( "condensed"),
                 font_size = ifelse(is_html_output(), 11, 9),
                 latex_options = c("scale_down")) %>%

@@ -85,7 +85,8 @@ meetnet_characteristics %>%
   select("Nederlandse naam" = meetnet, "Wetenschappelijke naam" = soort_wet, Beleidsrelevantie = type_soort, "Start meetnet" = opstartjaar) %>%
   kbl(escape = FALSE,
       booktabs = TRUE,
-      align = c("l", "l", "c", "c")) %>%
+      align = c("l", "l", "c", "c"),
+      linesep = "") %>%
   kable_styling(font_size = ifelse(is_html_output(), 11, 9)) %>%
   column_spec(2, italic = TRUE)
 
@@ -141,7 +142,8 @@ if (is_html_output()) {
 meetnet_telperiode_table %>%
   kbl(align = "llccc",
       booktabs = TRUE,
-      escape = FALSE) %>%
+      escape = FALSE,
+      linesep = "") %>%
   kable_styling(font_size = ifelse(is_html_output(), 11, 9)) %>%
    column_spec(5, width = "10em")
   
@@ -170,7 +172,8 @@ meetnet_selectie_table <- meetnet_characteristics %>%
 meetnet_selectie_table %>%
   kbl(align = "llcc",
       booktabs = TRUE,
-      row.names = FALSE
+      row.names = FALSE,
+      linesep = ""
       ) %>%
   kable_styling(font_size = ifelse(is_html_output(), 11, 9))
 ```
@@ -264,7 +267,8 @@ if (is_html_output()) {
 
 monitoring_effort_soortgroep <- calculate_monitoring_effort(species_group = "dagvlinders",
                                                  aggregation_level = "species_group") %>%
-  mutate(meetnet = "Alle dagvlindermeetnetten")
+  mutate(meetnet = "Alle dagvlindermeetnetten") %>%
+  filter(jaar <= 2025)
 
 monitoring_effort_overall <- calculate_monitoring_effort(species_group = "dagvlinders",
                                                  aggregation_level = "overall") %>%
@@ -273,7 +277,7 @@ monitoring_effort_overall <- calculate_monitoring_effort(species_group = "dagvli
 ```
 
 Tellers voeren de telgegevens in via het webportaal [meetnetten.be](https://www.meetnetten.be/) of via de mobiele [meetnetten-app](https://play.google.com/store/apps/details?id=nl.zostera.meetnetten&hl=nl).
-Sinds de start van de meetnetten in 2016 tot en met 2025 hebben `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellers", "aantal"]` tellers `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellingen", "aantal"]` dagvlindertellingen op `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellocaties", "aantal"]` meetnetlocaties ingevoerd.
+Sinds de start van de meetnetten in 2016 tot en met 2025 hebben 159 tellers 3361 dagvlindertellingen op 188 meetnetlocaties uitgevoerd.
 
 In @fig-inspanning zien we de evolutie van de tellingen in de tijd voor alle dagvlindermeetnetten samen.
 Het aantal getelde locaties nam toe in de periode 2016 tot 2018, wat te verklaren is doordat er jaarlijks een aantal nieuwe meetnetten werden opgestart.
@@ -282,7 +286,7 @@ Het aantal tellers en het aantal getelde locaties zijn sinds 2019 min of meer st
 
 ```{r}
 #| label: fig-inspanning
-#| fig-cap: "Monitoringinspanning voor alle dagvlindermeetnetten samen"
+#| fig-cap: "Monitoringsinspanning voor alle dagvlindermeetnetten samen"
 
 plot1 <- monitoring_effort_soortgroep %>%
   ggplot(aes(x = jaar, y = aantal, colour = monitoringsinspanning)) +
@@ -328,7 +332,7 @@ Voor de dagvlindermeetnetten gaat het om volgende datasets:
 Op basis van de getelde aantallen willen we de trend per soort bepalen op schaal Vlaanderen en de betrouwbaarheid hiervan.
 Met *trend* bedoelen we de procentuele verandering in aantallen van een soort over de periode waarvoor we telgegevens hebben.
 
-Naast trends willen we ook inzicht krijgen hoe de aantallen verschillen van jaar tot jaar of tussen de verschillende 3-jaarlijkse meetcycli.
+Naast trends willen we ook inzicht krijgen in hoe de aantallen verschillen van jaar tot jaar of tussen de verschillende 3-jaarlijkse meetcycli.
 
 Voor de analyse maken we gebruik van zogenaamde *generalized linear mixed models* (GLMM).
 Voor een bespreking van de technische achtergrond van deze modellen verwijzen we naar @sec-bijlage-1.
@@ -347,9 +351,10 @@ Klassiek onderscheiden we op basis van het betrouwbaarheidsinterval:
 Bovenstaande indeling is echter weinig informatief.
 Daarom gebruiken we een classificatiesysteem waarbij het betrouwbaarheidsinterval wordt vergeleken met een referentiewaarde, een onderste drempelwaarde en een bovenste drempelwaarde [@onkelinx_2024].
 Als referentiewaarde kiezen we 0 (= geen verandering).
-Voor de onderste drempelwaarde kiezen we een waarde die we als een sterke afname beschouwen: -25%.
+Voor de onderste drempelwaarde kiezen we een waarde die we als een sterke afname beschouwen: \
+-25%.
 Op basis van de bovenste drempelwaarde onderscheiden we een sterke toename.
-Hiervoor kiezen we de waarde +33%, wat overeenkomt met eenzelfde relatief effect dan een afname van -25% (75/100 $\approx$ 100/133).
+Hiervoor kiezen we de waarde +33%, wat overeenkomt met eenzelfde relatief effect als een afname van -25% (75/100 $\approx$ 100/133).
 Dit classificatiesysteem resulteert in 10 klassen (@fig-trendklasse).
 In @tbl-trendklasse geven we de codes en de beschrijving die bij de verschillende klassen horen.
 
@@ -456,7 +461,8 @@ trend_klasses %>%
   select(Code = klasse_output, Klasse = klasse_naam, Beschrijving = klasse_beschrijving) %>%
   kbl(align = c("c", "l", "l"),
         escape = FALSE,
-      booktabs = TRUE) %>%
+      booktabs = TRUE,
+      linesep = "") %>%
   kable_styling(font_size = ifelse(is_html_output(), 11, 9)) %>%
   column_spec(3, width = "30em")
 

@@ -113,8 +113,8 @@ Voor meetnetten met een driejarige meetcyclus tonen we enkel de verschillen tuss
 Als referentiejaar kiezen we hier het jaar waarin het meetnet van start ging.
 We geven de verschillen weer aan de hand van de trend-klassen zoals besproken in @sec-classificatie, waarbij we -25% als ondergrens en +33% als bovengrens nemen.
 We zien voor de meeste soorten en in de meeste jaren een sterke afname (`--`) in aantallen t.o.v. het referentiejaar.
-Enkel voor Moerasparelmoervlinder en Veldparelmoervlinder lijkt de schade nog mee te vallen.
-Maar voor Veldparelmoervlinder zien we toch een significante afname (`-`) in aantallen t.o.v. het referentiejaar in 2024 en 2025 
+Enkel voor Veldparelmoervlinder lijkt de schade nog mee te vallen.
+Maar in 2024 en 2025 zien we toch een significante afname (`-`) in aantallen t.o.v. het referentiejaar.
 
 ```{r}
 #| label: tbl-index-refjaar
@@ -143,7 +143,8 @@ verschillen_jaren %>%
   rename("Soort" = soort_nl,  Referentiejaar = ref_jaar) %>%
   kbl(booktabs = TRUE,
       escape = FALSE,
-      align = "lcccccccccc") %>%
+      align = "lcccccccccc",
+      linesep = "") %>%
   kable_styling(font_size = ifelse(is_html_output(), 11, 9)) %>%
   add_header_above(c(" " = 2, "Verschil t.o.v. het referentiejaar" = 9))
   
@@ -172,7 +173,8 @@ verschillen_vorigjaar %>%
   rename("Soort" = soort_nl) %>%
   kbl(booktabs = TRUE,
       escape = FALSE,
-      align = "lccccccccc") %>%
+      align = "lccccccccc",
+      linesep = "") %>%
   kable_styling(font_size = ifelse(is_html_output(), 11, 9)) %>%
   column_spec(c(2:10), "1cm")
 ```
@@ -189,7 +191,7 @@ Oranje zandoogje lijkt de enige soort die stand houdt met een mogelijke toename 
 
 ```{r}
 #| label: tbl-index-meetcyclus
-#| tbl-cap: "Verschil in aantallen t.o.v. het referentie meetcyclus (zie @tbl-trendklasse voor de betekenis van de symbolen)"
+#| tbl-cap: "Verschil in aantallen t.o.v. de referentie-meetcyclus (zie @tbl-trendklasse voor de betekenis van de symbolen)"
 
 verschillen_cyclus <- results_index_meetcyclus_transect %>%
   rowwise() %>%
@@ -199,10 +201,11 @@ verschillen_cyclus <- results_index_meetcyclus_transect %>%
   select(soort_nl, ref_periode, periode, klasse_output)
 
 verschillen_cyclus %>%
-  rename("Nederlandse naam" = soort_nl, "Referentie meetcyclus" = ref_periode, "Meetcyclus" = periode, "Klasse" = klasse_output) %>%
+  rename("Nederlandse naam" = soort_nl, "Referentie-meetcyclus" = ref_periode, "Meetcyclus" = periode, "Klasse" = klasse_output) %>%
   kbl(booktabs = TRUE,
       escape = FALSE,
-      align = "lccccc") %>%
+      align = "lccccc",
+      linesep = "") %>%
 kable_styling(font_size = ifelse(is_html_output(), 11, 9)) 
 ```
 
@@ -415,7 +418,8 @@ verschil_meetcyclus_regio <- verschil_meetcyclus_regio %>%
   mutate(klasse = str_remove_all(klasse, "`"))
 
 monitoring_effort_meetnet <- calculate_monitoring_effort(species_group = "dagvlinders",
-                                                 aggregation_level = "meetnet")
+                                                 aggregation_level = "meetnet") %>%
+  filter(jaar <= 2025)
 
 trend_average <- trend %>%
   mutate(klasse = as.character(klasse),
@@ -490,7 +494,7 @@ plot_diff <- function(data_diff,
         geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
         geom_point(size = 7) +
         geom_text(size = 4, colour = "black") +
-        labs(y = "Vreschil t.o.v. het referentie meetcyclus", x = "Meetcyclus") +
+        labs(y = "Vreschil t.o.v. de referentie-meetcyclus", x = "Meetcyclus") +
         scale_y_continuous(breaks = breaks_log, labels = labels_show) +
         scale_color_manual(values = klasse_color_scale) +
         theme(legend.position = "hide")
@@ -507,7 +511,7 @@ plot_diff <- function(data_diff,
         geom_point(size = 7) +
         geom_text(size = 4, colour = "black") +
         facet_wrap(~regio) +
-        labs(y = "Vreschil t.o.v. het referentie meetcyclus", x = "Meetcyclus") +
+        labs(y = "Vreschil t.o.v. de referentie-meetcyclus", x = "Meetcyclus") +
         scale_y_continuous(breaks = breaks_log, labels = labels_show) +
         scale_color_manual(values = klasse_color_scale) +
         theme(legend.position = "hide")
@@ -563,7 +567,7 @@ monitoring_effort_meetnet %>%
   plot_monitoring_effort()
 ```
 
-### Vergelijking tussen de jaren.
+### Vergelijking tussen de jaren
 
 @fig-verschilref-av toont de verschillen t.o.v. het referentiejaar en @fig-verschilprev-av de verschillen tussen opeenvolgende jaren.
 Vanaf 2022 zien we een sterke afname van aantallen t.o.v. het referentiejaar.
@@ -635,14 +639,14 @@ monitoring_effort_meetnet %>%
 
 ### Vergelijking tussen de meetcycli
 
-@fig-verschilref-argusvlinder toont de verschillen t.o.v. het referentie meetcyclus voor Vlaanderen.
+@fig-verschilref-argusvlinder toont de verschillen t.o.v. de referentie-meetcyclus voor Vlaanderen.
 Daarnaast tonen we in @fig-verschilref-argusvlinder-regio ook de verschillen voor de twee regio's die het grootste deel van het verspreidingsgebied vormen.
 Het is opvallend dat in de kustduinen en polders de aantallen sterk achteruitgaan, terwijl we in de omgeving van de Antwerpse haven een mogelijke toename zien.
 Verder komt de soort ook nog in het zuidoosten van Limburg voor, maar er zijn onvoldoende gegevens om daarvoor een afzonderlijke analyse uit te voeren.
 
 ```{r}
 #| label: fig-verschilref-argusvlinder
-#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de Argusvlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
+#| fig-cap: "Verschillen in aantallen t.o.v. de referentie-meetcyclus met het 90%-betrouwbaarheidsinterval voor de Argusvlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
 #| fig.height: 3.5
 #| fig.width: 4
 
@@ -654,7 +658,7 @@ verschil_meetcyclus %>%
 
 ```{r}
 #| label: fig-verschilref-argusvlinder-regio
-#| fig-cap: "Verschillen in aantallen per regio t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de Argusvlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
+#| fig-cap: "Verschillen in aantallen per regio t.o.v. de referentie-meetcyclus met het 90%-betrouwbaarheidsinterval voor de Argusvlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
 #| fig.height: 3.5
 #| fig.width: 6
 
@@ -706,7 +710,7 @@ monitoring_effort_meetnet %>%
   plot_monitoring_effort()
 ```
 
-### Vergelijking tussen de jaren.
+### Vergelijking tussen de jaren
 
 Vanaf 2020 zien we een sterke afname in aantallen t.o.v. het referentiejaar en in 2024 en 2025 zijn de gemiddelde aantallen zelfs meer dan 75% lager (@fig-verschilref-bd). Vooral in 2020 en 2023 was er een sterke achteruitgang (@fig-verschilprev-bd).
 
@@ -777,7 +781,7 @@ monitoring_effort_meetnet %>%
   plot_monitoring_effort()
 ```
 
-### Vergelijking tussen de jaren.
+### Vergelijking tussen de jaren
 
 @fig-verschilref-be toont de verschillen t.o.v. het referentiejaar en @fig-verschilprev-be de verschillen tussen opeenvolgende jaren.
 Tussen 2020 en 2021 was er een toename in aantallen, maar daarna gingen de aantallen weer achteruit.
@@ -851,10 +855,10 @@ monitoring_effort_meetnet %>%
   plot_monitoring_effort()
 ```
 
-### Vergelijking tussen de jaren.
+### Vergelijking tussen de jaren
 
-Vanaf 2020 zien we dat het aantal eitjes significante lager is dan in het referentiejaar (@fig-verschilref-gb).
-In 2025 is gemiddelde afname van het aantal eitjes per locatie naar schatting 75%.
+Vanaf 2020 zien we dat het aantal eitjes significant lager is dan in het referentiejaar (@fig-verschilref-gb).
+In 2025 is de gemiddelde afname van het aantal eitjes per locatie naar schatting 75%.
 Tussen de opeenvolgende jaren kunnen we geen duidelijke verschillen detecteren (@fig-verschilprev-gb).
 De afname gebeurt dus geleidelijk aan, maar over de volledige periode leidt dit dus wel tot een zeer sterke afname.
 
@@ -896,7 +900,7 @@ trend_average_meetnet <- trend_average %>%
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont het `r m` een gemiddelde jaarlijkse trend van `r sprintf("%.1f", round(trend_average_meetnet$mean, 1))`% met een 90%-betrouwbaarheidsinterval tussen `r sprintf("%.1f", round(trend_average_meetnet$lcl_0.90, 1))`% en `r sprintf("%.1f", round(trend_average_meetnet$ucl_0.90, 1))`%.
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van het ", m, " in deze periode."))`
 
-Net als bij vele andere graslandvlinders, zijn stikstofdepositie en klimaatverandering belangrijke oorzaken voor de achteruitgang van het Gentiaanblauwtje [@maes_2024a, @maes_2024b]. 
+Net als bij vele andere graslandvlinders, zijn stikstofdepositie en klimaatverandering belangrijke oorzaken voor de achteruitgang van het Gentiaanblauwtje [@maes_2024a; @maes_2024b]. 
 
 \pagebreak
 
@@ -927,7 +931,7 @@ monitoring_effort_meetnet %>%
   plot_monitoring_effort()
 ```
 
-### Vergelijking tussen de jaren.
+### Vergelijking tussen de jaren
 
 De start van het meetnet in 2018, was een uitzonderlijk goed jaar voor de Grote weerschijnvlinder.
 In alle latere jaren zijn de aantallen veel lager (@fig-verschilref-gw).
@@ -935,7 +939,7 @@ Vanaf 2020 zien we geen duidelijke verschillen meer tussen de opeenvolgende jare
 
 ```{r}
 #| label: fig-verschilref-gw
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor Grote weerschijnvlinder De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor Grote weerschijnvlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
 #| fig.height: 3.5
 #| fig.width: 5
 
@@ -947,7 +951,7 @@ verschil_jaren_ref %>%
 
 ```{r}
 #| label: fig-verschilprev-gw
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor Grote weerschijnvlinder De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor Grote weerschijnvlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
 #| fig.height: 3.5
 #| fig.width: 5
 
@@ -968,7 +972,8 @@ trend_average_meetnet <- trend_average %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r sprintf("%.1f", round(trend_average_meetnet$mean, 1))`% met een 90%-betrouwbaarheidsinterval tussen `r sprintf("%.1f", round(trend_average_meetnet$lcl_0.90, 1))`% en `r sprintf("%.1f", round(trend_average_meetnet$ucl_0.90, 1))`%.
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van \
+`r sprintf("%.1f", round(trend_average_meetnet$mean, 1))`% met een 90%-betrouwbaarheidsinterval tussen `r sprintf("%.1f", round(trend_average_meetnet$lcl_0.90, 1))`% en `r sprintf("%.1f", round(trend_average_meetnet$ucl_0.90, 1))`%.
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 \pagebreak
@@ -1002,13 +1007,13 @@ monitoring_effort_meetnet %>%
 
 ### Vergelijking tussen de meetcycli
 
-@fig-verschilref-hv toont de verschillen t.o.v. het referentie meetcyclus voor Vlaanderen.
+@fig-verschilref-hv toont de verschillen t.o.v. de referentie-meetcyclus voor Vlaanderen.
 Als we naar de verschillen per regio kijken (@fig-verschilref-hv-regio) zien we sterk contrasterende resultaten voor de periode 2019-2021, met in de Kempen een zeer sterke afname in aantallen en in de kustduinen een mogelijke toename in aantallen.
 In de periode 2022-2024 zien we een toename in aantallen in de Kempen en een afname in de kustduinen wat resulteert in lager aantallen in beide regio's t.o.v. de referentieperiode 2016-2018.
 
 ```{r}
 #| label: fig-verschilref-hv
-#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de Heivlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
+#| fig-cap: "Verschillen in aantallen t.o.v. de referentie-meetcyclus met het 90%-betrouwbaarheidsinterval voor de Heivlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
 #| fig.height: 3.5
 #| fig.width: 4
 
@@ -1020,7 +1025,7 @@ verschil_meetcyclus %>%
 
 ```{r}
 #| label: fig-verschilref-hv-regio
-#| fig-cap: "Verschillen in aantallen per regio t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de Heivlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
+#| fig-cap: "Verschillen in aantallen per regio t.o.v. de referentie-meetcyclus met het 90%-betrouwbaarheidsinterval voor de Heivlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
 #| fig.height: 3.5
 #| fig.width: 6
 
@@ -1076,14 +1081,14 @@ monitoring_effort_meetnet %>%
   plot_monitoring_effort()
 ```
 
-### Vergelijking tussen de jaren.
+### Vergelijking tussen de jaren
 
-In 2024 en 2025 liggen de aantallen naar schatting 90% lager dan in 2021 (@fig-verschilref-kb) en werden er nog maar een een zeer laag aantal individuen waargenomen (zie ook @tbl-aantaltot).
+In 2024 en 2025 liggen de aantallen naar schatting 90% lager dan in 2021 (@fig-verschilref-kb) en werden er nog maar een zeer laag aantal individuen waargenomen (zie ook @tbl-aantaltot).
 De sterkste daling vond plaats tussen 2023 en 2024 (@fig-verschilprev-kb).
 
 ```{r}
 #| label: fig-verschilref-kb
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor Klaverblauwtje De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor Klaverblauwtje. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
 #| fig.height: 3.5
 #| fig.width: 4
 
@@ -1095,7 +1100,7 @@ verschil_jaren_ref %>%
 
 ```{r}
 #| label: fig-verschilprev-kb
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor Klaverblauwtje De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor Klaverblauwtje. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
 #| fig.height: 3.5
 #| fig.width: 4
 
@@ -1148,7 +1153,7 @@ monitoring_effort_meetnet %>%
   plot_monitoring_effort()
 ```
 
-### Vergelijking tussen de jaren.
+### Vergelijking tussen de jaren
 
 De aantallen van Kommavlinder bereikten een dieptepunt in 2019 en 2020 (@fig-verschilref-kv). 
 In 2021 zagen we weer een toename van de aantallen t.o.v. het jaar voordien (@fig-verschilprev-kv), maar de aantallen blijven sterk onder het niveau van in het referentiejaar.
@@ -1187,7 +1192,7 @@ trend_average_meetnet <- trend_average %>%
 
 ```
 
-Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r sprintf("%.1f", round(trend_average_meetnet$mean, 1))`% met een 90%-betrouwbaarheidsinterval tussen `r sprintf("%.1f", round(trend_average_meetnet$lcl_0.90, 1))`% en `r sprintf("%.1f", round(trend_average_meetnet$ucl_0.90, 1))`%.
+Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van   `r sprintf("%.1f", round(trend_average_meetnet$mean, 1))`% met een 90%-betrouwbaarheidsinterval tussen `r sprintf("%.1f", round(trend_average_meetnet$lcl_0.90, 1))`% en `r sprintf("%.1f", round(trend_average_meetnet$ucl_0.90, 1))`%.
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 \pagebreak
@@ -1219,7 +1224,7 @@ monitoring_effort_meetnet %>%
   plot_monitoring_effort()
 ```
 
-### Vergelijking tussen de jaren.
+### Vergelijking tussen de jaren
 
 @fig-verschilref-mp toont de verschillen t.o.v. het referentiejaar en @fig-verschilprev-mp de verschillen tussen opeenvolgende jaren.
 
@@ -1241,7 +1246,7 @@ verschil_jaren_ref %>%
 
 ```{r}
 #| label: fig-verschilprev-mp
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor Moerasparelmoervlinder De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor Moerasparelmoervlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
 #| fig.height: 3.5
 #| fig.width: 4
 
@@ -1296,11 +1301,11 @@ monitoring_effort_meetnet %>%
 
 ### Vergelijking tussen de meetcycli
 
-@fig-verschilref-oz toont de verschillen t.o.v. het referentie meetcyclus.
+@fig-verschilref-oz toont de verschillen t.o.v. de referentie-meetcyclus.
 
 ```{r}
 #| label: fig-verschilref-oz
-#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor het Oranje zandoogje. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
+#| fig-cap: "Verschillen in aantallen t.o.v. de referentie-meetcyclus met het 90%-betrouwbaarheidsinterval voor het Oranje zandoogje. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
 #| fig.height: 3.5
 #| fig.width: 4
 
@@ -1322,7 +1327,7 @@ trend_average_meetnet <- trend_average %>%
 ```
 
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont het `r m` een gemiddelde jaarlijkse trend van `r sprintf("%.1f", round(trend_average_meetnet$mean, 1))`% met een 90%-betrouwbaarheidsinterval tussen `r sprintf("%.1f", round(trend_average_meetnet$lcl_0.90, 1))`% en `r sprintf("%.1f", round(trend_average_meetnet$ucl_0.90, 1))`%.
-`r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van het ", m, " in deze periode."))`
+We kunnen dus spreken van een stabiele trend van het Oranje zandoogje in deze periode.
 
 \pagebreak
 
@@ -1353,13 +1358,13 @@ monitoring_effort_meetnet %>%
   plot_monitoring_effort()
 ```
 
-### Vergelijking tussen de jaren.
+### Vergelijking tussen de jaren
 
 Tot en met 2023 zien we geen duidelijke verschillen t.o.v. het referentiejaar 2016, maar vanaf 2024 zien we een significante afname in aantallen (@fig-verschilref-vp, @fig-verschilprev-vp)
 
 ```{r}
 #| label: fig-verschilref-vp
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor Veldparelmoervlinder De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor Veldparelmoervlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
 #| fig.height: 3.5
 #| fig.width: 5.5
 
@@ -1371,7 +1376,7 @@ verschil_jaren_ref %>%
 
 ```{r}
 #| label: fig-verschilprev-vp
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor Veldparelmoervlinder De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor Veldparelmoervlinder. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie is gebaseerd."
 #| fig.height: 3.5
 #| fig.width: 5.5
 
