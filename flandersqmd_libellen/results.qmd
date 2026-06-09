@@ -125,7 +125,8 @@ verschillen_jaren %>%
   rename("Soort" = soort_nl,  Referentiejaar = ref_jaar) %>%
   kbl(booktabs = TRUE,
       escape = FALSE,
-      align = "lccccc") %>%
+      align = "lccccc",
+      linesep = "") %>%
   kable_styling(font_size = ifelse(is_html_output(), 11, 9)) %>%
   add_header_above(c(" " = 2, "Verschil t.o.v. referentiejaar" = 9))
   
@@ -156,7 +157,8 @@ verschillen_vorigjaar %>%
   rename("Soort" = soort_nl) %>%
   kbl(booktabs = TRUE,
       escape = FALSE,
-      align = "lccccccccc") %>%
+      align = "lccccccccc",
+      linesep = "") %>%
   kable_styling(font_size = ifelse(is_html_output(), 11, 9)) %>%
   column_spec(c(2:10), "1cm")
 ```
@@ -166,13 +168,13 @@ verschillen_vorigjaar %>%
 ### Verschillen tussen de meetcycli
 
 Bij soorten die geteld worden met een meetcyclus van drie jaar, zullen de verschillen tussen de jaren voor een groot deel afhankelijk zijn van welke locaties er elk jaar geteld worden.
-Daarom kunnen we beter periodes van drie jaar (die overeenkomen met een meetcyclus) met elkaar te vergelijken (@tbl-index-meetcyclus).
+Daarom kunnen we beter periodes van drie jaar (die overeenkomen met een meetcyclus) met elkaar vergelijken (@tbl-index-meetcyclus).
 
-We zien hier enkel voor de Bosbeekjuffer een significante verschil: een afname in aantallen in de periode 2021-2023 t.o.v. de periode 2018-2020. 
+We zien hier enkel voor de Bosbeekjuffer een significant verschil: een afname in aantallen in de periode 2021-2023 t.o.v. de periode 2018-2020. 
 
 ```{r}
 #| label: tbl-index-meetcyclus
-#| tbl-cap: "Verschil in aantallen t.o.v. referentie meetcyclus"
+#| tbl-cap: "Verschil in aantallen t.o.v. referentie-meetcyclus"
 
 verschillen_cyclus <- results_index_transect %>%
   rowwise() %>%
@@ -182,10 +184,11 @@ verschillen_cyclus <- results_index_transect %>%
   select(soort_nl, ref_periode, periode, klasse_output)
 
 verschillen_cyclus %>%
-  rename("Nederlandse naam" = soort_nl, "Referentie meetcyclus" = ref_periode, "Meetcyclus" = periode, "Klasse" = klasse_output) %>%
+  rename("Nederlandse naam" = soort_nl, "Referentie-meetcyclus" = ref_periode, "Meetcyclus" = periode, "Klasse" = klasse_output) %>%
   kbl(booktabs = TRUE,
       escape = FALSE,
-      align = "lccccc") %>%
+      align = "lccccc",
+      linesep = "") %>%
 kable_styling(font_size = ifelse(is_html_output(), 11, 9)) 
 ```
 
@@ -257,7 +260,7 @@ Voor de gemiddelde jaarlijkse trend komt dit overeen met een ondergens van -5.6%
 De Sierlijke witsnuitlibel neemt het sterkst toe in aantallen.
 Daarbij moeten we wel vermelden dat we (voorlopig) nog maar één populatie in Vlaanderen hebben.
 
-De Kempense heidelibel neemt het sterkste af in aantallen en we vrezen dat deze soort in de komende jaren gaat verdwijnen in Vlaanderen.
+De Kempense heidelibel neemt het sterkst af in aantallen en we vrezen dat deze soort in de komende jaren gaat verdwijnen in Vlaanderen.
 
 ```{r}
 #| label: tbl-trend
@@ -267,7 +270,8 @@ overzicht_trend_tabel %>%
   select("Nederlandse naam" = soort_nl, Periode = periode_tekst, Klasse = klasse_output, "Jaarlijkse wijziging" = trend_tbl, "Wijziging over de looptijd" = trend_total) %>%
   kbl(align = "lcclcc",
       booktabs = TRUE,
-      escape = FALSE)  %>%
+      escape = FALSE,
+      linesep = "")  %>%
   kable_styling(font_size = ifelse(is_html_output(), 11, 9))
 ```
 
@@ -382,7 +386,8 @@ verschil_meetcyclus <- verschil_meetcyclus %>%
   mutate(klasse = str_remove_all(klasse, "`"))
 
 monitoring_effort_meetnet <- calculate_monitoring_effort(species_group = "libellen",
-                                                 aggregation_level = "meetnet")
+                                                 aggregation_level = "meetnet") %>%
+  filter(jaar <= 2025)
 
 ```
 
@@ -454,7 +459,7 @@ plot_diff <- function(data_diff,
         geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
         geom_point(size = 7) +
         geom_text(size = 4, colour = "black") +
-        labs(y = "Vreschil t.o.v. referentie meetcyclus", x = "Meetcyclus") +
+        labs(y = "Vreschil t.o.v. referentie-meetcyclus", x = "Meetcyclus") +
         scale_y_continuous(breaks = breaks_log, labels = labels_show) +
         scale_color_manual(values = klasse_color_scale) +
         theme(legend.position = "hide")
@@ -511,11 +516,11 @@ monitoring_effort_meetnet %>%
 
 ### Vergelijking tussen de meetcycli
 
-@fig-verschilref-bj toont de verschillen t.o.v. de referentie meetcyclus.
+@fig-verschilref-bj toont de verschillen t.o.v. de referentie-meetcyclus.
 
 ```{r}
 #| label: fig-verschilref-bj
-#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de bosbeekjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is."
+#| fig-cap: "Verschillen in aantallen t.o.v. de referentie-meetcyclus met het 90%-betrouwbaarheidsinterval voor de bosbeekjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is."
 #| fig.height: 3.5
 #| fig.width: 3
 
@@ -540,7 +545,7 @@ Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een ge
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
 Deze  soort wordt geteld volgens een driejarige meetcyclus, waarbij het aantal tellingen en het aantal getelde locaties vrij sterk schommelt van jaar tot jaar.
-Hierbij lijkt er een patroon voor te komen waarbij men de eerste twee jaar van een meetcyclus eerder een beperkte aantal locaties opvolgt om dan in het laatste jaar van de meetcyclus een extra inspanning te doen om alle resterende locaties geteld te krijgen.
+Hierbij lijkt er een patroon voor te komen waarbij men de eerste twee jaar van een meetcyclus eerder een beperkt aantal locaties opvolgt om dan in het laatste jaar van de meetcyclus een extra inspanning te doen om alle resterende locaties geteld te krijgen.
 Als dit dan toevallig valt in een beter jaar voor de soort, als gevolg van natuurlijke populatieschommelingen tussen de jaren, dan kan dit een vertekend beeld geven op korte termijn.
 Bovendien duurt  het veel langer om een duidelijke trend te detecteren als elke locatie maar om de 3 jaar wordt geteld.
 Om die redenen schakelen we in 2026 over naar een jaarlijkse telling van de locaties.
@@ -578,11 +583,11 @@ monitoring_effort_meetnet %>%
 ### Vergelijking tussen de jaren.
 
 Vanaf 2023 liggen de aantallen significant lager dan in het referentiejaar en in 2024 en 2025 zijn de aantallen met meer dan 50 % afgenomen t.o.v. de start van het meetnet in 2017 (@fig-verschilref-sj).
-In 2023 en 2024 zien we een significante afname in de aantallen t.o.v. het voorgaande jaren (@fig-verschilprev-sj).
+In 2023 en 2024 zien we een significante afname in de aantallen t.o.v. de voorgaande jaren (@fig-verschilprev-sj).
 
 ```{r}
 #| label: fig-verschilref-sj
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Speerwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Speerwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is."
 #| fig.height: 3.5
 #| fig.width: 5
 
@@ -594,7 +599,7 @@ verschil_jaren_ref %>%
 
 ```{r}
 #| label: fig-verschilprev-sj
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Speerwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Speerwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is."
 #| fig.height: 3.5
 #| fig.width: 5
 
@@ -659,7 +664,7 @@ We zien dat de afname vooral in 2018 en 2019 heeft plaats gevonden (@fig-verschi
 
 ```{r}
 #| label: fig-verschilref-mj
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Maanwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Maanwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is."
 #| fig.height: 3.5
 #| fig.width: 5.5
 
@@ -671,7 +676,7 @@ verschil_jaren_ref %>%
 
 ```{r}
 #| label: fig-verschilprev-mj
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Maanwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Maanwaterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is."
 #| fig.height: 3.5
 #| fig.width: 5.5
 
@@ -695,7 +700,7 @@ trend_average_meetnet <- trend %>%
 Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een gemiddelde jaarlijkse trend van `r sprintf("%.1f", round(trend_average_meetnet$mean, 1))`% met een 90%-betrouwbaarheidsinterval tussen `r sprintf("%.1f", round(trend_average_meetnet$lcl_0.90, 1))`% en `r sprintf("%.1f", round(trend_average_meetnet$ucl_0.90, 1))`%.
 `r ifelse(trend_average_meetnet$klasse_naam == "onbekend", str_c("De trend is dus **onbekend** (", trend_average_meetnet$klasse_output, ").") , str_c("We kunnen dus spreken van een **", trend_average_meetnet$klasse_naam, "** (", trend_average_meetnet$klasse_output, ") van de ", m, " in deze periode."))`
 
-De sterke afname is deels te verklaren door het verdwijenen van een populatie in één meetnetlocatie.
+De sterke afname is deels te verklaren door het verdwijnen van een populatie in één meetnetlocatie.
 
 Daarnaast is het belangrijk om te vermelden dat twee meetnetlocaties in het Groot Schietveld zijn gelegen.
 Dit is een niet vrij toegankelijk militair domein en de toegang is daar afhankelijk van het al dan niet plaatsvinden van militaire oefeningen.
@@ -738,11 +743,11 @@ In @fig-verschilref-vw zien we dat er geen duidelijke verschillen zijn tussen de
 Als we kijken naar de aantallen per meetnetlocatie (@sec-aantallen-locatie), dan zien we een sterke variatie in hoe de aantallen variëren tussen de meetcycli.
 Bij een deel van de locaties nemen de getelde aantallen toe, terwijl bij een ander deel de aantallen dalen.
 Dit leidt tot een lage precisie van de geschatte verschillen tussen de meetcycli.
-Door over te schakelen van een driejarige naar een jaarlijkse meetcyclus proberen we in de toekomst een beter beeld te krijgen over de veranderingen in aantallen van Variabele waterjuffer.
+Door over te schakelen van een driejarige naar een jaarlijkse meetcyclus proberen we in de toekomst een beter beeld te krijgen van de veranderingen in aantallen van Variabele waterjuffer.
 
 ```{r}
 #| label: fig-verschilref-vw
-#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de Variabele waterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
+#| fig-cap: "Verschillen in aantallen t.o.v. de referentie-meetcyclus met het 90%-betrouwbaarheidsinterval voor de Variabele waterjuffer. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is."
 #| fig.height: 3.5
 #| fig.width: 3.5
 
@@ -798,12 +803,12 @@ monitoring_effort_meetnet %>%
 
 ### Vergelijking tussen de meetcycli
 
-@fig-verschilref-vg toont de verschillen t.o.v. de referentie meetcyclus.
+@fig-verschilref-vg toont de verschillen t.o.v. de referentie-meetcyclus.
 Net zoals bij Variabele waterjuffer, zien we hier geen duidelijke verschillen tussen de meetcycli.
 
 ```{r}
 #| label: fig-verschilref-vg
-#| fig-cap: "Verschillen in aantallen t.o.v. de referentie meetcyclus met het 90%-betrouwbaarheidsinterval voor de Vroege glazenmaker. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
+#| fig-cap: "Verschillen in aantallen t.o.v. de referentie-meetcyclus met het 90%-betrouwbaarheidsinterval voor de Vroege glazenmaker. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is."
 #| fig.height: 3.5
 #| fig.width: 3.5
 
@@ -852,8 +857,8 @@ monitoring_effort_meetnet %>%
 
 ### Vergelijking tussen de jaren.
 
-Voor alle jaren vanaf 2018 hebben we een sterk toename in het aantal larvenhuidjes t.o.v. de start van het meetnet in 2016 (@fig-verschilref-rr) 
-In 2017, 2018 en 2019 zien we een toename van rond de 100 % t.o.v. het voorgaande jaar, wat dus neer komt op een verdubbeling in het aantal larvenhuidjes (@fig-verschilprev-rr).
+Voor alle jaren vanaf 2018 hebben we een sterke toename in het aantal larvenhuidjes t.o.v. de start van het meetnet in 2016 (@fig-verschilref-rr).
+In 2017, 2018 en 2019 zien we een toename van rond de 100 % t.o.v. het voorgaande jaar, wat dus neerkomt op een verdubbeling in het aantal larvenhuidjes (@fig-verschilprev-rr).
 In de laatste jaren zien we een afname in het aantal larvenhuidjes, maar de aantallen blijven nog wel hoger in vergelijking met het referentiejaar.
 Deze recente afname werd ook in bijvoorbeeld Duitsland vastgesteld (pers. com. Frank Suhling).
 
@@ -942,7 +947,7 @@ monitoring_effort_meetnet %>%
 
 ```{r}
 #| label: fig-verschilref-sw
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Sierlijke witsnuitlibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Sierlijke witsnuitlibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is."
 #| fig.height: 3.5
 #| fig.width: 4.5
 
@@ -954,7 +959,7 @@ verschil_jaren_ref %>%
 
 ```{r}
 #| label: fig-verschilprev-sw
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgande jaar met het 90%-betrouwbaarheidsinterval voor de Sierlijke witsnuitlibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgande jaar met het 90%-betrouwbaarheidsinterval voor de Sierlijke witsnuitlibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is."
 #| fig.height: 3.5
 #| fig.width: 4.5
 
@@ -982,7 +987,7 @@ Over de periode `r trend_average_meetnet$periode_tekst` vertoont de `r m` een ge
 
 De Sierlijke witsnuitlibel vertoont de laatste 20 jaar een duidelijke toename in West-Europa [@deknijf_2024] en heeft een groot deel van zijn areaal uit begin 20^ste^ eeuw terug gekoloniseerd.
 Dit deed zich ook in Vlaanderen voor, maar in tegenstelling tot de buurlanden en -regio’s komt er hier slechts één populatie voor.
-Bij de opstart van dit meetnet werd op een tweede locaties larven gevonden.
+Bij de opstart van dit meetnet werd op een tweede locatie larven gevonden.
 Monitoring de komende jaren resulteerde echter niet in waarnemingen van imago’s, waarna besloten werd om deze locatie niet langer op te volgen voor de Sierlijke witsnuitlibel.
 De laatste jaren worden op meerdere locaties imago’s van deze soort waargenomen, zonder evenwel herhaalde waarnemingen de jaren daarop. Wellicht zullen de komende jaren meer populaties gevonden worden, waarna die ook zullen worden opgevolgd. 
 
@@ -1013,11 +1018,11 @@ monitoring_effort_meetnet %>%
 Als we de aantallen tussen de jaren vergelijken (@fig-verschilref-gw en @fig-verschilprev-gw) dan merken we dat de populatie-aantallen grote schommelingen vertonen.
 Zo heeft de soort duidelijk jaren waarin er meer dieren worden geteld, zoals in 2018, 2021 en 2025, en jaren waarin de aantallen flink lager zijn,  zoals in 2019.
 Mogelijks  heeft dit te maken met de hoeveelheid neerslag  het voorgaande jaar en de maanden voorafgaand  het uitsluipen.
-Ook valt het niet uit te sluiten dat er in zogenaamd goede jaren (bijvoorbeeld 2018) zwervende dieren van uit het noordoosten in Vlaanderen geraken en zo onze locale populaties ‘voeden’.
+Ook valt het niet uit te sluiten dat er in zogenaamd goede jaren (bijvoorbeeld 2018) zwervende dieren van uit het noordoosten in Vlaanderen geraken en zo onze lokale populaties ‘voeden’.
 
 ```{r}
 #| label: fig-verschilref-gw
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Gevlekte witsnuitlibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Gevlekte witsnuitlibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is."
 #| fig.height: 3.5
 #| fig.width: 5.5
 
@@ -1029,7 +1034,7 @@ verschil_jaren_ref %>%
 
 ```{r}
 #| label: fig-verschilprev-gw
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Gevlekte witsnuitlibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Gevlekte witsnuitlibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is."
 #| fig.height: 3.5
 #| fig.width: 5.5
 
@@ -1097,7 +1102,7 @@ monitoring_effort_meetnet %>%
 
 ```{r}
 #| label: fig-verschilref-kh
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Kempense heidelibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het referentiejaar met het 90%-betrouwbaarheidsinterval voor de Kempense heidelibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is."
 #| fig.height: 3.5
 #| fig.width: 5
 
@@ -1109,7 +1114,7 @@ verschil_jaren_ref %>%
 
 ```{r}
 #| label: fig-verschilprev-kh
-#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Kempense heidelibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is"
+#| fig-cap: "Jaarlijkse verschillen in aantallen t.o.v. het voorgaande jaar met het 90%-betrouwbaarheidsinterval voor de Kempense heidelibel. De symbolen geven de classificatie van de verschillen weer. De stippellijnen tonen de referentiewaarde (0%), de ondergrens (-25%) en de bovengrens (+33%) waarop de classificatie gebaseerd is."
 #| fig.height: 3.5
 #| fig.width: 5.5
 

@@ -24,14 +24,14 @@ Op basis van dit model maken we een schatting van de jaarlijkse index.
 Dit is het procentueel verschil in aantallen tussen een bepaald jaar en een referentiejaar.
 Daarnaast maken we ook een schatting van het relatief verschil tussen opeenvolgende jaren.
 
-We maken gebruik van een generalised linear mixed model (GLMM), waarbij we aannemen dat het getelde aantal $C_{ldj}$ op locatie $l$, dag $d$ en jaar $j$ een negatief binomiale distributie volgt met gemiddelde $\mu_{ldj}$ en overdispersie parameter $k$.
+We maken gebruik van een generalised linear mixed model (GLMM), waarbij we aannemen dat het getelde aantal $C_{ldj}$ op locatie $l$, dag $d$ en jaar $j$ een negatief binomiale distributie volgt met gemiddelde $\mu_{ldj}$ en overdispersieparameter $k$.
 
 $$C_{ldj} \sim {NB}(\mu_{ldj}, k)$$
 
 $$\operatorname{E}[C_{ldj}]=\mu_{ldj}$$
 $$\operatorname{var}(C_{ldj})=\mu_{ldj}+\frac{\mu_{ldj}^2}{k}$$
 
-We maken gebruik van  onderstaande link functie.
+We maken gebruik van  onderstaande linkfunctie.
 
 $$\log(\mu_{ldj}) = \eta_{ldj}$$
 De lineaire predictor $\log(\mu_{ldj})$ hangt af van volgende termen:
@@ -39,10 +39,10 @@ De lineaire predictor $\log(\mu_{ldj})$ hangt af van volgende termen:
 + $b_{l}$: een random intercept voor locatie $l$.
 Het volgt een normale distributie met gemiddelde 0 en variantie $\sigma_{l}^2$.
 
-+ $b_{d}$ het effect van de dag in het jaar $d$. Dit effect modelleert een tweede orde random walk.
-Het tweede orde verschil $\Delta^2 b_d=b_d - 2b_{d-1} + b_{d-2}$ volgt een normale verdeling met gemiddelde 0 en variantie $\sigma_{d}^2$.
++ $b_{d}$ het effect van de dag in het jaar $d$. Dit effect modelleert een tweede-orde-random-walk.
+Het tweede-orde-verschil $\Delta^2 b_d=b_d - 2b_{d-1} + b_{d-2}$ volgt een normale verdeling met gemiddelde 0 en variantie $\sigma_{d}^2$.
 
-+ $b_{j}$ het effect van jaar $j$. Dit effect modelleert een eerste orde random walk.
++ $b_{j}$ het effect van jaar $j$. Dit effect modelleert een eerste-orde-random-walk.
 Het verschil tussen twee opeenvolgende jaren $\Delta b_j=b_j - b_{j-1}$ volgt een normale verdeling met gemiddelde 0 en variantie $\sigma_{j}^2$.
 
 $$\eta_{ldj}= \beta_{0} + b_{l} + b_{d} + b_{j}$$
@@ -54,9 +54,9 @@ $$\Delta b_j \sim {N(0,\sigma_{j}^2)} $$
 
 ## Model voor verschillen tussen de meetcycli
 
-Voor de meetnetten meet een driejaarlijkse meetcyclus (Bosbeekjuffer, Vroege glazenmaker en Variabele waterjuffer) fitten we een model om de verschillen tussen de meetcycli te schatten.
+Voor de meetnetten met een driejaarlijkse meetcyclus (Bosbeekjuffer, Vroege glazenmaker en Variabele waterjuffer) fitten we een model om de verschillen tussen de meetcycli te schatten.
 
-Omdat deze meetnetten gebruik maken van transecttellingen, moeten het model ook rekening houden met de transectlengte. 
+Omdat deze meetnetten gebruikmaken van transecttellingen, moet het model ook rekening houden met de transectlengte. 
 De transectlengte heeft immers invloed op de zoekinspanning en dus ook op de getelde aantallen.
 Dit doen we door de transectlengte (in meter) gedeeld door 50 als *offset* toe te voegen aan het model.
 Hierdoor worden de resultaten uitgedrukt als (verschil in) aantallen per 50 meter transectlengte.
@@ -78,9 +78,9 @@ Om de lineaire trend te schatten gebruiken we jaar als continue variabele $J$. V
 
 Dit model gebruiken we voor volgende schattingen:
 
-* gemiddelde jaarlijkse lineaire trend in aantallen, m.a.w. de percentage vooruitgang of achteruitgang per jaar;
+* gemiddelde jaarlijkse lineaire trend in aantallen, m.a.w. het percentage vooruitgang of achteruitgang per jaar;
 
-* totale trend in aantallen over de volledige periode, m.a.w. de percentage vooruitgang of achteruitgang over de hele periode. 
+* totale trend in aantallen over de volledige periode, m.a.w. het percentage vooruitgang of achteruitgang over de hele periode. 
 
 We krijgen dus:
 

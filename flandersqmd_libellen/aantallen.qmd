@@ -257,7 +257,7 @@ summary_counts_type %>%
 
 ::: {.content-hidden when-format="html"}
 
-In de [website versie](https://www.vlaanderen.be/inbo/rapporten/libellenmeetnetten-trends-2016-2025/aantallen.html) van dit rapport vind je interactieve grafieken met de getelde aantallen per meetnetlocatie.
+In de [website-versie](https://www.vlaanderen.be/inbo/rapporten/libellenmeetnetten-trends-2016-2025/aantallen.html) van dit rapport vind je interactieve grafieken met de getelde aantallen per meetnetlocatie.
 
 :::
 
@@ -593,7 +593,7 @@ plot_ly(data_shared_soort, x = ~jaar, y =  ~aantal_meetnet_max, color = "black",
 Elk libellenmeetnet is specifiek ontworpen voor één bepaalde doelsoort.
 Naast deze doelsoort die moet geteld worden, de zogenoemde prioritaire soorten, is het ook mogelijk om andere aanwezige libellen op de tellocatie op die dag te noteren.
 Deze gegevens kunnen zeker een meerwaarde zijn, maar we moeten wel voorzichtig zijn bij het interpreteren of analyseren van deze gegevens.
-Zowel de tellocaties als de telperiode zijn immers specifiek gekozen voor de doelsoorten.
+Zowel de tellocaties als de telperiode zijn immers specifiek gekozen voor de doelsoorten en niet alle vrijwilligers noteren de overige soorten.
 Dat maakt dat de aantallen voor de overige soorten niet altijd representatief zijn voor een uitspraak op schaal Vlaanderen.
   
 In @tbl-overige geven we het totaal aantal getelde individuen van de overige soorten voor alle libellenmeetnetten samen.
@@ -607,11 +607,12 @@ Azuurwaterjuffer is dus de meest getelde soort.
 #| tbl-cap: "Totaal aantal getelde overige soorten voor alle libellenmeetnetten samen"
 
 summary_table_sec %>%
-  filter(! soort_nl %in% summary_counts_periode$meetnet) %>%
+  filter(!soort_nl %in% summary_counts_periode$meetnet) %>%
   arrange(desc(aantal_tot)) %>%
   select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, "Totaal" = aantal_tot) %>%
   kbl(longtable = TRUE,
-      booktabs = TRUE) %>%
+      booktabs = TRUE,
+      linesep = "") %>%
   kable_styling(bootstrap_options = c( "condensed"),
                 font_size = ifelse(is_html_output(), 11, 9),
                 latex_options = c("scale_down", "repeat_header"),
