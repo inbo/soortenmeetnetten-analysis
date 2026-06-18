@@ -18,7 +18,12 @@ Dit is nodig om op een correcte manier de trend te schatten.
 Via een statistisch model analyseren we de getelde aantallen als functie van het jaar en het dagnummer.
 Op die manier krijgen we een schatting per jaar en houden we ook rekening met het seizoenseffect op de getelde aantallen.
 We voegen ook een locatie-effect toe aan het model onder de vorm van een *random intercept*.
-Hiermee geven we aan dat tellingen op eenzelfde locatie gecorreleerd zijn. 
+Hiermee geven we aan dat tellingen op eenzelfde locatie gecorreleerd zijn.
+
+Bij de transecttellingen sommeren we de aantallen over alle getelde secties.
+In de analyse houden we er ook rekening mee dat de transecten niet allemaal dezelfde lengte hebben.
+Dit doen we door de transectlengte (in meter) gedeeld door 100 als *offset* toe te voegen aan het model.
+Hierdoor worden de resultaten uitgedrukt als (verschil in) aantallen per 100 meter transectlengte.
 
 Op basis van dit model maken we een schatting van de jaarlijkse index.
 Dit is het procentueel verschil in aantallen tussen een bepaald jaar en een referentiejaar.
@@ -40,7 +45,7 @@ De lineaire predictor $\log(\mu_{ldj})$ hangt af van volgende termen:
 Het volgt een normale distributie met gemiddelde 0 en variantie $\sigma_{l}^2$.
 
 + $b_{d}$ het effect van de dag in het jaar $d$. Dit effect modelleert een tweede-orde-random-walk.
-Het tweede-orde-verschil $\Delta^2 b_d=b_d - 2b_{d-1} + b_{d-2}$ volgt een normale verdeling met gemiddelde 0 en variantie $\sigma_{d}^2$.
+Het tweede orde verschil $\Delta^2 b_d=b_d - 2b_{d-1} + b_{d-2}$ volgt een normale verdeling met gemiddelde 0 en variantie $\sigma_{d}^2$.
 
 + $b_{j}$ het effect van jaar $j$. Dit effect modelleert een eerste-orde-random-walk.
 Het verschil tussen twee opeenvolgende jaren $\Delta b_j=b_j - b_{j-1}$ volgt een normale verdeling met gemiddelde 0 en variantie $\sigma_{j}^2$.
@@ -54,15 +59,10 @@ $$\Delta b_j \sim {N(0,\sigma_{j}^2)} $$
 
 ## Model voor verschillen tussen de meetcycli
 
-Voor de meetnetten met een driejaarlijkse meetcyclus (Bosbeekjuffer, Vroege glazenmaker en Variabele waterjuffer) fitten we een model om de verschillen tussen de meetcycli te schatten.
+Voor de meetnetten met een driejaarlijkse meetcyclus (Argusvlinder, Heivlinder en Oranje zandoogje) fitten we een model om de verschillen tussen de meetcycli te schatten.
 
-Omdat deze meetnetten gebruikmaken van transecttellingen, moet het model ook rekening houden met de transectlengte. 
-De transectlengte heeft immers invloed op de zoekinspanning en dus ook op de getelde aantallen.
-Dit doen we door de transectlengte (in meter) gedeeld door 50 als *offset* toe te voegen aan het model.
-Hierdoor worden de resultaten uitgedrukt als (verschil in) aantallen per 50 meter transectlengte.
-
-Verder is het model analoog aan het model voor het verschillen tussen de jaren.
-Het enige verschil is dat we gebruik maken van $\beta_{m}M_{m}$, het effect van meetcyclus $m$, i.p.v. het jaareffect $b_{j}$.
+Het model analoog aan het model voor het verschillen tussen de jaren.
+Het enige verschil is dat we gebruikmaken van $\beta_{m}M_{m}$, het effect van meetcyclus $m$, i.p.v. het jaareffect $b_{j}$.
 
 We krijgen dan:
 
@@ -84,21 +84,13 @@ Dit model gebruiken we voor volgende schattingen:
 
 We krijgen dus:
 
-$$\eta_{ldj}= \beta_{0} + \beta_{1}J +  b_{l} +  b_{d}$$
+$$\eta_{ldj}= \beta_{0} + \beta_{1}J + b_{l} + b_{d}$$
 
 waarbij $e^{\beta_1}$ de relatieve trend weergeeft.
 
-## Modellen voor rivierrombout
-
-Bij Rivierrombout worden de getelde larvenhuidjes bij elk bezoek weggenomen en is het totaal van de getelde larvenhuidjes over alle bezoeken binnen een jaar een proxy voor de lokale populatiegrootte.
-Het model voor Rivierrombout maakt daarom gebruik van de totale getelde aantallen per jaar en per locatie.
-We houden ook rekening met de zoekinspanning door de som van de transectlengte (voor alle bezoeken binnen een jaar aan een locatie) gedeeld door 500 als offset toe te voegen aan het model.
-
-De gebruikte modellen voor Rivierrombout zijn verder identiek aan het model voor de verschillen tussen de jaren en het model voor de jaarlijkse trend, maar dan zonder het seizoenseffect $b_{d}$.
-
 ## Modellen fitten
 
-We fitten de statistische modellen in R [@R] met het INLA package [@rue_2009].
+We fitten de statistische modellen in R [@R] met het INLA package (versie 25.04.29) [@rue_2009].
 INLA gebruikt een Bayesiaanse benadering om de modellen te fitten.
 Daarom moeten we priors specificeren voor de parameters en hyperparameters.
 

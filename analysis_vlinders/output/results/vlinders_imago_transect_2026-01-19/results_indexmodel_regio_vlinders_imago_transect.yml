@@ -1,5 +1,5 @@
 ..generic:
-  git2rdata: 0.5.0
+  git2rdata: 0.5.1
   optimize: yes
   NA string: NA
   sorting:
@@ -8,7 +8,7 @@
   - meetcyclus
   - regio
   hash: ba53154e0ee98dd1dca0b2e1e4ecefe6162512d7
-  data_hash: dc96e4931a1c395f1bd0b884d0c7b35ae78a5673
+  data_hash: 604ed2394d5cf761d5411e91c3cc955ebf0d2fe2
 parameter:
   class: character
 soort_nl:

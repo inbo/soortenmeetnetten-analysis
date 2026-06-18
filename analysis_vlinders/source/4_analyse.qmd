@@ -350,6 +350,12 @@ analyseset_meetcyclus_argusvlinder_regio <- analyseset_meetcyclus %>%
   mutate(regio = ifelse(provincie == "West-Vlaanderen", "Kustduinen en polders", 
                         ifelse(provincie == "Limburg", "Limburg", "Antwerpse haven")))
 
+aantallen_regio <- analyseset_meetcyclus_argusvlinder_regio %>%
+  group_by(meetnet, regio, meetcyclus, periode) %>%
+  summarise(aantal_mean = mean(aantal),
+            aantal_tot = sum(aantal)) %>%
+  ungroup()
+
 analyseset_locations_by_regio <- analyseset_meetcyclus_argusvlinder_regio %>%
   group_by(meetnet, regio) %>%
   nest() %>%
@@ -384,7 +390,7 @@ indexmodel_doyrw2_iid_meetcyclus_KP <- inla(aantal ~ periode  +
                                    hyper = list(theta = list(prior = "pc.prec", param = c(1, 0.05)))),
                               family = "nbinomial",
                               data = analyseset_meetcyclus_argusvlinder_regio %>%
-                                filter(regio != "Antwerpse haven"),
+                                filter(regio == "Kustduinen en polders"),
                               offset = log_section_100,
                               control.compute = list(config = TRUE, waic = TRUE),
                               control.predictor = list(compute = TRUE))
@@ -420,6 +426,12 @@ analyseset_meetcyclus_heivlinder_regio <- analyseset_meetcyclus %>%
   # filter(provincie %in% c("Oost-Vlaanderen", "Antwerpen", "West-Vlaanderen")) %>%
   mutate(regio = ifelse(provincie == "West-Vlaanderen", "Kustduinen en polders", 
                         "Antwerpen en Limburg"))
+
+aantallen_regio <- analyseset_meetcyclus_heivlinder_regio %>%
+  group_by(meetnet, regio, meetcyclus, periode) %>%
+  summarise(aantal_mean = mean(aantal),
+            aantal_tot = sum(aantal)) %>%
+  ungroup()
 
 analyseset_locations_by_regio <- analyseset_meetcyclus_heivlinder_regio %>%
   group_by(meetnet, regio) %>%

@@ -1076,7 +1076,7 @@ derive_index_meetcyclus_inla <- function(analyseset_species = NULL, indexmodel_n
            sd = sd(waarde)) %>%
     ungroup() %>%
     group_by(periode, mean, sd) %>%
-    summarise(qs = quantile(waarde, quantile_values), prob = quantile_values) %>%
+    reframe(qs = quantile(waarde, quantile_values), prob = quantile_values) %>%
     ungroup() %>%
     mutate(l_u = ifelse(prob < 0.5, "lcl", "ucl"),
            ci = ifelse(prob %in% c(0.025, 0.975), "0.95",

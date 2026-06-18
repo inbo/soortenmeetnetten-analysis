@@ -4,7 +4,8 @@ De analyses werden uitgevoerd via de programmeertaal R [@R]. De R-scripts staan 
 
 Meer specifiek gebeuren de analyses voor de libellenmeetnetten via de scripts in de folder [inbo/soortenmeetnetten-analysis/analysis_libellen/source (commit 411dff3)](https://github.com/inbo/soortenmeetnetten-analysis/tree/411dff3ab3b10629a32c242d48da17fc38d8e298/analysis_libellen/source).
 
-De analyseresultaten zijn terug te vinden in de folder [inbo/soortenmeetnetten-analysis/analysis_libellen/output/results (commit 411dff3)](https://github.com/inbo/soortenmeetnetten-analysis/tree/411dff3ab3b10629a32c242d48da17fc38d8e298/analysis_libellen/output/results)
+De analyseresultaten zijn terug te vinden in de folder [inbo/soortenmeetnetten-analysis/analysis_libellen/output/results (commit 411dff3)](https://github.com/inbo/soortenmeetnetten-analysis/tree/411dff3ab3b10629a32c242d48da17fc38d8e298/analysis_libellen/output/results).
+De bestanden met resultaten kunnen in R ingelezen worden via het `git2rdata` package [@onkelinx_2026].
 
 De ruwe data die we gebruiken voor de analyse zijn niet publiek beschikbaar omdat het om gevoelige data gaat.
 De ruwe data zijn wel beschikbaar via [deze Google Drive folder](https://drive.google.com/drive/folders/1dBk_sA3GIn0zdEx8PomBDYV6wY__nrEh), die enkel toegankelijk is op verzoek.
