@@ -8,7 +8,7 @@ project:
   - '*.qmd'
   - '!LICENSE.md'
   - '!README.md'
-  output-dir: output/flandersqmd_dagvlinders
+  output-dir: output/dagvlinders2026_test
   post-render: _extensions/inbo/flandersqmd-book/filters/post_render.R
 execute:
   echo: false
@@ -92,8 +92,9 @@ flandersqmd:
   year: 2026
   colophon: true
   floatbarrier: section
-  depotnr: 'D/2026/3241/189'
-  coverdescription: Bruine eikenpage
+  depotnr: D/2026/3241/189
+  coverdescription: 'Bruine eikenpage (foto: Valérie Goethals)'
+  cover: cover.pdf
 book:
   downloads: pdf
   open-graph: true
@@ -106,6 +107,12 @@ book:
     left:
     - text: Cover
       file: index.md
+    - text: Inleiding
+      file: inleiding.qmd
+    - text: Methodiek
+      file: methods.qmd
+    - text: Resultaten
+      file: results.qmd
   chapters:
   - index.md
   - samenvatting.md
@@ -118,4 +125,6 @@ book:
   appendices:
   - bijlage1.qmd
   - bijlage_r.qmd
+  sidebar:
+    logo: cover.png
 bibliography: references.bib

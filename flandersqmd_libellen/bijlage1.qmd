@@ -98,7 +98,7 @@ De gebruikte modellen voor Rivierrombout zijn verder identiek aan het model voor
 
 ## Modellen fitten
 
-We fitten de statische modellen in R [@R] met het INLA package [@rue_2009].
+We fitten de statistische modellen in R [@R] met het INLA package [@rue_2009].
 INLA gebruikt een Bayesiaanse benadering om de modellen te fitten.
 Daarom moeten we priors specificeren voor de parameters en hyperparameters.
 

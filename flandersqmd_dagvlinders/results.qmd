@@ -184,7 +184,7 @@ verschillen_vorigjaar %>%
 ### Verschillen tussen de meetcycli
 
 Bij soorten die geteld worden met een meetcyclus van drie jaar, zullen de verschillen tussen de jaren voor een groot deel afhankelijk zijn van welke locaties er elk jaar geteld worden.
-Daarom kunnen we beter periodes van drie jaar (die overeenkomen met een meetcyclus) met elkaar te vergelijken (@tbl-index-meetcyclus).
+Daarom kunnen we beter periodes van drie jaar (die overeenkomen met een meetcyclus) met elkaar vergelijken (@tbl-index-meetcyclus).
 
 Hier zien we een sterke afname in aantallen voor argusvlinder en heivlinder in de periode 2019-2021 t.o.v. de periode 2016-2018.
 Oranje zandoogje lijkt de enige soort die stand houdt met een mogelijke toename in aantallen in de periode 2020-2022 en stabiele aantallen in de periode 2023-2025 (in vergelijking met de periode 2017-2019).
@@ -256,7 +256,7 @@ overzicht_trend_looptijd <- overzicht_trend %>%
 
 overzicht_trend_tabel <- overzicht_trend %>%
   filter(parameter %in% c("trend_average", "trend_jaar")) %>%
-   mutate(periode_tekst = str_c(jaar_min, " - ", jaar_max),
+   mutate(periode_tekst = str_c(jaar_min, "-", jaar_max),
          n_jaar = 6,
          treshold_low = round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
          treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1)) %>%
@@ -274,7 +274,7 @@ In @tbl-trend geven we een overzicht van de gemiddelde jaarlijkse trend en de to
 De gemiddelde jaarlijkse trend wordt ook visueel voorgesteld in @fig-results-trend De x-as van deze figuur heeft een logaritmische schaal.
 Een halvering (-50%) is immers een even sterk effect als een verdubbeling (+100%).
 Opnieuw maken we gebruik van de klassetrends zoals besproken in @sec-classificatie met -25% als ondergrens en +33% als bovengrens voor de totale trend over een periode van 6 jaar.
-Voor de gemiddelde jaarlijkse trend komt dit overeen met een ondergens van -5.6% en een bovengrens van +5.9%.
+Voor de gemiddelde jaarlijkse trend komt dit overeen met een ondergrens van -5.6% en een bovengrens van +5.9%.
 
 Enkel voor Oranje zandoogje is de trend in aantallen stabiel (voor de periode 2017-2025).
 Maar over een langere periode (1991-2025) zien we op basis van de algemene vlindermonitoring een achteruitgang in aantallen van Oranje zandoogje [@maes_2025].
@@ -494,7 +494,7 @@ plot_diff <- function(data_diff,
         geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
         geom_point(size = 7) +
         geom_text(size = 4, colour = "black") +
-        labs(y = "Vreschil t.o.v. de referentie-meetcyclus", x = "Meetcyclus") +
+        labs(y = "Verschil t.o.v. de referentie-meetcyclus", x = "Meetcyclus") +
         scale_y_continuous(breaks = breaks_log, labels = labels_show) +
         scale_color_manual(values = klasse_color_scale) +
         theme(legend.position = "hide")
@@ -511,7 +511,7 @@ plot_diff <- function(data_diff,
         geom_point(size = 7) +
         geom_text(size = 4, colour = "black") +
         facet_wrap(~regio) +
-        labs(y = "Vreschil t.o.v. de referentie-meetcyclus", x = "Meetcyclus") +
+        labs(y = "Verschil t.o.v. de referentie-meetcyclus", x = "Meetcyclus") +
         scale_y_continuous(breaks = breaks_log, labels = labels_show) +
         scale_color_manual(values = klasse_color_scale) +
         theme(legend.position = "hide")

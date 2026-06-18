@@ -35,7 +35,7 @@ conflicted::conflicts_prefer(dplyr::filter)
 
 ## Ontwerp van de libellenmeetnetten
 
-In een meetnet tellen vrijwilligers specifieke soorten op vastgelegde locaties via een gestandaardiseerde telmethode. Een dergelijke gestructureerde monitoring geeft de beste garantie op betrouwbare informatie over de toestand en trends van soorten op schaal Vlaanderen. Het ontwerp van de libellenmeetnetten wordt in detail beschreven in het monitoringsprotocol libellen [@de_knijf_monitoringsprotocol_2019]. Dit is een tweede versie van het monitoringsprotocol waarin enkele aanpassingen zijn gebeurd ten opzichte van de eerste versie [@de_knijf_monitoringsprotocol_2015]. Het monitoringsprotocol is gebaseerd op de de blauwdruk voor soortenmonitoring [@de_knijf_monitoring_2014].
+In een meetnet tellen vrijwilligers specifieke soorten op vastgelegde locaties via een gestandaardiseerde telmethode. Een dergelijke gestructureerde monitoring geeft de beste garantie op betrouwbare informatie over de toestand en trends van soorten op schaal Vlaanderen. Het ontwerp van de libellenmeetnetten wordt in detail beschreven in het monitoringsprotocol libellen [@de_knijf_monitoringsprotocol_2019]. Dit is een tweede versie van het monitoringsprotocol waarin enkele aanpassingen zijn gebeurd ten opzichte van de eerste versie [@de_knijf_monitoringsprotocol_2015]. Het monitoringsprotocol is gebaseerd op de blauwdruk voor soortenmonitoring [@de_knijf_monitoring_2014].
 
 We vatten de belangrijkste onderdelen van de libellenmeetnetten nog eens kort samen.
 
@@ -47,7 +47,7 @@ Voor twee groepen van soorten streven we naar een monitoring op basis van meetne
 
 - De **Vlaams prioritaire soorten** (VPS) staan niet op een bijlage van de HRL (het zijn dus geen Natura 2000 - soorten), maar ze worden wel als prioritair beschouwd voor het Vlaamse natuurbeleid.
 
-Bij de selectie van de VPS [@de_knijf_monitoring_2014] ging er bijzonder aandacht naar de Kempense heidelibel. Deze soort staat niet vermeld op de bijlage van de HRL, maar staat wel als Kwetsbaar aangeduid op de eerste Europese Rode Lijst van libellen [@kalkman_european_2010] In de nieuwe Europese Rode Lijst van libellen [@deknijf_2024], behoud de Kempense heidelibel zijn status als Kwetsbaar. Maar ook de Maanwaterjuffer en de Speerwaterjuffer werden allebei beoordeeld als Kwetsbaar.
+Bij de selectie van de VPS [@de_knijf_monitoring_2014] ging er bijzondere aandacht naar de Kempense heidelibel. Deze soort staat niet vermeld op de bijlage van de HRL, maar staat wel als Kwetsbaar aangeduid op de eerste Europese Rode Lijst van libellen [@kalkman_european_2010] In de nieuwe Europese Rode Lijst van libellen [@deknijf_2024], behoudt de Kempense heidelibel zijn status als Kwetsbaar. Maar ook de Maanwaterjuffer en de Speerwaterjuffer werden allebei beoordeeld als Kwetsbaar.
 
 In @tbl-soorten tonen we de geselecteerde libellensoorten, de beleidsrelevantie van de soorten en het jaar waarin het meetnet voor die soort van start ging. De volgorde van de libellen in deze tabel is gebaseerd op de taxonomische indeling van de soorten. Ook verder in dit rapport volgen we deze volgorde.
 
@@ -62,7 +62,7 @@ meetnet_characteristics <- get_characteristics_smp(species_group = "libellen") %
   left_join(libellen_taxonomy, by = "meetnet")  %>%
   filter(is_sample) %>%
   arrange(species_order) %>%
-  mutate(protocol = ifelse(meetnet %in% c("Beekrombout", "Rivierrombout"), "Transecttelling Larvendhuidjes",
+  mutate(protocol = ifelse(meetnet %in% c("Beekrombout", "Rivierrombout"), "Transecttelling Larvenhuidjes",
                            ifelse(protocol == "Libellen - Transect", "Transecttelling imago's",
                                   ifelse(protocol == "Libellen - Populatietelling per locatie", "Gebiedstelling imago's", NA))))
 
@@ -207,7 +207,8 @@ if (is_html_output()) {
 
 ### Wijzigingen aan het monitoringprotocol vanaf 2026
 
-Vanaf 2026 zullen we een aantal wijzigingen doorvoeren aan de libellenmeetnetten. Deze wijzigingen hebben dus nog geen effect op de resultaten die we in de dit rapport tonen, maar we lichten ze alvast toe.
+Vanaf 2026 zullen we een aantal wijzigingen doorvoeren aan de libellenmeetnetten.
+Deze wijzigingen hebben dus nog geen effect op de resultaten die we in dit rapport tonen, maar we lichten ze alvast toe.
 
 Bij Bosbeekjuffer en Variabele waterjuffer zien we sterke variaties in aantallen tussen de jaren en tussen locaties. Het meetnetontwerp waarbij 30 locaties om de 3 jaar geteld worden, resulteert daarom in een onvoldoende nauwkeurige schatting van de trends. Daarom schakelen we over naar een jaarlijkse telling van de meetnetlocaties en streven we naar 30 locaties die driemaal per jaar geteld worden.
 
@@ -369,7 +370,7 @@ trend_klasses <- data.frame(
                           "Significante positieve trend/verandering, significant lager dan bovenste drempelwaarde",
                           "Significante negatieve trend/verandering, significant hoger dan onderste drempelwaarde",
                           "Significante positieve trend/verandering, significant hoger dan bovenste drempelwaarde",
-                          "Significante negatieve trend/verandering, significant hoger dan onderste drempelwaarde")) %>%
+                          "Significante negatieve trend/verandering, significant lager dan onderste drempelwaarde")) %>%
   mutate(klasse = classification(lcl, ucl, threshold = c(-0.25, 0.33), reference = 0),
          klasse_naam = factor(klasse_naam, levels = c("sterke afname", "afname", "matige afname", "mogelijke afname", "onbekend", "stabiel", "mogelijke toename", "matige toename", "toename", "sterke toename" ))
          ) %>%

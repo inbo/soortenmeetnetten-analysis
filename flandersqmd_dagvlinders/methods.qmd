@@ -46,7 +46,7 @@ scientific_names <- counts_all %>%
   distinct(meetnet, soort_wet)
 ```
 
-## Ontwerp van de dagvlindernmeetnetten {#sec-ontwerp}
+## Ontwerp van de dagvlindermeetnetten {#sec-ontwerp}
 
 In een meetnet tellen vrijwilligers specifieke soorten op vastgelegde locaties via een gestandaardiseerde telmethode.
 Een dergelijke gestructureerde monitoring geeft de beste garantie op betrouwbare informatie over de toestand en trends van soorten op schaal Vlaanderen.
@@ -432,7 +432,7 @@ trend_klasses <- data.frame(
                           "Significante positieve trend/verandering, significant lager dan bovenste drempelwaarde",
                           "Significante negatieve trend/verandering, significant hoger dan onderste drempelwaarde",
                           "Significante positieve trend/verandering, significant hoger dan bovenste drempelwaarde",
-                          "Significante negatieve trend/verandering, significant hoger dan onderste drempelwaarde")) %>%
+                          "Significante negatieve trend/verandering, significant lager dan onderste drempelwaarde")) %>%
   mutate(klasse = classification(lcl, ucl, threshold = c(-0.25, 0.33), reference = 0),
          klasse_naam = factor(klasse_naam, levels = c("sterke afname", "afname", "matige afname", "mogelijke afname", "onbekend", "stabiel", "mogelijke toename", "matige toename", "toename", "sterke toename" ))
          ) %>%

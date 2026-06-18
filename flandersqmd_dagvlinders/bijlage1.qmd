@@ -90,7 +90,7 @@ waarbij $e^{\beta_1}$ de relatieve trend weergeeft.
 
 ## Modellen fitten
 
-We fitten de statische modellen in R [@R] met het INLA package (versie 25.04.29) [@rue_2009].
+We fitten de statistische modellen in R [@R] met het INLA package (versie 25.04.29) [@rue_2009].
 INLA gebruikt een Bayesiaanse benadering om de modellen te fitten.
 Daarom moeten we priors specificeren voor de parameters en hyperparameters.
 

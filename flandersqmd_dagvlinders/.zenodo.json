@@ -1,11 +1,12 @@
 {
-  "description": "<p>The species monitoring programme <a href=\"https://www.meetnetten.be\">meetnetten.be<\/a> aims at collecting reliable information on priority species in Flanders. It consists of a series of monitoring schemes which were designed by the Research Institute for Nature and Forest (INBO). Species are counted by volunteers in a standardized way under the coordination of the NGO Natuurpunt.<\/p> <p>This report shows the results of the dragonfly monitoring schemes for the period 2016 - 2020. In Flanders we see following trends:<\/p> <ul> <li>a strong increase in abundance for the Common Clubtail (<em>Gomphus vulgatissimus<\/em>) and the the Lilypad Whiteface (<em>Leucorrhinia caudalis<\/em>)<\/li> <li>a decrease in abundance for the Beautiful Demoiselle (<em>Calopteryx virgo<\/em>) and the Yellow-spotted Whiteface (<em>Leucorrhinia pectoralis<\/em>)<\/li> <li>a strong decrease in abundance for the Spearhead Bluet (<em>Coenagrion hastulatum<\/em>), the Crescent Bluet (<em>Coenagrion lunulatum<\/em>) and the Spotted Darter (<em>Sympetrum depressiusculum<\/em>)<\/li> <\/ul> <p>The trend for the Variable Bluet (<em>Coenagrion pulchellum<\/em>) and Green-eyed Hawker (<em>Aeshna isoceles<\/em>) is uncertain. Starting from 2026 the monitoring sites for the Variable Bluet will be counted yearly, which will increase the precision of the trend estimates.<\/p>",
-  "title": "Trends op basis van de libellenmeetnetten (2016 - 2025). Citizen science monitoring in Vlaanderen.",
-  "shorttitle": "trends-libellen",
+  "description": "<p>The species monitoring programme <a href=\"https://www.meetnetten.be\">meetnetten.be<\/a> aims at collecting reliable information on priority species in Flanders. It consists of a series of monitoring schemes which were designed by the Research Institute for Nature and Forest (INBO). Species are counted by volunteers in a standardized way under the coordination of the NGO Natuurpunt.<\/p> <p>This report shows the trends of the priority butterflies in Flanders for the period 2016 - 2025. In this period we see:<\/p> <ul> <li>stable numbers for the Gatekeeper (<em>Pyronia tithonus<\/em>),<\/li> <li>a decrease in abundance for the Wall brown (<em>Lasiommata megera<\/em>), the Grayling (<em>Hipparchia semele<\/em>), the Ilex hairstreak (<em>Satyrium ilicis<\/em>) and the Glanville fritillary (<em>Melitaea cinxia<\/em>),<\/li> <li>a strong decrease in abundance for the Grizzled skipper (<em>Pyrgus malvae<\/em>), the Silver‐spotted skipper (<em>Hesperia comma<\/em>), the Alcon blue (<em>Phengaris alcon<\/em>), the Purple emperor (<em>Apatura iris<\/em>), the Dingy skipper (<em>Erynnis tages<\/em>) and the Mazarine blue (<em>Cyaniris semiargus<\/em>),<\/li> <li>an uncertain trend for Marsh fritillary (<em>Euphydryas aurinia<\/em>).<\/li> <\/ul> <p>The Mazarine blue shows the strongest decline in abundance, with fewer than 10 individuals recorded in total in both 2024 and 2025. The number of counted Alcon blue eggs is also decreasing year after year. If this trend persists, this species will probably disappear from Flanders within a few years. As with many other grassland butterflies, nitrogen deposition and climate change are major causes of this decline.<\/p> <p>Fortunately, there are also a few bright spots. The populations of the Wall Brown in the vicinity of the Port of Antwerp appear to have improved in the 2022–2024 period. This also applies to the Grayling populations in the Kempen region. However, both species also have important populations in the coastal dune region, where numbers have dropped sharply since the monitoring scheme started in 2016. The Silver-spotted skipper hit a low point in 2019 and 2020, but a slight recovery has been observed since then, although numbers remain much lower than in 2016.<\/p> <p>The results confirm the importance of the butterfly monitoring schemes for the standardized monitoring of priority species in Flanders. For most of the monitored species, trends indicate a decline or a strong decline in abundance. For these species, additional site-specific and management-oriented analysis is required, with attention to the remaining populations, the quality and management of their habitat, and the extent to which existing management measures are sufficient.<\/p>",
+  "title": "Trends op basis van de dagvlindermeetnetten (2016 - 2025). Citizen science monitoring in Vlaanderen.",
+  "shorttitle": "dagvlindermeetnetten-trends-2016-2025",
   "upload_type": "publication",
   "access_right": "open",
   "license": "CC-BY-4.0",
   "language": "nld",
+  "doi": "10.21436/inbor.148382491",
   "keywords": [
     "monitoring"
   ],
@@ -36,14 +37,13 @@
       "orcid": "0000-0003-2478-9459"
     },
     {
-      "name": "De Knijf, Geert",
+      "name": "Maes, Dirk",
       "affiliation": "Research Institute for Nature and Forest (INBO)",
-      "orcid": "0000-0002-7958-1420"
+      "orcid": "0000-0002-7947-3788"
     },
     {
-      "name": "Ledegen, Hannes",
-      "affiliation": "Natuurpunt Studie",
-      "orcid": "0000-0003-4158-7568"
+      "name": "Veraghtert, Wim",
+      "affiliation": "Natuurpunt Studie"
     },
     {
       "name": "Van de Poel, Sam",

@@ -8,7 +8,7 @@ project:
   - '*.qmd'
   - '!LICENSE.md'
   - '!README.md'
-  output-dir: output/flandersqmd_libellen
+  output-dir: output/libellenmeetnetten2026
   post-render: _extensions/inbo/flandersqmd-book/filters/post_render.R
 execute:
   echo: false
@@ -89,12 +89,13 @@ flandersqmd:
   keywords: monitoring
   public_report: true
   reportnr: 37
-  depotnr: "D/2026/3241/190"
+  depotnr: D/2026/3241/190
   doi: 10.21436/inbor.148382180
   year: 2026
   colophon: true
   floatbarrier: section
-  coverdescription: "Larve Rivierrombout (foto: Robort Pieters)"
+  coverdescription: 'Larve Rivierrombout (foto: Robort Pieters)'
+  cover: cover.pdf
 book:
   downloads: pdf
   open-graph: true
@@ -107,6 +108,12 @@ book:
     left:
     - text: Cover
       file: index.md
+    - text: Inleiding
+      file: inleiding.qmd
+    - text: Methodiek
+      file: methods.qmd
+    - text: Resultaten
+      file: results.qmd
   chapters:
   - index.md
   - samenvatting.md
@@ -120,4 +127,6 @@ book:
   - bijlage1.qmd
   - bijlage_r.qmd
   - bijlage2.qmd
+  sidebar:
+    logo: cover.png
 bibliography: references.bib

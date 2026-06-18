@@ -78,12 +78,10 @@ trend_klasses <- data.frame(
   ucl = c(0.4, 0.5, 0.1, 0.2,1,-0.1, 0.25, -0.05,  0.9, -0.35)) %>%
   mutate(klasse = classification(lcl, ucl, threshold = c(-0.25, 0.33), reference = 0),
          klasse_naam = factor(klasse_naam, levels = c("sterke afname", "afname", "matige afname", "mogelijke afname", "onbekend", "stabiel", "mogelijke toename", "matige toename", "toename", "sterke toename" )),
-         klasse_plot = format(klasse, type = "markdown"))
-
-trend_klasses <- trend_klasses %>%
+         klasse_output = format(klasse, type = "markdown")) %>%
   arrange(klasse) %>%
-  mutate(klasse = as.character(klasse)) %>%
-  mutate(tekst = str_c(klasse, " = ", klasse_naam))
+  mutate(tekst = str_c(as.character(klasse), " = ", klasse_naam),
+         klasse = as.character(klasse))
   
 legend_klasses <- str_c(" (", str_c(trend_klasses$tekst, collapse = "; "), ")")
   
@@ -255,7 +253,7 @@ De gemiddelde jaarlijkse trend wordt visueel voorgesteld in @fig-results-trend
 De x-as van deze figuur heeft een logaritmische schaal.
 Een halvering (-50%) is immers een even sterk effect als een verdubbeling (+100%).
 Opnieuw maken we gebruik van de klassetrends zoals besproken in @sec-classificatie met -25% als ondergrens en +33% als bovengrens voor de totale trend over een periode van 6 jaar.
-Voor de gemiddelde jaarlijkse trend komt dit overeen met een ondergens van -5.6% en een bovengrens van +5.9%.
+Voor de gemiddelde jaarlijkse trend komt dit overeen met een ondergrens van -5.6% en een bovengrens van +5.9%.
 
 De Sierlijke witsnuitlibel neemt het sterkst toe in aantallen.
 Daarbij moeten we wel vermelden dat we (voorlopig) nog maar één populatie in Vlaanderen hebben.
@@ -293,12 +291,8 @@ trend <- results_trendmodel_all %>%
          ucl_0.90_log = log(ucl_0.90/100 + 1)) %>%
   mutate(n_jaar = 6,
          treshold_low = round((exp(log(0.75)/(n_jaar - 1)) - 1) * 100, 1),
-         treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1)) %>%
-  rowwise() %>%
-  mutate(klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0),
-         klasse_output =  ifelse(is_html_output(), as.character(klasse), str_c("$", as.character(klasse), "$")),
-         klasse_output = ifelse(is_html_output(), klasse_output, str_replace_all(klasse_output, "~", "\\\\sim")),
-         periode_tekst = str_c(jaar_min, " - ", jaar_max)) 
+         treshold_high = round((exp(log(1.33)/(n_jaar - 1)) - 1) * 100, 1),
+         klasse = classification_tw(lcl_0.90, ucl_0.90, threshold_low = treshold_low, treshold_high =  treshold_high, reference = 0))
 
 ```
 
@@ -389,6 +383,11 @@ monitoring_effort_meetnet <- calculate_monitoring_effort(species_group = "libell
                                                  aggregation_level = "meetnet") %>%
   filter(jaar <= 2025)
 
+trend_average <- trend %>%
+  mutate(klasse = as.character(klasse),
+         periode_tekst = str_c(jaar_min, "-", jaar_max)) %>%
+  left_join(trend_klasses, by = "klasse")
+
 ```
 
 \pagebreak
@@ -459,7 +458,7 @@ plot_diff <- function(data_diff,
         geom_hline(yintercept = log(1.33) + 1, linetype = 3) +
         geom_point(size = 7) +
         geom_text(size = 4, colour = "black") +
-        labs(y = "Vreschil t.o.v. referentie-meetcyclus", x = "Meetcyclus") +
+        labs(y = "Verschil t.o.v. referentie-meetcyclus", x = "Meetcyclus") +
         scale_y_continuous(breaks = breaks_log, labels = labels_show) +
         scale_color_manual(values = klasse_color_scale) +
         theme(legend.position = "hide")
@@ -534,10 +533,8 @@ verschil_meetcyclus %>%
 
 ```{r}
 
-trend_average_meetnet <- trend %>%
-  filter(soort_nl == m) %>%
-  mutate(klasse = as.character(klasse)) %>%
-  left_join(trend_klasses, by = "klasse")
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
 
 ```
 
@@ -614,10 +611,8 @@ verschil_vorigjaar %>%
 
 ```{r}
 
-trend_average_meetnet <- trend %>%
-  filter(soort_nl == m) %>%
-  mutate(klasse = as.character(klasse)) %>%
-  left_join(trend_klasses, by = "klasse")
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
 
 ```
 
@@ -690,10 +685,8 @@ verschil_vorigjaar %>%
 
 ```{r}
 
-trend_average_meetnet <- trend %>%
-  filter(soort_nl == m) %>%
-  mutate(klasse = as.character(klasse)) %>%
-  left_join(trend_klasses, by = "klasse")
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
 
 ```
 
@@ -761,10 +754,8 @@ verschil_meetcyclus %>%
 
 ```{r}
 
-trend_average_meetnet <- trend %>%
-  filter(soort_nl == m) %>%
-  mutate(klasse = as.character(klasse)) %>%
-  left_join(trend_klasses, by = "klasse")
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
 
 ```
 
@@ -789,7 +780,7 @@ include_graphics("images/vroege_glazenmaker_klein.jpg")
 
 ### Aantal tellingen, tellers en getelde locaties
 
-@fig-m-bj toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
+@fig-m-vg toont het aantal tellers, het aantal tellingen en het aantal getelde meetnetlocaties voor het meetnet `r m`.
 
 ```{r}
 #| label: fig-m-vg
@@ -822,10 +813,8 @@ verschil_meetcyclus %>%
 
 ```{r}
 
-trend_average_meetnet <- trend %>%
-  filter(soort_nl == m) %>%
-  mutate(klasse = as.character(klasse)) %>%
-  left_join(trend_klasses, by = "klasse")
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
 
 ```
 
@@ -901,10 +890,8 @@ include_graphics("images/Rivierrombout_larve_klein.jpg")
 
 ```{r}
 
-trend_average_meetnet <- trend %>%
-  filter(soort_nl == m) %>%
-  mutate(klasse = as.character(klasse)) %>%
-  left_join(trend_klasses, by = "klasse")
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
 
 ```
 
@@ -975,10 +962,8 @@ verschil_vorigjaar %>%
 
 ```{r}
 
-trend_average_meetnet <- trend %>%
-  filter(soort_nl == m) %>%
-  mutate(klasse = as.character(klasse)) %>%
-  left_join(trend_klasses, by = "klasse")
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
 
 ```
 
@@ -1056,10 +1041,8 @@ include_graphics("images/Gevlekte_witsnuitlibel_klein.jpg")
 
 ```{r}
 
-trend_average_meetnet <- trend %>%
-  filter(soort_nl == m) %>%
-  mutate(klasse = as.character(klasse)) %>%
-  left_join(trend_klasses, by = "klasse")
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
 
 ```
 
@@ -1133,10 +1116,8 @@ verschil_vorigjaar %>%
 
 ```{r}
 
-trend_average_meetnet <- trend %>%
-  filter(soort_nl == m) %>%
-  mutate(klasse = as.character(klasse)) %>%
-  left_join(trend_klasses, by = "klasse")
+trend_average_meetnet <- trend_average %>%
+  filter(soort_nl == m)
 
 ```
 

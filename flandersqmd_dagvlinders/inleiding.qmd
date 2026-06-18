@@ -11,8 +11,9 @@ html_output <- is_html_output()
 # Inleiding
 
 Betrouwbare informatie over de toestand en trends van dier- en plantensoorten in Vlaanderen is van
-groot belang voor de onderbouwing van het Vlaamse soortenbeleid en voor de rapportage over de Natura 2000-soorten aan Europa [@adriaens2011]. Daarom werden in de periode 2016-2018 soortenmeetnetten opgestart voor de langetermijnmonitoring van 65 Vlaamse en Europees prioritaire soorten [@westra_voortgangsrapport_2019].
-Elk meetnet bestaat uit een aantal vooraf vastgelegde locaties, waar een of meerdere soorten via een gestandaardiseerd methode geteld worden [@de_knijf_monitoring_2014]. 
+groot belang voor de onderbouwing van het Vlaamse soortenbeleid en voor de rapportage over de Natura 2000-soorten aan Europa [@adriaens2011].
+Daarom werden in de periode 2016-2018 soortenmeetnetten opgestart voor de langetermijnmonitoring van 65 Vlaamse en Europees prioritaire soorten [@westra_voortgangsrapport_2019].
+Elk meetnet bestaat uit een aantal vooraf vastgelegde locaties, waar een of meerdere soorten via een gestandaardiseerde methode geteld worden [@de_knijf_monitoring_2014]. 
 
 De soortenmeetnetten zijn een citizen-science-project: vrijwilligers voeren de tellingen uit.
 Natuurpunt Studie staat in voor de coördinatie en aansturing van de vrijwilligers en het Instituut voor Natuur- en Bosonderzoek (INBO) verwerkt de telgegevens.
@@ -25,7 +26,8 @@ We geven eerst wat achtergrond over het [ontwerp van de dagvlindermeetnetten](#s
 Daarna maken we een [verkenning van de getelde aantallen] en geven we een [overzicht van de resultaten] van de statistische analyses.
 Ten slotte bespreken we de resultaten voor elk meetnet: [Aardbeivlinder](#sec-aardbeivlinder), [Argusvlinder](#sec-argusvlinder), [Bruin dikkopje](#sec-bruin-dikkopje), [Bruine eikenpage](#sec-bruine-eikenpage), [Gentiaanblauwtje](#sec-gentiaanblauwtje), [Grote weerschijnvlinder](#sec-grote-weerschijnvlinder), [Heivlinder](#sec-heivlinder), [Klaverblauwtje](#sec-klaverblauwtje), [Kommavlinder](#sec-kommavlinder), [Moerasparelmoervlinder](#sec-moerasparelmoervlinder), [Oranje zandoogje](#sec-oranje-zandoogje) en [Veldparelmoervlinder](#sec-veldparelmoervlinder).
 
-Naast de soortspeciefieke dagvlindermeetnetten, bestaat er in Vlaanderen ook het meetnet Algemene Vlindermonitoring voor het opvolgen van algemenere dagvlindersoorten.
-Dit meetnet loopt al sinds 1991. Voor de resultaten van dit meetnet verwijzen we naar @maes_2025.
+Naast de soortspecifieke dagvlindermeetnetten, bestaat er in Vlaanderen ook het meetnet Algemene Vlindermonitoring voor het opvolgen van algemenere dagvlindersoorten.
+Dit meetnet loopt al sinds 1991.
+Voor de resultaten van dit meetnet verwijzen we naar @maes_2025.
 
 `r ifelse(!html_output, "Dit rapport bevat enkele interactieve figuren die alleen kunnen bekeken worden op de [website-versie](https://www.vlaanderen.be/inbo/rapporten/dagvlindermeetnetten-trends-2016-2025/index.html) van dit rapport.", "")`
