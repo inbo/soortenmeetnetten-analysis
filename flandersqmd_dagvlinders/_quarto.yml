@@ -84,7 +84,11 @@ flandersqmd:
     ror: 00j54wy13
   community: inbo
   publication_type: publication-report
-  publisher: INBO
+  publisher:
+  - name:
+      given: Instituut voor Natuur- en Bosonderzoek (INBO)
+    email: info@inbo.be
+    ror: 00j54wy13
   keywords: monitoring
   public_report: true
   reportnr: 38
