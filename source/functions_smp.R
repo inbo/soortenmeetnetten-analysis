@@ -1161,7 +1161,7 @@ derive_index_rw_inla <- function(analyseset_species, inlamodel_rw, use_meetcyclu
              sd = sd(value)) %>%
       ungroup() %>%
       group_by(parameter, jaar_centered, mean, sd) %>%
-      summarise(qs = quantile(value, quantile_values, na.rm = TRUE), prob = quantile_values) %>%
+      reframe(qs = quantile(value, quantile_values, na.rm = TRUE), prob = quantile_values) %>%
       ungroup() %>%
       mutate(l_u = ifelse(prob < 0.5, "lcl", "ucl"),
              ci = ifelse(prob %in% c(0.025, 0.975), "0.95",
@@ -1197,7 +1197,7 @@ derive_index_rw_inla <- function(analyseset_species, inlamodel_rw, use_meetcyclu
              sd = sd(value)) %>%
       ungroup() %>%
       group_by(parameter, meetcyclus_centered, mean, sd) %>%
-      summarise(qs = quantile(value, quantile_values, na.rm = TRUE), prob = quantile_values) %>%
+      reframe(qs = quantile(value, quantile_values, na.rm = TRUE), prob = quantile_values) %>%
       ungroup() %>%
       mutate(l_u = ifelse(prob < 0.5, "lcl", "ucl"),
              ci = ifelse(prob %in% c(0.025, 0.975), "0.95",

@@ -337,31 +337,17 @@ labels_show <- str_c(c( -50, -25, 0, 33, 50), " %")
 plot <- trend %>%
   filter(parameter == "trend_average") %>%
   mutate(soort_periode = factor(soort_periode, levels = order_trend)) %>%
-  #ggplot( aes(x = soort_nl, y = mean/100, ymin = lcl_0.90/100, ymax = ucl_0.90/100, label = klasse, colour = klasse)) +
   ggplot( aes(x = soort_periode, y = mean_log, ymin = lcl_0.90_log, ymax = ucl_0.90_log, label = klasse, colour = klasse)) +
-  # geom_hline(aes(yintercept = max(log(treshold_low/100 + 1))), linetype = 3) +
-  # geom_hline(aes(yintercept = min(log(treshold_high/100 + 1))), linetype = 3) +
-  # geom_hline(aes(yintercept = max(treshold_low/100)), linetype = 3) +
-  # geom_hline(aes(yintercept = min(treshold_high/100)), linetype = 3) +
   geom_hline(yintercept = 0, linetype = 2) +
   geom_errorbar(width = 0, size = 10, alpha = 0.3) +
-  # geom_errorbar(aes(ymin = lcl_0.60/100, ymax = ucl_0.60/100), width = 0, size = 10, alpha = 0.3) +
-  # geom_errorbar(aes(ymin = lcl_0.30/100, ymax = ucl_0.30/100), width = 0, size = 10, alpha = 0.3) +
-  # stat_effect(threshold = c(treshold_low/100, treshold_high/100), reference = 0, size = 3) +
-  # scale_effect() +
   geom_point(size = 7, alpha = 0.6) +
   geom_text(size = 4, colour = "white") +
   labs(y = "Gemiddelde jaarlijkse trend (%)", x = "Soort") +
-  #scale_y_continuous(breaks = c(-50, -25, 0, 33, 100)/100, labels = scales::percent, limits = c(-0.6, 1)) +
   scale_y_continuous(breaks = breaks_log, labels = labels_show, limits = c(min(breaks_log), max(breaks_log))) +
   coord_flip() +
   scale_color_manual(values = klasse_color) +
   theme(legend.position = "hide")
-# trend -> (exp(x) - 1) * 100
-# x -> log(trend/100 + 1)
-
 
 plot
-
 
 ```
