@@ -1,0 +1,66 @@
+---
+title: "Overzicht bezoeken vroege glazenmaker en variabele waterjuffer"
+output: html_document
+date: "2025-05-09"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE)
+
+library(tidyverse)
+library(sf)
+library(inbodb)
+library(DT)
+library(git2rdata)
+
+source("../../../soortenmeetnetten-analysis/source/functions_smp.r")
+con <- connect_inbo_dbase("S0008_00_Meetnetten")
+```
+
+```{r}
+variabele_en_glazen <- get_meetnetten_visits(connection = con,
+                                                   scheme_name = c("Variabele waterjuffer", "Vroege glazenmaker"),
+                                                   collect = TRUE) 
+locations_active <- (get_meetnetten_locations(connection = con,
+                                             scheme_name = c("Variabele waterjuffer", "Vroege glazenmaker")))$main_location %>%
+  filter(is_active) %>%
+  st_drop_geometry()
+
+locations_active <- get_locations_smp() %>%
+  filter(meetnet %in% c("Variabele waterjuffer", "Vroege glazenmaker")) %>%
+  filter(is_active) %>%
+  filter(is_sample) %>%
+  st_drop_geometry() %>%
+  mutate(gereserveerd = str_c(first_name, " ", last_name)) %>%
+  select(scheme = meetnet, location = locatie, gereserveerd)
+
+telling_recent <- variabele_en_glazen %>%
+  semi_join(locations_active, by = c("location", "scheme")) %>%
+  mutate(year = year(start_date)) %>%
+  filter(year >= 2023) %>%
+  group_by(location, scheme, year) %>%
+  mutate(voldoende_geteld = (sum(for_targets) >= 2) |
+                             any(str_detect(visit_status, "Geen veldwerk mogelijk")),
+         n_bezoeken = n_distinct(visit_id)) %>%
+  ungroup() %>%
+  group_by(location, scheme) %>%
+  summarise(voldoende_geteld_cyclus = any(voldoende_geteld),
+            n_bezoeken_cyclus = sum(n_bezoeken)) %>%
+  ungroup()
+
+overzicht <- locations_active %>%
+  left_join(telling_recent, by = c("scheme", "location")) %>%
+  mutate(voldoende_geteld_cyclus = ifelse(is.na(voldoende_geteld_cyclus), "nee",
+                                          ifelse(voldoende_geteld_cyclus, "ja", "nee")),
+         n_bezoeken_cyclus = ifelse(is.na(n_bezoeken_cyclus), 0, n_bezoeken_cyclus)) %>%
+  group_by(location, gereserveerd, voldoende_geteld_cyclus, n_bezoeken_cyclus) %>%
+  summarise(meetnet = str_c(scheme, collapse = "; ")) %>%
+  ungroup() %>%
+  select(locatie = location, meetnet, everything())
+
+overzicht %>%
+  write_csv2("overzicht_libellen_vw_vg.csv", na = "")
+```
+
+

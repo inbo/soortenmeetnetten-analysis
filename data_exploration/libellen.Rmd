@@ -1,0 +1,90 @@
+---
+title: "Meetnet Variabele waterjuffer en Vroege glazenmakker"
+output: html_document
+date: "2024-04-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(message = FALSE,
+                      warning = FALSE)
+library(tidyverse)
+library(sf)
+library(DT)
+library(kableExtra)
+library(leaflet)
+source("../../soortenmeetnetten-analysis/src/functions_smp.r")
+```
+
+```{r}
+
+species <- c("Variabele waterjuffer", "Vroege glazenmaker")
+
+visits <- get_visits_smp() %>%
+  filter(meetnet %in% species) %>%
+  filter(voor_analyse)
+
+counts <- get_counts_smp() %>%
+  filter(meetnet %in% species) %>%
+  filter(soort_nl %in% species) %>%
+  semi_join(visits, by = "visit_id")
+
+aanwezigheid_libellen <- counts %>%
+  group_by(meetnet, protocol, locatie, datum, visit_id, soort_nl) %>%
+  summarise(aantal_tot = sum(aantal),
+            aanwezig = sum(aantal) > 0) %>%
+  ungroup() %>%
+  group_by(locatie) %>%
+  mutate(locaties_gemeenschappelijk = n_distinct(meetnet) == 2) %>%
+  ungroup() %>%
+  mutate(link = str_c('<a href = "https://www.meetnetten.be/fieldwork/visits/', visit_id,'">', visit_id, '</a>'))
+
+```
+# Overzicht bezoeken aan gemeenschappelijke locaties voor beide meetnetten
+
+Hieronder een tabel met bezoeken aan gemeenschappelijke locaties:
+
++ indien bezoek aan beide meetnetten is toegevoegd: nakijken of aantallen kloppen
++ indien bezoek aan één van de meetnetten is toegevoegd: nakijken of bezoek bruikbaar is voor andere meetnet 
+
+```{r}
+overzicht_gemeenschappelijk <- aanwezigheid_libellen %>%
+  filter(locaties_gemeenschappelijk) %>%
+  mutate(discription = str_c(soort_nl, " = ", aantal_tot)) %>%
+  group_by(meetnet, locatie, datum, link) %>%
+  summarise(discription = str_c(discription, collapse = "; ")) %>%
+  ungroup() %>%
+  mutate(show = str_c(link, " ", discription)) %>%
+  select(meetnet, locatie, datum, show) %>%
+  pivot_wider(names_from = "meetnet", values_from = c("show")) %>%
+  arrange(locatie, datum)
+
+overzicht_gemeenschappelijk %>%
+  datatable(rownames = FALSE,
+            escape = FALSE,
+            filter = "top")
+
+              
+```
+
+# Overzicht bezoeken aan locaties die niet gemeenschappelijk zijn, maar waar beide soorten gezien worden
+
+Hieronder een tabel met bezoeken aan niet gemeenschappelijke locaties waar beide soorten gezien worden.
+
+```{r}
+overzicht_nt_gemeenschappelijk <- aanwezigheid_libellen %>%
+  filter(!locaties_gemeenschappelijk) %>%
+  group_by(visit_id) %>%
+  filter(n_distinct(soort_nl) == 2) %>%
+  ungroup() %>%
+  select(meetnet, locatie, datum, link, soort_nl, aantal_tot) %>%
+  pivot_wider(names_from = "soort_nl", values_from = c("aantal_tot")) %>%
+  arrange(meetnet, locatie, datum)
+
+overzicht_nt_gemeenschappelijk %>%
+  datatable(rownames = FALSE,
+            escape = FALSE,
+            filter = "top")
+```
+
+

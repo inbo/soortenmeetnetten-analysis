@@ -6,10 +6,8 @@ author:
     email: "Toon.Westra@inbo.be"
 link-citations: TRUE
 always_allow_html: yes
-site: bookdown::bookdown_site
 output:
-  bookdown::html_document2:
-    keep_md: TRUE
+  html_document:
     toc: TRUE
     toc_float:
       collapsed: FALSE
@@ -30,35 +28,25 @@ opts_chunk$set(
 
 library(tidyverse)
 library(INBOtheme)
-library(INBOmd)
 library(sf)
-library(here)
 library(leaflet)
 library(crosstalk)
 library(leaflet.extras)
 library(kableExtra)
 library(units)
-library(effectclass)
-library(openssl)
 library(lubridate)
 library(git2rdata)
 library(n2khab)
  conflicted::conflicts_prefer(dplyr::filter)
+ 
+ source(file.path(fileman_up("soortenmeetnetten-analysis"), "source/functions_smp.R"))
 ```
-
-
-```{r, cache=FALSE}
-source(here("source", "functions_smp.R"))
-
-```
-
 
 # Transecttelling nesten
 
 ## Tellingen voor transecten die sinds 2019 opgevolgd worden
 
 Figuur \@ref(fig:nesten) toont het aantal getelde (nieuwe) nesten per transect per jaar (hervondsten in tweede bezoek worden afgetrokken van het totaal). De rode punten het gemiddelde weer over de drie transecten. 
-
 
 ```{r }
 
@@ -110,11 +98,9 @@ aantal_nesten_2019 %>%
   kable_styling()
 ```
 
-
 ## Tellingen voor alle transecten
 
 Het aantal getelde nesten per locatie wordt weergegeven in Figuur \@ref(fig:nestloc).
-
 
 ```{r nestloc, fig.height= 7, fig.cap = "aantal nesten per locatie"}
 aantal_nesten_onverzicht %>%
@@ -128,7 +114,6 @@ aantal_nesten_onverzicht %>%
 # Tellingen in nestbuizen
 
 Figuur \@ref(fig:occurencebuis) toont per jaar de proportie van de nesbuizen met aanwezigheid van individuen (adult, subadult of juveniel) en aanwezigheid van verse sporen (nesten, keutels en vraatsporen). Figuur \@ref(fig:occurencebuisloc) toont hetzelfde per locatie.
-
 
 ```{r}
 
@@ -209,12 +194,10 @@ occurence_detail <- occurence_nestbuizen_detail %>%
   group_by(meetnet, jaar, n_nestbuizen, observation_type, activiteit, code) %>%
   summarise(totaal_aanwezig = sum(aanwezig)) %>% 
   ungroup() %>%
-  mutate(occurence = totaal_aanwezig/ n_nestbuizen) %>%
+  mutate(occurence = totaal_aanwezig / n_nestbuizen) %>%
   filter(is.na(code) | code %in% c("O", "U", "F"))
 
 ```
-
-
 
 ```{r occurencebuis, fig.cap = "Proportie van nestkasten met aanwezigheid van hazelmuis (individuen, keutels, nesten en/of vraatsporen)"}
 occurence %>%
@@ -272,7 +255,6 @@ Selecteer een type waarneming en een jaar.
 
 De gele punten zijn de nestbuizen met aanwezigheid van hazelmuis en de rode punten met afwezigheid. Het aantal getelde nesten langs de transecten wordt ook weergegeven met gele punten (1 punt per transect). De grootte van de punten is in verhouding met het aantal getelde nesten.
 
-
 ```{r}
 transecten_nest  <- get_locations_smp() %>%
   filter(meetnet == "Hazelmuis") %>%
@@ -293,7 +275,6 @@ alle_punten <- sub_loc_occurence %>%
          protocol= "nestbuizen") %>%
   bind_rows(transecten_nest_punt)
 ```
-
 
 ```{r}
 sd <- SharedData$new(alle_punten)
@@ -317,4 +298,3 @@ leaflet() %>%
   ) %>%
   addFullscreenControl()
 ```
-
