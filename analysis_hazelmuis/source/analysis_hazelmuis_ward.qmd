@@ -21,6 +21,9 @@ editor_options:
 library(tidyverse)
 library(n2khab)
 library(knitr)
+library(leaflet)
+library(crosstalk)
+library(leaflet.extras)
 
 library(INBOtheme)
 conflicted::conflicts_prefer(dplyr::filter)
@@ -201,4 +204,88 @@ aantal_nestenbuizen_detail %>%
   scale_x_continuous(breaks = 0:7) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
   labs(x = "Aantal", fill = "Type waarneming")
+```
+
+## Overzichtskaart
+
+```{r}
+#| message: false
+occurence_nestbuizen <- aantal_nestenbuizen %>%
+  mutate(jaar = year(datum)) %>%
+  filter(primaire_soort) %>%
+  group_by(meetnet, locatie, sublocatie, jaar, observation_type, activiteit) %>%
+  summarise(aanwezig = sum(aantal) > 0,
+            aanwezig_vers = "F" %in% code) %>%
+  ungroup() %>%
+  mutate(aanwezig_oud_onzeker = aanwezig & !aanwezig_vers,
+         aanwezig = ifelse(activiteit == "in nestbuis", aanwezig, aanwezig_vers))
+```
+
+```{r}
+#| message: false
+hoofd_loc <- locatie_detail <- get_locations_smp() %>%
+  filter(meetnet == "Hazelmuis - Nestbuizen") %>%
+  filter(locatie_type == "locatie") %>%
+  select(meetnet, locatie, parent_id = id)
+
+sub_loc <- get_locations_smp() %>%
+  filter(meetnet == "Hazelmuis - Nestbuizen") %>%
+  filter(locatie_type == "sublocatie") %>%
+  select(meetnet, sublocatie = locatie, parent_id) %>%
+  mutate(showlabel = sublocatie) %>%
+  left_join(st_drop_geometry(hoofd_loc), by = c("meetnet", "parent_id")) %>%
+  mutate(sublocatie = str_c(locatie, "-", sublocatie))
+  
+sub_loc_occurence <- sub_loc %>%
+  left_join(occurence_nestbuizen, by = c("meetnet", "locatie", "sublocatie")) %>%
+  mutate(show_color = ifelse(aanwezig, "yellow", "red")) %>%
+  mutate(activiteit = ifelse(activiteit == "in nestbuis", "individuen", activiteit)) %>%
+  mutate(activiteit = ifelse(activiteit == "nest", "nest (vers)", activiteit)) %>%
+  mutate(showlabel = str_c(showlabel, ": ", activiteit, ifelse(aanwezig, " aanwezig", " afwezig"))) %>%
+  mutate(showradius = 8)
+```
+
+Ondestaande kaart toont de aanwezigheid van hazelmuis of sporen van hazelmuis in de nestbuizen en het aantal getelde nesten langs de transecten.
+Selecteer een type waarneming en een jaar.
+
+De gele punten zijn de nestbuizen met aanwezigheid van hazelmuis en de rode punten met afwezigheid.
+Het aantal getelde nesten langs de transecten wordt ook weergegeven met gele punten (1 punt per transect). De grootte van de punten is in verhouding met het aantal getelde nesten.
+
+```{r}
+sd <- SharedData$new(sub_loc_occurence)
+bscols(
+  filter_checkbox("activiteit", "Type waarneming", sd, ~activiteit),
+  filter_checkbox("jaar", "Jaar", sd, ~jaar)
+)
+
+leaflet() %>%
+  addTiles(group = "OSM") %>%
+  addProviderTiles(
+    providers$Esri.WorldImagery,
+    group = "Esri.WorldImagery"
+  ) %>%
+  addPolylines(
+    data = hoofd_loc,
+    label = ~locatie,
+    group = "meetnetlocaties - nestbuizen"
+  ) %>%
+  addCircleMarkers(
+    data = sd,
+    label = ~showlabel,
+    color  = ~show_color, 
+    group = "tellingen hazelmuis",
+    fillOpacity = 0.5,
+    opacity = 0.2,
+    stroke = FALSE,
+    radius = ~showradius
+  ) %>%
+  addLayersControl(
+    baseGroups = c("OSM", "Esri.WorldImagery"),
+    overlayGroups = c(
+      "meetnetlocaties - nestbuizen",
+      "tellingen hazelmuis"
+    ),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+  addFullscreenControl()
 ```
