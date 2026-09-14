@@ -1,5 +1,5 @@
 ---
-title: "Analyse hazelmuis"
+title: "Stand van zaken analyse hazelmuis"
 author: "Ward Langeraert"
 date: today
 
@@ -350,3 +350,7 @@ occurrence_locatie %>%
   theme(legend.position = "top",
         axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 ```
+
+# Uitgevoerde analyses
+
+
