@@ -363,7 +363,7 @@ Dit werd gefit op geaggregeerde data:
 - Aantallen adult, subadult, juveniel per nestbuis per bezoek → Aan-/afwezigheid (minstens 1) individu per nestbuis per jaar
 - Aggregatie andere soorten
 
-**Potentiele verbeteringen:**
+**Potentiële verbeteringen:**
 
 - Geen proporties vergelijken met elkaar
 - Enkel werken met vrije nestbuizen, dus niet waar andere muis in is gevonden
