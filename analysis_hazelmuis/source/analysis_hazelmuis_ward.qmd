@@ -19,8 +19,14 @@ editor_options:
 #| warning: false
 #| message: false
 library(tidyverse)
+library(n2khab)
 library(knitr)
+
 library(INBOtheme)
+conflicted::conflicts_prefer(dplyr::filter)
+
+source(file.path(fileman_up("soortenmeetnetten-analysis"),
+                 "source/functions_smp.R"))
 ```
 
 # Doel
@@ -32,7 +38,7 @@ In dit rapport:
 - vatten we de bestaande analyses samen
 - testen we nieuwe analyses/uitbreidingen
 
-# Dataverkenning
+# Data
 ## Achtergrond
 
 Hazelmuis komt voor op Bijlage IV van Habitatrichtlijn.
@@ -54,3 +60,145 @@ Het meetnet bestaat uit 2 delen:
    - 3 ‘oude’ transecten hazelmuisnesten langs spoorwegberm
 
 We focussen ons in dit rapport op de nestbuistellingen.
+
+## Design en datastructuur
+
+```{r}
+# Get visits of nesting tubes
+visits_nestbuizen <- get_visits_smp() %>%
+  filter(protocol == "Hazelmuis - Nestbuizen") %>%
+  select(visit_id, bezoek_status, validatie) %>%
+  mutate(visit_id = as.character(visit_id))
+
+# Select nesting tubes data
+aantal_nestenbuizen <- read_vc(
+  root = fileman_up("soortenmeetnetten-queries"),
+  file = "raw/aantal_hazelmuis_nestbuizen"
+) %>%
+  mutate(
+    nestbuis_name = sublocatie,
+    sublocatie = str_c(locatie, "-", sublocatie)
+  ) %>%
+  left_join(visits_nestbuizen, by = "visit_id")
+
+# Calculate number of nesting tubes and locations
+n_nestbuizen <- aantal_nestenbuizen %>%
+  summarise(n = n_distinct(sublocatie))
+
+n_locaties <- aantal_nestenbuizen %>%
+  summarise(n = n_distinct(locatie))
+
+# Prepare detailed data
+aantal_nestenbuizen_detail <- aantal_nestenbuizen  %>%
+  mutate(jaar = year(datum),
+         nestbuis = str_extract(sublocatie, str_c(1:50, collapse = "|"))) %>%
+  mutate(
+    bos = str_remove(locatie, " - .*"),
+    primaire_soort = ifelse(primaire_soort, "ja", "nee"),
+    versheid_sporen = ifelse(code == "O", "oud",
+                             ifelse(code == "F", "vers",
+                                    ifelse(code == "U", "onzeker", NA))),
+    type_waarneming = ifelse(observation_type == "exact count", "individu", activiteit),
+    levensstadium = ifelse(type_waarneming == "individu", levensstadium, NA)
+  ) %>%
+  select(meetnet, bos, locatie, nestbuis, jaar, datum, primaire_soort, soort_nl,
+         type_waarneming, levensstadium, aantal, versheid_sporen) %>%
+  arrange(locatie, datum, nestbuis)
+
+glimpse(aantal_nestenbuizen_detail)
+```
+
+We hebben data uit `r length(unique(aantal_nestenbuizen_detail$bos))` boscomplexen (`r unique(aantal_nestenbuizen_detail$bos)`) van `r length(unique(aantal_nestenbuizen_detail$jaar))` jaren (`r min(aantal_nestenbuizen_detail$jaar)` - `r max(aantal_nestenbuizen_detail$jaar)`).
+We hebben meerdere locaties per bos en meerdere nestbuizen per locatie:
+
+```{r}
+#| fig-height: 6
+aantal_nestenbuizen_detail %>%
+  distinct(bos, locatie, nestbuis, jaar) %>%
+  count(bos, locatie, nestbuis, name = "n_jaren") %>%
+  mutate(nestbuis = paste0("N", nestbuis)) %>%
+  ggplot(aes(x = nestbuis, y = locatie, fill = as.factor(n_jaren))) +
+  geom_tile(colour = "black") +
+  facet_grid(bos ~ ., scales = "free_y", space = "free_y") +
+  labs(
+    x = "Nestbuis",
+    y = "Locatie",
+    fill = "Aantal jaren"
+  )
+```
+
+Er zijn vier tellingen per jaar.
+
+```{r}
+#| fig-height: 7
+aantal_nestenbuizen_detail %>%
+  distinct(jaar, datum, bos, locatie, nestbuis) %>%
+  count(jaar, datum, bos, name = "n_nestbuizen") %>%
+  mutate(
+    datum_plot = as.Date(
+      paste0("2000-", format(datum, "%m-%d"))
+    )
+  ) %>%
+  ggplot(aes(x = datum_plot, y = bos, fill = n_nestbuizen)) +
+  geom_tile(
+    height = 0.8,
+    width = 7
+  ) +
+  facet_wrap(~ jaar, ncol = 1) +
+  scale_x_date(
+    limits = as.Date(c("2000-04-01", "2000-12-01")),
+    date_breaks = "1 month",
+    date_labels = "%b"
+  ) +
+  scale_fill_viridis_c(
+    name = "Aantal nestbuizen",
+    breaks = seq(1, 20, 3)
+  ) +
+  labs(
+    x = "Datum",
+    y = "Bos"
+  )
+```
+
+Verder krijgen we info over 
+
+- de soort (er worden ook andere soorten muizen aangetroffen)
+- type waarneming (nest, sporen ...) en de versheid van eventuele sporen
+- het levensstadium
+- aantallen
+
+Naast hazelmuis worden vaak ook andere soorten gezien.
+Bovendien is het blijkbaar niet altijd mogelijk om een soort met zekerheid te identificeren.
+
+```{r}
+aantal_nestenbuizen_detail %>%
+  ggplot(aes(x = soort_nl)) +
+  geom_bar(aes(fill = bos)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  labs(x = "", fill = "Bos")
+```
+
+Er zijn verschillende types waarnemingen.
+Ook de versheid van de sporten zit in de data maar dit zijn bijna allemaal `NA`'s
+
+```{r}
+aantal_nestenbuizen_detail %>%
+  ggplot(aes(x = soort_nl)) +
+  geom_bar(aes(fill = type_waarneming )) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  labs(x = "", fill = "Type waarneming")
+```
+
+Het is niet echt duidelijk wat de aantallen willen zeggen.
+
+```{r}
+#| fig-height: 8
+#| fig-width: 8
+aantal_nestenbuizen_detail %>%
+  ggplot(aes(x = aantal)) +
+  geom_bar(aes(fill = type_waarneming)) +
+  facet_wrap(~soort_nl, scales = "free", ncol = 2) +
+  scale_x_continuous(breaks = 0:7) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  labs(x = "Aantal", fill = "Type waarneming")
+```
