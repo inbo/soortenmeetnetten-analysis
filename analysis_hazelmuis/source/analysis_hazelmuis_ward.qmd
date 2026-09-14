@@ -26,8 +26,31 @@ library(INBOtheme)
 # Doel
 
 Analyse van de nestbuistellingen van hazelmuis optimaliseren.
-In dit raport
+In dit rapport:
 
 - verkennen we de beschikbare data
 - vatten we de bestaande analyses samen
 - testen we nieuwe analyses/uitbreidingen
+
+# Dataverkenning
+## Achtergrond
+
+Hazelmuis komt voor op Bijlage IV van Habitatrichtlijn.
+Monitoring voor 6-jaarlijke rapportage Staat van Instandhouding (SVI) als onderdeel van de Soortenmeetnetten.
+De soort komt in Vlaanderen enkel voor in de Voerstreek.
+
+Het meetnet bestaat uit 2 delen:
+
+1. Transecttelllingen hazelmuisnesten
+   - Sinds 2007
+   - 18 transecten
+   - 2 tellingen per jaar
+
+2. Tellingen van nesten, individuen en sporen in nestbuizen
+   - Sinds 2020
+   - Betere methode om populatiegrootte te schatten
+   - 17 transecten langs bosrand met in totaal 200 nestbuizen
+   - 4 tellingen per jaar
+   - 3 ‘oude’ transecten hazelmuisnesten langs spoorwegberm
+
+We focussen ons in dit rapport op de nestbuistellingen.
