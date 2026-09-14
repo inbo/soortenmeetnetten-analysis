@@ -42,6 +42,9 @@ In dit rapport:
 - testen we nieuwe analyses/uitbreidingen
 
 # Data
+
+> zie ook [dataverkenning_hazelmuis.Rmd](https://github.com/inbo/soortenmeetnetten-analysis/blob/main/data_exploration/dataverkenning_hazelmuis.Rmd)
+
 ## Achtergrond
 
 Hazelmuis komt voor op Bijlage IV van Habitatrichtlijn.
@@ -210,7 +213,7 @@ aantal_nestenbuizen_detail %>%
 
 ```{r}
 #| message: false
-occurence_nestbuizen <- aantal_nestenbuizen %>%
+occurrence_nestbuizen <- aantal_nestenbuizen %>%
   mutate(jaar = year(datum)) %>%
   filter(primaire_soort) %>%
   group_by(meetnet, locatie, sublocatie, jaar, observation_type, activiteit) %>%
@@ -222,7 +225,6 @@ occurence_nestbuizen <- aantal_nestenbuizen %>%
 ```
 
 ```{r}
-#| message: false
 hoofd_loc <- locatie_detail <- get_locations_smp() %>%
   filter(meetnet == "Hazelmuis - Nestbuizen") %>%
   filter(locatie_type == "locatie") %>%
@@ -236,8 +238,8 @@ sub_loc <- get_locations_smp() %>%
   left_join(st_drop_geometry(hoofd_loc), by = c("meetnet", "parent_id")) %>%
   mutate(sublocatie = str_c(locatie, "-", sublocatie))
   
-sub_loc_occurence <- sub_loc %>%
-  left_join(occurence_nestbuizen, by = c("meetnet", "locatie", "sublocatie")) %>%
+sub_loc_occurrence <- sub_loc %>%
+  left_join(occurrence_nestbuizen, by = c("meetnet", "locatie", "sublocatie")) %>%
   mutate(show_color = ifelse(aanwezig, "yellow", "red")) %>%
   mutate(activiteit = ifelse(activiteit == "in nestbuis", "individuen", activiteit)) %>%
   mutate(activiteit = ifelse(activiteit == "nest", "nest (vers)", activiteit)) %>%
@@ -252,7 +254,7 @@ De gele punten zijn de nestbuizen met aanwezigheid van hazelmuis en de rode punt
 Het aantal getelde nesten langs de transecten wordt ook weergegeven met gele punten (1 punt per transect). De grootte van de punten is in verhouding met het aantal getelde nesten.
 
 ```{r}
-sd <- SharedData$new(sub_loc_occurence)
+sd <- SharedData$new(sub_loc_occurrence)
 bscols(
   filter_checkbox("activiteit", "Type waarneming", sd, ~activiteit),
   filter_checkbox("jaar", "Jaar", sd, ~jaar)
@@ -288,4 +290,63 @@ leaflet() %>%
     options = layersControlOptions(collapsed = FALSE)
   ) %>%
   addFullscreenControl()
+```
+
+## Tellingen in nestbuizen
+
+```{r}
+#| message: false
+# Calculate proportion presence per location
+occurrence_locatie <- occurrence_nestbuizen %>%
+  group_by(meetnet, locatie,  jaar, activiteit) %>%
+  summarise(prop_aanwezig = sum(aanwezig) / n_distinct(sublocatie),
+            prop_aanwezig_oud = sum(aanwezig_oud_onzeker) / n_distinct(sublocatie),
+            n_nestbuizen = n_distinct(sublocatie)) %>%
+  ungroup() 
+
+# Calculate proportion presence per year
+occurrence <- occurrence_nestbuizen %>%
+  group_by(meetnet,  jaar, activiteit) %>%
+  summarise(prop_aanwezig = sum(aanwezig) / n_distinct(sublocatie),
+            prop_aanwezig_oud = sum(aanwezig_oud_onzeker) / n_distinct(sublocatie),
+            n_nestbuizen = n_distinct(sublocatie)) %>%
+  ungroup()
+```
+
+We visualiseren per jaar de proportie van de nesbuizen met aanwezigheid van individuen (adult, subadult of juveniel) en aanwezigheid van verse sporen (nesten, keutels en vraatsporen).
+
+```{r}
+occurrence %>%
+  mutate(type = ifelse(activiteit == "in nestbuis", "individuen", activiteit),
+         type = ifelse(activiteit == "nest", "nest (vers)", type),
+         jaar = factor(jaar)) %>%
+  ggplot(
+    aes(x = jaar, y = prop_aanwezig, colour = type, group = type, shape = type)
+  ) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_line(linetype = 2, alpha = 0.8) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(y = "Proportie van nestbuizen\nmet aanwezigheid hazelmuis", x = "Jaar",
+       colour = "Type waarneming", shape = "Type waarneming")
+```
+
+We visualiseren dit ook per locatie.
+
+```{r}
+#| fig-height: 8
+occurrence_locatie %>%
+  mutate(tyoe = ifelse(activiteit == "in nestbuis", "individuen", activiteit),
+         type = ifelse(activiteit == "nest", "nest (vers)", tyoe),
+         jaar = factor(jaar)) %>%
+  ggplot(
+    aes(x = jaar, y = prop_aanwezig, group = type, colour = type, shape = type)
+  ) +
+  geom_point(size = 2, alpha = 0.6) +
+  geom_line(linetype = 2, alpha = 0.6) +
+  facet_wrap(~locatie, ncol = 4) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(y = "Proportie van nestbuizen\nmet aanwezigheid hazelmuis", x = "Jaar",
+       colour = "Type waarneming", shape = "Type waarneming") +
+  theme(legend.position = "top",
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 ```
