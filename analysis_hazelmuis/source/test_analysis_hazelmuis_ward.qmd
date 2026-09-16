@@ -19,11 +19,13 @@ editor_options:
 #| warning: false
 #| message: false
 library(tidyverse)
+library(knitr)
 library(n2khab)
 library(INBOtheme)
 
 conflicted::conflicts_prefer(dplyr::filter)
 
+data_path <- fileman_up("soortenmeetnetten-queries")
 source(file.path(fileman_up("soortenmeetnetten-analysis"),
                  "source/functions_smp.R"))
 ```
@@ -41,7 +43,185 @@ Onder vrije nestbuizen verstaan we nestbuizen waar geen andere muizensoorten aan
 
 ### Data verkenning
 
-- Zijn er genoeg vrije nestbuizen in elk jaar in elk bos in transect? --> eventueel bepaalde jaren/sites niet meenemen
-- Zijn nestbuizen voldoende bezocht per jaar? --> eventueel bepaalde nestbuizen niet meetellen
-- Zijn er nestbuizen waar nog nooit een hazelmuis is gevonden? --> eventueel structurele afwezigheden weglaten
-- Enkel werken met individuen of ook sporen, nesten?
+- Hoeveel vrije nestbuizen zijn er elk jaar in elk bos in elk transect?
+- Zijn alle nestbuizen voldoende bezocht per jaar?
+- Zijn er nestbuizen waar nog nooit een hazelmuis is gevonden? (structurele afwezigheid)
+- Hoe vaak worden individuen gezien en hoe vaak enkel sporen e.d.
+
+```{r}
+# Get data
+visits_hazelmuis <- get_visits_smp() %>%
+  filter(meetnet == "Hazelmuis - Nestbuizen")
+hazelmuis_nestbuis_orig <- read_vc("raw/aantal_hazelmuis_nestbuizen", root = data_path) %>%
+  mutate(visit_id = as.numeric(visit_id))
+
+# Combine visits data
+hazelmuis_nestbuis_bezoek <- visits_hazelmuis %>%
+  select(visit_id, bezoek_status, voor_analyse) %>%
+  left_join(hazelmuis_nestbuis_orig, by = c("visit_id")) %>%
+  select(
+    meetnet, locatie, sublocatie, datum, voor_analyse, visit_id, sample_id,
+    niet_geteld, soort_nl, levensstadium, activiteit, observation_type,
+    code, description, aantal
+  ) %>%
+  filter(!niet_geteld)
+
+# Occurrence dataset
+hazelmuis_nestbuis_occurence <- hazelmuis_nestbuis_bezoek %>%
+  mutate(
+    jaar = year(datum),
+    soort_nl = ifelse(
+      soort_nl == "Hazelmuis",
+      soort_nl,
+      ifelse(
+        str_detect(soort_nl, "Hazelmuis"),
+        "Hazelmuis/andere_soorten",
+        "andere_soorten"
+      )
+    )
+  ) %>%
+  group_by(meetnet, locatie, sublocatie, jaar) %>%
+  mutate(n_bezoeken = n_distinct(visit_id)) %>%
+  ungroup() %>%
+  group_by(meetnet, locatie, sublocatie, jaar, datum, n_bezoeken, soort_nl,
+           observation_type, activiteit) %>%
+  summarise(aanwezig = sum(aantal) > 0,
+            aanwezig_vers = "F" %in% code,
+            aantal = sum(aantal)) %>%
+  ungroup() %>%
+  mutate(
+    aanwezig_oud_onzeker = aanwezig & !aanwezig_vers,
+    aanwezig = ifelse(activiteit == "in nestbuis", aanwezig, aanwezig_vers),
+    bos = str_remove(locatie, " - .*")
+  ) %>%
+  mutate(
+    description = ifelse(
+      activiteit == "in nestbuis",
+      ifelse(aanwezig, "aanwezig", "afwezig"),
+      ifelse(
+        aanwezig_vers,
+        "aanwezig - vers",
+        ifelse(aanwezig_oud_onzeker,
+               "aanwezig - enkel oud of onzeker",
+               "afwezig")
+      )
+    )
+  )
+```
+
+#### Hoeveel vrije nestbuizen zijn er elk jaar in elk bos in elk transect?
+
+In het algemeen zien we dat hazelmuis vaak afwezig is.
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  ggplot(aes(x = activiteit, fill = description)) +
+  geom_bar() +
+  facet_wrap(~soort_nl ) +
+  coord_flip() +
+  theme(legend.position = "bottom")
+```
+
+We zouden de analyse in eerste plaats kunnen afbakenen op aantal individuen in nestbuis.
+We willen de dataset filteren waarbij we enkel onbezette nestbuizen ter beschikking hebben.
+
+Hoe definiëren we dit?
+
+- Per jaar nestbuis weglaten die door andere soort bezet is?
+- Wat met onzekerheid?
+- Wat met sporen?
+
+Doorheen het jaar kunnen blijkbaar verschillende soorten in een nestbuis aanwezig zijn.
+
+> Hoe filteren we dit dan?
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(aanwezig,
+         activiteit == "in nestbuis") %>%
+  group_by(locatie, sublocatie, jaar) %>%
+  mutate(n_spec = n_distinct(soort_nl),
+         n = n()) %>%
+  ungroup() %>%
+  filter(n_spec > 1) %>%
+  arrange(desc(n)) %>%
+  select(locatie, sublocatie, datum, soort_nl, aantal) %>%
+  head(10) %>%
+  kable()
+```
+
+#### Zijn alle nestbuizen voldoende bezocht per jaar?
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  distinct(locatie, sublocatie) %>%
+  ggplot(aes(x = locatie)) +
+  geom_bar() +
+  coord_flip() +
+  labs(y = "Aantal nestbuizen")
+```
+
+Over het algemeen zijn de meeste nestbuizen minstens 3x bezocht.
+
+```{r}
+#| message: false
+hazelmuis_nestbuis_occurence %>%
+  mutate(nestbuis = paste(locatie, sublocatie, sep = "-")) %>%
+  summarise(n_tellingen = n_distinct(datum),
+            .by = c(jaar, nestbuis)) %>%
+  ggplot(aes(x = jaar, fill = factor(n_bezoeken))) +
+  geom_bar() +
+  labs(fill = "Aantal tellingen")
+```
+
+Als we alle tellingen weglaten waar een andere soort werd gezien, dan houden we minder over.
+Dit komt echter niet meer overeen met aantal bezoeken, omdat ze wel bezocht zijn maar er werd een andere soort aangetroffen.
+
+```{r}
+non_hazelmuis_data <- hazelmuis_nestbuis_occurence %>%
+  filter(soort_nl != "Hazelmuis",
+         aanwezig) %>%
+  distinct(locatie, sublocatie, datum)
+
+hazelmuis_nestbuis_occurence %>%
+  filter(soort_nl == "Hazelmuis") %>%
+  anti_join(non_hazelmuis_data, by = join_by(locatie, sublocatie, datum)) %>%
+  mutate(nestbuis = paste(locatie, sublocatie, sep = "-")) %>%
+  summarise(n_tellingen = n_distinct(datum),
+            .by = c(jaar, nestbuis)) %>%
+  ggplot(aes(x = jaar, fill = factor(n_tellingen))) +
+  geom_bar() +
+  labs(fill = "Aantal tellingen")
+```
+
+#### Zijn er nestbuizen waar nog nooit een hazelmuis is gevonden?
+
+```{r}
+never_found_tubes <- hazelmuis_nestbuis_occurence %>%
+  group_by(locatie, sublocatie, soort_nl) %>%
+  summarise(
+    occs = sum(aanwezig)
+  ) %>%
+  ungroup() %>%
+  filter(soort_nl == "Hazelmuis", 
+         occs == 0)
+
+total_tubes <- nrow(distinct(hazelmuis_nestbuis_occurence, locatie, sublocatie))
+```
+
+In `r nrow(never_found_tubes)` van het totaal `r total_tubes` nestbuizen, werd nooit een hazelmuis aangetroffen.
+Als we deze dan nog eens van het aantal vrije nestbuizen zouden aftrekken, krijgen we:
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(soort_nl == "Hazelmuis") %>%
+  anti_join(non_hazelmuis_data, by = join_by(locatie, sublocatie, datum)) %>%
+  anti_join(never_found_tubes, by = join_by(locatie, sublocatie)) %>%
+  mutate(nestbuis = paste(locatie, sublocatie, sep = "-")) %>%
+  summarise(n_tellingen = n_distinct(datum),
+            .by = c(jaar, nestbuis)) %>%
+  ggplot(aes(x = jaar, fill = factor(n_tellingen))) +
+  geom_bar() +
+  scale_y_continuous(limits = c(0, 200)) +
+  labs(fill = "Aantal tellingen")
+```
