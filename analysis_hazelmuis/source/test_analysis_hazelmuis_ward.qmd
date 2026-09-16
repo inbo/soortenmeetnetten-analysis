@@ -420,6 +420,7 @@ data.frame(
 #| warning: false
 final_model <- model_nb
 
+set.seed(123)
 negbin_poisson_dc <- distribution_check(final_model)
 plot(negbin_poisson_dc)
 
