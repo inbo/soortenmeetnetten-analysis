@@ -1,0 +1,47 @@
+---
+title: "Analyses hazelmuis"
+author: "Ward Langeraert"
+date: today
+
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: right
+    code-fold: true
+    self-contained: true
+
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+#| warning: false
+#| message: false
+library(tidyverse)
+library(n2khab)
+library(INBOtheme)
+
+conflicted::conflicts_prefer(dplyr::filter)
+
+source(file.path(fileman_up("soortenmeetnetten-analysis"),
+                 "source/functions_smp.R"))
+```
+
+# Doel
+
+Analyse van de nestbuistellingen van hazelmuis optimaliseren.
+In dit rapport testen we verschillende mogelijke analyses.
+
+## Aantal per transect
+Het aantallen-model van Goodwin et al. ([2017](https://doi.org/10.1111/mam.12091)) lijkt een interessante piste.
+Dit werd ook geopperd tijdens de feedback van BMK.
+In het algemeen is het idee om het aantal individuen te modelleren per transect waarbij er een offset voor aantal vrije nestbuizen wordt gebruikt.
+Onder vrije nestbuizen verstaan we nestbuizen waar geen andere muizensoorten aanwezig zijn (dus lege of hazelmuis).
+
+### Data verkenning
+
+- Zijn er genoeg vrije nestbuizen in elk jaar in elk bos in transect? --> eventueel bepaalde jaren/sites niet meenemen
+- Zijn nestbuizen voldoende bezocht per jaar? --> eventueel bepaalde nestbuizen niet meetellen
+- Zijn er nestbuizen waar nog nooit een hazelmuis is gevonden? --> eventueel structurele afwezigheden weglaten
+- Enkel werken met individuen of ook sporen, nesten?
