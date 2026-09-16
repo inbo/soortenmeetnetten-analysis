@@ -19,8 +19,11 @@ editor_options:
 #| warning: false
 #| message: false
 library(tidyverse)
+library(INLA)
+library(inlatools)
 library(knitr)
 library(n2khab)
+library(effectclass)
 library(INBOtheme)
 
 conflicted::conflicts_prefer(dplyr::filter)
@@ -169,7 +172,7 @@ hazelmuis_nestbuis_occurence %>%
   mutate(nestbuis = paste(locatie, sublocatie, sep = "-")) %>%
   summarise(n_tellingen = n_distinct(datum),
             .by = c(jaar, nestbuis)) %>%
-  ggplot(aes(x = jaar, fill = factor(n_bezoeken))) +
+  ggplot(aes(x = jaar, fill = factor(n_tellingen ))) +
   geom_bar() +
   labs(fill = "Aantal tellingen")
 ```
@@ -178,6 +181,7 @@ Als we alle tellingen weglaten waar een andere soort werd gezien, dan houden we 
 Dit komt echter niet meer overeen met aantal bezoeken, omdat ze wel bezocht zijn maar er werd een andere soort aangetroffen.
 
 ```{r}
+#| message: false
 non_hazelmuis_data <- hazelmuis_nestbuis_occurence %>%
   filter(soort_nl != "Hazelmuis",
          aanwezig) %>%
@@ -213,6 +217,7 @@ In `r nrow(never_found_tubes)` van het totaal `r total_tubes` nestbuizen, werd n
 Als we deze dan nog eens van het aantal vrije nestbuizen zouden aftrekken, krijgen we:
 
 ```{r}
+#| message: false
 hazelmuis_nestbuis_occurence %>%
   filter(soort_nl == "Hazelmuis") %>%
   anti_join(non_hazelmuis_data, by = join_by(locatie, sublocatie, datum)) %>%
@@ -224,4 +229,401 @@ hazelmuis_nestbuis_occurence %>%
   geom_bar() +
   scale_y_continuous(limits = c(0, 200)) +
   labs(fill = "Aantal tellingen")
+```
+
+## Model
+
+We modelleren het aantal individuen hazelmuis $Y$ in per telling in transect $i$
+
+$$
+Y_{i} \sim \text{NegBin}(\mu_i, \nu)
+$$
+
+waarbij
+
+$$
+\log(\mu_i) =
+\beta_0 +
+\beta_{1}\,\mathrm{jaar}_i +
+\beta_{2}\,\mathrm{bos}_i +
+\beta_{3}\,\mathrm{telperiode}_i +
+\log(n_{\mathrm{nestbuis},i}) +
+b_{\mathrm{transect}(bos),i}
+$$
+
+met random effect voor transect genest in bos
+
+$$
+b_{\mathrm{transect}(bos),i} \sim \mathcal{N}(0,\sigma^2_{\mathrm{transect}}).
+$$
+
+We modelleren het aantal individuen hazelmuis $Y_i$$ per telling op transect $i$ met een negatief-binomiaal model:
+
+$$
+Y_i \sim \operatorname{NegBin}(\mu_i, \nu),
+$$
+
+waarbij
+
+$$
+\log(\mu_i) =
+\beta_0 +
+\beta_{\mathrm{jaar}[i]} +
+\beta_{\mathrm{bos}[i]} +
+\beta_{\mathrm{telperiode}[i]} +
+\log(n_{\mathrm{nestbuis},i}) +
+b_{\mathrm{transect}(bos),i}.
+$$
+
+Hierbij is $\log(n_{\mathrm{nestbuis},i})$ een offset die corrigeert voor het aantal nestbuizen op het transect. Het transect wordt gemodelleerd als een random effect, genest binnen bos:
+
+$$
+b_{\mathrm{transect}(bos),i}
+\sim
+\mathcal{N}(0,\sigma^2_{\mathrm{transect}}).
+$$
+
+We selecteren de data als volgt:
+
+- enkel nestbuizen die minstens 3x bezocht zijn per jaar
+- enkel aantallen in nestbuis, geen sporen
+- enkel zekere identificatie hazelmuis
+- we verwijderen nestbuizen waar nooit hazelmuizen zijn aangetroffen
+- we combineren 'Broekbos - Konenbos' en 'Teuvenerberg - Obsinnisch'
+- we definiëren 2 telperiodes: voorjaar en najaar
+
+> nestbuizen andere soorten zijn nog aanwezig!
+
+```{r}
+analyseset_individuen <- hazelmuis_nestbuis_occurence %>%
+  filter(n_bezoeken > 2) %>%
+  filter(soort_nl == "Hazelmuis") %>%
+  filter(activiteit == "in nestbuis") %>%
+  anti_join(never_found_tubes, by = join_by(locatie, sublocatie))  %>%
+  mutate(
+    gebied = ifelse(
+      !is.na(str_locate(locatie, "-")[, "start"]),
+      str_sub(locatie, 1, end = str_locate(locatie, "-")[, "start"] - 2),
+      locatie
+    ),
+    gebied = ifelse(
+      gebied %in% c("Broekbos", "Konenbos"),
+      "Broekbos - Konenbos",
+      ifelse(gebied %in% c("Teuvenerberg", "Obsinnich"),
+             "Teuvenerberg - Obsinnisch",
+             gebied)
+    ),
+    sublocatie = str_c(locatie, ": ", sublocatie),
+    year_scaled = jaar - min(jaar) + 1,
+    fjaar = factor(jaar),
+    aanwezig = ifelse(aanwezig, 1, 0),
+    telperiode = if_else(month(datum) < 8, "T1", "T2")
+  ) %>%
+  select(gebied, locatie, sublocatie, telperiode, datum, jaar, fjaar,
+         year_scaled, aanwezig, aantal)
+```
+
+We tellen het aantal individuen per transect (locatie) per telling (datum) per jaar.
+We berekenen de offset als het aantal nestbuizen per transect per telling.
+
+```{r}
+data_test <- analyseset_individuen %>%
+  summarise(
+    n_nestbuis = n_distinct(sublocatie),
+    aantal = sum(aantal),
+    .by = c(gebied, locatie, telperiode, datum, fjaar)
+  )
+```
+
+### Fit
+
+We fitten 4 modellen.
+
+```{r}
+model_pois <- inla(
+  aantal ~
+    fjaar +
+    gebied +
+    telperiode +
+    f(locatie, model = "iid") +
+    offset(log(n_nestbuis)),
+  family = "poisson",
+  data = data_test,
+  control.compute = list(
+    config = TRUE,
+    waic = TRUE
+  )
+)
+
+model_zip <- inla(
+  aantal ~
+    fjaar +
+    gebied +
+    telperiode +
+    f(locatie, model = "iid") +
+    offset(log(n_nestbuis)),
+  family = "zeroinflatedpoisson0",
+  data = data_test,
+  control.compute = list(
+    config = TRUE,
+    waic = TRUE
+  )
+)
+
+model_nb <- inla(
+  aantal ~
+    fjaar +
+    gebied +
+    telperiode +
+    f(locatie, model = "iid") +
+    offset(log(n_nestbuis)),
+  family = "nbinomial",
+  data = data_test,
+  control.compute = list(
+    config = TRUE,
+    waic = TRUE
+  )
+)
+
+model_zinb <- inla(
+  aantal ~
+    fjaar +
+    gebied +
+    telperiode +
+    f(locatie, model = "iid") +
+    offset(log(n_nestbuis)),
+  family = "zeroinflatednbinomial0",
+  data = data_test,
+  control.compute = list(
+    config = TRUE,
+    waic = TRUE
+  )
+)
+```
+
+```{r}
+data.frame(
+  model = c("Poisson", "ZIP", "Negative binomial", "ZINB"),
+  WAIC = c(
+    model_pois$waic$waic,
+    model_zip$waic$waic,
+    model_nb$waic$waic,
+    model_zinb$waic$waic
+  )
+) |>
+  dplyr::arrange(WAIC) %>%
+  kable()
+```
+
+```{r}
+#| message: false
+#| warning: false
+final_model <- model_nb
+
+negbin_poisson_dc <- distribution_check(final_model)
+plot(negbin_poisson_dc)
+
+negbin_negbin_disp <- dispersion_check(final_model)
+plot(negbin_negbin_disp)
+```
+
+### Results
+
+```{r}
+summary_model <- summary(final_model)
+summary_df <- as.data.frame(summary_model$fixed) %>%
+  tibble::rownames_to_column("effect")
+summary_df %>%
+  kable()
+```
+
+```{r}
+index_labels <- function(x) {
+  sprintf("%+.0f%%", 100 * (exp(x) - 1))
+}
+
+index_breaks <- function() {
+  z <- 1 - c(
+    4 / 5, 3 / 4, 2 / 3, 1 / 2, 1 / 3, 1 / 5
+  )
+  z <- log(sort(z))
+  c(z, 0, -z)
+}
+
+minor_breaks <- function() {
+  breaks <- unique(abs(index_breaks()))
+  out <- vector(length = length(breaks) - 1)
+  i <- 1
+  while (i < length(breaks)) {
+    out[i] <- mean(c(breaks[i], breaks[i + 1]))
+    i <- i + 1
+  }
+  return(c(-out, out))
+}
+
+index_breaks_rev <- function() {
+  exp(index_breaks())
+}
+
+index_labels_rev <- function(digits = 2) {
+  format(round(exp(index_breaks()), digits), nsmall = digits)
+}
+```
+
+```{r}
+min_threshold <- log(0.8)
+max_threshold <- log(1.25)
+```
+
+```{r}
+summary_df %>%
+  filter(grepl("^fjaar", effect)) %>%
+  mutate(label = gsub("fjaar", "", effect)) %>%
+  ggplot(aes(x = label)) +
+  stat_effect(
+    aes(y = `0.5quant`, ymin = `0.025quant`, ymax = `0.975quant`),
+    threshold = c(min_threshold, max_threshold)) +
+  labs(
+    y = "Procentuele verandering",
+    x = "",
+    title = "In vergelijking met referentiejaar 2020"
+  ) +
+  scale_y_continuous(
+    breaks = index_breaks(),
+    labels = index_labels,
+    minor_breaks = minor_breaks(),
+    limits = c(-log(3.3), log(3.3)),
+    sec.axis = sec_axis(~ exp(.),
+      breaks = index_breaks_rev(),
+      labels = index_labels_rev(),
+      name = "Proportionele verandering")
+  )
+```
+
+```{r}
+# Draw 1000 samples from the joint posterior distribution of the model
+samples <- inla.posterior.sample(
+  n = 1000,
+  result = model_nb
+)
+
+# Get the names and positions of all latent variables in the posterior
+contents <- attr(samples, ".contents")
+
+# Select the positions corresponding to the intercept and year effects
+year_effects <- c(
+  "(Intercept)",
+  paste0("fjaar", 2021:2025)
+)
+
+year_positions <- contents$start[
+  match(year_effects, contents$tag)
+]
+
+# Extract the posterior samples for the intercept and year effects
+# from each of the 1000 posterior draws
+year_samples <- lapply(
+  samples,
+  \(x) {
+    out <- x$latent[year_positions, 1]
+    names(out) <- c(
+      "Intercept",
+      2021:2025
+    )
+    out
+  }
+)
+year_samples <- do.call(rbind, year_samples)
+
+# Construct the linear predictor for each year.
+# 2020 is the reference year, so its year effect is zero.
+# For the other years, add the corresponding year effect
+# to the intercept.
+expected_samples <- cbind(
+  "2020" = year_samples[, "Intercept"],
+  "2021" = year_samples[, "Intercept"] + year_samples[, "2021"],
+  "2022" = year_samples[, "Intercept"] + year_samples[, "2022"],
+  "2023" = year_samples[, "Intercept"] + year_samples[, "2023"],
+  "2024" = year_samples[, "Intercept"] + year_samples[, "2024"],
+  "2025" = year_samples[, "Intercept"] + year_samples[, "2025"]
+)
+
+# The model uses a log link, so exponentiate the linear predictor
+# to obtain expected counts.
+expected_samples <- exp(expected_samples)
+
+expected_df <- data.frame(
+  year = 2020:2025,
+  median = apply(expected_samples, 2, median),
+  lower = apply(expected_samples, 2, quantile, probs = 0.025),
+  upper = apply(expected_samples, 2, quantile, probs = 0.975)
+)
+
+expected_df %>%
+  ggplot(aes(x = year, y = median)) +
+  geom_errorbar(
+    aes(ymin = lower, ymax = upper),
+    width = 0.2,
+    linewidth = 1
+  ) +
+  geom_point(size = 3) +
+  scale_x_continuous(
+    breaks = 2020:2025
+  ) +
+  scale_y_continuous(limits = c(0, NA)) +
+  labs(
+    y = "Verwacht aantal individuen\nper telling per transect",
+    x = ""
+  )
+```
+
+
+```{r}
+summary_df %>%
+  filter(grepl("^telperiode", effect)) %>%
+  mutate(label = "najaar") %>%
+  ggplot(aes(x = label)) +
+  stat_effect(
+    aes(y = `0.5quant`, ymin = `0.025quant`, ymax = `0.975quant`),
+    threshold = c(min_threshold, max_threshold)) +
+  labs(
+    y = "Procentuele verandering",
+    x = "",
+    title = "In vergelijking met voorjaar"
+  ) +
+  scale_y_continuous(
+    breaks = index_breaks(),
+    labels = index_labels,
+    minor_breaks = minor_breaks(),
+    limits = c(-log(3.3), log(3.3)),
+    sec.axis = sec_axis(~ exp(.),
+      breaks = index_breaks_rev(),
+      labels = index_labels_rev(),
+      name = "Proportionele verandering")
+  )
+```
+
+```{r}
+summary_df %>%
+  filter(grepl("^gebied", effect)) %>%
+  mutate(label = gsub("gebied", "", effect)) %>%
+  ggplot(aes(x = label)) +
+  stat_effect(
+    aes(y = `0.5quant`, ymin = `0.025quant`, ymax = `0.975quant`),
+    threshold = c(min_threshold, max_threshold)) +
+  labs(
+    y = "Procentuele verandering",
+    x = "",
+    title = "In vergelijking met 'Broekbos - Konenbos'"
+  ) +
+  scale_y_continuous(
+    breaks = index_breaks(),
+    labels = index_labels,
+    minor_breaks = minor_breaks(),
+    limits = c(-log(3.3), log(3.3)),
+    sec.axis = sec_axis(~ exp(.),
+      breaks = index_breaks_rev(),
+      labels = index_labels_rev(),
+      name = "Proportionele verandering")
+  )
 ```
