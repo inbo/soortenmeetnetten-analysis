@@ -289,7 +289,10 @@ We selecteren de data als volgt:
 - enkel aantallen in nestbuis, geen sporen
 - enkel zekere identificatie hazelmuis
 - we verwijderen nestbuizen waar nooit hazelmuizen zijn aangetroffen
-- we combineren 'Broekbos - Konenbos' en 'Teuvenerberg - Obsinnisch'
+- we beschouwen 3 bosclusters
+  - Veursbos, Broekbos, Konenbos
+  - Teuvenereberg, Obsinnisch
+  - Vrouwenbos
 - we definiëren 2 telperiodes: voorjaar en najaar
 
 > nestbuizen andere soorten zijn nog aanwezig!
@@ -307,8 +310,8 @@ analyseset_individuen <- hazelmuis_nestbuis_occurence %>%
       locatie
     ),
     gebied = ifelse(
-      gebied %in% c("Broekbos", "Konenbos"),
-      "Broekbos - Konenbos",
+      gebied %in% c("Broekbos", "Konenbos", "Veursbos"),
+      "Broekbos - Konenbos - Veursbos",
       ifelse(gebied %in% c("Teuvenerberg", "Obsinnich"),
              "Teuvenerberg - Obsinnisch",
              gebied)
@@ -615,7 +618,7 @@ summary_df %>%
   labs(
     y = "Procentuele verandering",
     x = "",
-    title = "In vergelijking met 'Broekbos - Konenbos'"
+    title = "In vergelijking met 'Broekbos - Konenbos - Veursbos'"
   ) +
   scale_y_continuous(
     breaks = index_breaks(),
