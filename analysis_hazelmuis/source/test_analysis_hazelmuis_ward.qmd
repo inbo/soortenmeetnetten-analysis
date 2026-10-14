@@ -658,42 +658,31 @@ vermijden (controle in stilte door maximaal één of twee personen).
 
 - T1: april
 - T2: mei
-- 
+- T3: 12 september - 15 oktober
+- T4: 16 oktober - 20 november
 
 ```{r}
-analyseset_individuen <- hazelmuis_nestbuis_occurence %>%
-  filter(n_bezoeken > 2) %>%
-  filter(soort_nl == "Hazelmuis") %>%
-  filter(activiteit == "in nestbuis") %>%
-  anti_join(never_found_tubes, by = join_by(locatie, sublocatie))  %>%
+hazelmuis_nestbuis_occurence <- hazelmuis_nestbuis_occurence %>%
   mutate(
-    gebied = ifelse(
-      !is.na(str_locate(locatie, "-")[, "start"]),
-      str_sub(locatie, 1, end = str_locate(locatie, "-")[, "start"] - 2),
-      locatie
-    ),
-    gebied = ifelse(
-      gebied %in% c("Broekbos", "Konenbos", "Veursbos"),
-      "Broekbos - Konenbos - Veursbos",
-      ifelse(gebied %in% c("Teuvenerberg", "Obsinnich"),
-             "Teuvenerberg - Obsinnisch",
-             gebied)
-    ),
-    sublocatie = str_c(locatie, ": ", sublocatie),
-    year_scaled = jaar - min(jaar) + 1,
-    fjaar = factor(jaar),
-    aanwezig = ifelse(aanwezig, 1, 0),
-    telperiode = if_else(month(datum) < 8, "T1", "T2")
-  ) %>%
-  select(gebied, locatie, sublocatie, telperiode, datum, jaar, fjaar,
-         year_scaled, aanwezig, aantal)
+    maand = month(datum),
+    dag = day(datum),
+    
+    # Categorize into the 4 target inspection windows
+    periode = case_when(
+      maand == 4 ~ "T1",
+      maand == 5 ~ "T2",
+      (maand == 9 & dag >= 12) | (maand == 10 & dag <= 15) ~ "T3",
+      (maand == 10 & dag > 15) | (maand == 11 & dag <= 20) ~ "T4",
+      TRUE ~ "Buiten periode"
+    )
+  )
 ```
 
-  
+We zien dat nestbuizen soms meer of minder per jaar worden geteld.
 
 ```{r}
 plot_tellingen <- hazelmuis_nestbuis_occurence %>%
-  distinct(jaar, datum, locatie, sublocatie) %>%
+  distinct(jaar, datum, locatie, sublocatie, periode) %>%
   # 1. Bepaal het volgnummer van de controle per nestbuis per jaar
   group_by(jaar, locatie, sublocatie) %>%
   mutate(
@@ -713,45 +702,384 @@ plot_tellingen %>%
   # 3. Visualiseren met facetting op jaar (rijen) en seizoen (kolommen)
   ggplot(aes(x = datum_dummy, fill = bezoek_nr)) +
   geom_histogram(binwidth = 7, color = "darkgrey", position = "stack") +
-  scale_x_date(
-    date_breaks = "1 month",
-    date_labels = "%b"
-  ) +
   scale_fill_brewer(palette = "Set1") +
-  facet_grid(jaar ~ seizoen, scales = "free_x") +
+  facet_grid(jaar ~ periode, scales = "free_x") +
   labs(
     title = "Spreiding van tellingen over het jaar per nestbuis",
-    x = "Maand",
+    x = "",
     y = "Aantal nestbuizen",
     fill = "Telling"
   ) +
-  theme_minimal()
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)
+  )
 ```
 
-En als we enkel naar het najaar kijken:
+Ook transecten worden soms meerdere keren per jaar bezocht.
+Samen met de vorige figuur kunnen we afleiden dat niet alle nestbuizen per transect op eenzelfde moment geteld worden.
 
 ```{r}
-plot_tellingen %>%
-  filter(seizoen == "Najaar") %>%
+plot_transecten <- hazelmuis_nestbuis_occurence %>%
+  distinct(jaar, datum, locatie, periode) %>%
   # 1. Bepaal het volgnummer van de controle per nestbuis per jaar
-  group_by(jaar, locatie, sublocatie) %>%
+  group_by(jaar, locatie) %>%
   mutate(
-    bezoek_nr = factor(dense_rank(datum))
+    bezoek_nr = dense_rank(datum)
   ) %>%
   ungroup() %>%
+  
+  # 2. Maak dummy datum en seizoensindicator aan
+  mutate(
+    datum_dummy = as.Date(format(datum, "2000-%m-%d")),
+    bezoek_nr = factor(bezoek_nr),
+    seizoen = ifelse(lubridate::month(datum) <= 6, "Voorjaar", "Najaar"),
+    seizoen = factor(seizoen, levels = c("Voorjaar", "Najaar"))
+  )
+
+plot_transecten %>%
   # 3. Visualiseren met facetting op jaar (rijen) en seizoen (kolommen)
   ggplot(aes(x = datum_dummy, fill = bezoek_nr)) +
   geom_histogram(binwidth = 7, color = "darkgrey", position = "stack") +
-  scale_x_date(
-    date_breaks = "1 month",
-    date_labels = "%b"
-  ) +
   scale_fill_brewer(palette = "Set1") +
-  facet_grid(jaar ~ seizoen, scales = "free_x") +
+  facet_grid(jaar ~ periode, scales = "free_x") +
   labs(
-    x = "Maand",
-    y = "Aantal nestbuizen",
+    title = "Spreiding van tellingen over het jaar per transect",
+    x = "",
+    y = "Aantal transecten",
     fill = "Telling"
   ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)
+  )
+```
+
+Deze overzichtfiguur toont dat sommige transecten soms niet bezocht zijn (rode kruisjes).
+Andere transecten zijn meerdere malen per telperiode bezocht. 
+In sommige gevallen zijn niet alle nestbuizen per transect geteld.
+Volledig getelde transecten zijn blauw met paarse rand.
+
+```{r}
+# 1. Bepaal het totaal aantal bekende unieke nestbuizen per locatie
+max_buizen_per_locatie <- hazelmuis_nestbuis_occurence %>%
+  group_by(locatie) %>%
+  summarise(totaal_nestbuizen = n_distinct(sublocatie), .groups = "drop")
+
+# 2. Bereken bezoeken en compleetheid per periode
+hazelmuis_nestbuis_occurence %>%
+  group_by(jaar, locatie, periode) %>%
+  summarise(
+    n_bezoeken_num = n_distinct(datum),          # Aantal bezoeken aan het transect
+    n_nestbuizen_geteld = n_distinct(sublocatie), # Aantal unieke nestbuizen geteld
+    .groups = "drop"
+  ) %>%
+  
+  # Gebied toewijzen
+  mutate(
+    gebied = ifelse(
+      !is.na(str_locate(locatie, "-")[, "start"]),
+      str_sub(locatie, 1, end = str_locate(locatie, "-")[, "start"] - 2),
+      locatie
+    ),
+    gebied = case_when(
+      gebied %in% c("Broekbos", "Konenbos", "Veursbos") ~ "boscluster1",
+      gebied %in% c("Teuvenerberg", "Obsinnich") ~ "boscluster2",
+      TRUE ~ "boscluster3"
+    )
+  ) %>%
+  
+  # Vul ontbrekende combinaties aan
+  complete(
+    nesting(gebied, locatie),
+    nesting(jaar, periode),
+    fill = list(
+      n_bezoeken_num = 0,
+      n_nestbuizen_geteld = 0
+    )
+  ) %>%
+  
+  # Voeg het verwachte totaal toe
+  left_join(max_buizen_per_locatie, by = "locatie") %>%
+  
+  # Bereken percentage en status
+  mutate(
+    is_nul = n_bezoeken_num == 0,
+    pct_compleet = (n_nestbuizen_geteld / totaal_nestbuizen) * 100,
+    is_honderd = pct_compleet == 100,
+    n_bezoeken = factor(n_bezoeken_num),
+    periode = gsub("T", "", periode)
+  ) %>%
+  
+  # Visualiseren
+  ggplot(aes(x = periode, y = locatie)) +
+  
+  # Verbind locaties waar op z'n minst één bezoek was
+  geom_line(data = . %>% filter(!is_nul), aes(group = locatie), color = "grey60") +
+  
+  # 1. Alle punten met bezoeken (>0% t/m 100%) gekleurd via continu verloop
+  geom_point(
+    data = . %>% filter(!is_nul), 
+    aes(colour = pct_compleet, size = n_bezoeken),
+    shape = 16
+  ) +
+  geom_point(
+    data = . %>% filter(is_honderd), 
+    aes(size = n_bezoeken),
+    shape = 21,
+    stroke = 1,
+    colour = "orchid"
+  ) +
+
+  # 2. 0% (Geen bezoeken): Rode x-kruisjes
+  geom_point(
+    data = . %>% filter(is_nul), 
+    shape = 4, 
+    size = 3, 
+    stroke = 1.2, 
+    color = "red"
+  ) +
+  
+  # Kleurenschaal met specifieke breukpunten en labels (inclusief 100% = cornflowerblue)
+  scale_colour_gradientn(
+    colours = c(viridis::viridis(9, option = "inferno", direction = -1), "cornflowerblue"),
+    limits = c(0, 100),
+    breaks = c(0, 25, 50, 75, 100),
+    labels = c("0%", "25%", "50%", "75%", "100% (Volledig)")
+  ) +
+  
+  labs(
+    x = "Telperiode", 
+    y = "Transect", 
+    colour = "Compleetheid\ntransect",
+    size   = "Aantal bezoeken\nper telperiode"
+  ) +
+  facet_grid(gebied ~ jaar, scales = "free_y") +
+  theme_minimal()
+```
+
+We berekenen het aantal individuen per locatie gedeeld door aantal bezoeken per periode.
+
+We vergelijken het gemiddeld aantal hazelmuizen per transect tussen het voorjaar en het najaar.
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(soort_nl == "Hazelmuis") %>%
+  filter(activiteit == "in nestbuis") %>%
+  mutate(
+    gebied = ifelse(
+      !is.na(str_locate(locatie, "-")[, "start"]),
+      str_sub(locatie, 1, end = str_locate(locatie, "-")[, "start"] - 2),
+      locatie
+    ),
+    gebied = ifelse(
+      gebied %in% c("Broekbos", "Konenbos", "Veursbos"),
+      "Broekbos - Konenbos - Veursbos",
+      ifelse(gebied %in% c("Teuvenerberg", "Obsinnich"),
+             "Teuvenerberg - Obsinnisch",
+             gebied)
+    ),
+    sublocatie = str_c(locatie, ": ", sublocatie),
+    seizoen = ifelse(lubridate::month(datum) <= 6, "Voorjaar", "Najaar"),
+    seizoen = factor(seizoen, levels = c("Voorjaar", "Najaar"))
+  ) %>%
+  select(gebied, locatie, sublocatie, seizoen, datum, jaar, aanwezig, aantal) %>%
+  group_by(jaar, gebied, locatie, seizoen) %>%
+  summarise(
+    n = n_distinct(sublocatie, datum),
+    totaal = sum(aantal),
+    .groups = "drop"
+  ) %>%
+  mutate(var = totaal / n) %>%
+  
+  # 1. Bereken de mediaan per jaar en seizoen
+  group_by(jaar, seizoen) %>%
+  mutate(mediaan_seizoen = median(var, na.rm = TRUE)) %>%
+  
+  # 2. Bepaal welk seizoen binnen dat paneel de hoogste mediaan heeft
+  group_by(jaar) %>%
+  mutate(
+    status = factor(
+      case_when(
+        max(mediaan_seizoen) == min(mediaan_seizoen) ~ "Gelijke mediaan",
+        mediaan_seizoen == max(mediaan_seizoen) ~ "Hogere mediaan",
+        TRUE ~ "Lagere mediaan"
+      ),
+      levels = c(
+        "Hogere mediaan",
+        "Gelijke mediaan",
+        "Lagere mediaan"
+      )
+    )
+  ) %>%
+  ungroup() %>%
+  
+  
+  # 3. Visualiseren
+  ggplot(aes(x = seizoen, y = var, fill = status)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.5, size = 1.5) +
+  
+  scale_fill_manual(values = c(
+    "Hogere mediaan" = "#2e7d32", # Groen voor het seizoen met de hoogste aantallen
+    "Gelijke mediaan" = "cornflowerblue",
+    "Lagere mediaan"  = "grey85"  # Neutraal grijs
+  )) +
+  
+  labs(
+    x = "Seizoen",
+    y = "Gemiddeld aantal hazelmuizen\nper transect",
+    fill = "Seizoensvergelijking"
+  ) +
+  facet_wrap(~ jaar) +
+  theme_minimal()
+```
+
+Opvallend zijn de lage aantallen in het voorjaar van 2020.
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(soort_nl == "Hazelmuis") %>%
+  filter(activiteit == "in nestbuis") %>%
+  mutate(
+    gebied = ifelse(
+      !is.na(str_locate(locatie, "-")[, "start"]),
+      str_sub(locatie, 1, end = str_locate(locatie, "-")[, "start"] - 2),
+      locatie
+    ),
+    gebied = ifelse(
+      gebied %in% c("Broekbos", "Konenbos", "Veursbos"),
+      "Broekbos - Konenbos - Veursbos",
+      ifelse(gebied %in% c("Teuvenerberg", "Obsinnich"),
+             "Teuvenerberg - Obsinnisch",
+             gebied)
+    ),
+    sublocatie = str_c(locatie, ": ", sublocatie),
+    seizoen = ifelse(lubridate::month(datum) <= 6, "Voorjaar", "Najaar"),
+    seizoen = factor(seizoen, levels = c("Voorjaar", "Najaar"))
+  ) %>%
+  select(gebied, locatie, sublocatie, seizoen, datum, jaar, aanwezig, aantal) %>%
+  group_by(jaar, gebied, locatie, seizoen) %>%
+  summarise(
+    n = n_distinct(sublocatie, datum),
+    totaal = sum(aantal),
+    .groups = "drop"
+  ) %>%
+  mutate(var = totaal / n) %>%
+  
+  # 1. Bereken de mediaan per jaar, gebied en seizoen
+  group_by(jaar, gebied, seizoen) %>%
+  mutate(mediaan_seizoen = median(var, na.rm = TRUE)) %>%
+  
+  # 2. Bepaal welk seizoen binnen dat paneel de hoogste mediaan heeft
+  group_by(jaar, gebied) %>%
+  mutate(
+    status = factor(
+      case_when(
+        max(mediaan_seizoen) == min(mediaan_seizoen) ~ "Gelijke mediaan",
+        mediaan_seizoen == max(mediaan_seizoen) ~ "Hogere mediaan",
+        TRUE ~ "Lagere mediaan"
+      ),
+      levels = c(
+        "Hogere mediaan",
+        "Gelijke mediaan",
+        "Lagere mediaan"
+      )
+    ),
+    n_transect = n_distinct(locatie),
+    label = paste0(gebied, "\n(n = ", n_transect, ")")
+  ) %>%
+  ungroup() %>%
+  
+  
+  # 3. Visualiseren
+  ggplot(aes(x = seizoen, y = var, fill = status)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.5, size = 1.5) +
+  
+  scale_fill_manual(values = c(
+    "Hogere mediaan" = "#2e7d32", # Groen voor het seizoen met de hoogste aantallen
+    "Gelijke mediaan" = "cornflowerblue",
+    "Lagere mediaan"  = "grey85"  # Neutraal grijs
+  )) +
+  
+  labs(
+    x = "Seizoen",
+    y = "Gemiddeld aantal hazelmuizen\nper transect",
+    fill = "Seizoensvergelijking"
+  ) +
+  facet_grid(jaar ~ label, scales = "free") +
+  theme_minimal()
+```
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(soort_nl == "Hazelmuis") %>%
+  filter(activiteit == "in nestbuis") %>%
+  mutate(
+    gebied = ifelse(
+      !is.na(str_locate(locatie, "-")[, "start"]),
+      str_sub(locatie, 1, end = str_locate(locatie, "-")[, "start"] - 2),
+      locatie
+    ),
+    gebied = ifelse(
+      gebied %in% c("Broekbos", "Konenbos", "Veursbos"),
+      "Broekbos - Konenbos - Veursbos",
+      ifelse(gebied %in% c("Teuvenerberg", "Obsinnich"),
+             "Teuvenerberg - Obsinnisch",
+             gebied)
+    ),
+    sublocatie = str_c(locatie, ": ", sublocatie)
+  ) %>%
+  select(gebied, locatie, sublocatie, periode, datum, jaar, aanwezig, aantal) %>%
+  group_by(jaar, gebied, locatie, periode) %>%
+  summarise(
+    n = n_distinct(sublocatie, datum),
+    totaal = sum(aantal),
+    .groups = "drop"
+  ) %>%
+  mutate(var = totaal / n) %>%
+  
+  # 1. Bereken de mediaan per jaar, gebied en telperiode
+  group_by(jaar, gebied, periode) %>%
+  mutate(mediaan_periode = median(var, na.rm = TRUE)) %>%
+  
+  # 2. Bepaal welke periode binnen dat paneel de hoogste mediaan heeft
+  group_by(jaar, gebied) %>%
+  mutate(
+    status = factor(
+      case_when(
+        max(mediaan_periode) == min(mediaan_periode) ~ "Gelijke mediaan",
+        mediaan_periode == max(mediaan_periode) ~ "Hogere mediaan",
+        TRUE ~ "Lagere mediaan"
+      ),
+      levels = c(
+        "Hogere mediaan",
+        "Gelijke mediaan",
+        "Lagere mediaan"
+      )
+    ),
+    n_transect = n_distinct(locatie),
+    label = paste0(gebied, "\n(n = ", n_transect, ")")
+  ) %>%
+  ungroup() %>%
+  
+  # 3. Visualiseren per telperiode
+  ggplot(aes(x = periode, y = var, fill = status)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.5, size = 1.5) +
+  
+  scale_fill_manual(values = c(
+    "Hogere mediaan"  = "#2e7d32", # Groen voor de periode met de hoogste aantallen
+    "Gelijke mediaan" = "cornflowerblue",
+    "Lagere mediaan"  = "grey85"  # Neutraal grijs
+  )) +
+  
+  labs(
+    x = "Telperiode",
+    y = "Gemiddeld aantal hazelmuizen\nper transect",
+    fill = "Vergelijking periodes"
+  ) +
+  facet_grid(jaar ~ label, scales = "free") +
   theme_minimal()
 ```
