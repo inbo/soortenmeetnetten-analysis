@@ -231,7 +231,7 @@ hazelmuis_nestbuis_occurence %>%
   labs(fill = "Aantal tellingen")
 ```
 
-## Model
+## Model 1
 
 We modelleren het aantal individuen hazelmuis $Y$ in per telling in transect $i$
 
@@ -257,7 +257,7 @@ $$
 b_{\mathrm{transect}(bos),i} \sim \mathcal{N}(0,\sigma^2_{\mathrm{transect}}).
 $$
 
-We modelleren het aantal individuen hazelmuis $Y_i$$ per telling op transect $i$ met een negatief-binomiaal model:
+We modelleren het aantal individuen hazelmuis $Y_i$ per telling op transect $i$ met een negatief-binomiaal model:
 
 $$
 Y_i \sim \operatorname{NegBin}(\mu_i, \nu),
@@ -630,4 +630,128 @@ summary_df %>%
       labels = index_labels_rev(),
       name = "Proportionele verandering")
   )
+```
+
+## Model 2
+
+Model 1 lijkt goed in theorie, maar er zijn een aantal aanpassingen/controles die moeten gebeuren.
+
+- Er zijn significant meer hazelmuizen in het najaar dan in het voorjaar
+  - Eventueel enkel met data uit het najaar werken?
+- Alle nestbuizen hangen in goed habitat, dus alles moet meegenomen worden
+  - Visualiseren voor elk jaar hoeveel nieuwe nestbuizen bezet worden
+- Vrije nestbuizen
+  - Binnen een jaar kunnen inderdaad verschillende soorten in dezelfde nestbuis leven
+  - Per telling verwijderen --> offset verandert dan ook
+- Als we een finale model en dataset hebben --> vergelijken met logistisch model obv aan afwezigheid
+
+### Verkenning
+
+We vergelijken de aantallen in het najaar met het voorjaar.
+We splitsen de data op in 4 telperiodes (volgens het protocol).
+
+> De nestbuizen worden vier maal per jaar gecontroleerd op aanwezigheid van of gebruik door
+hazelmuizen: half april, half mei, eind september/begin oktober, eind oktober/begin
+november. Vooral in het voorjaar, d.i. tijdens het broedseizoen, wordt daarbij maximale
+aandacht gegeven om eventuele verstoring van gevoelige soorten (grauwe klauwier, …) te
+vermijden (controle in stilte door maximaal één of twee personen).
+
+- T1: april
+- T2: mei
+- 
+
+```{r}
+analyseset_individuen <- hazelmuis_nestbuis_occurence %>%
+  filter(n_bezoeken > 2) %>%
+  filter(soort_nl == "Hazelmuis") %>%
+  filter(activiteit == "in nestbuis") %>%
+  anti_join(never_found_tubes, by = join_by(locatie, sublocatie))  %>%
+  mutate(
+    gebied = ifelse(
+      !is.na(str_locate(locatie, "-")[, "start"]),
+      str_sub(locatie, 1, end = str_locate(locatie, "-")[, "start"] - 2),
+      locatie
+    ),
+    gebied = ifelse(
+      gebied %in% c("Broekbos", "Konenbos", "Veursbos"),
+      "Broekbos - Konenbos - Veursbos",
+      ifelse(gebied %in% c("Teuvenerberg", "Obsinnich"),
+             "Teuvenerberg - Obsinnisch",
+             gebied)
+    ),
+    sublocatie = str_c(locatie, ": ", sublocatie),
+    year_scaled = jaar - min(jaar) + 1,
+    fjaar = factor(jaar),
+    aanwezig = ifelse(aanwezig, 1, 0),
+    telperiode = if_else(month(datum) < 8, "T1", "T2")
+  ) %>%
+  select(gebied, locatie, sublocatie, telperiode, datum, jaar, fjaar,
+         year_scaled, aanwezig, aantal)
+```
+
+  
+
+```{r}
+plot_tellingen <- hazelmuis_nestbuis_occurence %>%
+  distinct(jaar, datum, locatie, sublocatie) %>%
+  # 1. Bepaal het volgnummer van de controle per nestbuis per jaar
+  group_by(jaar, locatie, sublocatie) %>%
+  mutate(
+    bezoek_nr = dense_rank(datum)
+  ) %>%
+  ungroup() %>%
+  
+  # 2. Maak dummy datum en seizoensindicator aan
+  mutate(
+    datum_dummy = as.Date(format(datum, "2000-%m-%d")),
+    bezoek_nr = factor(bezoek_nr),
+    seizoen = ifelse(lubridate::month(datum) <= 6, "Voorjaar", "Najaar"),
+    seizoen = factor(seizoen, levels = c("Voorjaar", "Najaar"))
+  )
+
+plot_tellingen %>%
+  # 3. Visualiseren met facetting op jaar (rijen) en seizoen (kolommen)
+  ggplot(aes(x = datum_dummy, fill = bezoek_nr)) +
+  geom_histogram(binwidth = 7, color = "darkgrey", position = "stack") +
+  scale_x_date(
+    date_breaks = "1 month",
+    date_labels = "%b"
+  ) +
+  scale_fill_brewer(palette = "Set1") +
+  facet_grid(jaar ~ seizoen, scales = "free_x") +
+  labs(
+    title = "Spreiding van tellingen over het jaar per nestbuis",
+    x = "Maand",
+    y = "Aantal nestbuizen",
+    fill = "Telling"
+  ) +
+  theme_minimal()
+```
+
+En als we enkel naar het najaar kijken:
+
+```{r}
+plot_tellingen %>%
+  filter(seizoen == "Najaar") %>%
+  # 1. Bepaal het volgnummer van de controle per nestbuis per jaar
+  group_by(jaar, locatie, sublocatie) %>%
+  mutate(
+    bezoek_nr = factor(dense_rank(datum))
+  ) %>%
+  ungroup() %>%
+  # 3. Visualiseren met facetting op jaar (rijen) en seizoen (kolommen)
+  ggplot(aes(x = datum_dummy, fill = bezoek_nr)) +
+  geom_histogram(binwidth = 7, color = "darkgrey", position = "stack") +
+  scale_x_date(
+    date_breaks = "1 month",
+    date_labels = "%b"
+  ) +
+  scale_fill_brewer(palette = "Set1") +
+  facet_grid(jaar ~ seizoen, scales = "free_x") +
+  labs(
+    x = "Maand",
+    y = "Aantal nestbuizen",
+    fill = "Telling"
+  ) +
+  theme_minimal()
 ```
