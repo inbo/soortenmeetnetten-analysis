@@ -645,7 +645,7 @@ Model 1 lijkt goed in theorie, maar er zijn een aantal aanpassingen/controles di
   - Per telling verwijderen --> offset verandert dan ook
 - Als we een finale model en dataset hebben --> vergelijken met logistisch model obv aan afwezigheid
 
-### Verkenning
+### Verkenning telperiodes
 
 We vergelijken de aantallen in het najaar met het voorjaar.
 We splitsen de data op in 4 telperiodes (volgens het protocol).
@@ -927,12 +927,87 @@ hazelmuis_nestbuis_occurence %>%
   )) +
   
   labs(
+    title = "Vergelijking aantallen tussen seizoenen",
     x = "Seizoen",
     y = "Gemiddeld aantal hazelmuizen\nper transect",
     fill = "Seizoensvergelijking"
   ) +
   facet_wrap(~ jaar) +
   theme_minimal()
+```
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(soort_nl == "Hazelmuis") %>%
+  filter(activiteit == "in nestbuis") %>%
+  mutate(
+    gebied = ifelse(
+      !is.na(str_locate(locatie, "-")[, "start"]),
+      str_sub(locatie, 1, end = str_locate(locatie, "-")[, "start"] - 2),
+      locatie
+    ),
+    gebied = ifelse(
+      gebied %in% c("Broekbos", "Konenbos", "Veursbos"),
+      "Broekbos - Konenbos - Veursbos",
+      ifelse(gebied %in% c("Teuvenerberg", "Obsinnich"),
+             "Teuvenerberg - Obsinnisch",
+             gebied)
+    ),
+    sublocatie = str_c(locatie, ": ", sublocatie)
+  ) %>%
+  select(gebied, locatie, sublocatie, periode, datum, jaar, aanwezig, aantal) %>%
+  group_by(jaar, gebied, locatie, periode) %>%
+  summarise(
+    n = n_distinct(sublocatie, datum),
+    totaal = sum(aantal),
+    .groups = "drop"
+  ) %>%
+  mutate(var = totaal / n) %>%
+  
+  # 1. Bereken de mediaan per jaar en telperiode (over alle gebieden heen)
+  group_by(jaar, periode) %>%
+  mutate(mediaan_periode = median(var, na.rm = TRUE)) %>%
+  
+  # 2. Bepaal welke periode binnen dat jaar de hoogste mediaan heeft
+  group_by(jaar) %>%
+  mutate(
+    status = factor(
+      case_when(
+        max(mediaan_periode) == min(mediaan_periode) ~ "Gelijke mediaan",
+        mediaan_periode == max(mediaan_periode) ~ "Hogere mediaan",
+        TRUE ~ "Lagere mediaan"
+      ),
+      levels = c(
+        "Hogere mediaan",
+        "Gelijke mediaan",
+        "Lagere mediaan"
+      )
+    )
+  ) %>%
+  ungroup() %>%
+  
+  # 3. Visualiseren per telperiode per jaar
+  ggplot(aes(x = periode, y = var, fill = status)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.5, size = 1.5) +
+  
+  scale_fill_manual(values = c(
+    "Hogere mediaan"  = "#2e7d32", # Groen voor de periode met de hoogste aantallen
+    "Gelijke mediaan" = "cornflowerblue",
+    "Lagere mediaan"  = "grey85"  # Neutraal grijs
+  )) +
+  
+  labs(
+    title = "Vergelijking aantallen per telperiode",
+    x = "Telperiode",
+    y = "Gemiddeld aantal hazelmuizen\nper transect",
+    fill = "Vergelijking periodes"
+  ) +
+  facet_wrap(~ jaar, scales = "free") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1) # Schuin geplaatste x-as labels
+  )
 ```
 
 Opvallend zijn de lage aantallen in het voorjaar van 2020.
@@ -1004,6 +1079,7 @@ hazelmuis_nestbuis_occurence %>%
   )) +
   
   labs(
+    title = "Vergelijking aantallen regio per seizoen",
     x = "Seizoen",
     y = "Gemiddeld aantal hazelmuizen\nper transect",
     fill = "Seizoensvergelijking"
@@ -1076,6 +1152,7 @@ hazelmuis_nestbuis_occurence %>%
   )) +
   
   labs(
+    title = "Vergelijking aantallen regio per telperiode",
     x = "Telperiode",
     y = "Gemiddeld aantal hazelmuizen\nper transect",
     fill = "Vergelijking periodes"
@@ -1083,3 +1160,408 @@ hazelmuis_nestbuis_occurence %>%
   facet_grid(jaar ~ label, scales = "free") +
   theme_minimal()
 ```
+
+### Bezette nestbuizen
+
+Om de dynamiek van nieuwe bezetting, aanhoudende bezetting en verlating (wegvallen) van nestbuizen per jaar te visualiseren, moeten we eerst per nestbuis (locatie + sublocatie) en per jaar de bezettingsstatus vergelijken met het voorgaande jaar.
+We doen dit door elke unieke nestbuis per jaar in één van de 4 categorieën in te delen:
+
+1. Nieuw bezet: Vorig jaar niet bezet, dit jaar wel bezet.
+2. Aanhoudend bezet: Vorig jaar bezet én dit jaar bezet.
+3. Verlaten: Vorig jaar bezet, maar dit jaar niet bezet.
+4. Niet bezet: Vorig jaar niet bezet én dit jaar niet bezet OF niet bezocht.
+
+```{r}
+# 1. Bepaal per nestbuis en jaar of er minstens 1 hazelmuis is waargenomen
+buis_jaar_status <- hazelmuis_nestbuis_occurence %>%
+  # Combineer locatie en sublocatie tot een unieke nestbuis-ID
+  mutate(nestbuis_id = paste(locatie, sublocatie, sep = "_")) %>%
+  group_by(jaar, nestbuis_id) %>%
+  summarise(
+    bezet = any(aanwezig == TRUE | aantal > 0),
+    .groups = "drop"
+  ) %>%
+  
+  # Zorg dat alle jaren x buizen combinaties aanwezig zijn
+  complete(jaar, nestbuis_id, fill = list(bezet = FALSE)) %>%
+  
+  # 2. Vergelijk met het voorgaande jaar (lag)
+  group_by(nestbuis_id) %>%
+  arrange(jaar) %>%
+  mutate(
+    bezet_vorig_jaar = dplyr::lag(bezet),
+    dynamiek = case_when(
+      is.na(bezet_vorig_jaar) & bezet ~ "Nieuw bezet (Eerste jaar data)",
+      !bezet_vorig_jaar & bezet      ~ "Nieuw bezet (Kolonisatie)",
+      bezet_vorig_jaar & bezet       ~ "Aanhoudend bezet",
+      bezet_vorig_jaar & !bezet      ~ "Verlaten (Uitstroom)",
+      TRUE                            ~ "Niet bezet"
+    )
+  ) %>%
+  ungroup() %>%
+  mutate(
+    locatie = str_sub(
+      nestbuis_id,
+      1,
+      end = str_locate(nestbuis_id, "_")[, "start"] - 1
+    ),
+    gebied = ifelse(
+      !is.na(str_locate(locatie, "-")[, "start"]),
+      str_sub(locatie, 1, end = str_locate(locatie, "-")[, "start"] - 2),
+      locatie
+    ),
+    gebied = ifelse(
+      gebied %in% c("Broekbos", "Konenbos", "Veursbos"),
+      "Broekbos - Konenbos - Veursbos",
+      ifelse(gebied %in% c("Teuvenerberg", "Obsinnich"),
+             "Teuvenerberg - Obsinnisch",
+             gebied)
+    )
+  )
+
+# 3. Visualisatie van de actieve dynamiek (excl. 'Niet bezet')
+buis_jaar_status %>%
+  filter(jaar != 2020) %>%
+  # Filter eventueel het allereerste jaar uit als je alleen veranderingen wilt zien
+  filter(!str_detect(dynamiek, "Eerste jaar")) %>%
+  mutate(
+    dynamiek = factor(dynamiek, levels = c(
+      "Nieuw bezet (Kolonisatie)",
+      "Aanhoudend bezet",
+      "Verlaten (Uitstroom)",
+      "Niet bezet"
+    ))
+  ) %>%
+  ggplot(aes(x = factor(jaar), fill = dynamiek)) +
+  geom_bar(position = "stack", color = "black") +
+  labs(
+    title = "Dynamiek van nestbuisbezetting ten opzichte van vorig jaar",
+    x = "Jaar",
+    y = "Aantal nestbuizen",
+    fill = "Status bezetting"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+buis_jaar_status %>%
+  filter(jaar != 2020) %>%
+  # Filter eventueel het allereerste jaar uit als je alleen veranderingen wilt zien
+  filter(!str_detect(dynamiek, "Eerste jaar")) %>%
+  mutate(
+    dynamiek = factor(dynamiek, levels = c(
+      "Nieuw bezet (Kolonisatie)",
+      "Aanhoudend bezet",
+      "Verlaten (Uitstroom)",
+      "Niet bezet"
+    ))
+  )  %>%
+  ggplot(aes(x = factor(jaar), fill = dynamiek)) +
+  geom_bar(position = "stack", color = "black") +
+  facet_wrap(~gebied, scales = "free") +
+  labs(
+    title = "Dynamiek van nestbuisbezetting ten opzichte van vorig jaar",
+    x = "Jaar",
+    y = "Aantal nestbuizen",
+    fill = "Status bezetting"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+# 1. Bepaal per nestbuis, jaar en telperiode de bezetting Status
+buis_periode_status <- hazelmuis_nestbuis_occurence %>%
+  # Unieke nestbuis-ID
+  mutate(nestbuis_id = paste(locatie, sublocatie, sep = "_")) %>%
+  group_by(jaar, periode, nestbuis_id) %>%
+  summarise(
+    bezet = any(aanwezig == TRUE | aantal > 0),
+    .groups = "drop"
+  ) %>%
+  
+  # Zorg dat de 4 periodes netjes geordend zijn als factor
+  mutate(
+    periode_code = factor(periode, levels = c(paste0("T", 1:4)))
+  ) %>%
+  
+  # Zorg dat alle combinaties van jaar x periode x nestbuis aanwezig zijn
+  complete(
+    nesting(jaar, periode),
+    nestbuis_id,
+    fill = list(bezet = FALSE)
+  ) %>%
+  
+  # 2. Sorteer chronologisch per nestbuis en bereken lag t.o.v. de VORIGE TELPERIODE
+  group_by(nestbuis_id) %>%
+  arrange(jaar, periode) %>%
+  mutate(
+    bezet_vorige_periode = dplyr::lag(bezet),
+    dynamiek = case_when(
+      is.na(bezet_vorige_periode) & bezet ~ "Nieuw bezet (Eerste periode)",
+      !bezet_vorige_periode & bezet       ~ "Nieuw bezet (Kolonisatie)",
+      bezet_vorige_periode & bezet        ~ "Aanhoudend bezet",
+      bezet_vorige_periode & !bezet       ~ "Verlaten (Uitstroom)",
+      TRUE                                ~ "Niet bezet"
+    )
+  ) %>%
+  ungroup() %>%
+  
+  # 3. Maak doorlopende tijds-label aan (bijv. "2020 T1", "2020 T2", ...)
+  filter(!is.na(periode_code)) %>%
+  mutate(
+    tijd_label = paste(jaar, periode_code, sep = " - ")
+  ) %>%
+  mutate(
+    locatie = str_sub(
+      nestbuis_id,
+      1,
+      end = str_locate(nestbuis_id, "_")[, "start"] - 1
+    ),
+    gebied = ifelse(
+      !is.na(str_locate(locatie, "-")[, "start"]),
+      str_sub(locatie, 1, end = str_locate(locatie, "-")[, "start"] - 2),
+      locatie
+    ),
+    gebied = ifelse(
+      gebied %in% c("Broekbos", "Konenbos", "Veursbos"),
+      "Broekbos - Konenbos - Veursbos",
+      ifelse(gebied %in% c("Teuvenerberg", "Obsinnich"),
+             "Teuvenerberg - Obsinnisch",
+             gebied)
+    )
+  )
+
+# 4. Visualisatie van de dynamiek per telperiode
+buis_periode_status %>%
+  # Filter eventueel de allereerste meting uit de hele dataset (T1 van het eerste jaar)
+  filter(!(jaar == 2020 & periode == "T1")) %>%
+  mutate(
+    dynamiek = factor(dynamiek, levels = c(
+      "Nieuw bezet (Kolonisatie)",
+      "Aanhoudend bezet",
+      "Verlaten (Uitstroom)",
+      "Niet bezet"
+    ))
+  ) %>%
+  ggplot(aes(x = tijd_label, fill = dynamiek)) +
+  geom_bar(position = "stack", color = "black") +
+  labs(
+    title = "Dynamiek van nestbuisbezetting ten opzichte van vorige telperiode",
+    x = "Telperiode (Jaar & Ronde)",
+    y = "Aantal nestbuizen",
+    fill = "Status bezetting"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+```{r}
+buis_periode_status %>%
+  # Filter eventueel de allereerste meting uit de hele dataset (T1 van het eerste jaar)
+  filter(!(jaar == 2020 & periode == "T1")) %>%
+  mutate(
+    dynamiek = factor(dynamiek, levels = c(
+      "Nieuw bezet (Kolonisatie)",
+      "Aanhoudend bezet",
+      "Verlaten (Uitstroom)",
+      "Niet bezet"
+    ))
+  ) %>%
+  ggplot(aes(x = tijd_label, fill = dynamiek)) +
+  geom_bar(position = "stack", color = "black") +
+  labs(
+    title = "Dynamiek van nestbuisbezetting ten opzichte van vorige telperiode",
+    x = "Telperiode (Jaar & Ronde)",
+    y = "Aantal nestbuizen",
+    fill = "Status bezetting"
+  ) +
+  facet_wrap(~gebied) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+
+```{r}
+library(ggalluvial)
+
+# Voorbereiden data voor Alluvial plot
+alluvial_data <- buis_jaar_status %>%
+  mutate(
+    status_label = ifelse(bezet, "Bezet", "Leeg")
+  )
+
+ggplot(alluvial_data,
+       aes(x = factor(jaar), stratum = status_label, alluvium = nestbuis_id,
+           fill = status_label, label = status_label)) +
+  scale_fill_manual(values = c("Bezet" = "#2e7d32", "Leeg" = "grey80")) +
+  geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray", alpha = 0.5) +
+  geom_stratum(stat = "alluvium") +
+  labs(
+    title = "Spreiding en verloop van nestbuisbezetting over de jaren",
+    x = "Jaar",
+    y = "Totaal aantal nestbuizen",
+    fill = "Status"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+# 1. Data voorbereiden voor Alluvial plot per telperiode
+alluvial_periode_data <- buis_periode_status %>%
+  filter(!is.na(periode_code)) %>%
+  # Sorteer chronologisch op jaar en periode_code voor een correcte x-as volgorde
+  arrange(jaar, periode_code) %>%
+  mutate(
+    # Zorg dat de x-as exact de chronologische volgorde aanhoudt
+    tijd_label = factor(tijd_label, levels = unique(tijd_label)),
+    status_label = ifelse(bezet, "Bezet", "Leeg"),
+    status_label = factor(status_label, levels = c("Bezet", "Leeg"))
+  )
+
+# 2. Visualiseren van de stroom tussen alle telperiodes
+ggplot(alluvial_periode_data,
+       aes(x = tijd_label, 
+           stratum = status_label, 
+           alluvium = nestbuis_id,
+           fill = status_label, 
+           label = status_label)) +
+  scale_fill_manual(values = c("Bezet" = "#2e7d32", "Leeg" = "grey80")) +
+  
+  # Lagen voor de Alluvial flow
+  geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray", alpha = 0.5) +
+  geom_stratum(stat = "alluvium") +
+  
+  labs(
+    title = "Verloop van nestbuisbezetting over alle telperiodes",
+    subtitle = "Volg de bezettingsstatus van individuele nestbuizen van T1 t/m T4 door de jaren heen",
+    x = "Telperiode (Jaar - Ronde)",
+    y = "Totaal aantal nestbuizen",
+    fill = "Status"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1) # Schuine x-as labels
+  )
+```
+
+Persistence time:
+
+```{r}
+# 1. Bepaal per nestbuis en chronologische telperiode de bezettingsstatus
+buis_tijdreeksen <- hazelmuis_nestbuis_occurence %>%
+  mutate(nestbuis_id = paste(locatie, sublocatie, sep = "_")) %>%
+  group_by(jaar, periode, nestbuis_id) %>%
+  summarise(
+    bezet = any(aanwezig == TRUE | aantal > 0),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    periode_code = factor(periode, levels = paste0("T", 1:4))
+  ) %>%
+  filter(!is.na(periode_code)) %>%
+  
+  # Maak de tijdreeks compleet voor alle periodes x buizen
+  complete(
+    nesting(jaar, periode, periode_code),
+    nestbuis_id,
+    fill = list(bezet = FALSE)
+  ) %>%
+  
+  # Voeg gebiedsinformatie toe
+  mutate(
+    locatie = str_sub(nestbuis_id, 1, str_locate(nestbuis_id, "_")[, "start"] - 1),
+    gebied = ifelse(
+      !is.na(str_locate(locatie, "-")[, "start"]),
+      str_sub(locatie, 1, str_locate(locatie, "-")[, "start"] - 2),
+      locatie
+    ),
+    gebied = case_when(
+      gebied %in% c("Broekbos", "Konenbos", "Veursbos") ~ "Broekbos - Konenbos - Veursbos",
+      gebied %in% c("Teuvenerberg", "Obsinnich") ~ "Teuvenerberg - Obsinnich",
+      TRUE ~ gebied
+    )
+  ) %>%
+  arrange(nestbuis_id, jaar, periode_code)
+
+# 2. Identificeer ononderbroken bezettingsreeksen (runs van bezet == TRUE)
+persistence_data <- buis_tijdreeksen %>%
+  group_by(nestbuis_id) %>%
+  mutate(
+    # Run Length Encoding ID maken voor elke wissel tussen bezet/leeg
+    episode_id = data.table::rleid(bezet)
+  ) %>%
+  filter(bezet == TRUE) %>% # Alleen de actieve bezettingsreeksen
+  group_by(gebied, nestbuis_id, episode_id) %>%
+  summarise(
+    opeenvolgende_periodes = n(), # Lengte van de bezettingsreeks
+    .groups = "drop"
+  )
+
+# 3. Bereken samenvattende statistieken
+statistieken <- persistence_data %>%
+  summarise(
+    gemiddelde = mean(opeenvolgende_periodes),
+    mediaan = median(opeenvolgende_periodes),
+    max_duur = max(opeenvolgende_periodes),
+    totaal_episodes = n()
+  )
+
+print(statistieken)
+
+# 4. Visualisatie van de verdeling van persistence time
+ggplot(persistence_data, aes(x = factor(opeenvolgende_periodes), fill = gebied)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.85) +
+  scale_fill_brewer(palette = "Set2") +
+  labs(
+    title = "Verdeling van Persistence Time van Hazelmuizen in Nestbuizen",
+    subtitle = paste0(
+      "Gemiddelde bezettingsduur: ", round(statistieken$gemiddelde, 2), 
+      " opeenvolgende telperiodes (Mediaan: ", statistieken$mediaan, ")"
+    ),
+    x = "Aantal opeenvolgende telperiodes bezet (Persistence in T's)",
+    y = "Aantal bezettingsepisodes",
+    fill = "Gebied"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom"
+  )
+```
+
+```{r}
+ggplot(
+  persistence_data,
+  aes(x = gebied, y = opeenvolgende_periodes, fill = gebied)
+  ) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, size = 2) +
+  scale_fill_brewer(palette = "Set2") +
+  labs(
+    title = "Persistence Time per Boscluster",
+    x = "Gebied",
+    y = "Opeenvolgende telperiodes bezet"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+### Model fit
+
+Verschil model 1:
+
+- Ook afwezigheden meenemen
+- Binnen een jaar kunnen inderdaad verschillende soorten in dezelfde nestbuis leven
+  - Enkel vrije nestbuizen behouden per telling
+  - Offset zal veranderen
+- Zowel seizoen als telperiode meenemen `seizoen + seizoen:periode` (eventueel kijken of seizoen wel nodig is)
+
+> Offset beter o.b.v. lengte van transect? (omdat je wel aantal nestbuizen weet maar dit zegt niets over de densiteit). Maar hoe dan combineren met gebruik vrije nestbuizen?
+
+> Telperiodes als autoregressieve tijdreeksstructuur of een Random Walk / Spline modelleren?
+
+### Resultaten
+
