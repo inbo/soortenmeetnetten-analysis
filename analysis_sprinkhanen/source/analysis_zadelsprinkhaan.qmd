@@ -121,7 +121,12 @@ locations %>%
   addPolygons(label = ~location)
 ```
 
-...
+## De tellingen
+
+-  aantal tellingen/locatie/jaar
+-  tijdstip tellingen
+-  verdeling aantallen
+-   ...
 
 ## Trend in aantallen
 
@@ -134,5 +139,6 @@ Model
   - Negative Binomial
   - Random effect voor locatie
 
+Weergave resultaten:
 
-
+zie bv. [resultatenrapport libellen](https://purews.inbo.be/ws/portalfiles/portal/151437915/Westra_etal_2026_TrendsLibellenmeetnetten20162025.pdf)
