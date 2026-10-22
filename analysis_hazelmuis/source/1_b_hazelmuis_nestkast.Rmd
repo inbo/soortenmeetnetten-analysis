@@ -11,7 +11,7 @@ hazelmuis_nestbuis_orig <- read_vc("raw/aantal_hazelmuis_nestbuizen", root = dat
   mutate(visit_id = as.numeric(visit_id))
 
 hazelmuis_nestbuis_bezoek <- visits_hazelmuis %>%
-  select(visit_id, bezoek_status, voor_analyse) %>%
+  select(visit_id, bezoek_status, voor_analyse, opmerking) %>%
   left_join(hazelmuis_nestbuis_orig, by = c("visit_id")) %>%
   select(meetnet, locatie, sublocatie, datum, voor_analyse, visit_id, sample_id, niet_geteld, soort_nl, levensstadium, activiteit, observation_type, code, description, aantal) %>%
   filter(!niet_geteld)
