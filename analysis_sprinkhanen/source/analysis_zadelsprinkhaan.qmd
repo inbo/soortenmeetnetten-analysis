@@ -1,0 +1,138 @@
+---
+title: "Dataverkenning en analyse zadelsprinkhaan"
+format: 
+  html:
+    embed-resources: true
+editor: source
+toc: true
+number-sections: true
+code-fold: true
+bibliography: references.bib
+lang: nl
+execute:
+  warning: false
+---
+
+# Inleiding
+
+Zadelsprinkhaan is een zogenaamde Vlaams prioritaire soort die gemonitord wordt
+in het soortenmeetnettenproject, volgens het vastgelegd protocol [@de_knijf_2016].
+
+De tellingen gebeuren door vrijwilligers en de gegevens worden ingevoerd in 
+[meetnetten.be](https://www.meetnetten.be/projects/38/).
+
+```{r}
+#| label: setup
+#| include: false
+
+library(tidyverse)
+library(inbodb)
+library(sf)
+library(leaflet)
+
+```
+
+# Data
+
+De export van de data uit de meetnetten-datawarehous kan via de [meetnetten 
+functies](https://inbo.github.io/inbodb/reference/index.html) in het inbodb 
+package zoals uitgelegd in [deze tutorial](https://inbo.github.io/inbodb/articles/get_data_meetnetten.html).
+
+```{r}
+#| label: data-export
+#| eval: false
+
+# only run this the first time you run the code, or to update the dataset
+
+target_species <- "zadelsprinkhaan"
+
+# only works when connected to INBO network
+con <- connect_inbo_dbase("S0008_00_Meetnetten")
+
+visits <- get_meetnetten_visits(connection = con,
+                                scheme_name = target_species, 
+                                collect  = TRUE)
+
+observations <- get_meetnetten_observations(connection = con,
+                                            scheme_name = target_species,
+                                            collect  = TRUE)
+
+locations <- get_meetnetten_locations(connection = con,
+                                      scheme_name = target_species)
+
+# no sublocations
+locations <- locations$main_locations
+
+if (!dir.exists("../data")) {
+  
+  dir.create("../data")
+  
+}
+
+# safe the data on your local drive
+
+version <- str_c(target_species, "_", Sys.Date())
+
+visits %>%
+  write_csv2(str_c("../data/visits_",version))
+
+observations %>%
+  write_csv2(str_c("../data/observations_",version))
+
+locations %>%
+  st_write(str_c("../data/locations_",version, ".gpkg"))
+
+```
+
+Volgende data worden ingelezen (klik op de link voor de beschrijving van de
+kolommen):
+
+-   [visits](https://inbo.github.io/inbodb/reference/get_meetnetten_visits.html): 
+data ivm de uitgevoerde bezoeken aan de tellocaties
+-   [observations](https://inbo.github.io/inbodb/reference/get_meetnetten_observations.html): 
+data ivm de getelde aantallen voor de doelsoort, en optioneel voor bijkomende
+niet-doelsoorten
+-   [locations](https://inbo.github.io/inbodb/reference/get_meetnetten_locations.html): de telgebieden
+
+```{r}
+#| label: read-data
+#| message: false
+
+# change the version when needed
+version_dataset <- "zadelsprinkhaan_2026-10-22"
+
+visits <- read_csv2(str_c("../data/visits_",version_dataset))
+
+observations <- read_csv2(str_c("../data/observations_",version_dataset))
+
+locations <- st_read(str_c("../data/locations_", version_dataset, ".gpkg"),
+                     quiet = TRUE)
+
+```
+
+# Data verkenning
+
+## De meetnetlocaties
+
+```{r}
+locations %>%
+  leaflet() %>%
+  addTiles() %>%
+  addPolygons(label = ~location)
+```
+
+...
+
+## Trend in aantallen
+
+Output
+-   gemiddelde jaarlijkse trend
+-   jaarlijks verschil t.o.v. referentiejaar
+
+Model
+-  GLMM
+  - Negative Binomial
+  - Random effect voor locatie
+
+
+

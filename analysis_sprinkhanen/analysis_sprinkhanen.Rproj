@@ -1,0 +1,17 @@
+Version: 1.0
+ProjectId: da5a71fa-f3fb-4a60-adf0-e425d713d456
+
+RestoreWorkspace: Default
+SaveWorkspace: Default
+AlwaysSaveHistory: Default
+
+EnableCodeIndexing: Yes
+UseSpacesForTab: Yes
+NumSpacesForTab: 2
+Encoding: UTF-8
+
+RnwWeave: knitr
+LaTeX: XeLaTeX
+
+BuildType: Website
+WebsitePath: analysis_amfibieën/source
