@@ -1,0 +1,516 @@
+---
+title: "Data selectie hazelmuis"
+author: "Ward Langeraert"
+date: today
+
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: right
+    code-fold: true
+    self-contained: true
+
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+#| warning: false
+#| message: false
+library(tidyverse)
+library(knitr)
+library(n2khab)
+library(INBOtheme)
+
+conflicted::conflicts_prefer(dplyr::filter)
+
+data_path <- fileman_up("soortenmeetnetten-queries")
+source(file.path(fileman_up("soortenmeetnetten-analysis"),
+                 "source/functions_smp.R"))
+```
+
+# Tellingen
+
+```{r, message=FALSE}
+# Get data
+visits_hazelmuis <- get_visits_smp() %>%
+  filter(meetnet == "Hazelmuis - Nestbuizen")
+hazelmuis_nestbuis_raw <- read_vc("raw/aantal_hazelmuis_nestbuizen2", root = data_path) %>%
+  mutate(visit_id = as.numeric(visit_id))
+
+# Occurrence dataset
+hazelmuis_nestbuis_occurence_total <- hazelmuis_nestbuis_raw %>%
+  mutate(
+    jaar = year(datum),
+    soort_nl = ifelse(
+      soort_nl == "Hazelmuis",
+      soort_nl,
+      ifelse(
+        str_detect(soort_nl, "Hazelmuis"),
+        "Hazelmuis/andere_soorten",
+        "andere_soorten"
+      )
+    )
+  ) %>%
+  group_by(meetnet, locatie, sublocatie, jaar) %>%
+  mutate(n_bezoeken = n_distinct(visit_id)) %>%
+  ungroup() %>%
+  group_by(meetnet, visit_id, locatie, sublocatie, jaar, datum, n_bezoeken, soort_nl,
+           observation_type, activiteit, niet_geteld) %>%
+  summarise(aanwezig = sum(aantal) > 0,
+            aanwezig_vers = "F" %in% code,
+            aantal = sum(aantal)) %>%
+  ungroup() %>%
+  mutate(
+    aanwezig_oud_onzeker = aanwezig & !aanwezig_vers,
+    aanwezig = ifelse(activiteit == "in nestbuis", aanwezig, aanwezig_vers),
+    bos = str_remove(locatie, " - .*")
+  ) %>%
+  mutate(
+    description = ifelse(
+      activiteit == "in nestbuis",
+      ifelse(aanwezig, "aanwezig", "afwezig"),
+      ifelse(
+        aanwezig_vers,
+        "aanwezig - vers",
+        ifelse(aanwezig_oud_onzeker,
+               "aanwezig - enkel oud of onzeker",
+               "afwezig")
+      )
+    )
+  ) %>%
+  mutate(
+    maand = month(datum),
+    dag = day(datum),
+    
+    # Categorize into the 4 target inspection windows
+    periode = case_when(
+      maand == 4 ~ "T1",
+      maand == 5 ~ "T2",
+      (maand == 9 & dag >= 12) | (maand == 10 & dag <= 15) ~ "T3",
+      (maand == 10 & dag > 15) | (maand == 11 & dag <= 20) ~ "T4",
+      TRUE ~ "Buiten periode"
+    )
+  ) %>%
+  # Gebied toewijzen
+  mutate(
+    gebied = ifelse(
+      !is.na(str_locate(locatie, "-")[, "start"]),
+      str_sub(locatie, 1, end = str_locate(locatie, "-")[, "start"] - 2),
+      locatie
+    ),
+    gebied = case_when(
+      gebied %in% c("Broekbos", "Konenbos", "Veursbos") ~ "boscluster1",
+      gebied %in% c("Teuvenerberg", "Obsinnich") ~ "boscluster2",
+      TRUE ~ "boscluster3"
+    )
+  )
+
+hazelmuis_nestbuis_occurence <- hazelmuis_nestbuis_occurence_total %>%
+  filter(!niet_geteld)
+```
+
+Deze overzichtfiguur toont dat sommige transecten soms niet bezocht zijn (rode kruisjes).
+Andere transecten zijn meerdere malen per telperiode bezocht. 
+In sommige gevallen zijn niet alle nestbuizen per transect geteld.
+Volledig getelde transecten zijn blauw met paarse rand.
+
+```{r, warning=FALSE}
+# 1. Bepaal het totaal aantal bekende unieke nestbuizen per locatie
+max_buizen_per_locatie <- hazelmuis_nestbuis_occurence_total %>%
+  group_by(locatie) %>%
+  summarise(totaal_nestbuizen = n_distinct(sublocatie), .groups = "drop")
+
+# 2. Bereken bezoeken en compleetheid per periode
+hazelmuis_nestbuis_occurence %>%
+  group_by(jaar, gebied, locatie, periode) %>%
+  summarise(
+    n_bezoeken_num = n_distinct(datum),          # Aantal bezoeken aan het transect
+    n_nestbuizen_geteld = n_distinct(sublocatie), # Aantal unieke nestbuizen geteld
+    .groups = "drop"
+  ) %>%
+  
+  # Vul ontbrekende combinaties aan
+  complete(
+    nesting(gebied, locatie),
+    nesting(jaar, periode),
+    fill = list(
+      n_bezoeken_num = 0,
+      n_nestbuizen_geteld = 0
+    )
+  ) %>%
+  
+  # Voeg het verwachte totaal toe
+  left_join(max_buizen_per_locatie, by = "locatie") %>%
+  
+  # Bereken percentage en status
+  mutate(
+    is_nul = n_bezoeken_num == 0,
+    pct_compleet = (n_nestbuizen_geteld / totaal_nestbuizen) * 100,
+    is_honderd = pct_compleet == 100,
+    n_bezoeken = factor(n_bezoeken_num),
+    periode = gsub("T", "", periode)
+  ) %>%
+  
+  # Visualiseren
+  ggplot(aes(x = periode, y = locatie)) +
+  
+  # Verbind locaties waar op z'n minst één bezoek was
+  geom_line(data = . %>% filter(!is_nul), aes(group = locatie), color = "grey60") +
+  
+  # 1. Alle punten met bezoeken (>0% t/m 100%) gekleurd via continu verloop
+  geom_point(
+    data = . %>% filter(!is_nul), 
+    aes(colour = pct_compleet, size = n_bezoeken),
+    shape = 16
+  ) +
+  geom_point(
+    data = . %>% filter(is_honderd), 
+    aes(size = n_bezoeken),
+    shape = 21,
+    stroke = 1,
+    colour = "orchid"
+  ) +
+
+  # 2. 0% (Geen bezoeken): Rode x-kruisjes
+  geom_point(
+    data = . %>% filter(is_nul), 
+    shape = 4, 
+    size = 3, 
+    stroke = 1.2, 
+    color = "red"
+  ) +
+  
+  # Kleurenschaal met specifieke breukpunten en labels (inclusief 100% = cornflowerblue)
+  scale_colour_gradientn(
+    colours = c(viridis::viridis(9, option = "inferno", direction = -1), "cornflowerblue"),
+    limits = c(0, 100),
+    breaks = c(0, 25, 50, 75, 100),
+    labels = c("0%", "25%", "50%", "75%", "100% (Volledig)")
+  ) +
+  
+  labs(
+    x = "Telperiode", 
+    y = "Transect", 
+    colour = "Compleetheid\ntransect",
+    size   = "Aantal bezoeken\nper telperiode"
+  ) +
+  facet_grid(gebied ~ jaar, scales = "free_y") +
+  theme_minimal()
+```
+
+## 2020
+
+```{r}
+hazelmuis_nestbuis_uncounted <- hazelmuis_nestbuis_occurence_total %>%
+  filter(niet_geteld) %>%
+  left_join(visits_hazelmuis,
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  )
+```
+
+**Veursbos**
+
+Eerste telronde: kon niet doorgaan wegens corona.
+
+Tweede telronde: tijdens een eerste bezoek werden een aantal nestbuizen niet gevonden, tijdens tweede bezoek werden die nestbuizen gecontroleerd
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2020,
+    grepl("^Veursbos", locatie),
+    periode == "T2"
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+Het is dus beter om ook unieke nestbuizen per telperiode te bekijken en niet enkel meerdere datums per telperiode.
+
+```{r, warning=FALSE}
+# 1. Bepaal het totaal aantal bekende unieke nestbuizen per locatie
+max_buizen_per_locatie <- hazelmuis_nestbuis_occurence_total %>%
+  group_by(locatie) %>%
+  summarise(totaal_nestbuizen = n_distinct(sublocatie), .groups = "drop")
+
+# 2. Bereken bezoeken en compleetheid per periode
+hazelmuis_nestbuis_occurence %>%
+  group_by(jaar, gebied, locatie, periode) %>%
+  summarise(
+    n_bezoeken_num = n_distinct(datum),          # Aantal bezoeken aan het transect
+    n_nestbuizen_geteld = n_distinct(sublocatie), # Aantal unieke nestbuizen geteld
+    n = n_distinct(datum, sublocatie),
+    .groups = "drop"
+  ) %>%
+  
+  # Vul ontbrekende combinaties aan
+  complete(
+    nesting(gebied, locatie),
+    nesting(jaar, periode),
+    fill = list(
+      n_bezoeken_num = 0,
+      n_nestbuizen_geteld = 0,
+      n = 0
+    )
+  ) %>%
+  
+  # Voeg het verwachte totaal toe
+  left_join(max_buizen_per_locatie, by = "locatie") %>%
+  
+  # Bereken percentage en status
+  mutate(
+    is_nul = n_bezoeken_num == 0,
+    pct_compleet = (n / totaal_nestbuizen) * 100,
+    is_honderd = pct_compleet == 100,
+    ratio = n / totaal_nestbuizen,
+    n_bezoeken_cat = case_when(
+      ratio < 1 ~ "< 100%",
+      ratio == 1 ~ "100%",
+      ratio > 1 ~ "> 100%"
+    ) %>% factor(levels = c("< 100%", "100%", "> 100%")),
+    periode = gsub("T", "", periode)
+  ) %>%
+  
+  # Visualiseren
+  ggplot(aes(x = periode, y = locatie)) +
+  
+  # Verbind locaties waar op z'n minst één bezoek was
+  geom_line(data = . %>% filter(!is_nul), aes(group = locatie), color = "grey60") +
+  
+  # 1. Alle punten met bezoeken (>0% t/m 100%) gekleurd via continu verloop
+  geom_point(
+    data = . %>% filter(!is_nul), 
+    aes(colour = pct_compleet, size = n_bezoeken_cat),
+    shape = 16
+  ) +
+  geom_point(
+    data = . %>% filter(is_honderd), 
+    aes(size = n_bezoeken_cat),
+    shape = 21,
+    stroke = 1,
+    colour = "orchid"
+  ) +
+
+  # 2. 0% (Geen bezoeken): Rode x-kruisjes
+  geom_point(
+    data = . %>% filter(is_nul), 
+    shape = 4, 
+    size = 3, 
+    stroke = 1.2, 
+    color = "red"
+  ) +
+  
+  # Koppel de categorieën direct aan de gewenste puntgroottes
+  scale_size_manual(
+    values = c("< 100%" = 2, "100%" = 4, "> 100%" = 6),
+    drop = FALSE
+  ) +
+  
+  # Kleurenschaal met specifieke breukpunten en labels (inclusief 100% = cornflowerblue)
+  scale_colour_gradientn(
+    colours = c(viridis::viridis(10, option = "inferno", direction = -1)[1:5],
+                "cornflowerblue",
+                viridis::viridis(10, option = "inferno", direction = -1)[6:10]),
+    limits = c(0, 200),
+    breaks = c(0, 50, 100, 150, 200),
+    labels = c("0%", "50%", "100% (Volledig)", "150%", "200%")
+  ) +
+  
+  labs(
+    x = "Telperiode", 
+    y = "Transect", 
+    colour = "Compleetheid\ntransect",
+    size   = ""
+  ) +
+  facet_grid(gebied ~ jaar, scales = "free_y") +
+  theme_minimal()
+```
+
+We zien inderdaad dat alles voor de tweede telronde in orde is.
+
+> Deze tellingen kunnen samengenomen worden binnen T2.
+
+Derde telronde: De eerste telling was een extra ronde om de ingangen van de nestbuizen te vergroten, maar tijdens die ronde werden er ook wel effectief tellingen uitgevoerd.
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2020,
+    grepl("Vrouwenbos - noord", locatie),
+    periode == "T3"
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> Gebruik reguliere oktoberronde
+
+Hoe zit het met Veursbos - noordwest?
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2020,
+    grepl("Veursbos - noordwest", locatie),
+    sublocatie == "nestbuis3",
+    periode %in% c("T3", "T4"),
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, sublocatie, hoofdteller, opmerking) %>%
+  arrange(sublocatie, datum) %>%
+  kable()
+```
+
+nestbuis 3 werd pas op 18 oktober geteld omdat die niet was teruggevonden in eerdere telling.
+
+> T4 laten beginnen na 18 oktober
+
+```{r}
+hazelmuis_nestbuis_occurence <- hazelmuis_nestbuis_occurence %>%
+  mutate(
+    # NEW period 3 and 4
+    periode = case_when(
+      maand == 4 ~ "T1",
+      maand == 5 ~ "T2",
+      (maand == 9 & dag >= 12) | (maand == 10 & dag <= 18) ~ "T3",
+      (maand == 10 & dag > 18) | (maand == 11 & dag <= 20) ~ "T4",
+      TRUE ~ "Buiten periode"
+    )
+  ) %>%
+  # Keep last count in 2020 T3
+  group_by(jaar, gebied, locatie, sublocatie, periode) %>%
+    filter(
+      if (cur_group()$jaar == 2020 && cur_group()$periode == "T3") {
+        datum == max(datum)
+      } else {
+        TRUE
+      }
+    ) %>%
+    ungroup()
+```
+
+```{r, warning=FALSE}
+# 1. Bepaal het totaal aantal bekende unieke nestbuizen per locatie
+max_buizen_per_locatie <- hazelmuis_nestbuis_occurence_total %>%
+  group_by(locatie) %>%
+  summarise(totaal_nestbuizen = n_distinct(sublocatie), .groups = "drop")
+
+# 2. Bereken bezoeken en compleetheid per periode
+hazelmuis_nestbuis_occurence %>%
+  group_by(jaar, gebied, locatie, periode) %>%
+  summarise(
+    n_bezoeken_num = n_distinct(datum),          # Aantal bezoeken aan het transect
+    n_nestbuizen_geteld = n_distinct(sublocatie), # Aantal unieke nestbuizen geteld
+    n = n_distinct(datum, sublocatie),
+    .groups = "drop"
+  ) %>%
+  
+  # Vul ontbrekende combinaties aan
+  complete(
+    nesting(gebied, locatie),
+    nesting(jaar, periode),
+    fill = list(
+      n_bezoeken_num = 0,
+      n_nestbuizen_geteld = 0,
+      n = 0
+    )
+  ) %>%
+  
+  # Voeg het verwachte totaal toe
+  left_join(max_buizen_per_locatie, by = "locatie") %>%
+  
+  # Bereken percentage en status
+  mutate(
+    is_nul = n_bezoeken_num == 0,
+    pct_compleet = (n / totaal_nestbuizen) * 100,
+    is_honderd = pct_compleet == 100,
+    ratio = n / totaal_nestbuizen,
+    n_bezoeken_cat = case_when(
+      ratio < 1 ~ "< 100%",
+      ratio == 1 ~ "100%",
+      ratio > 1 ~ "> 100%"
+    ) %>% factor(levels = c("< 100%", "100%", "> 100%")),
+    periode = gsub("T", "", periode)
+  ) %>%
+  
+  # Visualiseren
+  ggplot(aes(x = periode, y = locatie)) +
+  
+  # Verbind locaties waar op z'n minst één bezoek was
+  geom_line(data = . %>% filter(!is_nul), aes(group = locatie), color = "grey60") +
+  
+  # 1. Alle punten met bezoeken (>0% t/m 100%) gekleurd via continu verloop
+  geom_point(
+    data = . %>% filter(!is_nul), 
+    aes(colour = pct_compleet, size = n_bezoeken_cat),
+    shape = 16
+  ) +
+  geom_point(
+    data = . %>% filter(is_honderd), 
+    aes(size = n_bezoeken_cat),
+    shape = 21,
+    stroke = 1,
+    colour = "orchid"
+  ) +
+
+  # 2. 0% (Geen bezoeken): Rode x-kruisjes
+  geom_point(
+    data = . %>% filter(is_nul), 
+    shape = 4, 
+    size = 3, 
+    stroke = 1.2, 
+    color = "red"
+  ) +
+  
+  # Koppel de categorieën direct aan de gewenste puntgroottes
+  scale_size_manual(
+    values = c("< 100%" = 2, "100%" = 4, "> 100%" = 6),
+    drop = FALSE
+  ) +
+  
+  # Kleurenschaal met specifieke breukpunten en labels (inclusief 100% = cornflowerblue)
+  scale_colour_gradientn(
+    colours = c(viridis::viridis(10, option = "inferno", direction = -1)[1:5],
+                "cornflowerblue",
+                viridis::viridis(10, option = "inferno", direction = -1)[6:10]),
+    limits = c(0, 200),
+    breaks = c(0, 50, 100, 150, 200),
+    labels = c("0%", "50%", "100% (Volledig)", "150%", "200%")
+  ) +
+  
+  labs(
+    x = "Telperiode", 
+    y = "Transect", 
+    colour = "Compleetheid\ntransect",
+    size   = ""
+  ) +
+  facet_grid(gebied ~ jaar, scales = "free_y") +
+  theme_minimal()
+```
+
+**Vrouwenbos 2020**
+
+Eerste telronde: kon niet doorgaan wegens corona.
+
+## 2021
+
+
+
+
+
+
