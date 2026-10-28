@@ -1,5 +1,5 @@
 ---
-title: "Data selectie hazelmuis"
+title: "Missing data hazelmuis"
 author: "Ward Langeraert"
 date: today
 
@@ -29,6 +29,10 @@ data_path <- fileman_up("soortenmeetnetten-queries")
 source(file.path(fileman_up("soortenmeetnetten-analysis"),
                  "source/functions_smp.R"))
 ```
+
+# Doel
+
+Nagaan waar missing data is of waar we tellingen moeten corrigeren/samenvoegen.
 
 ```{r, message=FALSE}
 # Get data
@@ -120,7 +124,7 @@ max_buizen_per_locatie <- hazelmuis_nestbuis_occurence_total %>%
   group_by(locatie) %>%
   summarise(totaal_nestbuizen = n_distinct(sublocatie), .groups = "drop")
 
-# 2. Bereken bezoeken en compleetheid per periode
+## 2. Bereken bezoeken en compleetheid per periode
 hazelmuis_nestbuis_occurence %>%
   group_by(jaar, gebied, locatie, periode) %>%
   summarise(
@@ -171,7 +175,7 @@ hazelmuis_nestbuis_occurence %>%
     colour = "orchid"
   ) +
 
-  # 2. 0% (Geen bezoeken): Rode x-kruisjes
+  ## 2. 0% (Geen bezoeken): Rode x-kruisjes
   geom_point(
     data = . %>% filter(is_nul), 
     shape = 4, 
@@ -198,7 +202,9 @@ hazelmuis_nestbuis_occurence %>%
   theme_minimal()
 ```
 
-# 2020
+# Missing data cases
+
+## 2020
 
 ```{r}
 hazelmuis_nestbuis_uncounted <- hazelmuis_nestbuis_occurence_total %>%
@@ -208,7 +214,7 @@ hazelmuis_nestbuis_uncounted <- hazelmuis_nestbuis_occurence_total %>%
   )
 ```
 
-## Veursbos
+### Veursbos
 
 Eerste telronde: kon niet doorgaan wegens corona.
 
@@ -238,7 +244,7 @@ max_buizen_per_locatie <- hazelmuis_nestbuis_occurence_total %>%
   group_by(locatie) %>%
   summarise(totaal_nestbuizen = n_distinct(sublocatie), .groups = "drop")
 
-# 2. Bereken bezoeken en compleetheid per periode
+## 2. Bereken bezoeken en compleetheid per periode
 hazelmuis_nestbuis_occurence %>%
   group_by(jaar, gebied, locatie, periode) %>%
   summarise(
@@ -296,7 +302,7 @@ hazelmuis_nestbuis_occurence %>%
     colour = "orchid"
   ) +
 
-  # 2. 0% (Geen bezoeken): Rode x-kruisjes
+  ## 2. 0% (Geen bezoeken): Rode x-kruisjes
   geom_point(
     data = . %>% filter(is_nul), 
     shape = 4, 
@@ -408,7 +414,7 @@ max_buizen_per_locatie <- hazelmuis_nestbuis_occurence_total %>%
   group_by(locatie) %>%
   summarise(totaal_nestbuizen = n_distinct(sublocatie), .groups = "drop")
 
-# 2. Bereken bezoeken en compleetheid per periode
+## 2. Bereken bezoeken en compleetheid per periode
 hazelmuis_nestbuis_occurence %>%
   group_by(jaar, gebied, locatie, periode) %>%
   summarise(
@@ -466,7 +472,7 @@ hazelmuis_nestbuis_occurence %>%
     colour = "orchid"
   ) +
 
-  # 2. 0% (Geen bezoeken): Rode x-kruisjes
+  ## 2. 0% (Geen bezoeken): Rode x-kruisjes
   geom_point(
     data = . %>% filter(is_nul), 
     shape = 4, 
@@ -501,13 +507,13 @@ hazelmuis_nestbuis_occurence %>%
   theme_minimal()
 ```
 
-## Vrouwenbos
+### Vrouwenbos
 
 Eerste telronde: kon niet doorgaan wegens corona.
 
-# 2021
+## 2021
 
-## Veursbos - zuid
+### Veursbos - zuid
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -527,7 +533,7 @@ hazelmuis_nestbuis_occurence %>%
 
 > imputeren/corrigeren via offset?
 
-## Teuvenerberg - noord
+### Teuvenerberg - noord
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -547,9 +553,9 @@ hazelmuis_nestbuis_occurence %>%
 
 > imputeren/corrigeren via offset?
 
-# 2022
+## 2022
 
-## Veursbos - noord
+### Veursbos - noord
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -569,7 +575,7 @@ hazelmuis_nestbuis_occurence %>%
 
 > imputeren/corrigeren via offset?
 
-## Konenbos
+### Konenbos
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -589,7 +595,7 @@ hazelmuis_nestbuis_occurence %>%
 
 > imputeren/corrigeren via offset?
 
-## Obsinnich - zuid
+### Obsinnich - zuid
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -609,9 +615,9 @@ hazelmuis_nestbuis_occurence %>%
 
 > imputeren/corrigeren via offset?
 
-# 2023
+## 2023
 
-## Konenbos
+### Konenbos
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -631,7 +637,7 @@ hazelmuis_nestbuis_occurence %>%
 
 > imputeren/corrigeren via offset?
 
-## Broekbos
+### Broekbos
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -652,7 +658,7 @@ hazelmuis_nestbuis_occurence %>%
 
 > waarom geen tellingen in T1, 2 en 4?
 
-## Obsinnich - zuid
+### Obsinnich - zuid
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -672,7 +678,7 @@ hazelmuis_nestbuis_occurence %>%
 
 > imputeren/corrigeren via offset?
 
-## Vrouwenbos - west
+### Vrouwenbos - west
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -692,9 +698,9 @@ hazelmuis_nestbuis_occurence %>%
 
 > imputeren/corrigeren via offset?
 
-# 2024
+## 2024
 
-## Vrouwenbos - west
+### Vrouwenbos - west
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -713,7 +719,7 @@ hazelmuis_nestbuis_occurence %>%
 
 > imputeren/corrigeren via offset?
 
-## Vrouwenbos - oost
+### Vrouwenbos - oost
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -733,7 +739,7 @@ hazelmuis_nestbuis_occurence %>%
 
 > imputeren/corrigeren via offset?
 
-## Veursbos - zuid
+### Veursbos - zuid
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -753,7 +759,7 @@ hazelmuis_nestbuis_occurence %>%
 
 > ?
 
-## Veursbos - noordwest
+### Veursbos - noordwest
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -773,7 +779,7 @@ hazelmuis_nestbuis_occurence %>%
 
 > T3?
 
-## Veursbos - noord
+### Veursbos - noord
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -793,7 +799,7 @@ hazelmuis_nestbuis_occurence %>%
 
 > T3-T4?
 
-## Broekbos
+### Broekbos
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -812,7 +818,7 @@ hazelmuis_nestbuis_occurence %>%
 
 > ?
 
-## Konenbos
+### Konenbos
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -860,7 +866,7 @@ max_buizen_per_locatie <- hazelmuis_nestbuis_occurence_total %>%
   group_by(locatie) %>%
   summarise(totaal_nestbuizen = n_distinct(sublocatie), .groups = "drop")
 
-# 2. Bereken bezoeken en compleetheid per periode
+## 2. Bereken bezoeken en compleetheid per periode
 hazelmuis_nestbuis_occurence %>%
   group_by(jaar, gebied, locatie, periode) %>%
   summarise(
@@ -918,7 +924,7 @@ hazelmuis_nestbuis_occurence %>%
     colour = "orchid"
   ) +
 
-  # 2. 0% (Geen bezoeken): Rode x-kruisjes
+  ## 2. 0% (Geen bezoeken): Rode x-kruisjes
   geom_point(
     data = . %>% filter(is_nul), 
     shape = 4, 
@@ -971,9 +977,9 @@ hazelmuis_nestbuis_occurence %>%
 
 > T1, T4?
 
-# 2025
+## 2025
 
-## Veursbos - west
+### Veursbos - west
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -993,7 +999,7 @@ hazelmuis_nestbuis_occurence %>%
 
 > ?
 
-## Veursbos - noordwest
+### Veursbos - noordwest
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -1012,7 +1018,7 @@ hazelmuis_nestbuis_occurence %>%
 
 > ?
 
-## Broekbos
+### Broekbos
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -1031,7 +1037,7 @@ hazelmuis_nestbuis_occurence %>%
 
 > Waarom geen telling in broekbos T3?
 
-## Vrouwenbos - west
+### Vrouwenbos - west
 
 ```{r}
 hazelmuis_nestbuis_occurence %>%
@@ -1050,3 +1056,62 @@ hazelmuis_nestbuis_occurence %>%
 ```
 
 > imputeren/corrigeren via offset?
+
+# Discussie
+
+Er zijn twee belangrijke consequenties van missing data.
+
+1. Keuze referentiejaar
+2. Omgaan met missing data
+
+## Referentiejaar
+
+We kiezen best 2021 als referentiejaar.
+Tenzij er een logische reden om T1 nooit mee te nemen.
+
+## Missing data
+
+Aan transecten waar niet geteld is kunnen we weinig doen.
+Het Broekbos is wel een probleemlocatie in meerdere jaren.
+We kunnen de analyse eens met en zonder deze locatie doen.
+
+Onvolledig getelde transecten kunnen niet geïmputeerd worden omdat we een model op transectschaal fitten (aantal per transect).
+Bovendien zitten we met zo'n lage aantallen dat ik niet denk dat imputatie hier (al) aan de orde is.
+
+Wel kunnen we het aantal effectief bezochte nestbuizen meenemen in de offset.
+De offset bestaat uit 3 delen:
+
+1. aantal bezochte nestbuizen
+  - effectief geteld
+  - nestbuizen gaan soms kapot of verloren waardoor ze niet geteld worden
+2. aantal vrije nestbuizen
+  - binnen het aantal getelde nestbuizen nog eens filteren op nestbuizen waar geen ander dier in aanwezig is
+  - bijvoorbeeld andere muizensoorten of mezen
+3. lengte transect
+  - densiteit nestbuizen kan per transect verschillen
+  - "er zitten x aantal hazelmuizen per 200 m"
+
+Er zijn twee opties.
+
+### Transectlengte als Offset + Aandeel Vrije Buizen als Co-variabele
+
+Met deze aanpak behouden we de interpretatie van "Aantal hazelmuizen per ? meter", terwijl je expliciet controleert voor de competitie door andere muizensoorten.
+
+$$
+\text{offset} = \log \left( \frac{\text{transect_lengte_m}}{? \text{ m}} \right)
+$$
+
+In plaats van het aantal getelde, vrije buizen als tweede offset te gebruiken, nemen we de beschikbaarheidsgraad (fractie vrije buizen / totaal aantal bezochte buizen) op als een gewone verklarende variabele.
+
+### Gecombineerde offset
+
+Als we strikt veronderstellen dat de kans op een hazelmuis lineair evenredig is met zowel de lengte als de dichtheid van vrije buizen (d.w.z. dat een niet-vrije buis fysiek onmogelijk een hazelmuis kan bevatten), kunnen we de twee offsets combineren.
+
+$$
+\text{offset} = \log \left( \frac{\text{aantal_vrije_buizen}}{\text{transect_lengte_m}} \times ? \text{ m} \right)
+$$
+
+
+Hiermee modelleren we de hazelmuisdichtheid per ? m effectief beschikbaar (vrij) nestbuis-tracé.
+Aanname: Als er 0 vrije buizen zijn, is de verwachte hazelmuisdichtheid automatisch 0.
+Deze aanname lijkt correct, maar in praktijk hebben we waarschijnlijk meer vrije nestbuizen waardoor we het intercept niet willen vastleggen op 0 (ver buiten bereik van effectieve data). 
