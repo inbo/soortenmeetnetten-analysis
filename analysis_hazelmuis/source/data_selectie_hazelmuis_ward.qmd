@@ -30,8 +30,6 @@ source(file.path(fileman_up("soortenmeetnetten-analysis"),
                  "source/functions_smp.R"))
 ```
 
-# Tellingen
-
 ```{r, message=FALSE}
 # Get data
 visits_hazelmuis <- get_visits_smp() %>%
@@ -200,7 +198,7 @@ hazelmuis_nestbuis_occurence %>%
   theme_minimal()
 ```
 
-## 2020
+# 2020
 
 ```{r}
 hazelmuis_nestbuis_uncounted <- hazelmuis_nestbuis_occurence_total %>%
@@ -210,7 +208,7 @@ hazelmuis_nestbuis_uncounted <- hazelmuis_nestbuis_occurence_total %>%
   )
 ```
 
-**Veursbos**
+## Veursbos
 
 Eerste telronde: kon niet doorgaan wegens corona.
 
@@ -503,14 +501,552 @@ hazelmuis_nestbuis_occurence %>%
   theme_minimal()
 ```
 
-**Vrouwenbos 2020**
+## Vrouwenbos
 
 Eerste telronde: kon niet doorgaan wegens corona.
 
-## 2021
+# 2021
+
+## Veursbos - zuid
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2021,
+    grepl("Veursbos - zuid", locatie),
+    periode == "T4"
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> imputeren/corrigeren via offset?
+
+## Teuvenerberg - noord
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2021,
+    grepl("Teuvenerberg - noord", locatie),
+    periode == "T1"
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> imputeren/corrigeren via offset?
+
+# 2022
+
+## Veursbos - noord
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2022,
+    grepl("Veursbos - noord", locatie),
+    periode == "T1"
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> imputeren/corrigeren via offset?
+
+## Konenbos
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2022,
+    grepl("Konenbos", locatie),
+    periode == "T1"
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> imputeren/corrigeren via offset?
+
+## Obsinnich - zuid
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2022,
+    grepl("Obsinnich - zuid", locatie),
+    periode %in% c("T3", "T4")
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> imputeren/corrigeren via offset?
+
+# 2023
+
+## Konenbos
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2023,
+    grepl("Konenbos", locatie),
+    periode %in% paste0("T", 2:4)
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> imputeren/corrigeren via offset?
+
+## Broekbos
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2023,
+    grepl("^Broekbos", locatie)
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> imputeren/corrigeren via offset?
+
+> waarom geen tellingen in T1, 2 en 4?
+
+## Obsinnich - zuid
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2023,
+    grepl("Obsinnich - zuid", locatie),
+    periode %in% paste0("T", 1:2)
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> imputeren/corrigeren via offset?
+
+## Vrouwenbos - west
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2023,
+    grepl("Vrouwenbos - west", locatie),
+    periode %in% paste0("T", 3:4)
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> imputeren/corrigeren via offset?
+
+# 2024
+
+## Vrouwenbos - west
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2024,
+    grepl("Vrouwenbos - west", locatie)
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> imputeren/corrigeren via offset?
+
+## Vrouwenbos - oost
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2024,
+    grepl("Vrouwenbos - oost", locatie),
+    periode == "T4"
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> imputeren/corrigeren via offset?
+
+## Veursbos - zuid
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2024,
+    grepl("Veursbos - zuid", locatie),
+    periode == "T4"
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> ?
+
+## Veursbos - noordwest
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2024,
+    grepl("Veursbos - noordwest", locatie),
+    periode %in% paste0("T", 1:3)
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> T3?
+
+## Veursbos - noord
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2024,
+    grepl("Veursbos - noord", locatie),
+    periode %in% paste0("T", 2:4)
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> T3-T4?
+
+## Broekbos
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2024,
+    grepl("Broekbos", locatie)
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, locatie, hoofdteller, opmerking) %>%
+  arrange(locatie, datum) %>%
+  kable()
+```
+
+> ?
+
+## Konenbos
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2024,
+    grepl("Konenbos", locatie),
+    periode %in% paste0("T", 3:4)
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, sublocatie, hoofdteller) %>%
+  arrange(sublocatie, datum) %>%
+  kable()
+```
+
+> T4 laten beginnen na 11 oktober voor deze
+
+```{r}
+hazelmuis_nestbuis_occurence <- hazelmuis_nestbuis_occurence %>%
+  mutate(
+    periode = case_when(
+      maand == 4 ~ "T1",
+      maand == 5 ~ "T2",
+      
+      # Exception: Konenbos in 2024 (T4 start from 11 October)
+      jaar == 2024 & locatie == "Konenbos" & 
+        ((maand == 9 & dag >= 12) | (maand == 10 & dag <= 10)) ~ "T3",
+      jaar == 2024 & locatie == "Konenbos" & 
+        ((maand == 10 & dag >= 11) | (maand == 11 & dag <= 20)) ~ "T4",
+      
+      # Standard rules
+      (maand == 9 & dag >= 12) | (maand == 10 & dag <= 18) ~ "T3",
+      (maand == 10 & dag > 18) | (maand == 11 & dag <= 20) ~ "T4",
+      
+      TRUE ~ "Buiten periode"
+    )
+  )
+```
+
+```{r, warning=FALSE}
+# 1. Bepaal het totaal aantal bekende unieke nestbuizen per locatie
+max_buizen_per_locatie <- hazelmuis_nestbuis_occurence_total %>%
+  group_by(locatie) %>%
+  summarise(totaal_nestbuizen = n_distinct(sublocatie), .groups = "drop")
+
+# 2. Bereken bezoeken en compleetheid per periode
+hazelmuis_nestbuis_occurence %>%
+  group_by(jaar, gebied, locatie, periode) %>%
+  summarise(
+    n_bezoeken_num = n_distinct(datum),          # Aantal bezoeken aan het transect
+    n_nestbuizen_geteld = n_distinct(sublocatie), # Aantal unieke nestbuizen geteld
+    n = n_distinct(datum, sublocatie),
+    .groups = "drop"
+  ) %>%
+  
+  # Vul ontbrekende combinaties aan
+  complete(
+    nesting(gebied, locatie),
+    nesting(jaar, periode),
+    fill = list(
+      n_bezoeken_num = 0,
+      n_nestbuizen_geteld = 0,
+      n = 0
+    )
+  ) %>%
+  
+  # Voeg het verwachte totaal toe
+  left_join(max_buizen_per_locatie, by = "locatie") %>%
+  
+  # Bereken percentage en status
+  mutate(
+    is_nul = n_bezoeken_num == 0,
+    pct_compleet = (n / totaal_nestbuizen) * 100,
+    is_honderd = pct_compleet == 100,
+    ratio = n / totaal_nestbuizen,
+    n_bezoeken_cat = case_when(
+      ratio < 1 ~ "< 100%",
+      ratio == 1 ~ "100%",
+      ratio > 1 ~ "> 100%"
+    ) %>% factor(levels = c("< 100%", "100%", "> 100%")),
+    periode = gsub("T", "", periode)
+  ) %>%
+  
+  # Visualiseren
+  ggplot(aes(x = periode, y = locatie)) +
+  
+  # Verbind locaties waar op z'n minst één bezoek was
+  geom_line(data = . %>% filter(!is_nul), aes(group = locatie), color = "grey60") +
+  
+  # 1. Alle punten met bezoeken (>0% t/m 100%) gekleurd via continu verloop
+  geom_point(
+    data = . %>% filter(!is_nul), 
+    aes(colour = pct_compleet, size = n_bezoeken_cat),
+    shape = 16
+  ) +
+  geom_point(
+    data = . %>% filter(is_honderd), 
+    aes(size = n_bezoeken_cat),
+    shape = 21,
+    stroke = 1,
+    colour = "orchid"
+  ) +
+
+  # 2. 0% (Geen bezoeken): Rode x-kruisjes
+  geom_point(
+    data = . %>% filter(is_nul), 
+    shape = 4, 
+    size = 3, 
+    stroke = 1.2, 
+    color = "red"
+  ) +
+  
+  # Koppel de categorieën direct aan de gewenste puntgroottes
+  scale_size_manual(
+    values = c("< 100%" = 2, "100%" = 4, "> 100%" = 6),
+    drop = FALSE
+  ) +
+  
+  # Kleurenschaal met specifieke breukpunten en labels (inclusief 100% = cornflowerblue)
+  scale_colour_gradientn(
+    colours = c(viridis::viridis(10, option = "inferno", direction = -1)[1:5],
+                "cornflowerblue",
+                viridis::viridis(10, option = "inferno", direction = -1)[6:10]),
+    limits = c(0, 200),
+    breaks = c(0, 50, 100, 150, 200),
+    labels = c("0%", "50%", "100% (Volledig)", "150%", "200%")
+  ) +
+  
+  labs(
+    x = "Telperiode", 
+    y = "Transect", 
+    colour = "Compleetheid\ntransect",
+    size   = ""
+  ) +
+  facet_grid(gebied ~ jaar, scales = "free_y") +
+  theme_minimal()
+```
 
 
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2024,
+    grepl("Konenbos", locatie)
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
 
+> T1, T4?
 
+# 2025
 
+## Veursbos - west
 
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2025,
+    grepl("Veursbos - west", locatie),
+    periode == "T4"
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> ?
+
+## Veursbos - noordwest
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2025,
+    grepl("Veursbos - noordwest", locatie)
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> ?
+
+## Broekbos
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2025,
+    grepl("Broekbos", locatie)
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, locatie, hoofdteller, opmerking) %>%
+  arrange(locatie, datum) %>%
+  kable()
+```
+
+> Waarom geen telling in broekbos T3?
+
+## Vrouwenbos - west
+
+```{r}
+hazelmuis_nestbuis_occurence %>%
+  filter(
+    jaar == 2025,
+    grepl("Vrouwenbos - west", locatie),
+    periode %in% c("T1", "T2")
+  ) %>%
+  left_join(visits_hazelmuis %>%
+              select(-sublocatie),
+            by = join_by(meetnet, visit_id, locatie, jaar, datum)
+  ) %>%
+  distinct(datum, hoofdteller, opmerking) %>%
+  arrange(datum) %>%
+  kable()
+```
+
+> imputeren/corrigeren via offset?
