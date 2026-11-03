@@ -1106,23 +1106,54 @@ We selecteren de data als volgt:
 
 ```{r}
 # Calculate offset
+occupied_nesting_tubes <- nestbuizen_occupancy %>%
+  filter(
+    soort_groep != "Hazelmuis" & aanwezig_algemeen
+  ) %>%
+  distinct(jaar, locatie, sublocatie, periode)
 
+offset_data <- nestbuizen_occupancy %>%
+  # Filter out visits outside target inspection windows
+  filter(periode != "Buiten periode") %>%
+  # Filter out other species
+  anti_join(
+    occupied_nesting_tubes,
+    by = join_by(locatie, sublocatie, jaar, periode)
+  ) %>%
+  # Count number of nesting tubes per transect per visit
+  group_by(jaar, locatie, periode) %>%
+  summarise(
+    n_nestbuizen = n_distinct(sublocatie),
+    .groups      = "drop"
+  ) %>%
+  rename(
+    transect = locatie,
+    telperiode = periode
+  )
 
 # Analysis dataset individual count
 analyseset_individuen  <- nestbuizen_occupancy %>%
   filter(
    activiteit == "in nestbuis", # Select individual count
    soort_groep == "Hazelmuis"   # Select species of interest
-  ) %>% 
+  ) %>%
+  select(boscluster = cluster, transect = locatie, jaar, telperiode = periode,
+         totaal_aantal) %>%
+  # Count number per transect per visit
+  summarise(
+    aantal = sum(totaal_aantal),
+    .by = c(boscluster, transect, jaar, telperiode)
+  ) %>%
+  # Add offset
+  left_join(
+    offset_data,
+    by = join_by(transect, jaar, telperiode)
+  ) %>%
+  # Create year factor variable
   mutate(
     fjaar = factor(jaar, levels = c(2021, 2020, 2022, 2023, 2024, 2025))
   ) %>%
-  select(boscluster = cluster, transect = locatie, fjaar, telperiode = periode,
-         totaal_aantal) %>%
-  summarise(
-    aantal = sum(totaal_aantal),
-    .by = c(boscluster, transect, fjaar, telperiode)
-  )
+  select(-jaar)
 
 # Analysis dataset fresh nest count
 analyseset_nesten  <- nestbuizen_occupancy %>%
@@ -1138,19 +1169,314 @@ analyseset_nesten  <- nestbuizen_occupancy %>%
       0
     )
   ) %>% 
+  select(boscluster = cluster, transect = locatie, jaar, telperiode = periode,
+         totaal_aantal) %>%
+  # Count number per transect per visit
+  summarise(
+    aantal = sum(totaal_aantal),
+    .by = c(boscluster, transect, jaar, telperiode)
+  ) %>%
+  # Add offset
+  left_join(
+    offset_data,
+    by = join_by(transect, jaar, telperiode)
+  ) %>%
+  # Create year factor variable
   mutate(
     fjaar = factor(jaar, levels = c(2021, 2020, 2022, 2023, 2024, 2025))
   ) %>%
-  select(boscluster = cluster, transect = locatie, fjaar, telperiode = periode,
-         totaal_aantal) %>%
+  select(-jaar)
+```
+
+We kunnen een overzicht maken van de proporties vrije nestbuizen per transect.
+
+```{r}
+#| fig.width: 8
+pct_labels[length(pct_labels)] <- "100 %"
+
+# Calculate visits and completeness per survey period
+nestbuizen_occupancy %>%
+  # Filter out visits outside target inspection windows
+  filter(periode != "Buiten periode") %>%
+  # Filter out other species
+  anti_join(
+    occupied_nesting_tubes,
+    by = join_by(locatie, sublocatie, jaar, periode)
+  ) %>%
+  group_by(jaar, cluster, locatie, periode) %>%
   summarise(
-    aantal = sum(totaal_aantal),
-    .by = c(boscluster, transect, fjaar, telperiode)
+    n_bezoeken_num      = n_distinct(datum),
+    n_nestbuizen_geteld = n_distinct(sublocatie),
+    n                   = n_distinct(datum, sublocatie),
+    .groups             = "drop"
+  ) %>%
+  
+  # Fill in missing combinations of transects and survey windows
+  complete(
+    nesting(cluster, locatie),
+    nesting(jaar, periode),
+    fill = list(
+      n_bezoeken_num      = 0,
+      n_nestbuizen_geteld = 0,
+      n                   = 0
+    )
+  ) %>%
+  
+  # Join expected total tubes per transect
+  left_join(max_buizen_per_locatie, by = "locatie") %>%
+  
+  # Compute completion rate and visit flags
+  mutate(
+    is_nul       = n_bezoeken_num == 0,
+    pct_compleet = (n / totaal_nestbuizen) * 100,
+    is_honderd   = pct_compleet == 100,
+    ratio        = n / totaal_nestbuizen,
+    periode      = str_remove(periode, "^T")
+  ) %>%
+  
+  # Visualization
+  ggplot(aes(x = periode, y = locatie)) +
+  
+  # Line connecting surveyed periods per transect
+  geom_line(data = . %>% filter(!is_nul), aes(group = locatie), color = "grey60") +
+  
+  # Points for surveyed periods (scaled and colored by completeness)
+  geom_point(
+    data = . %>% filter(!is_nul), 
+    aes(colour = pct_compleet, size = pct_compleet),
+    shape = 16
+  ) +
+
+  # Red cross for unvisited transects (0%)
+  geom_point(
+    data = . %>% filter(is_nul),
+    shape       = 4, 
+    size        = 3, 
+    stroke      = 1.2, 
+    color       = "red",
+    show.legend = FALSE
+  ) +
+
+  # Continuous size scale across 10% steps
+  scale_size_continuous(
+    range  = c(1, 5),
+    limits = c(0, 100),
+    breaks = pct_breaks,
+    labels = pct_labels
+  ) +
+  
+  # Gradient color scale matching exact same breaks/labels
+  scale_colour_gradientn(
+    colours = rev(legend_colors),
+    limits  = c(0, 100),
+    breaks  = pct_breaks,
+    labels  = pct_labels
+  ) +
+  
+  # Override legend appearance to draw shape 21 with orchid stroke on 100%
+  guides(
+    colour = guide_legend(reverse = TRUE),
+    size = guide_legend(reverse = TRUE)
+  ) +
+  
+  # Matching titles ensure ggplot merges size and color into one legend
+  labs(
+    x      = "Telperiode", 
+    y      = "Transect", 
+    colour = "Proportie vrije\nnestbuizen",
+    size   = "Proportie vrije\nnestbuizen"
+  ) +
+  facet_grid(cluster ~ jaar, scales = "free_y") +
+  theme_minimal()
+```
+
+We bekijken hoe de aantallen zijn verdeeld.
+Lege cirkels zijn nul-tellingen.
+
+```{r}
+#| fig.width: 8
+# 1. Complete combinations of transects and survey windows
+plot_data_individuen <- analyseset_individuen %>%
+  mutate(
+    jaar = as.integer(as.character(fjaar)),
+    periode_nr = str_remove(telperiode, "^T")
+  ) %>%
+  complete(
+    nesting(boscluster, transect),
+    nesting(jaar, periode_nr),
+    fill = list(aantal = NA_real_, n_nestbuizen = NA_integer_)
+  ) %>%
+  mutate(
+    is_onbezocht = is.na(n_nestbuizen) | n_nestbuizen == 0,
+    is_bezocht   = !is_onbezocht,
+    is_nul       = is_bezocht & aantal == 0,
+    heeft_aantal = is_bezocht & aantal > 0
   )
+
+# 2. Breaks en kleuren alleen voor positieve waarnemingen (vanaf 1)
+count_breaks <- c(1, 4, 8, 12, 16)
+palette_colors <- viridis::viridis(length(count_breaks), option = "inferno", direction = -1)
+
+# 3. Visualisatie
+ggplot(plot_data_individuen, aes(x = periode_nr, y = transect)) +
+  
+  # Connecting line per transect
+  geom_line(
+    data = . %>% filter(is_bezocht),
+    aes(group = transect),
+    color = "grey80"
+  ) +
+  
+  # Nul-tellingen (bezocht, maar 0 individuen): vast neutraal symbool
+  geom_point(
+    data = . %>% filter(is_nul),
+    shape       = 1,          # open cirkel (of gebruik shape = 16 voor een gevuld bolletje)
+    size        = 2,
+    stroke      = 0.8,
+    color       = "grey50",
+    show.legend = FALSE
+  ) +
+  
+  # Positieve aantallen (> 0): gekleurd en geschaald
+  geom_point(
+    data = . %>% filter(heeft_aantal),
+    aes(colour = aantal, size = aantal),
+    shape = 16
+  ) +
+  
+  # Rode kruisjes voor niet-bezochte transecten
+  geom_point(
+    data = . %>% filter(is_onbezocht),
+    shape       = 4,
+    size        = 3,
+    stroke      = 1.1,
+    color       = "red",
+    show.legend = FALSE
+  ) +
+  
+  # Grootte-schaal uitsluitend voor positieve aantallen
+  scale_size_continuous(
+    range  = c(2, 6),
+    limits = c(1, max(count_breaks)),
+    breaks = count_breaks
+  ) +
+  
+  # Kleurverloop uitsluitend voor positieve aantallen
+  scale_colour_gradientn(
+    colours = palette_colors,
+    limits  = c(1, max(count_breaks)),
+    breaks  = count_breaks,
+    guide   = "legend"
+  ) +
+  
+  # Legende omkeren: hoogste aantal bovenaan, 1 onderaan
+  guides(
+    colour = guide_legend(reverse = TRUE),
+    size   = guide_legend(reverse = TRUE)
+  ) +
+  
+  labs(
+    x       = "Telperiode",
+    y       = "Transect",
+    colour  = "Aantal\nindividuen",
+    size    = "Aantal\nindividuen"
+  ) +
+  facet_grid(boscluster ~ jaar, scales = "free_y") +
+  theme_minimal()
+```
+
+```{r}
+#| fig.width: 8
+# 1. Complete combinations of transects and survey windows
+plot_data_individuen <- analyseset_nesten %>%
+  mutate(
+    jaar = as.integer(as.character(fjaar)),
+    periode_nr = str_remove(telperiode, "^T")
+  ) %>%
+  complete(
+    nesting(boscluster, transect),
+    nesting(jaar, periode_nr),
+    fill = list(aantal = NA_real_, n_nestbuizen = NA_integer_)
+  ) %>%
+  mutate(
+    is_onbezocht = is.na(n_nestbuizen) | n_nestbuizen == 0,
+    is_bezocht   = !is_onbezocht,
+    is_nul       = is_bezocht & aantal == 0,
+    heeft_aantal = is_bezocht & aantal > 0
+  )
+
+# 2. Breaks en kleuren alleen voor positieve waarnemingen (vanaf 1)
+count_breaks <- c(1, 4, 8, 12, 16)
+palette_colors <- viridis::viridis(length(count_breaks), option = "inferno", direction = -1)
+
+# 3. Visualisatie
+ggplot(plot_data_individuen, aes(x = periode_nr, y = transect)) +
+  
+  # Connecting line per transect
+  geom_line(
+    data = . %>% filter(is_bezocht),
+    aes(group = transect),
+    color = "grey80"
+  ) +
+  
+  # Nul-tellingen (bezocht, maar 0 individuen): vast neutraal symbool
+  geom_point(
+    data = . %>% filter(is_nul),
+    shape       = 1,
+    size        = 2,
+    stroke      = 0.8,
+    color       = "grey50",
+    show.legend = FALSE
+  ) +
+  
+  # Positieve aantallen (> 0): gekleurd en geschaald
+  geom_point(
+    data = . %>% filter(heeft_aantal),
+    aes(colour = aantal, size = aantal),
+    shape = 16
+  ) +
+  
+  # Rode kruisjes voor niet-bezochte transecten
+  geom_point(
+    data = . %>% filter(is_onbezocht),
+    shape       = 4,
+    size        = 3,
+    stroke      = 1.1,
+    color       = "red",
+    show.legend = FALSE
+  ) +
+  
+  # Grootte-schaal uitsluitend voor positieve aantallen
+  scale_size_continuous(
+    range  = c(2, 6),
+    limits = c(1, max(count_breaks)),
+    breaks = count_breaks
+  ) +
+  
+  # Kleurverloop uitsluitend voor positieve aantallen
+  scale_colour_gradientn(
+    colours = palette_colors,
+    limits  = c(1, max(count_breaks)),
+    breaks  = count_breaks,
+    guide   = "legend"
+  ) +
+  
+  # Legende omkeren: hoogste aantal bovenaan, 1 onderaan
+  guides(
+    colour = guide_legend(reverse = TRUE),
+    size   = guide_legend(reverse = TRUE)
+  ) +
+  
+  labs(
+    x       = "Telperiode",
+    y       = "Transect",
+    colour  = "Aantal\nnesten",
+    size    = "Aantal\nnesten"
+  ) +
+  facet_grid(boscluster ~ jaar, scales = "free_y") +
+  theme_minimal()
 ```
 
 ## Model fit
 
 ## Resultaten
-
-
