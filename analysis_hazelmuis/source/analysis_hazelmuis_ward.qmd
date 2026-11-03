@@ -1086,7 +1086,7 @@ $$
 
 We selecteren de data als volgt:
 
-- apart model voor aantallen en nesten in nestbuis (geen sporen)
+- apart model voor aantallen en (verse) nesten in nestbuis (geen sporen)
 - enkel zekere identificatie hazelmuis
 - jaar is een factorvariabele, we nemen 2021 als referentiejaar
 - we beschouwen 3 bosclusters
@@ -1099,6 +1099,55 @@ We selecteren de data als volgt:
   - T3: 12 september t/m 18 oktober (uitzondering Konenbos 2024: t/m 10 okt.)
   - T4: 19 oktober t/m 20 november (uitzondering Konenbos 2024: vanaf 11 okt.)
 - als offset nemen we het aantal vrije nestbuizen per transect. D.w.z. aantal bezochte nestbuizen waar geen andere diersoort aanwezig was
+
+> Zowel seizoen als telperiode meenemen seizoen + seizoen:periode?
+
+> Telperiodes als autoregressieve tijdreeksstructuur of een Random Walk / Spline modelleren?
+
+```{r}
+# Calculate offset
+
+
+# Analysis dataset individual count
+analyseset_individuen  <- nestbuizen_occupancy %>%
+  filter(
+   activiteit == "in nestbuis", # Select individual count
+   soort_groep == "Hazelmuis"   # Select species of interest
+  ) %>% 
+  mutate(
+    fjaar = factor(jaar, levels = c(2021, 2020, 2022, 2023, 2024, 2025))
+  ) %>%
+  select(boscluster = cluster, transect = locatie, fjaar, telperiode = periode,
+         totaal_aantal) %>%
+  summarise(
+    aantal = sum(totaal_aantal),
+    .by = c(boscluster, transect, fjaar, telperiode)
+  )
+
+# Analysis dataset fresh nest count
+analyseset_nesten  <- nestbuizen_occupancy %>%
+  filter(
+   activiteit == "nest",       # Select nest count
+   soort_groep == "Hazelmuis"  # Select species of interest
+  ) %>%
+  # Only take into account fresh nests
+  mutate(
+    totaal_aantal = ifelse(
+      status_waarneming == "aanwezig - vers",
+      totaal_aantal,
+      0
+    )
+  ) %>% 
+  mutate(
+    fjaar = factor(jaar, levels = c(2021, 2020, 2022, 2023, 2024, 2025))
+  ) %>%
+  select(boscluster = cluster, transect = locatie, fjaar, telperiode = periode,
+         totaal_aantal) %>%
+  summarise(
+    aantal = sum(totaal_aantal),
+    .by = c(boscluster, transect, fjaar, telperiode)
+  )
+```
 
 ## Model fit
 
