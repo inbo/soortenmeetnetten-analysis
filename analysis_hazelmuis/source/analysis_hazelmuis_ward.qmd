@@ -221,6 +221,7 @@ max_jaar     <- max(nestbuizen_waarnemingen$jaar, na.rm = TRUE)
 
 In totaal hebben we `r n_nestbuizen` nestbuizen verspreid over `r n_locaties` transecten.
 We hebben data van `r min_jaar` tot en met `r max_jaar`.
+We splitsen de data in 3 geografische bosclusters.
 
 ```{r}
 nestbuizen_waarnemingen %>%
@@ -244,10 +245,10 @@ nestbuizen_waarnemingen %>%
 ```
 
 Deze overzichtsfiguur toont dat sommige transecten soms niet bezocht zijn (rode kruisjes).
-Andere transecten zijn meerdere malen per telperiode bezocht.
 In sommige gevallen zijn niet alle nestbuizen per transect geteld.
 Volledig getelde transecten zijn blauw met paarse rand.
 Zie `missing_data_hazelmuis_ward.qmd` voor meer details.
+Het gaat vak om verloren of kapotte nestbuizen.
 
 ```{r}
 #| fig.width: 8
@@ -468,6 +469,9 @@ plot_data %>%
   theme_minimal()
 ```
 
+We visualiseren de transecten ook op een overzichtskaartje.
+Met de checkboxes kan de getoonde data gefilterd worden in de weergave.
+
 ```{r}
 bscols(
   filter_checkbox("activiteit_label", "Type waarneming", sd_buizen, ~activiteit_label),
@@ -549,6 +553,7 @@ occurrence_jaar <- occurrence_nestbuizen %>%
 ```
 
 Onderstaande figuur geeft de globale bezettingsgraad van de nestbuizen weer doorheen de tijd voor de verschillende typen waarnemingen.
+We zien vooral individuen en nesten.
 
 ```{r}
 #| fig-width: 8
@@ -582,7 +587,7 @@ occurrence_jaar %>%
 
 ```
 
-Omdat de populatiedynamiek en habitatkwaliteit sterk kunnen verschillen per boscomplex, splitsen we de jaarlijkse trends vervolgens op per transect. De panelen zijn geordend per boscluster om de geografische samenhang te bewaren.
+We splitsen de jaarlijkse trends ook op per transect.
 
 ```{r}
 #| fig-width: 10
@@ -603,7 +608,6 @@ occurrence_locatie %>%
     limits = c(0, NA),
     expand = expansion(mult = c(0, 0.05))
   ) +
-  scale_colour_brewer(palette = "Dark2") +
   labs(
     x = "Jaar",
     y = "Aandeel bezette nestbuizen",
@@ -621,7 +625,8 @@ occurrence_locatie %>%
 
 ## Kolonisatiedynamiek en verblijfsduur
 
-Om de dynamiek van kolonisatie (nieuwe bezetting), aanhoudende bezetting en verlating per nestbuis te ontleden, vergelijken we de toestand met de voorgaande meetstap. We splitsen dit structureel op per type waarneming:
+Om de dynamiek van kolonisatie (nieuwe bezetting), aanhoudende bezetting en verlating per nestbuis te ontleden, vergelijken we de toestand met de voorgaande meetstap. We splitsen dit op per type waarneming:
+
 * **Individuen:** actuele aanwezigheid van hazelmuizen in de buis.
 * **Nest (vers):** aanwezigheid van een vers hazelmuisnest (spoor van bezetting).
 
@@ -650,6 +655,8 @@ base_activiteit <- nestbuizen_occupancy %>%
 ### Bezettingsturnover
 
 We bepalen per nestbuis, jaar en type waarneming of er minstens één bezettingsregistratie was, en vergelijken die met het voorgaande jaar.
+
+> Voorlopig wordt een niet getelde nestbuis als "niet bezet" opgenomen. Dit zou ook nog apart gekleurd kunnen worden.
 
 ```{r}
 #| message: false
@@ -719,7 +726,7 @@ buis_jaar_status %>%
   scale_fill_manual(values = kleuren_dynamiek) +
   facet_grid(cluster ~ activiteit_label, scales = "free_y") +
   labs(
-    title = "Jaarlijkse dynamiek per boscluster en type waarneming",
+    title = "Jaarlijkse dynamiek per boscluster",
     x = "Jaar",
     y = "Aantal nestbuizen",
     fill = "Status bezetting"
@@ -783,7 +790,7 @@ buis_periode_status %>%
   scale_fill_manual(values = kleuren_dynamiek) +
   facet_wrap(~activiteit_label, ncol = 1) +
   labs(
-    title = "Dynamiek per telperiode (T1 t/m T4)",
+    title = "Dynamiek per telperiode",
     x = "Telperiode",
     y = "Aantal nestbuizen",
     fill = "Status bezetting"
@@ -794,6 +801,31 @@ buis_periode_status %>%
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
 ```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 8
+buis_periode_status %>%
+  filter(!str_detect(dynamiek, "Eerste periode")) %>%
+  ggplot(aes(x = tijd_label, fill = dynamiek)) +
+  geom_bar(position = "stack", color = "black", width = 0.7) +
+  scale_fill_manual(values = kleuren_dynamiek) +
+  facet_grid(cluster ~ activiteit_label, scales = "free_y") +
+  labs(
+    title = "Dynamiek per telperiode per boscluster",
+    x = "Telperiode",
+    y = "Aantal nestbuizen",
+    fill = "Status bezetting"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 60, hjust = 1),
+    strip.background = element_rect(fill = "grey95", colour = NA)
+  )
+```
+
+> Is de volgende figuur duidelijker?
 
 ```{r}
 #| fig-width: 12
@@ -816,22 +848,24 @@ buis_periode_status %>%
     axis.text.x = element_text(angle = 60, hjust = 1),
     strip.background = element_rect(fill = "grey95", colour = NA)
   )
-
 ```
-
 
 ### Transitiestromen van individuele nestbuizen
 
 Met een alluvial diagram volgen we de toestand (*Bezet* vs. *Leeg*) van elke individuele nestbuis doorheen opeenvolgende jaren of telrondes.
 
+Per jaar:
+
 ```{r}
+#| cache: true
 #| fig-width: 10
 #| fig-height: 5
 alluvial_jaar_data <- buis_jaar_status %>%
   mutate(status_label = factor(if_else(bezet, "Bezet", "Leeg"), levels = c("Bezet", "Leeg")))
 
 ggplot(
-  alluvial_jaar_data,
+  alluvial_jaar_data %>%
+    filter(activiteit_label == "individuen"),
   aes(
     x = factor(jaar),
     stratum = status_label,
@@ -840,12 +874,34 @@ ggplot(
     label = status_label
   )
 ) +
-  scale_fill_manual(values = c("Bezet" = "#2e7d32", "Leeg" = "grey80")) +
-  geom_flow(stat = "alluvium", color = "darkgray", alpha = 0.45) +
-  geom_stratum(stat = "alluvium", color = "white") +
-  facet_wrap(~activiteit_label, ncol = 1) +
+  scale_fill_manual(values = c("Bezet" = "#2e7d32", "Leeg" = "red")) +
+  geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray", alpha = 0.5) +
+  geom_stratum(stat = "alluvium") +
   labs(
-    title = "Spreiding en stroom van nestbuisbezetting over de jaren",
+    title = "Spreiding en stroom van individuen over de jaren",
+    x = "Jaar",
+    y = "Aantal nestbuizen",
+    fill = "Status"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+ggplot(
+  alluvial_jaar_data %>%
+    filter(grepl("^nest", activiteit_label)),
+  aes(
+    x = factor(jaar),
+    stratum = status_label,
+    alluvium = sublocatie,
+    fill = status_label,
+    label = status_label
+  )
+) +
+  scale_fill_manual(values = c("Bezet" = "#2e7d32", "Leeg" = "red")) +
+  geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray", alpha = 0.5) +
+  geom_stratum(stat = "alluvium") +
+  labs(
+    title = "Spreiding en stroom van nesten over de jaren",
     x = "Jaar",
     y = "Aantal nestbuizen",
     fill = "Status"
@@ -854,16 +910,18 @@ ggplot(
   theme(legend.position = "bottom")
 ```
 
-##### Alluvial per telperiode gefacetteerd per type waarneming
+Per telperiode:
 
 ```{r}
+#| cache: true
 #| fig-width: 12
 #| fig-height: 6.5
 alluvial_periode_data <- buis_periode_status %>%
   mutate(status_label = factor(if_else(bezet, "Bezet", "Leeg"), levels = c("Bezet", "Leeg")))
 
 ggplot(
-  alluvial_periode_data,
+  alluvial_periode_data %>%
+    filter(activiteit_label == "individuen"),
   aes(
     x = tijd_label,
     stratum = status_label,
@@ -872,12 +930,37 @@ ggplot(
     label = status_label
   )
 ) +
-  scale_fill_manual(values = c("Bezet" = "#2e7d32", "Leeg" = "grey80")) +
-  geom_flow(stat = "alluvium", color = "darkgray", alpha = 0.4) +
-  geom_stratum(stat = "alluvium", color = "white") +
-  facet_wrap(~activiteit_label, ncol = 1) +
+  scale_fill_manual(values = c("Bezet" = "#2e7d32", "Leeg" = "red")) +
+  geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray", alpha = 0.5) +
+  geom_stratum(stat = "alluvium") +
   labs(
     title = "Verloop van nestbuisbezetting over alle opeenvolgende telperiodes",
+    x = "Telperiode (Jaar - Ronde)",
+    y = "Aantal nestbuizen",
+    fill = "Status"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 60, hjust = 1)
+  )
+
+ggplot(
+  alluvial_periode_data %>%
+    filter(grepl("^nest", activiteit_label)),
+  aes(
+    x = tijd_label,
+    stratum = status_label,
+    alluvium = sublocatie,
+    fill = status_label,
+    label = status_label
+  )
+) +
+  scale_fill_manual(values = c("Bezet" = "#2e7d32", "Leeg" = "red")) +
+  geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray", alpha = 0.5) +
+  geom_stratum(stat = "alluvium") +
+  labs(
+    title = "Verloop van nesten over alle opeenvolgende telperiodes",
     x = "Telperiode (Jaar - Ronde)",
     y = "Aantal nestbuizen",
     fill = "Status"
@@ -918,7 +1001,7 @@ statistieken_persistence <- persistence_data %>%
     .groups          = "drop"
   )
 
-knitr::kable(
+kable(
   statistieken_persistence,
   digits = 2,
   col.names = c("Type waarneming", "Gemiddelde (T's)", "Mediaan (T's)", "Max duur (T's)", "Aantal episodes"),
@@ -926,14 +1009,11 @@ knitr::kable(
 )
 ```
 
-##### Verdeling van de verblijfsduur per cluster en type waarneming
-
 ```{r}
 #| fig-width: 10
 #| fig-height: 4.5
 ggplot(persistence_data, aes(x = factor(opeenvolgende_periodes), fill = cluster)) +
   geom_bar(position = "dodge", color = "black", alpha = 0.85) +
-  scale_fill_brewer(palette = "Set2") +
   facet_wrap(~activiteit_label, scales = "free") +
   labs(
     title = "Verdeling van de verblijfsduur (Persistence Time)",
@@ -948,7 +1028,7 @@ ggplot(persistence_data, aes(x = factor(opeenvolgende_periodes), fill = cluster)
   )
 ```
 
-##### Boxplot verblijfsduur per cluster en type waarneming
+Boxplot verblijfsduur per cluster en type waarneming.
 
 ```{r}
 #| fig-width: 9
@@ -956,7 +1036,6 @@ ggplot(persistence_data, aes(x = factor(opeenvolgende_periodes), fill = cluster)
 ggplot(persistence_data, aes(x = cluster, y = opeenvolgende_periodes, fill = cluster)) +
   geom_boxplot(alpha = 0.6, outlier.shape = NA) +
   geom_jitter(width = 0.2, alpha = 0.6, size = 2) +
-  scale_fill_brewer(palette = "Set2") +
   scale_y_continuous(limits = c(0, NA)) +
   facet_wrap(~activiteit_label, scales = "free") +
   labs(
