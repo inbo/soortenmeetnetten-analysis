@@ -1049,3 +1049,59 @@ ggplot(persistence_data, aes(x = cluster, y = opeenvolgende_periodes, fill = clu
     strip.background = element_rect(fill = "grey95", colour = NA)
   )
 ```
+
+# Statistisch model
+
+We willen een jaarlijkse trend berekenen voor de hazelmuis.
+We zullen dit doen door zowel het aantal individuen als het aantal nesten per transect te modelleren (apart) waarbij we een offset gebruiken voor het aantal vrije nestbuizen per transect.
+
+## Model specificatie
+
+We modelleren het aantal individuen/nesten van hazelmuis $Y_i$ per telling op transect $i$ met een negatief-binomiaal model:
+
+$$
+Y_i \sim \operatorname{NegBin}(\mu_i, \nu)
+$$
+
+waarbij
+
+$$
+\log(\mu_i) =
+\beta_0 +
+\beta_{\mathrm{jaar}[i]} +
+\beta_{\mathrm{boscluster}[i]} +
+\beta_{\mathrm{telperiode}[i]} +
+\log(n_{\mathrm{nestbuis},i}) +
+b_{\mathrm{transect}(boscluster),i}
+$$
+
+Hierbij is $\log(n_{\mathrm{nestbuis},i})$ een offset die corrigeert voor het aantal vrije nestbuizen op het transect.
+Het transect wordt gemodelleerd als een random effect, genest binnen boscluster:
+
+$$
+b_{\mathrm{transect}(boscluster),i}
+\sim
+\mathcal{N}(0,\sigma^2_{\mathrm{transect}})
+$$
+
+We selecteren de data als volgt:
+
+- apart model voor aantallen en nesten in nestbuis (geen sporen)
+- enkel zekere identificatie hazelmuis
+- jaar is een factorvariabele, we nemen 2021 als referentiejaar
+- we beschouwen 3 bosclusters
+  - boscluster1: Veursbos, Broekbos, Konenbos (REF: meeste data)
+  - boscluster2: Teuvenereberg, Obsinnisch
+  - boscluster3: Vrouwenbos
+- we definiëren 4 telperiodes
+  - T1: april (REF)
+  - T2: mei
+  - T3: 12 september t/m 18 oktober (uitzondering Konenbos 2024: t/m 10 okt.)
+  - T4: 19 oktober t/m 20 november (uitzondering Konenbos 2024: vanaf 11 okt.)
+- als offset nemen we het aantal vrije nestbuizen per transect. D.w.z. aantal bezochte nestbuizen waar geen andere diersoort aanwezig was
+
+## Model fit
+
+## Resultaten
+
+
