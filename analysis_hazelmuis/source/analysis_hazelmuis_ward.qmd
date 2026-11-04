@@ -11,6 +11,9 @@ format:
     code-fold: true
     self-contained: true
 
+execute:
+  freeze: auto
+
 editor_options: 
   chunk_output_type: console
 ---
@@ -894,7 +897,6 @@ Met een alluvial diagram volgen we de toestand (*Bezet* vs. *Leeg*) van elke ind
 Per jaar:
 
 ```{r}
-#| cache: true
 #| fig-width: 10
 #| fig-height: 5
 alluvial_jaar_data <- buis_jaar_status %>%
@@ -950,7 +952,6 @@ ggplot(
 Per telperiode:
 
 ```{r}
-#| cache: true
 #| fig-width: 12
 #| fig-height: 6.5
 alluvial_periode_data <- buis_periode_status %>%
@@ -2005,13 +2006,6 @@ plot_inla_effects(
   ref_label    = "boscluster1",
   threshold    = c(min_threshold, max_threshold),
   y_limits     = c(-log(2.1), log(2.1))
-)
-```
-
-```{r}
-plot_caterpillar_inla(
-  inla_model = best_models$nesten$model,
-  random_var = "transect"
 )
 ```
 
