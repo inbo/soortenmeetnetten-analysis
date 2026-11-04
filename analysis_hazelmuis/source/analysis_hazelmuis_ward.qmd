@@ -1103,10 +1103,6 @@ We selecteren de data als volgt:
   - T4: 19 oktober t/m 20 november (uitzondering Konenbos 2024: vanaf 11 okt.)
 - als offset nemen we het aantal vrije nestbuizen per transect. D.w.z. aantal bezochte nestbuizen waar geen andere diersoort aanwezig was
 
-> Zowel seizoen als telperiode meenemen seizoen + seizoen:periode?
-
-> Telperiodes als autoregressieve tijdreeksstructuur of een Random Walk / Spline modelleren?
-
 ```{r}
 # Calculate offset
 occupied_nesting_tubes <- nestbuizen_occupancy %>%
@@ -1924,10 +1920,17 @@ plot_inla_effects(
 ```
 
 ```{r}
+# Create lookup table of transect to boscluster
+cluster_info <- analyseset_individuen %>%
+  distinct(transect, boscluster)
+
+# Run with lookup
 plot_caterpillar_inla(
-  inla_model = best_models$individuen$model,
-  random_var = "transect"
-)
+  inla_model     = best_models$individuen$model,
+  random_var     = "transect",
+  cluster_lookup = cluster_info
+) + 
+  facet_grid(boscluster ~ ., scales = "free_y", space = "free_y")
 ```
 
 ### Nesten
@@ -1976,4 +1979,14 @@ plot_caterpillar_inla(
   inla_model = best_models$nesten$model,
   random_var = "transect"
 )
+```
+
+```{r}
+# Run with lookup
+plot_caterpillar_inla(
+  inla_model     = best_models$nesten$model,
+  random_var     = "transect",
+  cluster_lookup = cluster_info
+) + 
+  facet_grid(boscluster ~ ., scales = "free_y", space = "free_y")
 ```
