@@ -2190,24 +2190,7 @@ model_comparison_cluster$individuen$boscluster3 %>%
   kable()
 ```
 
-We vergelijken de geobserveerde distributie met de gemodelleerde.
-
-```{r}
-#| message: false
-#| warning: false
-set.seed(123)
-dc_ind_cl3 <- distribution_check(best_models_cluster$individuen$boscluster3$model)
-plot(dc_ind_cl3)
-```
-
-We controleren ook over- of onderdispersie.
-
-```{r}
-#| message: false
-#| warning: false
-disp_ind_cl3 <- dispersion_check(best_models_cluster$individuen$boscluster3$model)
-plot(disp_ind_cl3)
-```
+> inlatools not available for ZINB
 
 ### Nesten per boscluster
 
@@ -2341,7 +2324,7 @@ Als schatting rapporteren we de posterior mediaan en als geloofwaardigheidsinter
 
 ```{r}
 #| fig.width: 8
-#| fig.heigth: 8
+#| fig.heigth: 12
 plot_inla_effects(
   results      = model_summaries_cluster$individuen,
   effect_label = "fjaar",
@@ -2354,7 +2337,7 @@ plot_inla_effects(
 
 ```{r}
 #| fig.width: 8
-#| fig.heigth: 8
+#| fig.heigth: 12
 plot_inla_effects(
   results      = model_summaries_cluster$individuen,
   effect_label = "telperiode",
@@ -2403,7 +2386,7 @@ Als schatting rapporteren we de posterior mediaan en als geloofwaardigheidsinter
 
 ```{r}
 #| fig.width: 8
-#| fig.heigth: 8
+#| fig.heigth: 12
 plot_inla_effects(
   results      = model_summaries_cluster$nesten,
   effect_label = "fjaar",
@@ -2416,7 +2399,7 @@ plot_inla_effects(
 
 ```{r}
 #| fig.width: 8
-#| fig.heigth: 8
+#| fig.heigth: 12
 plot_inla_effects(
   results      = model_summaries_cluster$nesten,
   effect_label = "telperiode",
