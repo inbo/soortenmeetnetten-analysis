@@ -113,7 +113,7 @@ visits_meta <- get_visits_smp() %>%
 # Read observations and standardize basic columns upfront
 nestbuizen_base <- read_vc(
   root = fileman_up("soortenmeetnetten-queries"),
-  file = "raw/aantal_hazelmuis_nestbuizen2"
+  file = "raw/aantal_hazelmuis_nestbuizen"
 ) %>%
   mutate(visit_id = as.character(visit_id)) %>%
   left_join(visits_meta, by = "visit_id") %>%

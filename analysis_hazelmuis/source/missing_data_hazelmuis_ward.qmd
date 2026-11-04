@@ -38,7 +38,7 @@ Nagaan waar missing data is of waar we tellingen moeten corrigeren/samenvoegen.
 # Get data
 visits_hazelmuis <- get_visits_smp() %>%
   filter(meetnet == "Hazelmuis - Nestbuizen")
-hazelmuis_nestbuis_raw <- read_vc("raw/aantal_hazelmuis_nestbuizen2", root = data_path) %>%
+hazelmuis_nestbuis_raw <- read_vc("raw/aantal_hazelmuis_nestbuizen", root = data_path) %>%
   mutate(visit_id = as.numeric(visit_id))
 
 # Occurrence dataset
