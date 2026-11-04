@@ -9,10 +9,7 @@ format:
     toc-depth: 3
     toc-location: right
     code-fold: true
-    self-contained: true
-
-execute:
-  freeze: auto
+    embed-resources: true
 
 editor_options: 
   chunk_output_type: console
@@ -897,6 +894,7 @@ Met een alluvial diagram volgen we de toestand (*Bezet* vs. *Leeg*) van elke ind
 Per jaar:
 
 ```{r}
+#| cache: true
 #| fig-width: 10
 #| fig-height: 5
 alluvial_jaar_data <- buis_jaar_status %>%
@@ -952,6 +950,7 @@ ggplot(
 Per telperiode:
 
 ```{r}
+#| cache: true
 #| fig-width: 12
 #| fig-height: 6.5
 alluvial_periode_data <- buis_periode_status %>%
@@ -1048,6 +1047,7 @@ kable(
 ```
 
 ```{r}
+#| cache: true
 #| fig-width: 10
 #| fig-height: 4.5
 ggplot(persistence_data, aes(x = factor(opeenvolgende_periodes), fill = cluster)) +
@@ -1069,6 +1069,7 @@ ggplot(persistence_data, aes(x = factor(opeenvolgende_periodes), fill = cluster)
 Boxplot verblijfsduur per cluster en type waarneming.
 
 ```{r}
+#| cache: true
 #| fig-width: 9
 #| fig-height: 4.5
 ggplot(persistence_data, aes(x = cluster, y = opeenvolgende_periodes, fill = cluster)) +
@@ -1752,6 +1753,7 @@ ggplot(plot_data_nesten2, aes(x = periode_nr, y = transect)) +
 ## Model fit
 
 ```{r}
+#| cache: true
 # 1. Base formula
 formula_hazelmuis <- aantal ~ 
   fjaar + 
@@ -1832,6 +1834,7 @@ model_comparison$individuen %>%
 We vergelijken de geobserveerde distributie met de gemodelleerde.
 
 ```{r}
+#| cache: true
 #| message: false
 #| warning: false
 set.seed(123)
@@ -1842,6 +1845,7 @@ plot(dc_individuen)
 We controleren ook over- of onderdispersie.
 
 ```{r}
+#| cache: true
 #| message: false
 #| warning: false
 disp_individuen <- dispersion_check(best_models$individuen$model)
@@ -1860,6 +1864,7 @@ model_comparison$nesten %>%
 We vergelijken de geobserveerde distributie met de gemodelleerde.
 
 ```{r}
+#| cache: true
 #| message: false
 #| warning: false
 set.seed(123)
@@ -1870,6 +1875,7 @@ plot(dc_nesten)
 We controleren ook over- of onderdispersie.
 
 ```{r}
+#| cache: true
 #| message: false
 #| warning: false
 disp_nesten <- dispersion_check(best_models$nesten$model)
@@ -2024,6 +2030,7 @@ plot_caterpillar_inla(
 ## Model fit
 
 ```{r}
+#| cache: true
 # 1. Base formula (without fixed boscluster effect, with formula offset)
 formula_hazelmuis_cluster <- aantal ~ 
   fjaar + 
