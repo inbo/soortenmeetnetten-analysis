@@ -54,6 +54,8 @@ source(file.path(fileman_up("soortenmeetnetten-analysis"),
 
 # Achtergrond
 
+## Meetnet hazelmuis
+
 Hazelmuis komt voor op Bijlage IV van Habitatrichtlijn.
 Monitoring voor 6-jaarlijke rapportage Staat van Instandhouding (SVI) als onderdeel van de Soortenmeetnetten.
 De soort komt in Vlaanderen enkel voor in de Voerstreek.
@@ -75,6 +77,27 @@ Het meetnet bestaat uit 2 delen:
 We focussen ons in dit rapport op de nestbuistellingen.
 
 Concreet willen we een model voor (1) het aantal individuen en (2) het aantal nesten waaruit we jaarlijkse trends kunnen afleiden.
+
+## Uitgevoerde analyses
+
+Toon Westra voerde reeds enkele analyses uit (zie [deze analyse](https://github.com/inbo/soortenmeetnetten-analysis/tree/main/analysis_hazelmuis/source) in [analysis_hazelmuis](https://github.com/inbo/soortenmeetnetten-analysis/tree/main/analysis_hazelmuis)).
+
+Hierbij werd een logistische regressie uitgevoerd met random effect voor nestbuis en locatie (met INLA).
+Hierbij werden per jaar enkel de data van nestbuizen met minstens 3 bezoeken weerhouden.
+Dit werd gefit op geaggregeerde data:
+
+- Aan-/afwezigheid vers nest per nestbuis per bezoek → Aan-/afwezigheid (minstens 1) vers nest per nestbuis per jaar
+- Aantallen adult, subadult, juveniel per nestbuis per bezoek → Aan-/afwezigheid (minstens 1) individu per nestbuis per jaar
+- Aggregatie andere soorten
+
+**Potentiële verbeteringen:**
+
+- Geen proporties vergelijken met elkaar
+- Enkel werken met vrije nestbuizen, dus niet waar andere muis in is gevonden
+- Omgaan met verschillend aantal bezoeken per nestbuis (geen aggregatie)
+- Poisson/Neg-bin model o.b.v. aantal nesten/individuen per transect met aantal vrije nestbuizen als offset (zie [doi: 10.1111/mam.12091](https://doi.org/10.1111/mam.12091))
+
+# Data exploratie
 
 ```{r}
 # ==============================================================================
@@ -167,7 +190,6 @@ nestbuizen_waarnemingen <- nestbuizen_base %>%
   arrange(locatie, datum, nestbuis_nr)
 ```
 
-
 ```{r}
 # ==============================================================================
 # 3. OCCUPANCY DATASET (Aggregated Presence/Absence per Tube Visit)
@@ -224,7 +246,6 @@ nestbuizen_occupancy <- nestbuizen_base %>%
   rename(sublocatie = sublocatie_volledig)
 ```
 
-# Data exploratie
 ## Design
 
 ```{r}
