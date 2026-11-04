@@ -1053,7 +1053,7 @@ ggplot(persistence_data, aes(x = cluster, y = opeenvolgende_periodes, fill = clu
   )
 ```
 
-# Statistisch model
+# Algemene trends
 
 We willen een jaarlijkse trend berekenen voor de hazelmuis.
 We zullen dit doen door zowel het aantal individuen als het aantal nesten per transect te modelleren (apart) waarbij we een offset gebruiken voor het aantal vrije nestbuizen per transect.
@@ -1313,10 +1313,54 @@ nestbuizen_occupancy %>%
   theme_minimal()
 ```
 
+We kijken ook even naar de correlatie tussen het aantal individuen en nestbuizen.
+
+```{r}
+p_corr1 <- analyseset_individuen %>%
+  rename(aantal_ind = aantal) %>%
+  left_join(
+    analyseset_nesten %>%
+      rename(aantal_nest = aantal),
+    by = join_by(boscluster, transect, telperiode, n_nestbuizen, fjaar)
+  ) %>%
+  ggplot(aes(x = aantal_ind, y = aantal_nest)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = "y ~ x") +
+  geom_abline(intercept = 0, slope = 1,
+              colour = "darkgrey", linetype = "dashed") +
+  labs(x = "Aantal individuen", y = "Aantal nesten") +
+  theme_minimal()
+
+ggExtra::ggMarginal(p_corr1, type = "boxplot", outlier.colour = "firebrick")
+```
+
+```{r}
+p_corr2 <- analyseset_individuen %>%
+  rename(aantal_ind = aantal) %>%
+  left_join(
+    analyseset_nesten %>%
+      rename(aantal_nest = aantal),
+    by = join_by(boscluster, transect, telperiode, n_nestbuizen, fjaar)
+  ) %>%
+  mutate(
+    prop_ind = aantal_ind / n_nestbuizen,
+    prop_nest = aantal_nest / n_nestbuizen
+  ) %>%
+  ggplot(aes(x = prop_ind, y = prop_nest)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = "y ~ x") +
+  geom_abline(intercept = 0, slope = 1,
+              colour = "darkgrey", linetype = "dashed") +
+  labs(x = "Aantal individuen per vrije nestbuis",
+       y = "Aantal nesten per vrije nestbuis") +
+  theme_minimal()
+ggExtra::ggMarginal(p_corr2, type = "boxplot", outlier.colour = "firebrick")
+```
+
+### Individuen
+
 We bekijken hoe de aantallen zijn verdeeld.
 Lege cirkels zijn nul-tellingen.
-
-Aantal individuen:
 
 ```{r}
 #| fig.width: 8
@@ -1495,7 +1539,7 @@ ggplot(plot_data_individuen2, aes(x = periode_nr, y = transect)) +
   theme_minimal()
 ```
 
-Aantal nesten:
+### Nesten
 
 ```{r}
 #| fig.width: 8
@@ -1674,50 +1718,6 @@ ggplot(plot_data_nesten2, aes(x = periode_nr, y = transect)) +
   theme_minimal()
 ```
 
-We kijken ook even naar de correlatie tussen het aantal individuen en nestbuizen.
-
-```{r}
-p_corr1 <- analyseset_individuen %>%
-  rename(aantal_ind = aantal) %>%
-  left_join(
-    analyseset_nesten %>%
-      rename(aantal_nest = aantal),
-    by = join_by(boscluster, transect, telperiode, n_nestbuizen, fjaar)
-  ) %>%
-  ggplot(aes(x = aantal_ind, y = aantal_nest)) +
-  geom_point() +
-  geom_smooth(method = "lm", formula = "y ~ x") +
-  geom_abline(intercept = 0, slope = 1,
-              colour = "darkgrey", linetype = "dashed") +
-  labs(x = "Aantal individuen", y = "Aantal nesten") +
-  theme_minimal()
-
-ggExtra::ggMarginal(p_corr1, type = "boxplot", outlier.colour = "firebrick")
-```
-
-```{r}
-p_corr2 <- analyseset_individuen %>%
-  rename(aantal_ind = aantal) %>%
-  left_join(
-    analyseset_nesten %>%
-      rename(aantal_nest = aantal),
-    by = join_by(boscluster, transect, telperiode, n_nestbuizen, fjaar)
-  ) %>%
-  mutate(
-    prop_ind = aantal_ind / n_nestbuizen,
-    prop_nest = aantal_nest / n_nestbuizen
-  ) %>%
-  ggplot(aes(x = prop_ind, y = prop_nest)) +
-  geom_point() +
-  geom_smooth(method = "lm", formula = "y ~ x") +
-  geom_abline(intercept = 0, slope = 1,
-              colour = "darkgrey", linetype = "dashed") +
-  labs(x = "Aantal individuen per vrije nestbuis",
-       y = "Aantal nesten per vrije nestbuis") +
-  theme_minimal()
-ggExtra::ggMarginal(p_corr2, type = "boxplot", outlier.colour = "firebrick")
-```
-
 ## Model fit
 
 ```{r}
@@ -1726,7 +1726,8 @@ formula_hazelmuis <- aantal ~
   fjaar + 
   boscluster + 
   telperiode + 
-  f(transect, model = "iid")
+  f(transect, model = "iid")+
+  offset(log(n_nestbuizen))
 
 # 2. Named list of datasets and INLA families
 analysis_datasets <- list(
@@ -1748,7 +1749,6 @@ models <- lapply(analysis_datasets, function(df) {
       formula = formula_hazelmuis,
       family  = fam,
       data    = df,
-      offset  = log(df$n_nestbuizen),
       control.compute = list(
         config = TRUE,
         waic   = TRUE,
@@ -1765,8 +1765,8 @@ model_comparison <- lapply(models, function(fam_list) {
   model_names <- names(fam_list)
   model_summary <- lapply(fam_list, function(fam) {
     data.frame(
-      waic         = fam$waic$waic,
-      dic          = fam$dic$dic
+      waic = fam$waic$waic,
+      dic  = fam$dic$dic
     )
   }) %>%
     bind_rows()
@@ -1801,6 +1801,8 @@ model_comparison$individuen %>%
 We vergelijken de geobserveerde distributie met de gemodelleerde.
 
 ```{r}
+#| message: false
+#| warning: false
 set.seed(123)
 dc_individuen <- distribution_check(best_models$individuen$model)
 plot(dc_individuen)
@@ -1809,6 +1811,8 @@ plot(dc_individuen)
 We controleren ook over- of onderdispersie.
 
 ```{r}
+#| message: false
+#| warning: false
 disp_individuen <- dispersion_check(best_models$individuen$model)
 plot(disp_individuen)
 ```
@@ -1825,6 +1829,8 @@ model_comparison$nesten %>%
 We vergelijken de geobserveerde distributie met de gemodelleerde.
 
 ```{r}
+#| message: false
+#| warning: false
 set.seed(123)
 dc_nesten <- distribution_check(best_models$nesten$model)
 plot(dc_nesten)
@@ -1833,6 +1839,8 @@ plot(dc_nesten)
 We controleren ook over- of onderdispersie.
 
 ```{r}
+#| message: false
+#| warning: false
 disp_nesten <- dispersion_check(best_models$nesten$model)
 plot(disp_nesten)
 ```
@@ -1840,33 +1848,50 @@ plot(disp_nesten)
 ## Resultaten
 
 ```{r}
-# Summarise model outputs
-model_summaries <- lapply(best_models, function(final_model) {
-  m <- final_model$model
-  summary_model <- summary(m)
-  as.data.frame(summary_model$fixed) %>%
-    tibble::rownames_to_column("effect")
-})
-```
-
-```{r}
-source(file.path("source", "plot_inla_effects.R"))
+source(file.path(here::here(), "source", "add_effect_classification.R"))
+source(file.path(here::here(), "source", "plot_inla_effects.R"))
+source(file.path(here::here(), "source", "plot_caterpillar_inla.R"))
 
 # Define tresholds
 min_threshold <- log(0.75)
 max_threshold <- log(1.33)
 ```
 
+```{r}
+# Summarise model outputs
+model_summaries <- lapply(best_models, function(final_model) {
+  # Get model summary
+  m <- final_model$model
+  summary_model <- summary(m)
+
+  as.data.frame(summary_model$fixed) %>%
+    tibble::rownames_to_column("param") %>%
+    filter_out(grepl("Intercept", param)) %>%
+    
+    # Add effect classification
+    add_effect_classification(
+      cl_columns = c("0.025quant", "0.975quant"),
+      threshold = c(min_threshold, max_threshold),
+      reference = 0,
+      coarse = FALSE
+    ) %>%
+    select(-c("mode", "kld", "effect_code"))
+})
+```
+
 ### Individuen
 
 We vatten de resultaten samen van het finale model.
+De referentie is: jaar 2021, telperiode T1 en boscluster 1.
 
 ```{r}
 model_summaries$individuen %>%
+  mutate(param = gsub("^boscluster", "", param)) %>%
   kable()
 ```
 
 We kunnen dit ook visualiseren met effect classificatie.
+Als schatting rapporteren we de posterior mediaan en als geloofwaardigheidsintervallen de 2.5 en 97.5 % quantielen.
 
 ```{r}
 plot_inla_effects(
@@ -1895,6 +1920,13 @@ plot_inla_effects(
   ref_label    = "boscluster1",
   threshold    = c(min_threshold, max_threshold),
   y_limits     = c(-log(3.3), log(3.3))
+)
+```
+
+```{r}
+plot_caterpillar_inla(
+  inla_model = best_models$individuen$model,
+  random_var = "transect"
 )
 ```
 
@@ -1936,5 +1968,12 @@ plot_inla_effects(
   ref_label    = "boscluster1",
   threshold    = c(min_threshold, max_threshold),
   y_limits     = c(-log(2.1), log(2.1))
+)
+```
+
+```{r}
+plot_caterpillar_inla(
+  inla_model = best_models$nesten$model,
+  random_var = "transect"
 )
 ```

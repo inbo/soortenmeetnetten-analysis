@@ -22,13 +22,13 @@
 prepare_plot_data <- function(summary_df, effect_label, ref_label) {
   # 1. Filter and clean estimated effect levels
   plot_data <- summary_df %>%
-    dplyr::filter(grepl(paste0("^", effect_label), .data$effect)) %>%
-    dplyr::mutate(label = gsub(paste0("^", effect_label), "", .data$effect))
+    dplyr::filter(grepl(paste0("^", effect_label), .data$param)) %>%
+    dplyr::mutate(label = gsub(paste0("^", effect_label), "", .data$param))
   
   # 2. Construct explicit baseline row at log-effect = 0
   ref_data <- tibble::tibble(
-    label        = as.character(ref_label),
-    mean         = 0
+    label = as.character(ref_label),
+    mean  = 0
   )
   
   list(
@@ -62,13 +62,13 @@ prepare_plot_data <- function(summary_df, effect_label, ref_label) {
 #' @return A \code{ggplot} object.
 
 plot_inla_effects <- function(
-    results,
-    effect_label = NULL,
-    ref_label    = NULL,
-    threshold    = c(log(0.75), log(1.33)),
-    point_size   = 8,
-    text_size    = 4,
-    y_limits     = c(NA, NA)
+  results,
+  effect_label = NULL,
+  ref_label    = NULL,
+  threshold    = c(log(0.75), log(1.33)),
+  point_size   = 8,
+  text_size    = 4,
+  y_limits     = c(NA, NA)
 ) {
   # Normalize input structure
   if (is.data.frame(results)) {
