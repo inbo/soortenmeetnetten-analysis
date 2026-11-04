@@ -91,12 +91,12 @@ plot_inla_effects <- function(
   # 1. Extended ratios: generates multipliers up to 15x (+1400%) and 20x (+1900%)
   # Negative side retains standard INBO ratios: -80%, -75%, -67%, -50%, -33%, -20%
   index_breaks <- function() {
-    neg_fractions <- c(4/5, 3/4, 2/3, 1/2, 1/3, 1/5)
+    neg_fractions <- c(9/10, 4/5, 3/4, 2/3, 1/2, 1/3, 1/5)
     neg_breaks    <- log(sort(1 - neg_fractions))    # Down to log(0.20) = -80%
     
     # Explicit positive multipliers to handle large surges:
     # 1.25x (+25%), 1.5x (+50%), 2x (+100%), 3x (+200%), 5x (+400%), 7.5x (+650%), 10x (+900%), 15x (+1400%)
-    pos_multipliers <- c(1.25, 1.5, 2, 3, 5, 7.5, 10, 15, 20)
+    pos_multipliers <- c(1.25, 1.5, 2, 3, 5, 7.5, 10, 15, 20, 25)
     pos_breaks      <- log(pos_multipliers)
     
     sort(unique(c(neg_breaks, 0, pos_breaks)))

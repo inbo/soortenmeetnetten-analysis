@@ -18,21 +18,34 @@ editor_options:
 ```{r}
 #| warning: false
 #| message: false
-library(tidyverse)
-library(ggalluvial)
-library(scales)
-library(sf)
-library(leaflet)
-library(leaflet.extras)
-library(crosstalk)
-library(knitr)
-library(n2khab)
-library(INBOtheme)
-library(INLA)
-library(inlatools)
-library(effectclass)
+# --- Data manipulation & Core ---
+library(tidyverse)      # Core ecosystem for data wrangling and plotting
+library(scales)         # Formatting and transformations
+
+# --- Spatial analysis & Interactive mapping ---
+library(sf)             # Handling spatial vector data (simple features)
+library(leaflet)        # Interactive web maps
+library(leaflet.extras) # Extra plugins and controls for leaflet maps
+library(crosstalk)      # Inter-widget communication for interactive HTML widgets
+
+# --- Reporting & Table formatting ---
+library(knitr)          # Dynamic report generation and base table rendering
+library(kableExtra)     # Styling and custom layout options for knitr tables
+
+# --- Specialized plotting & INBO corporate styling ---
+library(ggalluvial)     # Alluvial and flow diagrams in ggplot2
+library(INBOtheme)      # INBO corporate styling, palettes, and ggplot themes
+
+# --- Bayesian modeling (INLA) & Post-processing ---
+library(INLA)           # Integrated Nested Laplace Approximations for Bayesian GLMMs
+library(inlatools)      # Model validation diagnostics for INLA
+library(effectclass)    # Classification and standardized plotting of effect sizes
+
+# --- Ecological reference data ---
+library(n2khab)         # Reference data and preprocessing for Natura 2000 habitats in Flanders
 
 conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::pull)
 
 data_path <- fileman_up("soortenmeetnetten-queries")
 source(file.path(fileman_up("soortenmeetnetten-analysis"),
@@ -1989,4 +2002,426 @@ plot_caterpillar_inla(
   cluster_lookup = cluster_info
 ) + 
   facet_grid(boscluster ~ ., scales = "free_y", space = "free_y")
+```
+
+# Trends per boscluster
+
+## Model fit
+
+```{r}
+# 1. Base formula (without fixed boscluster effect, with formula offset)
+formula_hazelmuis_cluster <- aantal ~ 
+  fjaar + 
+  telperiode + 
+  f(transect, model = "iid") +
+  offset(log(n_nestbuizen))
+
+# 2. Named list of datasets, INLA families, and forest clusters
+analysis_datasets <- list(
+  individuen = analyseset_individuen,
+  nesten     = analyseset_nesten
+)
+
+clusters <- setNames(paste0("boscluster", 1:3), paste0("boscluster", 1:3))
+
+families <- c(
+  Poisson             = "poisson",
+  ZIP                 = "zeroinflatedpoisson0",
+  `Negative binomial` = "nbinomial",
+  ZINB                = "zeroinflatednbinomial0"
+)
+
+# 3. Fit models: models_cluster$<dataset>$<cluster>$<distribution>
+models_cluster <- lapply(analysis_datasets, function(df) {
+  lapply(clusters, function(cl) {
+    # Filter cluster and drop unused factor levels (especially unused transects)
+    sub_df <- df %>%
+      dplyr::filter(boscluster == cl) %>%
+      droplevels()
+    
+    lapply(families, function(fam) {
+      inla(
+        formula = formula_hazelmuis_cluster,
+        family  = fam,
+        data    = sub_df,
+        control.compute = list(
+          config = TRUE,
+          waic   = TRUE,
+          dic    = TRUE
+        )
+      )
+    })
+  })
+})
+```
+
+```{r}
+# Summarise WAIC and DIC
+model_comparison_cluster <- lapply(models_cluster, function(cl_list) {
+  lapply(cl_list, function(fam_list) {
+    model_names <- names(fam_list)
+    
+    model_summary <- lapply(fam_list, function(fam) {
+      data.frame(
+        waic = fam$waic$waic,
+        dic  = fam$dic$dic
+      )
+    }) %>%
+      bind_rows()
+    
+    data.frame(
+      model = model_names
+    ) %>%
+      bind_cols(model_summary) %>%
+      # Replace non-finite or non-positive values (-Inf, NaN, NA, <= 0)
+      # with Inf for valid ranking
+      dplyr::mutate(
+        waic_rank = ifelse(is.finite(waic) & waic > 0, waic, Inf),
+        dic_rank  = ifelse(is.finite(dic)  & dic > 0,  dic,  Inf)
+      ) %>%
+      dplyr::arrange(waic_rank, dic_rank) %>%
+      dplyr::select(-waic_rank, -dic_rank)
+  })
+})
+
+# Select models with lowest WAIC
+best_models_cluster <- lapply(models_cluster, function(cl_list) {
+  lapply(cl_list, function(fam_list) {
+    waic_values <- vapply(fam_list, function(m) {
+      w <- m$waic$waic
+      if (is.finite(w) && w > 0) w else Inf
+    }, numeric(1))
+    
+    best_idx <- which.min(waic_values)
+    
+    list(
+      name  = names(fam_list)[best_idx],
+      model = fam_list[[best_idx]]
+    )
+  })
+})
+```
+
+### Individuen per boscluster
+
+#### Boscluster 1
+
+Het '`r best_models_cluster$individuen$boscluster1$name`' model heeft de laagste WAIC.
+
+```{r}
+model_comparison_cluster$individuen$boscluster1 %>%
+  kable()
+```
+
+We vergelijken de geobserveerde distributie met de gemodelleerde.
+
+```{r}
+#| message: false
+#| warning: false
+set.seed(123)
+dc_ind_cl1 <- distribution_check(best_models_cluster$individuen$boscluster1$model)
+plot(dc_ind_cl1)
+```
+
+We controleren ook over- of onderdispersie.
+
+```{r}
+#| message: false
+#| warning: false
+disp_ind_cl1 <- dispersion_check(best_models_cluster$individuen$boscluster1$model)
+plot(disp_ind_cl1)
+```
+
+#### Boscluster 2
+
+Het '`r best_models_cluster$individuen$boscluster2$name`' model heeft de laagste WAIC.
+
+```{r}
+model_comparison_cluster$individuen$boscluster2 %>%
+  kable()
+```
+
+We vergelijken de geobserveerde distributie met de gemodelleerde.
+
+```{r}
+#| message: false
+#| warning: false
+set.seed(123)
+dc_ind_cl2 <- distribution_check(best_models_cluster$individuen$boscluster2$model)
+plot(dc_ind_cl2)
+```
+
+We controleren ook over- of onderdispersie.
+
+```{r}
+#| message: false
+#| warning: false
+disp_ind_cl2 <- dispersion_check(best_models_cluster$individuen$boscluster2$model)
+plot(disp_ind_cl2)
+```
+
+#### Boscluster 3
+
+Het '`r best_models_cluster$individuen$boscluster3$name`' model heeft de laagste WAIC.
+
+```{r}
+model_comparison_cluster$individuen$boscluster3 %>%
+  kable()
+```
+
+We vergelijken de geobserveerde distributie met de gemodelleerde.
+
+```{r}
+#| message: false
+#| warning: false
+set.seed(123)
+dc_ind_cl3 <- distribution_check(best_models_cluster$individuen$boscluster3$model)
+plot(dc_ind_cl3)
+```
+
+We controleren ook over- of onderdispersie.
+
+```{r}
+#| message: false
+#| warning: false
+disp_ind_cl3 <- dispersion_check(best_models_cluster$individuen$boscluster3$model)
+plot(disp_ind_cl3)
+```
+
+### Nesten per boscluster
+
+#### Boscluster 1
+
+Het '`r best_models_cluster$nesten$boscluster1$name`' model heeft de laagste WAIC.
+
+```{r}
+model_comparison_cluster$nesten$boscluster1 %>%
+  kable()
+```
+
+We vergelijken de geobserveerde distributie met de gemodelleerde.
+
+```{r}
+#| message: false
+#| warning: false
+set.seed(123)
+dc_ind_cl1 <- distribution_check(best_models_cluster$nesten$boscluster1$model)
+plot(dc_ind_cl1)
+```
+
+We controleren ook over- of onderdispersie.
+
+```{r}
+#| message: false
+#| warning: false
+disp_ind_cl1 <- dispersion_check(best_models_cluster$nesten$boscluster1$model)
+plot(disp_ind_cl1)
+```
+
+#### Boscluster 2
+
+Het '`r best_models_cluster$nesten$boscluster2$name`' model heeft de laagste WAIC.
+
+```{r}
+model_comparison_cluster$nesten$boscluster2 %>%
+  kable()
+```
+
+We vergelijken de geobserveerde distributie met de gemodelleerde.
+
+```{r}
+#| message: false
+#| warning: false
+set.seed(123)
+dc_ind_cl2 <- distribution_check(best_models_cluster$nesten$boscluster2$model)
+plot(dc_ind_cl2)
+```
+
+We controleren ook over- of onderdispersie.
+
+```{r}
+#| message: false
+#| warning: false
+disp_ind_cl2 <- dispersion_check(best_models_cluster$nesten$boscluster2$model)
+plot(disp_ind_cl2)
+```
+
+#### Boscluster 3
+
+Het '`r best_models_cluster$nesten$boscluster3$name`' model heeft de laagste WAIC.
+
+```{r}
+model_comparison_cluster$nesten$boscluster3 %>%
+  kable()
+```
+
+We vergelijken de geobserveerde distributie met de gemodelleerde.
+
+```{r}
+#| message: false
+#| warning: false
+set.seed(123)
+dc_ind_cl3 <- distribution_check(best_models_cluster$nesten$boscluster3$model)
+plot(dc_ind_cl3)
+```
+
+We controleren ook over- of onderdispersie.
+
+```{r}
+#| message: false
+#| warning: false
+disp_ind_cl3 <- dispersion_check(best_models_cluster$nesten$boscluster3$model)
+plot(disp_ind_cl3)
+```
+
+## Resultaten
+
+```{r}
+# Summarise model outputs per dataset across all clusters
+model_summaries_cluster <- lapply(best_models_cluster, function(cluster_list) {
+  # Itereer over alle bosclusters binnen de dataset en combineer ze
+  lapply(cluster_list, function(final_model) {
+    m <- final_model$model
+    summary_model <- summary(m)
+
+    as.data.frame(summary_model$fixed) %>%
+      tibble::rownames_to_column("param") %>%
+      filter_out(grepl("Intercept", param)) %>%
+      
+      # Add effect classification
+      add_effect_classification(
+        cl_columns = c("0.025quant", "0.975quant"),
+        threshold  = c(min_threshold, max_threshold),
+        reference  = 0,
+        coarse     = FALSE
+      ) %>%
+      select(-any_of(c("mode", "kld", "effect_code")))
+  }) %>%
+    # Voeg samen tot 1 dataframe met kolom 'boscluster'
+    bind_rows(.id = "boscluster")
+})
+```
+
+### Individuen
+
+We vatten de resultaten samen van het finale model.
+De referentie is: jaar 2021, telperiode T1
+
+```{r}
+model_summaries_cluster$individuen %>%
+  select(-"boscluster") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE) %>%
+  pack_rows(index = table(model_summaries_cluster$individuen$boscluster))
+```
+
+We kunnen dit ook visualiseren met effect classificatie.
+Als schatting rapporteren we de posterior mediaan en als geloofwaardigheidsintervallen de 2.5 en 97.5 % quantielen.
+
+```{r}
+#| fig.width: 8
+#| fig.heigth: 8
+plot_inla_effects(
+  results      = model_summaries_cluster$individuen,
+  effect_label = "fjaar",
+  ref_label    = "2021",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(NA, NA)
+) +
+  facet_grid(boscluster~.)
+```
+
+```{r}
+#| fig.width: 8
+#| fig.heigth: 8
+plot_inla_effects(
+  results      = model_summaries_cluster$individuen,
+  effect_label = "telperiode",
+  ref_label    = "T1",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(NA, NA)
+) +
+  facet_grid(boscluster~.)
+```
+
+```{r}
+plot_caterpillar_inla(
+  inla_model     = best_models_cluster$individuen$boscluster1$model,
+  random_var     = "transect"
+) +
+  ggtitle("Boscluster 1")
+
+plot_caterpillar_inla(
+  inla_model     = best_models_cluster$individuen$boscluster2$model,
+  random_var     = "transect"
+) +
+  ggtitle("Boscluster 2")
+
+plot_caterpillar_inla(
+  inla_model     = best_models_cluster$individuen$boscluster3$model,
+  random_var     = "transect"
+) +
+  ggtitle("Boscluster 3")
+```
+
+### Nesten
+
+We vatten de resultaten samen van het finale model.
+De referentie is: jaar 2021, telperiode T1
+
+```{r}
+model_summaries_cluster$nesten %>%
+  select(-"boscluster") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE) %>%
+  pack_rows(index = table(model_summaries_cluster$nesten$boscluster))
+```
+
+We kunnen dit ook visualiseren met effect classificatie.
+Als schatting rapporteren we de posterior mediaan en als geloofwaardigheidsintervallen de 2.5 en 97.5 % quantielen.
+
+```{r}
+#| fig.width: 8
+#| fig.heigth: 8
+plot_inla_effects(
+  results      = model_summaries_cluster$nesten,
+  effect_label = "fjaar",
+  ref_label    = "2021",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(NA, NA)
+) +
+  facet_grid(boscluster~.)
+```
+
+```{r}
+#| fig.width: 8
+#| fig.heigth: 8
+plot_inla_effects(
+  results      = model_summaries_cluster$nesten,
+  effect_label = "telperiode",
+  ref_label    = "T1",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(NA, NA)
+) +
+  facet_grid(boscluster~.)
+```
+
+```{r}
+plot_caterpillar_inla(
+  inla_model     = best_models_cluster$nesten$boscluster1$model,
+  random_var     = "transect"
+) +
+  ggtitle("Boscluster 1")
+
+plot_caterpillar_inla(
+  inla_model     = best_models_cluster$nesten$boscluster2$model,
+  random_var     = "transect"
+) +
+  ggtitle("Boscluster 2")
+
+plot_caterpillar_inla(
+  inla_model     = best_models_cluster$nesten$boscluster3$model,
+  random_var     = "transect"
+) +
+  ggtitle("Boscluster 3")
 ```
