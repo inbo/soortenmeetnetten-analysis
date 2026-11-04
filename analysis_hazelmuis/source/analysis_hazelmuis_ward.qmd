@@ -28,6 +28,9 @@ library(crosstalk)
 library(knitr)
 library(n2khab)
 library(INBOtheme)
+library(INLA)
+library(inlatools)
+library(effectclass)
 
 conflicted::conflicts_prefer(dplyr::filter)
 
@@ -1149,9 +1152,19 @@ analyseset_individuen  <- nestbuizen_occupancy %>%
     offset_data,
     by = join_by(transect, jaar, telperiode)
   ) %>%
-  # Create year factor variable
+  # Create factor variables
   mutate(
-    fjaar = factor(jaar, levels = c(2021, 2020, 2022, 2023, 2024, 2025))
+    # Zorg dat 2021 de referentie is
+    fjaar = relevel(factor(jaar), ref = "2021"),
+    
+    # Zorg dat boscluster1 de referentie is
+    boscluster = relevel(factor(boscluster), ref = "boscluster1"),
+    
+    # Zorg dat T1 de referentie is
+    telperiode = relevel(factor(telperiode), ref = "T1"),
+    
+    # Factor voor random effect
+    transect = factor(transect)
   ) %>%
   select(-jaar)
 
@@ -1181,9 +1194,19 @@ analyseset_nesten  <- nestbuizen_occupancy %>%
     offset_data,
     by = join_by(transect, jaar, telperiode)
   ) %>%
-  # Create year factor variable
+  # Create factor variables
   mutate(
-    fjaar = factor(jaar, levels = c(2021, 2020, 2022, 2023, 2024, 2025))
+    # Zorg dat 2021 de referentie is
+    fjaar = relevel(factor(jaar), ref = "2021"),
+    
+    # Zorg dat boscluster1 de referentie is
+    boscluster = relevel(factor(boscluster), ref = "boscluster1"),
+    
+    # Zorg dat T1 de referentie is
+    telperiode = relevel(factor(telperiode), ref = "T1"),
+    
+    # Factor voor random effect
+    transect = factor(transect)
   ) %>%
   select(-jaar)
 ```
@@ -1293,6 +1316,8 @@ nestbuizen_occupancy %>%
 We bekijken hoe de aantallen zijn verdeeld.
 Lege cirkels zijn nul-tellingen.
 
+Aantal individuen:
+
 ```{r}
 #| fig.width: 8
 # 1. Complete combinations of transects and survey windows
@@ -1388,7 +1413,94 @@ ggplot(plot_data_individuen, aes(x = periode_nr, y = transect)) +
 ```{r}
 #| fig.width: 8
 # 1. Complete combinations of transects and survey windows
-plot_data_individuen <- analyseset_nesten %>%
+plot_data_individuen2 <- analyseset_individuen %>%
+  mutate(
+    jaar = as.integer(as.character(fjaar)),
+    periode_nr = str_remove(telperiode, "^T")
+  ) %>%
+  complete(
+    nesting(boscluster, transect),
+    nesting(jaar, periode_nr),
+    fill = list(aantal = NA_real_, n_nestbuizen = NA_integer_)
+  ) %>%
+  mutate(
+    is_onbezocht = is.na(n_nestbuizen) | n_nestbuizen == 0,
+    is_bezocht   = !is_onbezocht,
+    is_nul       = is_bezocht & aantal == 0,
+    heeft_aantal = is_bezocht & aantal > 0,
+    prop         = aantal / n_nestbuizen
+  )
+
+# 2. Breaks reflecting the actual data distribution (starting from minimum observed ~0.04)
+prop_breaks <- c(0.05, 0.1, 0.2, 0.35, 0.6, 1.0, 1.5, 2.0)
+
+# 3. Visualization
+ggplot(plot_data_individuen2, aes(x = periode_nr, y = transect)) +
+  
+  # Connecting line per transect
+  geom_line(
+    data = . %>% filter(is_bezocht),
+    aes(group = transect),
+    color = "grey80"
+  ) +
+  
+  # Zero counts (surveyed, but 0 individuals): open neutral circle
+  geom_point(
+    data = . %>% filter(is_nul),
+    shape       = 1,
+    size        = 2,
+    stroke      = 0.8,
+    color       = "grey50",
+    show.legend = FALSE
+  ) +
+  
+  # Positive proportions: fixed size, continuous transformed color
+  geom_point(
+    data = . %>% filter(heeft_aantal),
+    aes(colour = prop),
+    shape = 16,
+    size  = 3
+  ) +
+  
+  # Unvisited transects: red cross
+  geom_point(
+    data = . %>% filter(is_onbezocht),
+    shape       = 4,
+    size        = 3,
+    stroke      = 1.1,
+    color       = "red",
+    show.legend = FALSE
+  ) +
+  
+  # Continuous color scale with square-root transformation
+  scale_colour_viridis_c(
+    option    = "inferno",
+    direction = -1,
+    transform = "sqrt",                         # Stretches the 0.04 - 0.4 interval
+    limits    = c(0.04, 2.0),                   # Covers the exact Min to Max (no dropped rows)
+    breaks    = prop_breaks,
+    guide     = guide_colorbar(
+      barheight    = unit(5.5, "cm"),
+      barwidth     = unit(0.4, "cm"),
+      ticks.colour = "black"
+    )
+  ) +
+  
+  labs(
+    x       = "Telperiode",
+    y       = "Transect",
+    colour  = "Individuen per\nvrije nestbuis\n(sqrt transf.)"
+  ) +
+  facet_grid(boscluster ~ jaar, scales = "free_y") +
+  theme_minimal()
+```
+
+Aantal nesten:
+
+```{r}
+#| fig.width: 8
+# 1. Complete combinations of transects and survey windows
+plot_data_nesten <- analyseset_nesten %>%
   mutate(
     jaar = as.integer(as.character(fjaar)),
     periode_nr = str_remove(telperiode, "^T")
@@ -1410,7 +1522,7 @@ count_breaks <- c(1, 4, 8, 12, 16)
 palette_colors <- viridis::viridis(length(count_breaks), option = "inferno", direction = -1)
 
 # 3. Visualisatie
-ggplot(plot_data_individuen, aes(x = periode_nr, y = transect)) +
+ggplot(plot_data_nesten, aes(x = periode_nr, y = transect)) +
   
   # Connecting line per transect
   geom_line(
@@ -1477,6 +1589,352 @@ ggplot(plot_data_individuen, aes(x = periode_nr, y = transect)) +
   theme_minimal()
 ```
 
+```{r}
+#| fig.width: 8
+# 1. Complete combinations of transects and survey windows
+plot_data_nesten2 <- analyseset_nesten %>%
+  mutate(
+    jaar = as.integer(as.character(fjaar)),
+    periode_nr = str_remove(telperiode, "^T")
+  ) %>%
+  complete(
+    nesting(boscluster, transect),
+    nesting(jaar, periode_nr),
+    fill = list(aantal = NA_real_, n_nestbuizen = NA_integer_)
+  ) %>%
+  mutate(
+    is_onbezocht = is.na(n_nestbuizen) | n_nestbuizen == 0,
+    is_bezocht   = !is_onbezocht,
+    is_nul       = is_bezocht & aantal == 0,
+    heeft_aantal = is_bezocht & aantal > 0,
+    prop         = aantal / n_nestbuizen
+  )
+
+# 2. Breaks reflecting the actual data distribution (starting from minimum observed ~0.04)
+prop_breaks <- c(0.05, 0.1, 0.2, 0.35, 0.6, 1.0, 1.5, 2.0)
+
+# 3. Visualization
+ggplot(plot_data_nesten2, aes(x = periode_nr, y = transect)) +
+  
+  # Connecting line per transect
+  geom_line(
+    data = . %>% filter(is_bezocht),
+    aes(group = transect),
+    color = "grey80"
+  ) +
+  
+  # Zero counts (surveyed, but 0 individuals): open neutral circle
+  geom_point(
+    data = . %>% filter(is_nul),
+    shape       = 1,
+    size        = 2,
+    stroke      = 0.8,
+    color       = "grey50",
+    show.legend = FALSE
+  ) +
+  
+  # Positive proportions: fixed size, continuous transformed color
+  geom_point(
+    data = . %>% filter(heeft_aantal),
+    aes(colour = prop),
+    shape = 16,
+    size  = 3
+  ) +
+  
+  # Unvisited transects: red cross
+  geom_point(
+    data = . %>% filter(is_onbezocht),
+    shape       = 4,
+    size        = 3,
+    stroke      = 1.1,
+    color       = "red",
+    show.legend = FALSE
+  ) +
+  
+  # Continuous color scale with square-root transformation
+  scale_colour_viridis_c(
+    option    = "inferno",
+    direction = -1,
+    transform = "sqrt",                         # Stretches the 0.04 - 0.4 interval
+    limits    = c(0.04, 2.0),                   # Covers the exact Min to Max (no dropped rows)
+    breaks    = prop_breaks,
+    guide     = guide_colorbar(
+      barheight    = unit(5.5, "cm"),
+      barwidth     = unit(0.4, "cm"),
+      ticks.colour = "black"
+    )
+  ) +
+  
+  labs(
+    x       = "Telperiode",
+    y       = "Transect",
+    colour  = "Nesten per\nvrije nestbuis\n(sqrt transf.)"
+  ) +
+  facet_grid(boscluster ~ jaar, scales = "free_y") +
+  theme_minimal()
+```
+
+We kijken ook even naar de correlatie tussen het aantal individuen en nestbuizen.
+
+```{r}
+p_corr1 <- analyseset_individuen %>%
+  rename(aantal_ind = aantal) %>%
+  left_join(
+    analyseset_nesten %>%
+      rename(aantal_nest = aantal),
+    by = join_by(boscluster, transect, telperiode, n_nestbuizen, fjaar)
+  ) %>%
+  ggplot(aes(x = aantal_ind, y = aantal_nest)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = "y ~ x") +
+  geom_abline(intercept = 0, slope = 1,
+              colour = "darkgrey", linetype = "dashed") +
+  labs(x = "Aantal individuen", y = "Aantal nesten") +
+  theme_minimal()
+
+ggExtra::ggMarginal(p_corr1, type = "boxplot", outlier.colour = "firebrick")
+```
+
+```{r}
+p_corr2 <- analyseset_individuen %>%
+  rename(aantal_ind = aantal) %>%
+  left_join(
+    analyseset_nesten %>%
+      rename(aantal_nest = aantal),
+    by = join_by(boscluster, transect, telperiode, n_nestbuizen, fjaar)
+  ) %>%
+  mutate(
+    prop_ind = aantal_ind / n_nestbuizen,
+    prop_nest = aantal_nest / n_nestbuizen
+  ) %>%
+  ggplot(aes(x = prop_ind, y = prop_nest)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = "y ~ x") +
+  geom_abline(intercept = 0, slope = 1,
+              colour = "darkgrey", linetype = "dashed") +
+  labs(x = "Aantal individuen per vrije nestbuis",
+       y = "Aantal nesten per vrije nestbuis") +
+  theme_minimal()
+ggExtra::ggMarginal(p_corr2, type = "boxplot", outlier.colour = "firebrick")
+```
+
 ## Model fit
 
+```{r}
+# 1. Base formula
+formula_hazelmuis <- aantal ~ 
+  fjaar + 
+  boscluster + 
+  telperiode + 
+  f(transect, model = "iid")
+
+# 2. Named list of datasets and INLA families
+analysis_datasets <- list(
+  individuen = analyseset_individuen,
+  nesten     = analyseset_nesten
+)
+
+families <- c(
+  Poisson = "poisson",
+  ZIP = "zeroinflatedpoisson0",
+  `Negative binomial` = "nbinomial",
+  ZINB = "zeroinflatednbinomial0"
+)
+
+# 3. Fit all models into a nested list: models$<dataset>$<distribution>
+models <- lapply(analysis_datasets, function(df) {
+  lapply(families, function(fam) {
+    inla(
+      formula = formula_hazelmuis,
+      family  = fam,
+      data    = df,
+      offset  = log(df$n_nestbuizen),
+      control.compute = list(
+        config = TRUE,
+        waic   = TRUE,
+        dic    = TRUE
+      )
+    )
+  })
+})
+```
+
+```{r}
+# Summarise WAIC and DIC
+model_comparison <- lapply(models, function(fam_list) {
+  model_names <- names(fam_list)
+  model_summary <- lapply(fam_list, function(fam) {
+    data.frame(
+      waic         = fam$waic$waic,
+      dic          = fam$dic$dic
+    )
+  }) %>%
+    bind_rows()
+  data.frame(
+    model = model_names
+  ) %>%
+    bind_cols(model_summary) %>%
+    dplyr::arrange(waic, dic)
+})
+
+# Select models with lowest WAIC
+best_models <- lapply(models, function(fam_list) {
+  waic_values <- vapply(fam_list, function(m) m$waic$waic, numeric(1))
+  best_idx    <- which.min(waic_values)
+  
+  list(
+    name  = names(fam_list)[best_idx],
+    model = fam_list[[best_idx]]
+  )
+})
+```
+
+### Individuen
+
+Het '`r best_models$individuen$name`' model heeft de laagste WAIC.
+
+```{r}
+model_comparison$individuen %>%
+  kable()
+```
+
+We vergelijken de geobserveerde distributie met de gemodelleerde.
+
+```{r}
+set.seed(123)
+dc_individuen <- distribution_check(best_models$individuen$model)
+plot(dc_individuen)
+```
+
+We controleren ook over- of onderdispersie.
+
+```{r}
+disp_individuen <- dispersion_check(best_models$individuen$model)
+plot(disp_individuen)
+```
+
+### Nesten
+
+Het '`r best_models$nesten$name`' model heeft de laagste WAIC.
+
+```{r}
+model_comparison$nesten %>%
+  kable()
+```
+
+We vergelijken de geobserveerde distributie met de gemodelleerde.
+
+```{r}
+set.seed(123)
+dc_nesten <- distribution_check(best_models$nesten$model)
+plot(dc_nesten)
+```
+
+We controleren ook over- of onderdispersie.
+
+```{r}
+disp_nesten <- dispersion_check(best_models$nesten$model)
+plot(disp_nesten)
+```
+
 ## Resultaten
+
+```{r}
+# Summarise model outputs
+model_summaries <- lapply(best_models, function(final_model) {
+  m <- final_model$model
+  summary_model <- summary(m)
+  as.data.frame(summary_model$fixed) %>%
+    tibble::rownames_to_column("effect")
+})
+```
+
+```{r}
+source(file.path("source", "plot_inla_effects.R"))
+
+# Define tresholds
+min_threshold <- log(0.75)
+max_threshold <- log(1.33)
+```
+
+### Individuen
+
+We vatten de resultaten samen van het finale model.
+
+```{r}
+model_summaries$individuen %>%
+  kable()
+```
+
+We kunnen dit ook visualiseren met effect classificatie.
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries$individuen,
+  effect_label = "fjaar",
+  ref_label    = "2021",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(-log(3.3), log(3.3))
+)
+```
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries$individuen,
+  effect_label = "telperiode",
+  ref_label    = "T1",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(-log(3.3), log(3.3))
+)
+```
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries$individuen,
+  effect_label = "boscluster",
+  ref_label    = "boscluster1",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(-log(3.3), log(3.3))
+)
+```
+
+### Nesten
+
+We vatten de resultaten samen van het finale model.
+
+```{r}
+model_summaries$nesten %>%
+  kable()
+```
+
+We kunnen dit ook visualiseren met effect classificatie.
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries$nesten,
+  effect_label = "fjaar",
+  ref_label    = "2021",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(NA, log(15))
+)
+```
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries$nesten,
+  effect_label = "telperiode",
+  ref_label    = "T1",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(-log(4), log(4))
+)
+```
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries$nesten,
+  effect_label = "boscluster",
+  ref_label    = "boscluster1",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(-log(2.1), log(2.1))
+)
+```
