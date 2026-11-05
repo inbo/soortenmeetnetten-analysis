@@ -50,6 +50,9 @@ conflicted::conflicts_prefer(dplyr::pull)
 data_path <- fileman_up("soortenmeetnetten-queries")
 source(file.path(fileman_up("soortenmeetnetten-analysis"),
                  "source/functions_smp.R"))
+source(file.path(here::here(), "source", "R", "add_effect_classification.R"))
+source(file.path(here::here(), "source", "R", "plot_inla_effects.R"))
+source(file.path(here::here(), "source", "R", "plot_caterpillar_inla.R"))
 ```
 
 # Achtergrond
@@ -57,8 +60,9 @@ source(file.path(fileman_up("soortenmeetnetten-analysis"),
 ## Meetnet hazelmuis
 
 Hazelmuis komt voor op Bijlage IV van Habitatrichtlijn.
-Monitoring voor 6-jaarlijke rapportage Staat van Instandhouding (SVI) als onderdeel van de Soortenmeetnetten.
+Monitoring gebeurt in het kader van de 6-jaarlijke rapportage van Staat van Instandhouding (SVI) als onderdeel van de Soortenmeetnetten.
 De soort komt in Vlaanderen enkel voor in de Voerstreek.
+Meetnet-protocol: [doi.org/10.21436/inbor.17353371](https://doi.org/10.21436/inbor.17353371).
 
 Het meetnet bestaat uit 2 delen:
 
@@ -1885,10 +1889,6 @@ plot(disp_nesten)
 ## Resultaten
 
 ```{r}
-source(file.path(here::here(), "source", "add_effect_classification.R"))
-source(file.path(here::here(), "source", "plot_inla_effects.R"))
-source(file.path(here::here(), "source", "plot_caterpillar_inla.R"))
-
 # Define tresholds
 min_threshold <- log(0.75)
 max_threshold <- log(1.33)
