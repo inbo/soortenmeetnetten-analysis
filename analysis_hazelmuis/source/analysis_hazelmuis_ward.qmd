@@ -972,11 +972,13 @@ Om de dynamiek van kolonisatie (nieuwe bezetting), aanhoudende bezetting en verl
 ```{r}
 #| message: false
 # Define colours
-kleuren_dynamiek <- c(
-  "Nieuw bezet (Kolonisatie)" = "#4daf4a", # groen
-  "Aanhoudend bezet"          = "#377eb8", # blauw
-  "Verlaten (Uitstroom)"       = "#e41a1c", # rood
-  "Niet bezet"                = "grey80"
+kleuren_4_tinten <- c(
+  "Nieuw bezet (Kolonisatie)" = "#4daf4a", # Groen
+  "Aanhoudend bezet"          = "#377eb8", # Blauw
+  "Verlaten (Uitstroom)"      = "#e41a1c", # Rood
+  "Bezet andere soort"        = "#969696", # Middengrijs
+  "Niet bezocht"              = "#525252", # Donkergrijs
+  "Niet bezet"                = "#d9d9d9"  # Lichtgrijs
 )
 
 # Create activity labels
@@ -994,11 +996,41 @@ base_activiteit <- nestbuizen_occupancy %>%
 ### Bezettingsturnover
 
 We bepalen per nestbuis, jaar en type waarneming of er minstens één bezettingsregistratie was, en vergelijken die met het voorgaande jaar.
+Afwezigheid van hazelmuis splitsen we op in:
 
-> Voorlopig wordt een niet getelde nestbuis als "niet bezet" opgenomen. Dit zou ook nog apart gekleurd kunnen worden.
+- Bezet andere soort: vers nest of individu andere soort aangetroffen
+- Niet bezocht: nestbuis niet geteld (niet gevonden, kapot ...)
+- Niet bezet: overige
 
 ```{r}
 #| message: false
+# 1. Distinct nesting tubes occupied by other species at the yearly level
+occupied_nesting_tubes_year <- nestbuizen_occupancy %>%
+  filter(
+    soort_groep != "Hazelmuis",
+    activiteit %in% c("in nestbuis", "nest"),
+    is_aanwezig
+  ) %>%
+  distinct(jaar, sublocatie) %>%
+  mutate(bezet_andere_soort = TRUE)
+
+visited_nesting_tubes_year <- nestbuizen_occupancy %>%
+  # Filter out visits outside target inspection windows
+  filter(periode != "Buiten periode") %>%
+  
+  # Fill in missing combinations of transects and survey windows
+  mutate(
+    visited = TRUE
+  ) %>%
+  complete(
+    nesting(cluster, sublocatie),
+    nesting(jaar),
+    fill = list(
+      visited = FALSE
+    )
+  ) %>%
+  distinct(jaar, sublocatie, visited)
+
 # Calculate occupancy by nesting tube, year and dynamic
 buis_jaar_status <- base_activiteit %>%
   group_by(meetnet, cluster, locatie, sublocatie, jaar, activiteit_label) %>%
@@ -1006,6 +1038,7 @@ buis_jaar_status <- base_activiteit %>%
     bezet = any(is_aanwezig == TRUE | totaal_aantal > 0), # Only keeps fresh nests
     .groups = "drop"
   ) %>%
+
   # Include all combinations
   complete(
     nesting(meetnet, cluster, locatie, sublocatie),
@@ -1013,6 +1046,17 @@ buis_jaar_status <- base_activiteit %>%
     activiteit_label,
     fill = list(bezet = FALSE)
   ) %>%
+
+  # Join occupancy by other species
+  left_join(occupied_nesting_tubes_year, by = c("jaar", "sublocatie")) %>%
+  mutate(bezet_andere_soort = replace_na(bezet_andere_soort, FALSE)) %>%
+  
+  # Join occupancy by visits
+  left_join(
+    visited_nesting_tubes_year,
+    by = c("jaar", "sublocatie")
+  ) %>%
+
   # Decide dynamics compared to last year
   group_by(sublocatie, activiteit_label) %>%
   arrange(jaar) %>%
@@ -1023,16 +1067,21 @@ buis_jaar_status <- base_activiteit %>%
       !bezet_vorig_jaar & bezet        ~ "Nieuw bezet (Kolonisatie)",
       bezet_vorig_jaar & bezet         ~ "Aanhoudend bezet",
       bezet_vorig_jaar & !bezet        ~ "Verlaten (Uitstroom)",
+      !bezet & bezet_andere_soort      ~ "Bezet andere soort",
+      !bezet & !visited                ~ "Niet bezocht",      
       TRUE                             ~ "Niet bezet"
     ),
     dynamiek = factor(dynamiek, levels = c(
+      "Nieuw bezet (Eerste jaar data)",
       "Nieuw bezet (Kolonisatie)",
       "Aanhoudend bezet",
       "Verlaten (Uitstroom)",
-      "Nieuw bezet (Eerste jaar data)",
+      "Bezet andere soort",
+      "Niet bezocht",
       "Niet bezet"
     ))
   ) %>%
+  select(-c("bezet_andere_soort", "visited")) %>%
   ungroup()
 ```
 
@@ -1042,12 +1091,21 @@ buis_jaar_status <- base_activiteit %>%
 buis_jaar_status %>%
   filter(jaar != min(jaar), !str_detect(dynamiek, "Eerste jaar")) %>%
   ggplot(aes(x = factor(jaar), fill = dynamiek)) +
-  geom_bar(position = "stack", color = "black", width = 0.7) +
-  scale_fill_manual(values = kleuren_dynamiek) +
+  geom_bar(position = "stack", color = "white", linewidth = 0.1, width = 0.7) +
+  scale_fill_manual(
+    values = kleuren_4_tinten,
+    breaks = c(
+      "Nieuw bezet (Kolonisatie)",
+      "Aanhoudend bezet",
+      "Verlaten (Uitstroom)",
+      "Bezet andere soort",
+      "Niet bezocht",
+      "Niet bezet"
+    )
+  ) +
   facet_wrap(~activiteit_label) +
   labs(
-    title = "Jaarlijkse dynamiek van nestbuisbezetting",
-    x = "Jaar",
+    x = "",
     y = "Aantal nestbuizen",
     fill = "Status bezetting"
   ) +
@@ -1061,24 +1119,60 @@ buis_jaar_status %>%
 buis_jaar_status %>%
   filter(jaar != min(jaar), !str_detect(dynamiek, "Eerste jaar")) %>%
   ggplot(aes(x = factor(jaar), fill = dynamiek)) +
-  geom_bar(position = "stack", color = "black", width = 0.7) +
-  scale_fill_manual(values = kleuren_dynamiek) +
-  facet_grid(cluster ~ activiteit_label, scales = "free_y") +
+  geom_bar(position = "stack", color = "white", linewidth = 0.1, width = 0.7) +
+  scale_fill_manual(
+    values = kleuren_4_tinten,
+    breaks = c(
+      "Nieuw bezet (Kolonisatie)",
+      "Aanhoudend bezet",
+      "Verlaten (Uitstroom)",
+      "Bezet andere soort",
+      "Niet bezocht",
+      "Niet bezet"
+    )
+  ) +
+  facet_wrap(~activiteit_label) +
   labs(
-    title = "Jaarlijkse dynamiek per boscluster",
-    x = "Jaar",
+    x = "",
     y = "Aantal nestbuizen",
     fill = "Status bezetting"
   ) +
   theme_minimal() +
-  theme(
-    legend.position = "bottom",
-    strip.background = element_rect(fill = "grey95", colour = NA)
-  )
+  theme(legend.position = "bottom") +
+  facet_grid(cluster ~ activiteit_label, scales = "free_y")
 ```
+
+We visualiseren dit ook per telperiode. In telperiode 1 van het eerste jaar is niets gezien, dus we starten vanaf T2, 2020.
 
 ```{r}
 #| message: false
+# Distinct nesting tubes occupied by other species at the yearly level
+occupied_nesting_tubes_period <- nestbuizen_occupancy %>%
+  filter(
+    soort_groep != "Hazelmuis",
+    activiteit %in% c("in nestbuis", "nest"),
+    is_aanwezig
+  ) %>%
+  distinct(jaar, periode, sublocatie) %>%
+  mutate(bezet_andere_soort = TRUE)
+
+visited_nesting_tubes_period <- nestbuizen_occupancy %>%
+  # Filter out visits outside target inspection windows
+  filter(periode != "Buiten periode") %>%
+  
+  # Fill in missing combinations of transects and survey windows
+  mutate(
+    visited = TRUE
+  ) %>%
+  complete(
+    nesting(cluster, sublocatie),
+    nesting(jaar, periode),
+    fill = list(
+      visited = FALSE
+    )
+  ) %>%
+  distinct(jaar, periode_code = periode, sublocatie, visited)
+
 buis_periode_status <- base_activiteit %>%
   filter(periode %in% paste0("T", 1:4)) %>%
   group_by(meetnet, cluster, locatie, sublocatie, jaar, periode, activiteit_label) %>%
@@ -1087,6 +1181,7 @@ buis_periode_status <- base_activiteit %>%
     .groups = "drop"
   ) %>%
   mutate(periode_code = factor(periode, levels = paste0("T", 1:4))) %>%
+
   # Complete matrix over time
   complete(
     nesting(meetnet, cluster, locatie, sublocatie),
@@ -1094,7 +1189,27 @@ buis_periode_status <- base_activiteit %>%
     activiteit_label,
     fill = list(bezet = FALSE)
   ) %>%
+
+  # Join occupancy by other species
+  left_join(
+    occupied_nesting_tubes_period, by = c("jaar", "periode", "sublocatie")
+  ) %>%
+  mutate(bezet_andere_soort = replace_na(bezet_andere_soort, FALSE)) %>%
+
+  # Join occupancy by visits
+  left_join(
+    visited_nesting_tubes_period,
+    by = c("jaar", "periode_code", "sublocatie")
+  ) %>%
+
+  # Decide dynamics compared to last year
   arrange(sublocatie, activiteit_label, jaar, periode_code) %>%
+  
+  filter_out(
+    jaar == 2020,
+    periode_code == "T1"
+  ) %>%
+  
   group_by(sublocatie, activiteit_label) %>%
   mutate(
     bezet_vorige_periode = dplyr::lag(bezet),
@@ -1103,21 +1218,25 @@ buis_periode_status <- base_activiteit %>%
       !bezet_vorige_periode & bezet        ~ "Nieuw bezet (Kolonisatie)",
       bezet_vorige_periode & bezet         ~ "Aanhoudend bezet",
       bezet_vorige_periode & !bezet        ~ "Verlaten (Uitstroom)",
-      TRUE                                 ~ "Niet bezet"
+      !bezet & bezet_andere_soort      ~ "Bezet andere soort",
+      !bezet & !visited                ~ "Niet bezocht",      
+      TRUE                             ~ "Niet bezet"
     ),
     dynamiek = factor(dynamiek, levels = c(
+      "Nieuw bezet (Eerste periode)",
       "Nieuw bezet (Kolonisatie)",
       "Aanhoudend bezet",
       "Verlaten (Uitstroom)",
-      "Nieuw bezet (Eerste periode)",
+      "Bezet andere soort",
+      "Niet bezocht",
       "Niet bezet"
     )),
     tijd_label = paste(jaar, periode_code, sep = " - ")
   ) %>%
   ungroup() %>%
+  select(-c("bezet_andere_soort", "visited")) %>%
   mutate(tijd_label = factor(tijd_label, levels = unique(tijd_label)))
 ```
-
 
 ```{r}
 #| fig-width: 11
@@ -1125,12 +1244,21 @@ buis_periode_status <- base_activiteit %>%
 buis_periode_status %>%
   filter(!str_detect(dynamiek, "Eerste periode")) %>%
   ggplot(aes(x = tijd_label, fill = dynamiek)) +
-  geom_bar(position = "stack", color = "black", width = 0.7) +
-  scale_fill_manual(values = kleuren_dynamiek) +
+  geom_bar(position = "stack", color = "white", linewidth = 0.1, width = 0.7) +
+  scale_fill_manual(
+    values = kleuren_4_tinten,
+    breaks = c(
+      "Nieuw bezet (Kolonisatie)",
+      "Aanhoudend bezet",
+      "Verlaten (Uitstroom)",
+      "Bezet andere soort",
+      "Niet bezocht",
+      "Niet bezet"
+    )
+  ) +
   facet_wrap(~activiteit_label, ncol = 1) +
   labs(
-    title = "Dynamiek per telperiode",
-    x = "Telperiode",
+    x = "",
     y = "Aantal nestbuizen",
     fill = "Status bezetting"
   ) +
@@ -1147,45 +1275,66 @@ buis_periode_status %>%
 buis_periode_status %>%
   filter(!str_detect(dynamiek, "Eerste periode")) %>%
   ggplot(aes(x = tijd_label, fill = dynamiek)) +
-  geom_bar(position = "stack", color = "black", width = 0.7) +
-  scale_fill_manual(values = kleuren_dynamiek) +
+  geom_bar(position = "stack", color = "white", linewidth = 0.1, width = 0.7) +
+  scale_fill_manual(
+    values = kleuren_4_tinten,
+    breaks = c(
+      "Nieuw bezet (Kolonisatie)",
+      "Aanhoudend bezet",
+      "Verlaten (Uitstroom)",
+      "Bezet andere soort",
+      "Niet bezocht",
+      "Niet bezet"
+    )
+  ) +
   facet_grid(cluster ~ activiteit_label, scales = "free_y") +
   labs(
-    title = "Dynamiek per telperiode per boscluster",
-    x = "Telperiode",
+    x = "",
     y = "Aantal nestbuizen",
     fill = "Status bezetting"
   ) +
   theme_minimal() +
   theme(
     legend.position = "bottom",
-    axis.text.x = element_text(angle = 60, hjust = 1),
-    strip.background = element_rect(fill = "grey95", colour = NA)
+    axis.text.x = element_text(angle = 60, hjust = 1)
   )
 ```
 
-> Is de volgende figuur duidelijker?
+Zonder afwezigheden:
 
 ```{r}
 #| fig-width: 12
 #| fig-height: 8
 buis_periode_status %>%
-  filter(!str_detect(dynamiek, "Eerste periode"), dynamiek != "Niet bezet") %>%
-  ggplot(aes(x = tijd_label, fill = dynamiek)) +
-  geom_bar(position = "stack", color = "black", width = 0.7) +
-  scale_fill_manual(values = kleuren_dynamiek) +
+  filter(
+    !str_detect(dynamiek, "Eerste periode"),
+    dynamiek != "Bezet andere soort",
+    dynamiek != "Niet bezocht",
+    dynamiek != "Niet bezet"
+  ) %>%
+    ggplot(aes(x = tijd_label, fill = dynamiek)) +
+  geom_bar(position = "stack", color = "white", linewidth = 0.1, width = 0.7) +
+  scale_fill_manual(
+    values = kleuren_4_tinten,
+    breaks = c(
+      "Nieuw bezet (Kolonisatie)",
+      "Aanhoudend bezet",
+      "Verlaten (Uitstroom)",
+      "Bezet andere soort",
+      "Niet bezocht",
+      "Niet bezet"
+    )
+  ) +
   facet_grid(cluster ~ activiteit_label, scales = "free_y") +
   labs(
-    title = "Dynamiek per telperiode per boscluster en type waarneming",
-    x = "Telperiode",
+    x = "",
     y = "Aantal nestbuizen",
     fill = "Status bezetting"
   ) +
   theme_minimal() +
   theme(
     legend.position = "bottom",
-    axis.text.x = element_text(angle = 60, hjust = 1),
-    strip.background = element_rect(fill = "grey95", colour = NA)
+    axis.text.x = element_text(angle = 60, hjust = 1)
   )
 ```
 
