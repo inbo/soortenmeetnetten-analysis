@@ -169,8 +169,16 @@ nestbuizen_waarnemingen <- nestbuizen_base %>%
       code == "U" ~ "onzeker",
       TRUE        ~ NA_character_
     ),
-    type_waarneming = ifelse(observation_type == "exact count", "individu", activiteit),
-    levensstadium = ifelse(type_waarneming == "individu", levensstadium, NA_character_)
+    type_waarneming = ifelse(
+      observation_type == "exact count",
+      "individu",
+      activiteit
+    ),
+    levensstadium = ifelse(
+      type_waarneming == "individu",
+      levensstadium,
+      NA_character_
+    )
   ) %>%
   select(
     meetnet,
@@ -202,7 +210,7 @@ nestbuizen_waarnemingen <- nestbuizen_base %>%
 nestbuizen_occupancy <- nestbuizen_base %>%
   # Filter out uncounted tubes
   filter(!niet_geteld) %>%
-  
+
   # Standardize species grouping
   mutate(
     soort_groep = case_when(
@@ -248,6 +256,13 @@ nestbuizen_occupancy <- nestbuizen_base %>%
   filter(!(jaar == 2020 & periode == "T3") | datum == max(datum)) %>%
   ungroup() %>%
   rename(sublocatie = sublocatie_volledig)
+```
+
+```{r}
+nestbuizen_occupancy %>%
+  distinct(activiteit, is_aanwezig, status_waarneming) %>%
+  arrange(is_aanwezig, activiteit, status_waarneming) %>%
+  kable()
 ```
 
 ## Design
@@ -571,6 +586,283 @@ leaflet() %>%
   addFullscreenControl()
 ```
 
+## Aanwezigheid andere soorten
+
+Er zijn sporen en individuen van andere soorten aangetroffen.
+
+```{r}
+nestbuizen_waarnemingen %>%
+  filter(
+    aantal > 0,
+    type_waarneming != "individu"
+  ) %>%
+  ggplot(aes(x = soort_nl)) +
+  geom_bar(aes(fill = type_waarneming )) +
+  labs(x = "", y = "Aantal waarnemingen", fill = "Type waarneming") +
+  facet_grid(jaar~sporen_versheid, scales = "free") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        legend.position = "top")
+```
+
+```{r}
+nestbuizen_waarnemingen %>%
+  filter(
+    aantal > 0,
+    type_waarneming == "individu"
+  ) %>%
+  mutate(
+    levensstadium = factor(levensstadium, levels = c("juveniel", "subadult", "adult/subadult", "adult"))
+  ) %>%
+  ggplot(aes(x = soort_nl)) +
+  geom_bar(aes(fill = levensstadium )) +
+  labs(x = "", fill = "Levensstadium") +
+  facet_grid(jaar~., scales = "free") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        legend.position = "top")
+```
+
+Komen (sporen van) andere soorten gelijktijdig voor met hazelmuis?
+Voor hazelmuis selecteren we enkel levende individuen en verse nesten.
+
+```{r}
+co_occurring_crosstab <- nestbuizen_occupancy %>%
+  # 1. Apply presence definitions per group
+  mutate(
+    group = case_when(
+      soort_groep == "Hazelmuis" & 
+        activiteit %in% c("in nestbuis", "nest") & 
+        is_aanwezig == TRUE ~ "hazelmuis",
+      
+      soort_groep %in% c("andere_soorten", "Hazelmuis/andere_soorten") & 
+        aanwezig_algemeen == TRUE ~ "other",
+      
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(group)) %>%
+  
+  # 2. Collapse unique activities per tube-visit and group
+  mutate(
+    activiteit = paste(
+      activiteit, ifelse(aanwezig_vers, "(vers)", "(oud/onzeker)")
+    ),
+    activiteit = ifelse(
+      grepl("^in nestbuis", activiteit),
+      "individu",
+      activiteit
+    )
+  ) %>%
+  group_by(sublocatie, jaar, periode, group) %>%
+  summarise(
+    activities = paste(sort(unique(activiteit)), collapse = ", "),
+    .groups = "drop"
+  ) %>%
+  
+  # 3. Pivot wider to align hazelmuis vs other in the same visit
+  pivot_wider(
+    names_from  = group,
+    values_from = activities
+  ) %>%
+  
+  # 4. Keep only visits where both co-occur
+  filter(!is.na(hazelmuis) & !is.na(other))
+
+co_occurring_crosstab %>%
+  count(
+    hazelmuis,
+    andere_soorten     = other,
+    sort               = TRUE,
+    name               = "bezoeken"
+  ) %>%
+  kable()
+```
+
+Het is dus mogelijk om tegelijkertijd individuen of verse nesten van hazelmuis te vinden met (sporen van) andere soorten.
+Enkel levende individuen worden niet samen aangetroffen.
+
+```{r}
+# 1. Expand combined strings into distinct pair occurrences and count frequencies
+heatmap_data <- co_occurring_crosstab %>%
+  tidyr::separate_rows(hazelmuis, sep = ",\\s*") %>%
+  tidyr::separate_rows(other, sep = ",\\s*") %>%
+  count(
+    hazelmuis_activity = hazelmuis,
+    other_activity     = other,
+    name               = "n_visits"
+  )
+
+# 2. Define fixed order for axes
+hazelmuis_levels <- c(
+  "individu",
+  "nest (vers)"
+)
+
+other_levels <- c(
+  "individu",
+  "nest (vers)",
+  "nest (oud/onzeker)",
+  "keutels (vers)",
+  "keutels (oud/onzeker)",
+  "vraatsporen (vers)",
+  "vraatsporen (oud/onzeker)"
+)
+
+# 3. Complete the grid so zero-count cells display correctly
+heatmap_full <- heatmap_data %>%
+  mutate(
+    hazelmuis_activity = factor(hazelmuis_activity, levels = hazelmuis_levels),
+    other_activity     = factor(other_activity, levels = rev(other_levels))
+  ) %>%
+  tidyr::complete(
+    hazelmuis_activity,
+    other_activity,
+    fill = list(n_visits = 0)
+  )
+
+# 4. Heatmap plot
+ggplot(heatmap_full,
+       aes(x = hazelmuis_activity, y = other_activity, fill = n_visits)) +
+  geom_tile(color = "white", linewidth = 0.8) +
+  geom_text(
+    aes(
+      label = n_visits,
+      color = n_visits > (max(n_visits, na.rm = TRUE) / 2)
+    ),
+    fontface = "bold",
+    size = 4.5,
+    show.legend = FALSE
+  ) +
+  scale_color_manual(values = c("TRUE" = "white", "FALSE" = "grey20")) +
+  scale_fill_viridis_c(
+    option = "viridis",
+    direction = -1,
+    name = "Aantal\nbezoeken"
+  ) +
+  labs(
+    x = "Activiteit hazelmuis",
+    y = "Activiteit andere soorten"
+  ) +
+  theme_minimal()
+```
+
+Dit ligt niet per se aan onzekere waarnemingen.
+
+```{r}
+# 1. Bereid co-occurrence data voor per type 'andere soort'
+co_occurring_split <- nestbuizen_occupancy %>%
+  mutate(
+    group = case_when(
+      soort_groep == "Hazelmuis" & 
+        activiteit %in% c("in nestbuis", "nest") & 
+        is_aanwezig == TRUE ~ "hazelmuis",
+      soort_groep %in% c("andere_soorten", "Hazelmuis/andere_soorten") & 
+        aanwezig_algemeen == TRUE ~ soort_groep,
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(group)) %>%
+  mutate(
+    activiteit = paste(
+      activiteit, ifelse(aanwezig_vers, "(vers)", "(oud/onzeker)")
+    ),
+    activiteit = ifelse(
+      grepl("^in nestbuis", activiteit),
+      "individu",
+      activiteit
+    )
+  ) %>%
+  group_by(sublocatie, jaar, periode, group) %>%
+  summarise(
+    activities = paste(sort(unique(activiteit)), collapse = ", "),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from  = group,
+    values_from = activities
+  ) %>%
+  pivot_longer(
+    cols      = any_of(c("andere_soorten", "Hazelmuis/andere_soorten")),
+    names_to  = "soort_groep_other",
+    values_to = "other"
+  ) %>%
+  filter(!is.na(hazelmuis) & !is.na(other))
+
+# 2. Splits gecombineerde activiteiten en tel frequenties per soortgroep
+heatmap_data_split <- co_occurring_split %>%
+  tidyr::separate_rows(hazelmuis, sep = ",\\s*") %>%
+  tidyr::separate_rows(other, sep = ",\\s*") %>%
+  count(
+    soort_groep_other,
+    hazelmuis_activity = hazelmuis,
+    other_activity     = other,
+    name               = "n_visits"
+  )
+
+# 3. Factorniveaus vastleggen
+hazelmuis_levels <- c(
+  "individu",
+  "nest (vers)"
+)
+
+other_levels <- c(
+  "individu",
+  "nest (vers)",
+  "nest (oud/onzeker)",
+  "keutels (vers)",
+  "keutels (oud/onzeker)",
+  "vraatsporen (vers)",
+  "vraatsporen (oud/onzeker)"
+)
+
+# 4. Volledig rooster maken zodat ook 0-tellingen meegenomen worden in beide panelen
+heatmap_full_split <- heatmap_data_split %>%
+  mutate(
+    hazelmuis_activity = factor(hazelmuis_activity, levels = hazelmuis_levels),
+    other_activity     = factor(other_activity, levels = rev(other_levels)),
+    soort_groep_other  = factor(
+      soort_groep_other,
+      levels = c("andere_soorten", "Hazelmuis/andere_soorten"),
+      labels = c("andere soorten", "hazelmuis/andere soorten")
+    )
+  ) %>%
+  tidyr::complete(
+    soort_groep_other,
+    hazelmuis_activity,
+    other_activity,
+    fill = list(n_visits = 0)
+  )
+
+# 5. Twee figuren naast elkaar via facet_wrap
+ggplot(
+  heatmap_full_split,
+  aes(x = hazelmuis_activity, y = other_activity, fill = n_visits)
+) +
+  geom_tile(color = "white", linewidth = 0.8) +
+  geom_text(
+    aes(
+      label = n_visits,
+      color = n_visits > (max(n_visits, na.rm = TRUE) / 2)
+    ),
+    fontface = "bold",
+    size = 4.5,
+    show.legend = FALSE
+  ) +
+  facet_wrap(~ soort_groep_other) +
+  scale_color_manual(values = c("TRUE" = "white", "FALSE" = "grey20")) +
+  scale_fill_viridis_c(
+    option    = "viridis",
+    direction = -1,
+    name      = "Aantal\nbezoeken"
+  ) +
+  labs(
+    x = "Activiteit hazelmuis",
+    y = "Activiteit andere soorten"
+  ) +
+  theme_minimal()
+```
+
 ## Bezettingsgraad over tijd en ruimte
 
 We berekenen per jaar de bezettingsgraad van de nestbuizen: enerzijds het aandeel buizen waarin effectief individuen (adult, subadult of juveniel) zijn aangetroffen, en anderzijds het aandeel buizen met verse sporen (hoofdzakelijk verse nesten). Deze proporties worden zowel over het volledige meetnet geaggregeerd als opgesplitst per transectlocatie.
@@ -711,7 +1003,7 @@ We bepalen per nestbuis, jaar en type waarneming of er minstens één bezettings
 buis_jaar_status <- base_activiteit %>%
   group_by(meetnet, cluster, locatie, sublocatie, jaar, activiteit_label) %>%
   summarise(
-    bezet = any(is_aanwezig == TRUE | totaal_aantal > 0),
+    bezet = any(is_aanwezig == TRUE | totaal_aantal > 0), # Only keeps fresh nests
     .groups = "drop"
   ) %>%
   # Include all combinations
