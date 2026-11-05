@@ -521,7 +521,10 @@ bscols(
 
 leaflet() %>%
   # Base tile layers
-  addTiles(group = "OpenStreetMap") %>%
+  addProviderTiles(
+    providers$OpenStreetMap.DE,
+    group = "OpenStreetMap"
+  )  %>%
   addProviderTiles(
     providers$Esri.WorldImagery,
     group = "Satelliet (Esri)"
