@@ -1,0 +1,2879 @@
+---
+title: "Analyse hazelmuis"
+author: "Ward Langeraert"
+date: today
+
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: right
+    code-fold: true
+    embed-resources: true
+
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+#| warning: false
+#| message: false
+# --- Data manipulation & Core ---
+library(tidyverse)      # Core ecosystem for data wrangling and plotting
+library(scales)         # Formatting and transformations
+
+# --- Spatial analysis & Interactive mapping ---
+library(sf)             # Handling spatial vector data (simple features)
+library(leaflet)        # Interactive web maps
+library(leaflet.extras) # Extra plugins and controls for leaflet maps
+library(crosstalk)      # Inter-widget communication for interactive HTML widgets
+
+# --- Reporting & Table formatting ---
+library(knitr)          # Dynamic report generation and base table rendering
+library(kableExtra)     # Styling and custom layout options for knitr tables
+
+# --- Specialized plotting & INBO corporate styling ---
+library(ggalluvial)     # Alluvial and flow diagrams in ggplot2
+library(INBOtheme)      # INBO corporate styling, palettes, and ggplot themes
+
+# --- Bayesian modeling (INLA) & Post-processing ---
+library(INLA)           # Integrated Nested Laplace Approximations for Bayesian GLMMs
+library(inlatools)      # Model validation diagnostics for INLA
+library(effectclass)    # Classification and standardized plotting of effect sizes
+
+# --- Ecological reference data ---
+library(n2khab)         # Reference data and preprocessing for Natura 2000 habitats in Flanders
+
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(dplyr::pull)
+
+data_path <- fileman_up("soortenmeetnetten-queries")
+source(file.path(fileman_up("soortenmeetnetten-analysis"),
+                 "source/functions_smp.R"))
+source(file.path(here::here(), "source", "R", "add_effect_classification.R"))
+source(file.path(here::here(), "source", "R", "plot_inla_effects.R"))
+source(file.path(here::here(), "source", "R", "plot_caterpillar_inla.R"))
+```
+
+# Achtergrond
+
+## Meetnet hazelmuis
+
+Hazelmuis komt voor op Bijlage IV van Habitatrichtlijn.
+Monitoring gebeurt in het kader van de 6-jaarlijke rapportage van Staat van Instandhouding (SVI) als onderdeel van de Soortenmeetnetten.
+De soort komt in Vlaanderen enkel voor in de Voerstreek.
+Meetnet-protocol: [doi.org/10.21436/inbor.17353371](https://doi.org/10.21436/inbor.17353371).
+
+Het meetnet bestaat uit 2 delen:
+
+1. Transecttelllingen hazelmuisnesten
+   - Sinds 2007
+   - 18 transecten
+   - 2 tellingen per jaar
+
+2. Tellingen van nesten, individuen en sporen in nestbuizen
+   - Sinds 2020
+   - Betere methode om populatiegrootte te schatten
+   - 17 transecten langs bosrand met in totaal 200 nestbuizen
+   - 4 tellingen per jaar
+   - 3 ‘oude’ transecten hazelmuisnesten langs spoorwegberm
+
+We focussen ons in dit rapport op de nestbuistellingen.
+
+Concreet willen we een model voor (1) het aantal individuen en (2) het aantal nesten waaruit we jaarlijkse trends kunnen afleiden.
+
+## Uitgevoerde analyses
+
+Toon Westra voerde reeds enkele analyses uit (zie [deze analyse](https://github.com/inbo/soortenmeetnetten-analysis/tree/main/analysis_hazelmuis/source) in [analysis_hazelmuis](https://github.com/inbo/soortenmeetnetten-analysis/tree/main/analysis_hazelmuis)).
+
+Hierbij werd een logistische regressie uitgevoerd met random effect voor nestbuis en locatie (met INLA).
+Hierbij werden per jaar enkel de data van nestbuizen met minstens 3 bezoeken weerhouden.
+Dit werd gefit op geaggregeerde data:
+
+- Aan-/afwezigheid vers nest per nestbuis per bezoek → Aan-/afwezigheid (minstens 1) vers nest per nestbuis per jaar
+- Aantallen adult, subadult, juveniel per nestbuis per bezoek → Aan-/afwezigheid (minstens 1) individu per nestbuis per jaar
+- Aggregatie andere soorten
+
+**Potentiële verbeteringen:**
+
+- Geen proporties vergelijken met elkaar
+- Enkel werken met vrije nestbuizen, dus niet waar andere muis in is gevonden
+- Omgaan met verschillend aantal bezoeken per nestbuis (geen aggregatie)
+- Poisson/Neg-bin model o.b.v. aantal nesten/individuen per transect met aantal vrije nestbuizen als offset (zie [doi: 10.1111/mam.12091](https://doi.org/10.1111/mam.12091))
+
+# Data exploratie
+
+```{r}
+# ==============================================================================
+# 1. LOAD & ENRICH BASE OBSERVATIONS
+# ==============================================================================
+
+# Fetch visit metadata
+visits_meta <- get_visits_smp() %>%
+  filter(meetnet == "Hazelmuis - Nestbuizen" | protocol == "Hazelmuis - Nestbuizen") %>%
+  select(visit_id, bezoek_status, validatie) %>%
+  mutate(visit_id = as.character(visit_id))
+
+# Read observations and standardize basic columns upfront
+nestbuizen_base <- read_vc(
+  root = fileman_up("soortenmeetnetten-queries"),
+  file = "raw/aantal_hazelmuis_nestbuizen"
+) %>%
+  mutate(visit_id = as.character(visit_id)) %>%
+  left_join(visits_meta, by = "visit_id") %>%
+  mutate(
+    # Date & IDs
+    datum = as.Date(datum),
+    jaar = year(datum),
+    maand = month(datum),
+    dag = day(datum),
+    
+    # Geography
+    sublocatie_volledig = str_c(locatie, "-", sublocatie),
+    nestbuis_nr = as.integer(str_extract(sublocatie, "\\d+$")),
+    bos = str_remove(locatie, " - .*"),
+    cluster = case_when(
+      bos %in% c("Broekbos", "Konenbos", "Veursbos") ~ "boscluster1",
+      bos %in% c("Teuvenerberg", "Obsinnich")        ~ "boscluster2",
+      TRUE                                           ~ "boscluster3"
+    ),
+    
+    # Inspection time window (T1 - T4)
+    periode = case_when(
+      maand == 4 ~ "T1",
+      maand == 5 ~ "T2",
+      # Exception: Konenbos 2024
+      jaar == 2024 & locatie == "Konenbos" & 
+        ((maand == 9 & dag >= 12) | (maand == 10 & dag <= 10)) ~ "T3",
+      jaar == 2024 & locatie == "Konenbos" & 
+        ((maand == 10 & dag >= 11) | (maand == 11 & dag <= 20)) ~ "T4",
+      # Standard windows
+      (maand == 9 & dag >= 12) | (maand == 10 & dag <= 18) ~ "T3",
+      (maand == 10 & dag > 18) | (maand == 11 & dag <= 20) ~ "T4",
+      TRUE ~ "Buiten periode"
+    )
+  )
+```
+
+```{r}
+# ==============================================================================
+# 2. DETAILED OBSERVATION DATASET (Cleaned Row-level Records)
+# ==============================================================================
+
+nestbuizen_waarnemingen <- nestbuizen_base %>%
+  mutate(
+    primaire_soort = ifelse(primaire_soort, "ja", "nee"),
+    sporen_versheid = case_when(
+      code == "O" ~ "oud",
+      code == "F" ~ "vers",
+      code == "U" ~ "onzeker",
+      TRUE        ~ NA_character_
+    ),
+    type_waarneming = ifelse(
+      observation_type == "exact count",
+      "individu",
+      activiteit
+    ),
+    levensstadium = ifelse(
+      type_waarneming == "individu",
+      levensstadium,
+      NA_character_
+    )
+  ) %>%
+  select(
+    meetnet,
+    cluster,
+    bos,
+    locatie,
+    sublocatie = sublocatie_volledig,
+    nestbuis_nr,
+    datum,
+    jaar,
+    periode,
+    primaire_soort,
+    soort_nl,
+    type_waarneming,
+    levensstadium,
+    aantal,
+    sporen_versheid,
+    bezoek_status,
+    validatie
+  ) %>%
+  arrange(locatie, datum, nestbuis_nr)
+```
+
+```{r}
+# ==============================================================================
+# 3. OCCUPANCY DATASET (Aggregated Presence/Absence per Tube Visit)
+# ==============================================================================
+
+nestbuizen_occupancy <- nestbuizen_base %>%
+  # Filter out uncounted tubes
+  filter(!niet_geteld) %>%
+
+  # Standardize species grouping
+  mutate(
+    soort_groep = case_when(
+      soort_nl == "Hazelmuis"            ~ "Hazelmuis",
+      str_detect(soort_nl, "Hazelmuis")  ~ "Hazelmuis/andere_soorten",
+      TRUE                               ~ "andere_soorten"
+    )
+  ) %>%
+  
+  # Calculate visits per tube per year
+  group_by(meetnet, locatie, sublocatie_volledig, jaar) %>%
+  mutate(n_bezoeken_jaar = n_distinct(visit_id)) %>%
+  ungroup() %>%
+  
+  # Aggregate counts and trace freshness per visit
+  group_by(
+    meetnet, cluster, bos, locatie, sublocatie_volledig, nestbuis_nr,
+    visit_id, jaar, datum, periode, n_bezoeken_jaar,
+    soort_groep, observation_type, activiteit
+  ) %>%
+  summarise(
+    totaal_aantal = sum(aantal, na.rm = TRUE),
+    aanwezig_algemeen = totaal_aantal > 0,
+    aanwezig_vers = "F" %in% code,
+    .groups = "drop"
+  ) %>%
+  
+  # Determine definitive presence status
+  mutate(
+    aanwezig_oud_onzeker = aanwezig_algemeen & !aanwezig_vers,
+    is_aanwezig = ifelse(activiteit == "in nestbuis", aanwezig_algemeen, aanwezig_vers),
+    status_waarneming = case_when(
+      activiteit == "in nestbuis" & is_aanwezig ~ "aanwezig",
+      activiteit == "in nestbuis" & !is_aanwezig ~ "afwezig",
+      aanwezig_vers ~ "aanwezig - vers",
+      aanwezig_oud_onzeker ~ "aanwezig - enkel oud of onzeker",
+      TRUE ~ "afwezig"
+    )
+  ) %>%
+  
+  # Keep only the latest inspection for 2020 T3 duplicates
+  group_by(jaar, cluster, locatie, sublocatie_volledig, periode) %>%
+  filter(!(jaar == 2020 & periode == "T3") | datum == max(datum)) %>%
+  ungroup() %>%
+  rename(sublocatie = sublocatie_volledig)
+```
+
+```{r}
+nestbuizen_occupancy %>%
+  distinct(activiteit, is_aanwezig, status_waarneming) %>%
+  arrange(is_aanwezig, activiteit, status_waarneming) %>%
+  kable()
+```
+
+## Design
+
+```{r}
+# Inline waarden berekenen op basis van de basisset
+n_nestbuizen <- n_distinct(nestbuizen_base$sublocatie_volledig)
+n_locaties   <- n_distinct(nestbuizen_base$locatie)
+min_jaar     <- min(nestbuizen_waarnemingen$jaar, na.rm = TRUE)
+max_jaar     <- max(nestbuizen_waarnemingen$jaar, na.rm = TRUE)
+```
+
+In totaal hebben we `r n_nestbuizen` nestbuizen verspreid over `r n_locaties` transecten.
+We hebben data van `r min_jaar` tot en met `r max_jaar`.
+We splitsen de data in 3 geografische bosclusters.
+
+```{r}
+nestbuizen_waarnemingen %>%
+  distinct(cluster, locatie, nestbuis_nr, jaar) %>%
+  count(cluster, locatie, nestbuis_nr, name = "n_jaren") %>%
+  mutate(
+    n_nestbuis = n_distinct(nestbuis_nr),
+    .by = "locatie"
+  ) %>%
+  mutate(label = paste0(locatie, " (N = ", n_nestbuis, ")")) %>%
+  ggplot(aes(x = nestbuis_nr, y = label, fill = as.factor(n_jaren))) +
+  geom_tile(colour = "white") +
+  facet_grid(cluster ~ ., scales = "free_y", space = "free_y") +
+  scale_x_continuous(breaks = scales::pretty_breaks()) +
+  labs(
+    x = "Nestbuisnummer",
+    y = "Locatie",
+    fill = "Aantal jaren"
+  ) +
+  theme_minimal()
+```
+
+Deze overzichtsfiguur toont dat sommige transecten soms niet bezocht zijn (rode kruisjes).
+In sommige gevallen zijn niet alle nestbuizen per transect geteld.
+Volledig getelde transecten zijn blauw met paarse rand.
+Zie `missing_data_hazelmuis_ward.qmd` voor meer details.
+Het gaat vak om verloren of kapotte nestbuizen.
+
+```{r}
+#| fig.width: 8
+# 1. Determine total known unique nest tubes per transect/location
+max_buizen_per_locatie <- nestbuizen_base %>%
+  group_by(locatie) %>%
+  summarise(totaal_nestbuizen = n_distinct(sublocatie_volledig),
+            .groups = "drop")
+
+# 2. Define shared breaks, labels, and palette colors for 10% steps
+pct_breaks <- seq(10, 100, by = 10)
+pct_labels <- paste(pct_breaks, "%")
+pct_labels[length(pct_labels)] <- "100 % (Volledig)"
+
+legend_colors <- c(
+  "cornflowerblue",
+  viridis::viridis(9, option = "inferno", direction = 1)
+)
+
+# 3. Calculate visits and completeness per survey period
+nestbuizen_occupancy %>%
+  # Filter out visits outside target inspection windows
+  filter(periode != "Buiten periode") %>%
+  group_by(jaar, cluster, locatie, periode) %>%
+  summarise(
+    n_bezoeken_num      = n_distinct(datum),
+    n_nestbuizen_geteld = n_distinct(sublocatie),
+    n                   = n_distinct(datum, sublocatie),
+    .groups             = "drop"
+  ) %>%
+  
+  # Fill in missing combinations of transects and survey windows
+  complete(
+    nesting(cluster, locatie),
+    nesting(jaar, periode),
+    fill = list(
+      n_bezoeken_num      = 0,
+      n_nestbuizen_geteld = 0,
+      n                   = 0
+    )
+  ) %>%
+  
+  # Join expected total tubes per transect
+  left_join(max_buizen_per_locatie, by = "locatie") %>%
+  
+  # Compute completion rate and visit flags
+  mutate(
+    is_nul       = n_bezoeken_num == 0,
+    pct_compleet = (n / totaal_nestbuizen) * 100,
+    is_honderd   = pct_compleet == 100,
+    ratio        = n / totaal_nestbuizen,
+    periode      = str_remove(periode, "^T")
+  ) %>%
+  
+  # Visualization
+  ggplot(aes(x = periode, y = locatie)) +
+  
+  # Line connecting surveyed periods per transect
+  geom_line(data = . %>% filter(!is_nul), aes(group = locatie), color = "grey60") +
+  
+  # Points for surveyed periods (scaled and colored by completeness)
+  geom_point(
+    data = . %>% filter(!is_nul), 
+    aes(colour = pct_compleet, size = pct_compleet),
+    shape = 16
+  ) +
+  
+  # Highlight circle for 100% completed transects (hide its separate guide)
+  geom_point(
+    data = . %>% filter(is_honderd),
+    shape       = 21,
+    stroke      = 1,
+    colour      = "orchid",
+    size        = 5.2,
+    show.legend = FALSE
+  ) +
+
+  # Red cross for unvisited transects (0%)
+  geom_point(
+    data = . %>% filter(is_nul),
+    shape       = 4, 
+    size        = 3, 
+    stroke      = 1.2, 
+    color       = "red",
+    show.legend = FALSE
+  ) +
+
+  # Continuous size scale across 10% steps
+  scale_size_continuous(
+    range  = c(1, 5),
+    limits = c(0, 100),
+    breaks = pct_breaks,
+    labels = pct_labels
+  ) +
+  
+  # Gradient color scale matching exact same breaks/labels
+  scale_colour_gradientn(
+    colours = rev(legend_colors),
+    limits  = c(0, 100),
+    breaks  = pct_breaks,
+    labels  = pct_labels
+  ) +
+  
+  # Override legend appearance to draw shape 21 with orchid stroke on 100%
+  guides(
+    colour = guide_legend(
+      reverse = TRUE,
+      override.aes = list(
+        shape  = 21,
+        fill   = legend_colors,
+        colour = c("orchid", rep("transparent", 9)),
+        stroke = c(1, rep(0, 9))
+      )
+    ),
+    size = guide_legend(reverse = TRUE)
+  ) +
+  
+  # Matching titles ensure ggplot merges size and color into one legend
+  labs(
+    x      = "Telperiode", 
+    y      = "Transect", 
+    colour = "Compleetheid\ntransect",
+    size   = "Compleetheid\ntransect"
+  ) +
+  facet_grid(cluster ~ jaar, scales = "free_y") +
+  theme_minimal()
+```
+
+```{r}
+# Aggregate presence/absence of hazel dormouse per tube, year, and activity
+occurrence_nestbuizen <- nestbuizen_base %>%
+  # Focus only on target species (Hazel dormouse)
+  filter(primaire_soort) %>%
+  group_by(meetnet, bos, cluster, locatie, sublocatie_volledig, jaar,
+           observation_type, activiteit) %>%
+  summarise(
+    aanwezig_algemeen = sum(aantal, na.rm = TRUE) > 0,
+    aanwezig_vers     = "F" %in% code,
+    .groups           = "drop"
+  ) %>%
+  mutate(
+    # Presence rule: any observation for individuals inside tube; fresh signs only for nests
+    aanwezig = if_else(activiteit == "in nestbuis", aanwezig_algemeen, aanwezig_vers),
+    activiteit_label = case_when(
+      activiteit == "in nestbuis" ~ "individuen",
+      activiteit == "nest"        ~ "nest (vers)",
+      TRUE                        ~ activiteit
+    )
+  )
+```
+
+```{r}
+# Main transect lines / areas
+hoofd_loc <- get_locations_smp() %>%
+  filter(meetnet == "Hazelmuis - Nestbuizen", locatie_type == "locatie") %>%
+  select(meetnet, locatie, parent_id = id)
+
+# Sublocations (individual nesting tubes)
+sub_loc <- get_locations_smp() %>%
+  filter(meetnet == "Hazelmuis - Nestbuizen", locatie_type == "sublocatie") %>%
+  select(meetnet, nestbuis_naam = locatie, parent_id) %>%
+  left_join(st_drop_geometry(hoofd_loc), by = c("meetnet", "parent_id")) %>%
+  mutate(sublocatie_volledig = str_c(locatie, "-", nestbuis_naam))
+
+# Join observation occurrences to spatial tube points
+sub_loc_occurrence <- sub_loc %>%
+  inner_join(occurrence_nestbuizen, by = c("meetnet", "locatie", "sublocatie_volledig")) %>%
+  mutate(
+    show_color = if_else(aanwezig, "yellow", "red"),
+    showlabel  = str_c(
+      nestbuis_naam, ": ", 
+      activiteit_label, 
+      if_else(aanwezig, " aanwezig", " afwezig")
+    ),
+    showradius = 7
+  )
+
+# Wrap into SharedData for dynamic Crosstalk filtering
+sd_buizen <- SharedData$new(sub_loc_occurrence)
+```
+
+We willen nagaan wat de densiteit van nestbuizen per transect is.
+Onderstaande figuur toont de gerealiseerde gemiddelde buisafstand (transectlengte gedeeld door het aantal nestbuizen) per transect, gerangschikt van de hoogste naar de laagste dichtheid.
+Hieruit blijkt dat het merendeel van de transecten iets onder de protocolrichtlijn ligt.
+
+> De onderlinge afstand is ca. 50 m, maar zal in de praktijk variëren van 40 tot 65 m, afhankelijk van waar geschikte plekken (bomen of struweel) zijn om ze aan te brengen.
+
+Maar er is over het algemeen weinig variatie in densiteit aan nestbuizen per transect.
+Zowel in de kortere transecten (10 buizen in o.a. het Veursbos en Vrouwenbos) als in het langere transect van het Konenbos (25 buizen over ruim 1,2 km) blijft de onderlinge ruimtelijke spreiding nagenoeg constant.
+
+```{r}
+plot_data <- hoofd_loc %>%
+  left_join(
+    nestbuizen_base %>%
+      group_by(locatie, bos) %>%
+      summarise(aantal_nestbuizen = n_distinct(sublocatie_volledig),
+                .groups = "drop"),
+    by = join_by(locatie)
+  ) %>%
+  mutate(lengte_m = as.numeric(st_length(geom))) %>%
+  st_drop_geometry()
+
+plot_data %>%
+  mutate(
+    m_per_buis = lengte_m / aantal_nestbuizen,
+    locatie = reorder(locatie, m_per_buis)
+  ) %>%
+  ggplot(aes(x = m_per_buis, y = locatie)) +
+  geom_segment(aes(x = 0, xend = m_per_buis, y = locatie, yend = locatie), color = "black") +
+  geom_point(aes(size = aantal_nestbuizen)) +
+  scale_size_continuous(
+    range  = c(2, 6),                  # Increases minimum point size
+    breaks = c(10, 15, 20, 25),          # Explicit steps matching your data
+    limits = c(10, 25)
+  ) +
+  labs(
+    x = "Gemiddelde afstand per nestbuis (meter / buis)",
+    y = "",
+    size = "Aantal buizen"
+  ) +
+  theme_minimal()
+```
+
+We visualiseren de transecten ook op een overzichtskaartje.
+Met de checkboxes kan de getoonde data gefilterd worden in de weergave.
+
+```{r}
+bscols(
+  filter_checkbox("activiteit_label", "Type waarneming", sd_buizen, ~activiteit_label),
+  filter_checkbox("jaar", "Jaar", sd_buizen, ~jaar)
+)
+
+leaflet() %>%
+  # Base tile layers
+  addProviderTiles(
+    providers$OpenStreetMap.DE,
+    group = "OpenStreetMap"
+  )  %>%
+  addProviderTiles(
+    providers$Esri.WorldImagery,
+    group = "Satelliet (Esri)"
+  ) %>%
+  
+  # Transect lines
+  addPolylines(
+    data        = hoofd_loc,
+    label       = ~locatie,
+    group       = "Transecten (meetnetlocaties)",
+    color       = "#1f78b4",
+    weight      = 3,
+    opacity     = 0.8
+  ) %>%
+  
+  # Nesting tube observation markers (linked to Crosstalk)
+  addCircleMarkers(
+    data        = sd_buizen,
+    label       = ~showlabel,
+    color       = ~show_color,
+    fillColor   = ~show_color,
+    group       = "Tellingen hazelmuis",
+    fillOpacity = 0.7,
+    stroke      = TRUE,
+    weight      = 1,
+    opacity     = 0.9,
+    radius      = ~showradius
+  ) %>%
+  
+  # Layer selector
+  addLayersControl(
+    baseGroups = c("OpenStreetMap", "Satelliet (Esri)"),
+    overlayGroups = c(
+      "Transecten (meetnetlocaties)",
+      "Tellingen hazelmuis"
+    ),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+  
+  # Fullscreen control
+  addFullscreenControl()
+```
+
+## Aanwezigheid andere soorten
+
+Er zijn sporen en individuen van andere soorten aangetroffen.
+
+```{r}
+nestbuizen_waarnemingen %>%
+  filter(
+    aantal > 0,
+    type_waarneming != "individu"
+  ) %>%
+  ggplot(aes(x = soort_nl)) +
+  geom_bar(aes(fill = type_waarneming )) +
+  labs(x = "", y = "Aantal waarnemingen", fill = "Type waarneming") +
+  facet_grid(jaar~sporen_versheid, scales = "free") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        legend.position = "top")
+```
+
+```{r}
+nestbuizen_waarnemingen %>%
+  filter(
+    aantal > 0,
+    type_waarneming == "individu"
+  ) %>%
+  mutate(
+    levensstadium = factor(levensstadium, levels = c("juveniel", "subadult", "adult/subadult", "adult"))
+  ) %>%
+  ggplot(aes(x = soort_nl)) +
+  geom_bar(aes(fill = levensstadium )) +
+  labs(x = "", fill = "Levensstadium") +
+  facet_grid(jaar~., scales = "free") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        legend.position = "top")
+```
+
+Komen (sporen van) andere soorten gelijktijdig voor met hazelmuis?
+Voor hazelmuis selecteren we enkel levende individuen en verse nesten.
+
+```{r}
+co_occurring_crosstab <- nestbuizen_occupancy %>%
+  # 1. Apply presence definitions per group
+  mutate(
+    group = case_when(
+      soort_groep == "Hazelmuis" & 
+        activiteit %in% c("in nestbuis", "nest") & 
+        is_aanwezig == TRUE ~ "hazelmuis",
+      
+      soort_groep %in% c("andere_soorten", "Hazelmuis/andere_soorten") & 
+        aanwezig_algemeen == TRUE ~ "other",
+      
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(group)) %>%
+  
+  # 2. Collapse unique activities per tube-visit and group
+  mutate(
+    activiteit = paste(
+      activiteit, ifelse(aanwezig_vers, "(vers)", "(oud/onzeker)")
+    ),
+    activiteit = ifelse(
+      grepl("^in nestbuis", activiteit),
+      "individu",
+      activiteit
+    )
+  ) %>%
+  group_by(sublocatie, jaar, periode, group) %>%
+  summarise(
+    activities = paste(sort(unique(activiteit)), collapse = ", "),
+    .groups = "drop"
+  ) %>%
+  
+  # 3. Pivot wider to align hazelmuis vs other in the same visit
+  pivot_wider(
+    names_from  = group,
+    values_from = activities
+  ) %>%
+  
+  # 4. Keep only visits where both co-occur
+  filter(!is.na(hazelmuis) & !is.na(other))
+
+co_occurring_crosstab %>%
+  count(
+    hazelmuis,
+    andere_soorten     = other,
+    sort               = TRUE,
+    name               = "bezoeken"
+  ) %>%
+  kable()
+```
+
+Het is dus mogelijk om tegelijkertijd individuen of verse nesten van hazelmuis te vinden met (sporen van) andere soorten.
+Enkel levende individuen worden niet samen aangetroffen.
+
+```{r}
+# 1. Expand combined strings into distinct pair occurrences and count frequencies
+heatmap_data <- co_occurring_crosstab %>%
+  tidyr::separate_rows(hazelmuis, sep = ",\\s*") %>%
+  tidyr::separate_rows(other, sep = ",\\s*") %>%
+  count(
+    hazelmuis_activity = hazelmuis,
+    other_activity     = other,
+    name               = "n_visits"
+  )
+
+# 2. Define fixed order for axes
+hazelmuis_levels <- c(
+  "individu",
+  "nest (vers)"
+)
+
+other_levels <- c(
+  "individu",
+  "nest (vers)",
+  "nest (oud/onzeker)",
+  "keutels (vers)",
+  "keutels (oud/onzeker)",
+  "vraatsporen (vers)",
+  "vraatsporen (oud/onzeker)"
+)
+
+# 3. Complete the grid so zero-count cells display correctly
+heatmap_full <- heatmap_data %>%
+  mutate(
+    hazelmuis_activity = factor(hazelmuis_activity, levels = hazelmuis_levels),
+    other_activity     = factor(other_activity, levels = rev(other_levels))
+  ) %>%
+  tidyr::complete(
+    hazelmuis_activity,
+    other_activity,
+    fill = list(n_visits = 0)
+  )
+
+# 4. Heatmap plot
+ggplot(heatmap_full,
+       aes(x = hazelmuis_activity, y = other_activity, fill = n_visits)) +
+  geom_tile(color = "white", linewidth = 0.8) +
+  geom_text(
+    aes(
+      label = n_visits,
+      color = n_visits > (max(n_visits, na.rm = TRUE) / 2)
+    ),
+    fontface = "bold",
+    size = 4.5,
+    show.legend = FALSE
+  ) +
+  scale_color_manual(values = c("TRUE" = "white", "FALSE" = "grey20")) +
+  scale_fill_viridis_c(
+    option = "viridis",
+    direction = -1,
+    name = "Aantal\nbezoeken"
+  ) +
+  labs(
+    x = "Activiteit hazelmuis",
+    y = "Activiteit andere soorten"
+  ) +
+  theme_minimal()
+```
+
+Dit ligt niet per se aan onzekere waarnemingen.
+
+```{r}
+# 1. Bereid co-occurrence data voor per type 'andere soort'
+co_occurring_split <- nestbuizen_occupancy %>%
+  mutate(
+    group = case_when(
+      soort_groep == "Hazelmuis" & 
+        activiteit %in% c("in nestbuis", "nest") & 
+        is_aanwezig == TRUE ~ "hazelmuis",
+      soort_groep %in% c("andere_soorten", "Hazelmuis/andere_soorten") & 
+        aanwezig_algemeen == TRUE ~ soort_groep,
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(group)) %>%
+  mutate(
+    activiteit = paste(
+      activiteit, ifelse(aanwezig_vers, "(vers)", "(oud/onzeker)")
+    ),
+    activiteit = ifelse(
+      grepl("^in nestbuis", activiteit),
+      "individu",
+      activiteit
+    )
+  ) %>%
+  group_by(sublocatie, jaar, periode, group) %>%
+  summarise(
+    activities = paste(sort(unique(activiteit)), collapse = ", "),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from  = group,
+    values_from = activities
+  ) %>%
+  pivot_longer(
+    cols      = any_of(c("andere_soorten", "Hazelmuis/andere_soorten")),
+    names_to  = "soort_groep_other",
+    values_to = "other"
+  ) %>%
+  filter(!is.na(hazelmuis) & !is.na(other))
+
+# 2. Splits gecombineerde activiteiten en tel frequenties per soortgroep
+heatmap_data_split <- co_occurring_split %>%
+  tidyr::separate_rows(hazelmuis, sep = ",\\s*") %>%
+  tidyr::separate_rows(other, sep = ",\\s*") %>%
+  count(
+    soort_groep_other,
+    hazelmuis_activity = hazelmuis,
+    other_activity     = other,
+    name               = "n_visits"
+  )
+
+# 3. Factorniveaus vastleggen
+hazelmuis_levels <- c(
+  "individu",
+  "nest (vers)"
+)
+
+other_levels <- c(
+  "individu",
+  "nest (vers)",
+  "nest (oud/onzeker)",
+  "keutels (vers)",
+  "keutels (oud/onzeker)",
+  "vraatsporen (vers)",
+  "vraatsporen (oud/onzeker)"
+)
+
+# 4. Volledig rooster maken zodat ook 0-tellingen meegenomen worden in beide panelen
+heatmap_full_split <- heatmap_data_split %>%
+  mutate(
+    hazelmuis_activity = factor(hazelmuis_activity, levels = hazelmuis_levels),
+    other_activity     = factor(other_activity, levels = rev(other_levels)),
+    soort_groep_other  = factor(
+      soort_groep_other,
+      levels = c("andere_soorten", "Hazelmuis/andere_soorten"),
+      labels = c("andere soorten", "hazelmuis/andere soorten")
+    )
+  ) %>%
+  tidyr::complete(
+    soort_groep_other,
+    hazelmuis_activity,
+    other_activity,
+    fill = list(n_visits = 0)
+  )
+
+# 5. Twee figuren naast elkaar via facet_wrap
+ggplot(
+  heatmap_full_split,
+  aes(x = hazelmuis_activity, y = other_activity, fill = n_visits)
+) +
+  geom_tile(color = "white", linewidth = 0.8) +
+  geom_text(
+    aes(
+      label = n_visits,
+      color = n_visits > (max(n_visits, na.rm = TRUE) / 2)
+    ),
+    fontface = "bold",
+    size = 4.5,
+    show.legend = FALSE
+  ) +
+  facet_wrap(~ soort_groep_other) +
+  scale_color_manual(values = c("TRUE" = "white", "FALSE" = "grey20")) +
+  scale_fill_viridis_c(
+    option    = "viridis",
+    direction = -1,
+    name      = "Aantal\nbezoeken"
+  ) +
+  labs(
+    x = "Activiteit hazelmuis",
+    y = "Activiteit andere soorten"
+  ) +
+  theme_minimal()
+```
+
+## Bezettingsgraad over tijd en ruimte
+
+We berekenen per jaar de bezettingsgraad van de nestbuizen: enerzijds het aandeel buizen waarin effectief individuen (adult, subadult of juveniel) zijn aangetroffen, en anderzijds het aandeel buizen met verse sporen (hoofdzakelijk verse nesten). Deze proporties worden zowel over het volledige meetnet geaggregeerd als opgesplitst per transectlocatie.
+
+```{r}
+#| message: false
+
+# 1. Proportie aanwezigheid per transectlocatie en jaar
+occurrence_locatie <- occurrence_nestbuizen %>%
+  group_by(meetnet, cluster, bos, locatie, jaar, activiteit_label) %>%
+  summarise(
+    n_buizen_aanwezig = sum(aanwezig, na.rm = TRUE),
+    n_totaal_buizen   = n_distinct(sublocatie_volledig),
+    prop_aanwezig     = n_buizen_aanwezig / n_totaal_buizen,
+    .groups           = "drop"
+  )
+
+# 2. Proportie aanwezigheid over het volledige meetnet per jaar
+occurrence_jaar <- occurrence_nestbuizen %>%
+  group_by(meetnet, jaar, activiteit_label) %>%
+  summarise(
+    n_buizen_aanwezig = sum(aanwezig, na.rm = TRUE),
+    n_totaal_buizen   = n_distinct(sublocatie_volledig),
+    prop_aanwezig     = n_buizen_aanwezig / n_totaal_buizen,
+    .groups           = "drop"
+  )
+```
+
+Onderstaande figuur geeft de globale bezettingsgraad van de nestbuizen weer doorheen de tijd voor de verschillende typen waarnemingen.
+We zien vooral individuen en nesten.
+
+```{r}
+#| fig-width: 8
+#| fig-height: 4.5
+occurrence_jaar %>%
+  ggplot(aes(
+    x = factor(jaar),
+    y = prop_aanwezig,
+    colour = activiteit_label,
+    shape = activiteit_label,
+    group = activiteit_label
+  )) +
+  geom_line(linetype = "dashed", alpha = 0.8) +
+  geom_point(size = 3, alpha = 0.9) +
+  scale_y_continuous(
+    labels = label_percent(accuracy = 1),
+    limits = c(0, NA),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  labs(
+    x = "Jaar",
+    y = "Aandeel bezette nestbuizen",
+    colour = "Type waarneming",
+    shape = "Type waarneming"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+We splitsen de jaarlijkse trends ook op per transect.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 8.5
+occurrence_locatie %>%
+  ggplot(aes(
+    x = factor(jaar),
+    y = prop_aanwezig,
+    colour = activiteit_label,
+    shape = activiteit_label,
+    group = activiteit_label
+  )) +
+  geom_line(linetype = "dashed", alpha = 0.7) +
+  geom_point(size = 2.2, alpha = 0.85) +
+  facet_wrap(~locatie, ncol = 3) +
+  scale_y_continuous(
+    labels = label_percent(accuracy = 1),
+    limits = c(0, NA),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  labs(
+    x = "Jaar",
+    y = "Aandeel bezette nestbuizen",
+    colour = "Type waarneming",
+    shape = "Type waarneming"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+    panel.grid.minor = element_blank(),
+    strip.background = element_rect(fill = "grey95", colour = NA)
+  )
+```
+
+## Kolonisatiedynamiek en verblijfsduur
+
+Om de dynamiek van kolonisatie (nieuwe bezetting), aanhoudende bezetting en verlating per nestbuis te ontleden, vergelijken we de toestand met de voorgaande meetstap. We splitsen dit op per type waarneming:
+
+* **Individuen:** actuele aanwezigheid van hazelmuizen in de buis.
+* **Nest (vers):** aanwezigheid van een vers hazelmuisnest (spoor van bezetting).
+
+```{r}
+#| message: false
+# Define colours
+kleuren_4_tinten <- c(
+  "Nieuw bezet (Kolonisatie)" = "#4daf4a", # Groen
+  "Aanhoudend bezet"          = "#377eb8", # Blauw
+  "Verlaten (Uitstroom)"      = "#e41a1c", # Rood
+  "Bezet andere soort"        = "#969696", # Middengrijs
+  "Niet bezocht"              = "#525252", # Donkergrijs
+  "Niet bezet"                = "#d9d9d9"  # Lichtgrijs
+)
+
+# Create activity labels
+base_activiteit <- nestbuizen_occupancy %>%
+  mutate(
+    activiteit_label = case_when(
+      activiteit == "in nestbuis" ~ "individuen",
+      activiteit == "nest"        ~ "nest (vers)",
+      TRUE                        ~ activiteit
+    )
+  ) %>%
+  filter(activiteit_label %in% c("individuen", "nest (vers)"))
+```
+
+### Bezettingsturnover
+
+We bepalen per nestbuis, jaar en type waarneming of er minstens één bezettingsregistratie was, en vergelijken die met het voorgaande jaar.
+Afwezigheid van hazelmuis splitsen we op in:
+
+- Bezet andere soort: vers nest of individu andere soort aangetroffen
+- Niet bezocht: nestbuis niet geteld (niet gevonden, kapot ...)
+- Niet bezet: overige
+
+```{r}
+#| message: false
+# 1. Distinct nesting tubes occupied by other species at the yearly level
+occupied_nesting_tubes_year <- nestbuizen_occupancy %>%
+  filter(
+    soort_groep != "Hazelmuis",
+    activiteit %in% c("in nestbuis", "nest"),
+    is_aanwezig
+  ) %>%
+  distinct(jaar, sublocatie) %>%
+  mutate(bezet_andere_soort = TRUE)
+
+visited_nesting_tubes_year <- nestbuizen_occupancy %>%
+  # Filter out visits outside target inspection windows
+  filter(periode != "Buiten periode") %>%
+  
+  # Fill in missing combinations of transects and survey windows
+  mutate(
+    visited = TRUE
+  ) %>%
+  complete(
+    nesting(cluster, sublocatie),
+    nesting(jaar),
+    fill = list(
+      visited = FALSE
+    )
+  ) %>%
+  distinct(jaar, sublocatie, visited)
+
+# Calculate occupancy by nesting tube, year and dynamic
+buis_jaar_status <- base_activiteit %>%
+  group_by(meetnet, cluster, locatie, sublocatie, jaar, activiteit_label) %>%
+  summarise(
+    bezet = any(is_aanwezig == TRUE | totaal_aantal > 0), # Only keeps fresh nests
+    .groups = "drop"
+  ) %>%
+
+  # Include all combinations
+  complete(
+    nesting(meetnet, cluster, locatie, sublocatie),
+    jaar,
+    activiteit_label,
+    fill = list(bezet = FALSE)
+  ) %>%
+
+  # Join occupancy by other species
+  left_join(occupied_nesting_tubes_year, by = c("jaar", "sublocatie")) %>%
+  mutate(bezet_andere_soort = replace_na(bezet_andere_soort, FALSE)) %>%
+  
+  # Join occupancy by visits
+  left_join(
+    visited_nesting_tubes_year,
+    by = c("jaar", "sublocatie")
+  ) %>%
+
+  # Decide dynamics compared to last year
+  group_by(sublocatie, activiteit_label) %>%
+  arrange(jaar) %>%
+  mutate(
+    bezet_vorig_jaar = dplyr::lag(bezet),
+    dynamiek = case_when(
+      is.na(bezet_vorig_jaar)          ~ "Nieuw bezet (Eerste jaar data)",
+      !bezet_vorig_jaar & bezet        ~ "Nieuw bezet (Kolonisatie)",
+      bezet_vorig_jaar & bezet         ~ "Aanhoudend bezet",
+      bezet_vorig_jaar & !bezet        ~ "Verlaten (Uitstroom)",
+      !bezet & bezet_andere_soort      ~ "Bezet andere soort",
+      !bezet & !visited                ~ "Niet bezocht",      
+      TRUE                             ~ "Niet bezet"
+    ),
+    dynamiek = factor(dynamiek, levels = c(
+      "Nieuw bezet (Eerste jaar data)",
+      "Nieuw bezet (Kolonisatie)",
+      "Aanhoudend bezet",
+      "Verlaten (Uitstroom)",
+      "Bezet andere soort",
+      "Niet bezocht",
+      "Niet bezet"
+    ))
+  ) %>%
+  select(-c("bezet_andere_soort", "visited")) %>%
+  ungroup()
+```
+
+```{r}
+#| fig-width: 9
+#| fig-height: 4.5
+buis_jaar_status %>%
+  filter(jaar != min(jaar), !str_detect(dynamiek, "Eerste jaar")) %>%
+  ggplot(aes(x = factor(jaar), fill = dynamiek)) +
+  geom_bar(position = "stack", color = "white", linewidth = 0.1, width = 0.7) +
+  scale_fill_manual(
+    values = kleuren_4_tinten,
+    breaks = c(
+      "Nieuw bezet (Kolonisatie)",
+      "Aanhoudend bezet",
+      "Verlaten (Uitstroom)",
+      "Bezet andere soort",
+      "Niet bezocht",
+      "Niet bezet"
+    )
+  ) +
+  facet_wrap(~activiteit_label) +
+  labs(
+    x = "",
+    y = "Aantal nestbuizen",
+    fill = "Status bezetting"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+#| fig-width: 10
+#| fig-height: 6.5
+buis_jaar_status %>%
+  filter(jaar != min(jaar), !str_detect(dynamiek, "Eerste jaar")) %>%
+  ggplot(aes(x = factor(jaar), fill = dynamiek)) +
+  geom_bar(position = "stack", color = "white", linewidth = 0.1, width = 0.7) +
+  scale_fill_manual(
+    values = kleuren_4_tinten,
+    breaks = c(
+      "Nieuw bezet (Kolonisatie)",
+      "Aanhoudend bezet",
+      "Verlaten (Uitstroom)",
+      "Bezet andere soort",
+      "Niet bezocht",
+      "Niet bezet"
+    )
+  ) +
+  facet_wrap(~activiteit_label) +
+  labs(
+    x = "",
+    y = "Aantal nestbuizen",
+    fill = "Status bezetting"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  facet_grid(cluster ~ activiteit_label, scales = "free_y")
+```
+
+We visualiseren dit ook per telperiode. In telperiode 1 van het eerste jaar is niets gezien, dus we starten vanaf T2, 2020.
+
+```{r}
+#| message: false
+# Distinct nesting tubes occupied by other species at the yearly level
+occupied_nesting_tubes_period <- nestbuizen_occupancy %>%
+  filter(
+    soort_groep != "Hazelmuis",
+    activiteit %in% c("in nestbuis", "nest"),
+    is_aanwezig
+  ) %>%
+  distinct(jaar, periode, sublocatie) %>%
+  mutate(bezet_andere_soort = TRUE)
+
+visited_nesting_tubes_period <- nestbuizen_occupancy %>%
+  # Filter out visits outside target inspection windows
+  filter(periode != "Buiten periode") %>%
+  
+  # Fill in missing combinations of transects and survey windows
+  mutate(
+    visited = TRUE
+  ) %>%
+  complete(
+    nesting(cluster, sublocatie),
+    nesting(jaar, periode),
+    fill = list(
+      visited = FALSE
+    )
+  ) %>%
+  distinct(jaar, periode_code = periode, sublocatie, visited)
+
+buis_periode_status <- base_activiteit %>%
+  filter(periode %in% paste0("T", 1:4)) %>%
+  group_by(meetnet, cluster, locatie, sublocatie, jaar, periode, activiteit_label) %>%
+  summarise(
+    bezet = any(is_aanwezig == TRUE | totaal_aantal > 0),
+    .groups = "drop"
+  ) %>%
+  mutate(periode_code = factor(periode, levels = paste0("T", 1:4))) %>%
+
+  # Complete matrix over time
+  complete(
+    nesting(meetnet, cluster, locatie, sublocatie),
+    nesting(jaar, periode_code),
+    activiteit_label,
+    fill = list(bezet = FALSE)
+  ) %>%
+
+  # Join occupancy by other species
+  left_join(
+    occupied_nesting_tubes_period, by = c("jaar", "periode", "sublocatie")
+  ) %>%
+  mutate(bezet_andere_soort = replace_na(bezet_andere_soort, FALSE)) %>%
+
+  # Join occupancy by visits
+  left_join(
+    visited_nesting_tubes_period,
+    by = c("jaar", "periode_code", "sublocatie")
+  ) %>%
+
+  # Decide dynamics compared to last year
+  arrange(sublocatie, activiteit_label, jaar, periode_code) %>%
+  
+  filter_out(
+    jaar == 2020,
+    periode_code == "T1"
+  ) %>%
+  
+  group_by(sublocatie, activiteit_label) %>%
+  mutate(
+    bezet_vorige_periode = dplyr::lag(bezet),
+    dynamiek = case_when(
+      is.na(bezet_vorige_periode)          ~ "Nieuw bezet (Eerste periode)",
+      !bezet_vorige_periode & bezet        ~ "Nieuw bezet (Kolonisatie)",
+      bezet_vorige_periode & bezet         ~ "Aanhoudend bezet",
+      bezet_vorige_periode & !bezet        ~ "Verlaten (Uitstroom)",
+      !bezet & bezet_andere_soort      ~ "Bezet andere soort",
+      !bezet & !visited                ~ "Niet bezocht",      
+      TRUE                             ~ "Niet bezet"
+    ),
+    dynamiek = factor(dynamiek, levels = c(
+      "Nieuw bezet (Eerste periode)",
+      "Nieuw bezet (Kolonisatie)",
+      "Aanhoudend bezet",
+      "Verlaten (Uitstroom)",
+      "Bezet andere soort",
+      "Niet bezocht",
+      "Niet bezet"
+    )),
+    tijd_label = paste(jaar, periode_code, sep = " - ")
+  ) %>%
+  ungroup() %>%
+  select(-c("bezet_andere_soort", "visited")) %>%
+  mutate(tijd_label = factor(tijd_label, levels = unique(tijd_label)))
+```
+
+```{r}
+#| fig-width: 11
+#| fig-height: 5.5
+buis_periode_status %>%
+  filter(!str_detect(dynamiek, "Eerste periode")) %>%
+  ggplot(aes(x = tijd_label, fill = dynamiek)) +
+  geom_bar(position = "stack", color = "white", linewidth = 0.1, width = 0.7) +
+  scale_fill_manual(
+    values = kleuren_4_tinten,
+    breaks = c(
+      "Nieuw bezet (Kolonisatie)",
+      "Aanhoudend bezet",
+      "Verlaten (Uitstroom)",
+      "Bezet andere soort",
+      "Niet bezocht",
+      "Niet bezet"
+    )
+  ) +
+  facet_wrap(~activiteit_label, ncol = 1) +
+  labs(
+    x = "",
+    y = "Aantal nestbuizen",
+    fill = "Status bezetting"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 8
+buis_periode_status %>%
+  filter(!str_detect(dynamiek, "Eerste periode")) %>%
+  ggplot(aes(x = tijd_label, fill = dynamiek)) +
+  geom_bar(position = "stack", color = "white", linewidth = 0.1, width = 0.7) +
+  scale_fill_manual(
+    values = kleuren_4_tinten,
+    breaks = c(
+      "Nieuw bezet (Kolonisatie)",
+      "Aanhoudend bezet",
+      "Verlaten (Uitstroom)",
+      "Bezet andere soort",
+      "Niet bezocht",
+      "Niet bezet"
+    )
+  ) +
+  facet_grid(cluster ~ activiteit_label, scales = "free_y") +
+  labs(
+    x = "",
+    y = "Aantal nestbuizen",
+    fill = "Status bezetting"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 60, hjust = 1)
+  )
+```
+
+Zonder afwezigheden:
+
+```{r}
+#| fig-width: 12
+#| fig-height: 8
+buis_periode_status %>%
+  filter(
+    !str_detect(dynamiek, "Eerste periode"),
+    dynamiek != "Bezet andere soort",
+    dynamiek != "Niet bezocht",
+    dynamiek != "Niet bezet"
+  ) %>%
+    ggplot(aes(x = tijd_label, fill = dynamiek)) +
+  geom_bar(position = "stack", color = "white", linewidth = 0.1, width = 0.7) +
+  scale_fill_manual(
+    values = kleuren_4_tinten,
+    breaks = c(
+      "Nieuw bezet (Kolonisatie)",
+      "Aanhoudend bezet",
+      "Verlaten (Uitstroom)",
+      "Bezet andere soort",
+      "Niet bezocht",
+      "Niet bezet"
+    )
+  ) +
+  facet_grid(cluster ~ activiteit_label, scales = "free_y") +
+  labs(
+    x = "",
+    y = "Aantal nestbuizen",
+    fill = "Status bezetting"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 60, hjust = 1)
+  )
+```
+
+### Transitiestromen van individuele nestbuizen
+
+Met een alluvial diagram volgen we de toestand (*Bezet* vs. *Leeg*) van elke individuele nestbuis doorheen opeenvolgende jaren of telrondes.
+
+Per jaar:
+
+```{r}
+#| cache: true
+#| fig-width: 10
+#| fig-height: 5
+alluvial_jaar_data <- buis_jaar_status %>%
+  mutate(status_label = factor(if_else(bezet, "Bezet", "Leeg"), levels = c("Bezet", "Leeg")))
+
+ggplot(
+  alluvial_jaar_data %>%
+    filter(activiteit_label == "individuen"),
+  aes(
+    x = factor(jaar),
+    stratum = status_label,
+    alluvium = sublocatie,
+    fill = status_label,
+    label = status_label
+  )
+) +
+  scale_fill_manual(values = c("Bezet" = "#2e7d32", "Leeg" = "red")) +
+  geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray", alpha = 0.5) +
+  geom_stratum(stat = "alluvium") +
+  labs(
+    title = "Spreiding en stroom van individuen over de jaren",
+    x = "Jaar",
+    y = "Aantal nestbuizen",
+    fill = "Status"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+ggplot(
+  alluvial_jaar_data %>%
+    filter(grepl("^nest", activiteit_label)),
+  aes(
+    x = factor(jaar),
+    stratum = status_label,
+    alluvium = sublocatie,
+    fill = status_label,
+    label = status_label
+  )
+) +
+  scale_fill_manual(values = c("Bezet" = "#2e7d32", "Leeg" = "red")) +
+  geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray", alpha = 0.5) +
+  geom_stratum(stat = "alluvium") +
+  labs(
+    title = "Spreiding en stroom van nesten over de jaren",
+    x = "Jaar",
+    y = "Aantal nestbuizen",
+    fill = "Status"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+Per telperiode:
+
+```{r}
+#| cache: true
+#| fig-width: 12
+#| fig-height: 6.5
+alluvial_periode_data <- buis_periode_status %>%
+  mutate(status_label = factor(if_else(bezet, "Bezet", "Leeg"), levels = c("Bezet", "Leeg")))
+
+ggplot(
+  alluvial_periode_data %>%
+    filter(activiteit_label == "individuen"),
+  aes(
+    x = tijd_label,
+    stratum = status_label,
+    alluvium = sublocatie,
+    fill = status_label,
+    label = status_label
+  )
+) +
+  scale_fill_manual(values = c("Bezet" = "#2e7d32", "Leeg" = "red")) +
+  geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray", alpha = 0.5) +
+  geom_stratum(stat = "alluvium") +
+  labs(
+    title = "Verloop van nestbuisbezetting over alle opeenvolgende telperiodes",
+    x = "Telperiode (Jaar - Ronde)",
+    y = "Aantal nestbuizen",
+    fill = "Status"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 60, hjust = 1)
+  )
+
+ggplot(
+  alluvial_periode_data %>%
+    filter(grepl("^nest", activiteit_label)),
+  aes(
+    x = tijd_label,
+    stratum = status_label,
+    alluvium = sublocatie,
+    fill = status_label,
+    label = status_label
+  )
+) +
+  scale_fill_manual(values = c("Bezet" = "#2e7d32", "Leeg" = "red")) +
+  geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray", alpha = 0.5) +
+  geom_stratum(stat = "alluvium") +
+  labs(
+    title = "Verloop van nesten over alle opeenvolgende telperiodes",
+    x = "Telperiode (Jaar - Ronde)",
+    y = "Aantal nestbuizen",
+    fill = "Status"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 60, hjust = 1)
+  )
+```
+
+### Verblijfsduur (Persistence time)
+
+We berekenen de lengte van ononderbroken periodes waarin een buis bezet blijft (`bezet == TRUE`), uitgedrukt in opeenvolgende telrondes (T-stappen).
+
+```{r}
+#| message: false
+# Identificeer ononderbroken reeksen met data.table::rleid
+persistence_data <- buis_periode_status %>%
+  group_by(sublocatie, activiteit_label) %>%
+  arrange(jaar, periode_code) %>%
+  mutate(episode_id = data.table::rleid(bezet)) %>%
+  filter(bezet == TRUE) %>%
+  group_by(cluster, locatie, sublocatie, activiteit_label, episode_id) %>%
+  summarise(
+    opeenvolgende_periodes = n(),
+    .groups = "drop"
+  )
+
+# Statistische samenvatting per type waarneming en cluster
+statistieken_persistence <- persistence_data %>%
+  group_by(activiteit_label) %>%
+  summarise(
+    gemiddelde       = mean(opeenvolgende_periodes),
+    mediaan          = median(opeenvolgende_periodes),
+    max_duur         = max(opeenvolgende_periodes),
+    totaal_episodes  = n(),
+    .groups          = "drop"
+  )
+
+kable(
+  statistieken_persistence,
+  digits = 2,
+  col.names = c("Type waarneming", "Gemiddelde (T's)", "Mediaan (T's)", "Max duur (T's)", "Aantal episodes"),
+  caption = "Samenvatting verblijfsduur (aantal opeenvolgende telperiodes) per type waarneming."
+)
+```
+
+```{r}
+#| cache: true
+#| fig-width: 10
+#| fig-height: 4.5
+ggplot(persistence_data, aes(x = factor(opeenvolgende_periodes), fill = cluster)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.85) +
+  facet_wrap(~activiteit_label, scales = "free") +
+  labs(
+    title = "Verdeling van de verblijfsduur (Persistence Time)",
+    x = "Aantal opeenvolgende telperiodes bezet",
+    y = "Aantal episodes",
+    fill = "Boscluster"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+```
+
+Boxplot verblijfsduur per cluster en type waarneming.
+
+```{r}
+#| cache: true
+#| fig-width: 9
+#| fig-height: 4.5
+ggplot(persistence_data, aes(x = cluster, y = opeenvolgende_periodes, fill = cluster)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, size = 2) +
+  scale_y_continuous(limits = c(0, NA)) +
+  facet_wrap(~activiteit_label, scales = "free") +
+  labs(
+    title = "Verblijfsduur per boscluster",
+    x = "Boscluster",
+    y = "Opeenvolgende telperiodes bezet"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    strip.background = element_rect(fill = "grey95", colour = NA)
+  )
+```
+
+# Algemene trends
+
+We willen een jaarlijkse trend berekenen voor de hazelmuis.
+We zullen dit doen door zowel het aantal individuen als het aantal nesten per transect te modelleren (apart) waarbij we een offset gebruiken voor het aantal vrije nestbuizen per transect.
+
+## Model specificatie
+
+We modelleren het aantal individuen/nesten van hazelmuis $Y_i$ per telling op transect $i$ met een negatief-binomiaal model:
+
+$$
+Y_i \sim \operatorname{NegBin}(\mu_i, \nu)
+$$
+
+waarbij
+
+$$
+\log(\mu_i) =
+\beta_0 +
+\beta_{\mathrm{jaar}[i]} +
+\beta_{\mathrm{boscluster}[i]} +
+\beta_{\mathrm{telperiode}[i]} +
+\log(n_{\mathrm{nestbuis},i}) +
+b_{\mathrm{transect}(boscluster),i}
+$$
+
+Hierbij is $\log(n_{\mathrm{nestbuis},i})$ een offset die corrigeert voor het aantal vrije nestbuizen op het transect.
+Het transect wordt gemodelleerd als een random effect, genest binnen boscluster:
+
+$$
+b_{\mathrm{transect}(boscluster),i}
+\sim
+\mathcal{N}(0,\sigma^2_{\mathrm{transect}})
+$$
+
+We selecteren de data als volgt:
+
+- apart model voor aantallen en (verse) nesten in nestbuis (geen sporen)
+- enkel zekere identificatie hazelmuis
+- jaar is een factorvariabele, we nemen 2021 als referentiejaar
+- we beschouwen 3 bosclusters
+  - boscluster1: Veursbos, Broekbos, Konenbos (REF: meeste data)
+  - boscluster2: Teuvenereberg, Obsinnisch
+  - boscluster3: Vrouwenbos
+- we definiëren 4 telperiodes
+  - T1: april (REF)
+  - T2: mei
+  - T3: 12 september t/m 18 oktober (uitzondering Konenbos 2024: t/m 10 okt.)
+  - T4: 19 oktober t/m 20 november (uitzondering Konenbos 2024: vanaf 11 okt.)
+- als offset nemen we het aantal vrije nestbuizen per transect. D.w.z. aantal bezochte nestbuizen waar geen andere diersoort aanwezig was
+
+```{r}
+# Calculate offset
+occupied_nesting_tubes <- nestbuizen_occupancy %>%
+  filter(
+    soort_groep != "Hazelmuis" & aanwezig_algemeen
+  ) %>%
+  distinct(jaar, locatie, sublocatie, periode)
+
+offset_data <- nestbuizen_occupancy %>%
+  # Filter out visits outside target inspection windows
+  filter(periode != "Buiten periode") %>%
+  # Filter out other species
+  anti_join(
+    occupied_nesting_tubes,
+    by = join_by(locatie, sublocatie, jaar, periode)
+  ) %>%
+  # Count number of nesting tubes per transect per visit
+  group_by(jaar, locatie, periode) %>%
+  summarise(
+    n_nestbuizen = n_distinct(sublocatie),
+    .groups      = "drop"
+  ) %>%
+  rename(
+    transect = locatie,
+    telperiode = periode
+  )
+
+# Analysis dataset individual count
+analyseset_individuen  <- nestbuizen_occupancy %>%
+  filter(
+   activiteit == "in nestbuis", # Select individual count
+   soort_groep == "Hazelmuis"   # Select species of interest
+  ) %>%
+  select(boscluster = cluster, transect = locatie, jaar, telperiode = periode,
+         totaal_aantal) %>%
+  # Count number per transect per visit
+  summarise(
+    aantal = sum(totaal_aantal),
+    .by = c(boscluster, transect, jaar, telperiode)
+  ) %>%
+  # Add offset
+  left_join(
+    offset_data,
+    by = join_by(transect, jaar, telperiode)
+  ) %>%
+  # Create factor variables
+  mutate(
+    # Zorg dat 2021 de referentie is
+    fjaar = relevel(factor(jaar), ref = "2021"),
+    
+    # Zorg dat boscluster1 de referentie is
+    boscluster = relevel(factor(boscluster), ref = "boscluster1"),
+    
+    # Zorg dat T1 de referentie is
+    telperiode = relevel(factor(telperiode), ref = "T1"),
+    
+    # Factor voor random effect
+    transect = factor(transect)
+  ) %>%
+  select(-jaar)
+
+# Analysis dataset fresh nest count
+analyseset_nesten  <- nestbuizen_occupancy %>%
+  filter(
+   activiteit == "nest",       # Select nest count
+   soort_groep == "Hazelmuis"  # Select species of interest
+  ) %>%
+  # Only take into account fresh nests
+  mutate(
+    totaal_aantal = ifelse(
+      status_waarneming == "aanwezig - vers",
+      totaal_aantal,
+      0
+    )
+  ) %>% 
+  select(boscluster = cluster, transect = locatie, jaar, telperiode = periode,
+         totaal_aantal) %>%
+  # Count number per transect per visit
+  summarise(
+    aantal = sum(totaal_aantal),
+    .by = c(boscluster, transect, jaar, telperiode)
+  ) %>%
+  # Add offset
+  left_join(
+    offset_data,
+    by = join_by(transect, jaar, telperiode)
+  ) %>%
+  # Create factor variables
+  mutate(
+    # Zorg dat 2021 de referentie is
+    fjaar = relevel(factor(jaar), ref = "2021"),
+    
+    # Zorg dat boscluster1 de referentie is
+    boscluster = relevel(factor(boscluster), ref = "boscluster1"),
+    
+    # Zorg dat T1 de referentie is
+    telperiode = relevel(factor(telperiode), ref = "T1"),
+    
+    # Factor voor random effect
+    transect = factor(transect)
+  ) %>%
+  select(-jaar)
+```
+
+We kunnen een overzicht maken van de proporties vrije nestbuizen per transect.
+
+```{r}
+#| fig.width: 8
+pct_labels[length(pct_labels)] <- "100 %"
+
+# Calculate visits and completeness per survey period
+nestbuizen_occupancy %>%
+  # Filter out visits outside target inspection windows
+  filter(periode != "Buiten periode") %>%
+  # Filter out other species
+  anti_join(
+    occupied_nesting_tubes,
+    by = join_by(locatie, sublocatie, jaar, periode)
+  ) %>%
+  group_by(jaar, cluster, locatie, periode) %>%
+  summarise(
+    n_bezoeken_num      = n_distinct(datum),
+    n_nestbuizen_geteld = n_distinct(sublocatie),
+    n                   = n_distinct(datum, sublocatie),
+    .groups             = "drop"
+  ) %>%
+  
+  # Fill in missing combinations of transects and survey windows
+  complete(
+    nesting(cluster, locatie),
+    nesting(jaar, periode),
+    fill = list(
+      n_bezoeken_num      = 0,
+      n_nestbuizen_geteld = 0,
+      n                   = 0
+    )
+  ) %>%
+  
+  # Join expected total tubes per transect
+  left_join(max_buizen_per_locatie, by = "locatie") %>%
+  
+  # Compute completion rate and visit flags
+  mutate(
+    is_nul       = n_bezoeken_num == 0,
+    pct_compleet = (n / totaal_nestbuizen) * 100,
+    is_honderd   = pct_compleet == 100,
+    ratio        = n / totaal_nestbuizen,
+    periode      = str_remove(periode, "^T")
+  ) %>%
+  
+  # Visualization
+  ggplot(aes(x = periode, y = locatie)) +
+  
+  # Line connecting surveyed periods per transect
+  geom_line(data = . %>% filter(!is_nul), aes(group = locatie), color = "grey60") +
+  
+  # Points for surveyed periods (scaled and colored by completeness)
+  geom_point(
+    data = . %>% filter(!is_nul), 
+    aes(colour = pct_compleet, size = pct_compleet),
+    shape = 16
+  ) +
+
+  # Red cross for unvisited transects (0%)
+  geom_point(
+    data = . %>% filter(is_nul),
+    shape       = 4, 
+    size        = 3, 
+    stroke      = 1.2, 
+    color       = "red",
+    show.legend = FALSE
+  ) +
+
+  # Continuous size scale across 10% steps
+  scale_size_continuous(
+    range  = c(1, 5),
+    limits = c(0, 100),
+    breaks = pct_breaks,
+    labels = pct_labels
+  ) +
+  
+  # Gradient color scale matching exact same breaks/labels
+  scale_colour_gradientn(
+    colours = rev(legend_colors),
+    limits  = c(0, 100),
+    breaks  = pct_breaks,
+    labels  = pct_labels
+  ) +
+  
+  # Override legend appearance to draw shape 21 with orchid stroke on 100%
+  guides(
+    colour = guide_legend(reverse = TRUE),
+    size = guide_legend(reverse = TRUE)
+  ) +
+  
+  # Matching titles ensure ggplot merges size and color into one legend
+  labs(
+    x      = "Telperiode", 
+    y      = "Transect", 
+    colour = "Proportie vrije\nnestbuizen",
+    size   = "Proportie vrije\nnestbuizen"
+  ) +
+  facet_grid(cluster ~ jaar, scales = "free_y") +
+  theme_minimal()
+```
+
+We kijken ook even naar de correlatie tussen het aantal individuen en nestbuizen.
+
+```{r}
+p_corr1 <- analyseset_individuen %>%
+  rename(aantal_ind = aantal) %>%
+  left_join(
+    analyseset_nesten %>%
+      rename(aantal_nest = aantal),
+    by = join_by(boscluster, transect, telperiode, n_nestbuizen, fjaar)
+  ) %>%
+  ggplot(aes(x = aantal_ind, y = aantal_nest)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = "y ~ x") +
+  geom_abline(intercept = 0, slope = 1,
+              colour = "darkgrey", linetype = "dashed") +
+  labs(x = "Aantal individuen", y = "Aantal nesten") +
+  theme_minimal()
+
+ggExtra::ggMarginal(p_corr1, type = "boxplot", outlier.colour = "firebrick")
+```
+
+```{r}
+p_corr2 <- analyseset_individuen %>%
+  rename(aantal_ind = aantal) %>%
+  left_join(
+    analyseset_nesten %>%
+      rename(aantal_nest = aantal),
+    by = join_by(boscluster, transect, telperiode, n_nestbuizen, fjaar)
+  ) %>%
+  mutate(
+    prop_ind = aantal_ind / n_nestbuizen,
+    prop_nest = aantal_nest / n_nestbuizen
+  ) %>%
+  ggplot(aes(x = prop_ind, y = prop_nest)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = "y ~ x") +
+  geom_abline(intercept = 0, slope = 1,
+              colour = "darkgrey", linetype = "dashed") +
+  labs(x = "Aantal individuen per vrije nestbuis",
+       y = "Aantal nesten per vrije nestbuis") +
+  theme_minimal()
+ggExtra::ggMarginal(p_corr2, type = "boxplot", outlier.colour = "firebrick")
+```
+
+### Individuen
+
+We bekijken hoe de aantallen zijn verdeeld.
+Lege cirkels zijn nul-tellingen.
+
+```{r}
+#| fig.width: 8
+# 1. Complete combinations of transects and survey windows
+plot_data_individuen <- analyseset_individuen %>%
+  mutate(
+    jaar = as.integer(as.character(fjaar)),
+    periode_nr = str_remove(telperiode, "^T")
+  ) %>%
+  complete(
+    nesting(boscluster, transect),
+    nesting(jaar, periode_nr),
+    fill = list(aantal = NA_real_, n_nestbuizen = NA_integer_)
+  ) %>%
+  mutate(
+    is_onbezocht = is.na(n_nestbuizen) | n_nestbuizen == 0,
+    is_bezocht   = !is_onbezocht,
+    is_nul       = is_bezocht & aantal == 0,
+    heeft_aantal = is_bezocht & aantal > 0
+  )
+
+# 2. Breaks en kleuren alleen voor positieve waarnemingen (vanaf 1)
+count_breaks <- c(1, 4, 8, 12, 16)
+palette_colors <- viridis::viridis(length(count_breaks), option = "inferno", direction = -1)
+
+# 3. Visualisatie
+ggplot(plot_data_individuen, aes(x = periode_nr, y = transect)) +
+  
+  # Connecting line per transect
+  geom_line(
+    data = . %>% filter(is_bezocht),
+    aes(group = transect),
+    color = "grey80"
+  ) +
+  
+  # Nul-tellingen (bezocht, maar 0 individuen): vast neutraal symbool
+  geom_point(
+    data = . %>% filter(is_nul),
+    shape       = 1,          # open cirkel (of gebruik shape = 16 voor een gevuld bolletje)
+    size        = 2,
+    stroke      = 0.8,
+    color       = "grey50",
+    show.legend = FALSE
+  ) +
+  
+  # Positieve aantallen (> 0): gekleurd en geschaald
+  geom_point(
+    data = . %>% filter(heeft_aantal),
+    aes(colour = aantal, size = aantal),
+    shape = 16
+  ) +
+  
+  # Rode kruisjes voor niet-bezochte transecten
+  geom_point(
+    data = . %>% filter(is_onbezocht),
+    shape       = 4,
+    size        = 3,
+    stroke      = 1.1,
+    color       = "red",
+    show.legend = FALSE
+  ) +
+  
+  # Grootte-schaal uitsluitend voor positieve aantallen
+  scale_size_continuous(
+    range  = c(2, 6),
+    limits = c(1, max(count_breaks)),
+    breaks = count_breaks
+  ) +
+  
+  # Kleurverloop uitsluitend voor positieve aantallen
+  scale_colour_gradientn(
+    colours = palette_colors,
+    limits  = c(1, max(count_breaks)),
+    breaks  = count_breaks,
+    guide   = "legend"
+  ) +
+  
+  # Legende omkeren: hoogste aantal bovenaan, 1 onderaan
+  guides(
+    colour = guide_legend(reverse = TRUE),
+    size   = guide_legend(reverse = TRUE)
+  ) +
+  
+  labs(
+    x       = "Telperiode",
+    y       = "Transect",
+    colour  = "Aantal\nindividuen",
+    size    = "Aantal\nindividuen"
+  ) +
+  facet_grid(boscluster ~ jaar, scales = "free_y") +
+  theme_minimal()
+```
+
+```{r}
+#| fig.width: 8
+# 1. Complete combinations of transects and survey windows
+plot_data_individuen2 <- analyseset_individuen %>%
+  mutate(
+    jaar = as.integer(as.character(fjaar)),
+    periode_nr = str_remove(telperiode, "^T")
+  ) %>%
+  complete(
+    nesting(boscluster, transect),
+    nesting(jaar, periode_nr),
+    fill = list(aantal = NA_real_, n_nestbuizen = NA_integer_)
+  ) %>%
+  mutate(
+    is_onbezocht = is.na(n_nestbuizen) | n_nestbuizen == 0,
+    is_bezocht   = !is_onbezocht,
+    is_nul       = is_bezocht & aantal == 0,
+    heeft_aantal = is_bezocht & aantal > 0,
+    prop         = aantal / n_nestbuizen
+  )
+
+# 2. Breaks reflecting the actual data distribution (starting from minimum observed ~0.04)
+prop_breaks <- c(0.05, 0.1, 0.2, 0.35, 0.6, 1.0, 1.5, 2.0)
+
+# 3. Visualization
+ggplot(plot_data_individuen2, aes(x = periode_nr, y = transect)) +
+  
+  # Connecting line per transect
+  geom_line(
+    data = . %>% filter(is_bezocht),
+    aes(group = transect),
+    color = "grey80"
+  ) +
+  
+  # Zero counts (surveyed, but 0 individuals): open neutral circle
+  geom_point(
+    data = . %>% filter(is_nul),
+    shape       = 1,
+    size        = 2,
+    stroke      = 0.8,
+    color       = "grey50",
+    show.legend = FALSE
+  ) +
+  
+  # Positive proportions: fixed size, continuous transformed color
+  geom_point(
+    data = . %>% filter(heeft_aantal),
+    aes(colour = prop),
+    shape = 16,
+    size  = 3
+  ) +
+  
+  # Unvisited transects: red cross
+  geom_point(
+    data = . %>% filter(is_onbezocht),
+    shape       = 4,
+    size        = 3,
+    stroke      = 1.1,
+    color       = "red",
+    show.legend = FALSE
+  ) +
+  
+  # Continuous color scale with square-root transformation
+  scale_colour_viridis_c(
+    option    = "inferno",
+    direction = -1,
+    transform = "sqrt",                         # Stretches the 0.04 - 0.4 interval
+    limits    = c(0.04, 2.0),                   # Covers the exact Min to Max (no dropped rows)
+    breaks    = prop_breaks,
+    guide     = guide_colorbar(
+      barheight    = unit(5.5, "cm"),
+      barwidth     = unit(0.4, "cm"),
+      ticks.colour = "black"
+    )
+  ) +
+  
+  labs(
+    x       = "Telperiode",
+    y       = "Transect",
+    colour  = "Individuen per\nvrije nestbuis\n(sqrt transf.)"
+  ) +
+  facet_grid(boscluster ~ jaar, scales = "free_y") +
+  theme_minimal()
+```
+
+### Nesten
+
+```{r}
+#| fig.width: 8
+# 1. Complete combinations of transects and survey windows
+plot_data_nesten <- analyseset_nesten %>%
+  mutate(
+    jaar = as.integer(as.character(fjaar)),
+    periode_nr = str_remove(telperiode, "^T")
+  ) %>%
+  complete(
+    nesting(boscluster, transect),
+    nesting(jaar, periode_nr),
+    fill = list(aantal = NA_real_, n_nestbuizen = NA_integer_)
+  ) %>%
+  mutate(
+    is_onbezocht = is.na(n_nestbuizen) | n_nestbuizen == 0,
+    is_bezocht   = !is_onbezocht,
+    is_nul       = is_bezocht & aantal == 0,
+    heeft_aantal = is_bezocht & aantal > 0
+  )
+
+# 2. Breaks en kleuren alleen voor positieve waarnemingen (vanaf 1)
+count_breaks <- c(1, 4, 8, 12, 16)
+palette_colors <- viridis::viridis(length(count_breaks), option = "inferno", direction = -1)
+
+# 3. Visualisatie
+ggplot(plot_data_nesten, aes(x = periode_nr, y = transect)) +
+  
+  # Connecting line per transect
+  geom_line(
+    data = . %>% filter(is_bezocht),
+    aes(group = transect),
+    color = "grey80"
+  ) +
+  
+  # Nul-tellingen (bezocht, maar 0 individuen): vast neutraal symbool
+  geom_point(
+    data = . %>% filter(is_nul),
+    shape       = 1,
+    size        = 2,
+    stroke      = 0.8,
+    color       = "grey50",
+    show.legend = FALSE
+  ) +
+  
+  # Positieve aantallen (> 0): gekleurd en geschaald
+  geom_point(
+    data = . %>% filter(heeft_aantal),
+    aes(colour = aantal, size = aantal),
+    shape = 16
+  ) +
+  
+  # Rode kruisjes voor niet-bezochte transecten
+  geom_point(
+    data = . %>% filter(is_onbezocht),
+    shape       = 4,
+    size        = 3,
+    stroke      = 1.1,
+    color       = "red",
+    show.legend = FALSE
+  ) +
+  
+  # Grootte-schaal uitsluitend voor positieve aantallen
+  scale_size_continuous(
+    range  = c(2, 6),
+    limits = c(1, max(count_breaks)),
+    breaks = count_breaks
+  ) +
+  
+  # Kleurverloop uitsluitend voor positieve aantallen
+  scale_colour_gradientn(
+    colours = palette_colors,
+    limits  = c(1, max(count_breaks)),
+    breaks  = count_breaks,
+    guide   = "legend"
+  ) +
+  
+  # Legende omkeren: hoogste aantal bovenaan, 1 onderaan
+  guides(
+    colour = guide_legend(reverse = TRUE),
+    size   = guide_legend(reverse = TRUE)
+  ) +
+  
+  labs(
+    x       = "Telperiode",
+    y       = "Transect",
+    colour  = "Aantal\nnesten",
+    size    = "Aantal\nnesten"
+  ) +
+  facet_grid(boscluster ~ jaar, scales = "free_y") +
+  theme_minimal()
+```
+
+```{r}
+#| fig.width: 8
+# 1. Complete combinations of transects and survey windows
+plot_data_nesten2 <- analyseset_nesten %>%
+  mutate(
+    jaar = as.integer(as.character(fjaar)),
+    periode_nr = str_remove(telperiode, "^T")
+  ) %>%
+  complete(
+    nesting(boscluster, transect),
+    nesting(jaar, periode_nr),
+    fill = list(aantal = NA_real_, n_nestbuizen = NA_integer_)
+  ) %>%
+  mutate(
+    is_onbezocht = is.na(n_nestbuizen) | n_nestbuizen == 0,
+    is_bezocht   = !is_onbezocht,
+    is_nul       = is_bezocht & aantal == 0,
+    heeft_aantal = is_bezocht & aantal > 0,
+    prop         = aantal / n_nestbuizen
+  )
+
+# 2. Breaks reflecting the actual data distribution (starting from minimum observed ~0.04)
+prop_breaks <- c(0.05, 0.1, 0.2, 0.35, 0.6, 1.0, 1.5, 2.0)
+
+# 3. Visualization
+ggplot(plot_data_nesten2, aes(x = periode_nr, y = transect)) +
+  
+  # Connecting line per transect
+  geom_line(
+    data = . %>% filter(is_bezocht),
+    aes(group = transect),
+    color = "grey80"
+  ) +
+  
+  # Zero counts (surveyed, but 0 individuals): open neutral circle
+  geom_point(
+    data = . %>% filter(is_nul),
+    shape       = 1,
+    size        = 2,
+    stroke      = 0.8,
+    color       = "grey50",
+    show.legend = FALSE
+  ) +
+  
+  # Positive proportions: fixed size, continuous transformed color
+  geom_point(
+    data = . %>% filter(heeft_aantal),
+    aes(colour = prop),
+    shape = 16,
+    size  = 3
+  ) +
+  
+  # Unvisited transects: red cross
+  geom_point(
+    data = . %>% filter(is_onbezocht),
+    shape       = 4,
+    size        = 3,
+    stroke      = 1.1,
+    color       = "red",
+    show.legend = FALSE
+  ) +
+  
+  # Continuous color scale with square-root transformation
+  scale_colour_viridis_c(
+    option    = "inferno",
+    direction = -1,
+    transform = "sqrt",                         # Stretches the 0.04 - 0.4 interval
+    limits    = c(0.04, 2.0),                   # Covers the exact Min to Max (no dropped rows)
+    breaks    = prop_breaks,
+    guide     = guide_colorbar(
+      barheight    = unit(5.5, "cm"),
+      barwidth     = unit(0.4, "cm"),
+      ticks.colour = "black"
+    )
+  ) +
+  
+  labs(
+    x       = "Telperiode",
+    y       = "Transect",
+    colour  = "Nesten per\nvrije nestbuis\n(sqrt transf.)"
+  ) +
+  facet_grid(boscluster ~ jaar, scales = "free_y") +
+  theme_minimal()
+```
+
+## Model fit
+
+```{r}
+#| cache: true
+# 1. Base formula
+formula_hazelmuis <- aantal ~ 
+  fjaar + 
+  boscluster + 
+  telperiode + 
+  f(transect, model = "iid")+
+  offset(log(n_nestbuizen))
+
+# 2. Named list of datasets and INLA families
+analysis_datasets <- list(
+  individuen = analyseset_individuen,
+  nesten     = analyseset_nesten
+)
+
+families <- c(
+  Poisson = "poisson",
+  ZIP = "zeroinflatedpoisson0",
+  `Negative binomial` = "nbinomial",
+  ZINB = "zeroinflatednbinomial0"
+)
+
+# 3. Fit all models into a nested list: models$<dataset>$<distribution>
+models <- lapply(analysis_datasets, function(df) {
+  lapply(families, function(fam) {
+    inla(
+      formula = formula_hazelmuis,
+      family  = fam,
+      data    = df,
+      control.compute = list(
+        config = TRUE,
+        waic   = TRUE,
+        dic    = TRUE
+      )
+    )
+  })
+})
+```
+
+```{r}
+# Summarise WAIC and DIC
+model_comparison <- lapply(models, function(fam_list) {
+  model_names <- names(fam_list)
+  model_summary <- lapply(fam_list, function(fam) {
+    data.frame(
+      waic = fam$waic$waic,
+      dic  = fam$dic$dic
+    )
+  }) %>%
+    bind_rows()
+  data.frame(
+    model = model_names
+  ) %>%
+    bind_cols(model_summary) %>%
+    dplyr::arrange(waic, dic)
+})
+
+# Select models with lowest WAIC
+best_models <- lapply(models, function(fam_list) {
+  waic_values <- vapply(fam_list, function(m) m$waic$waic, numeric(1))
+  best_idx    <- which.min(waic_values)
+  
+  list(
+    name  = names(fam_list)[best_idx],
+    model = fam_list[[best_idx]]
+  )
+})
+```
+
+### Individuen
+
+Het '`r best_models$individuen$name`' model heeft de laagste WAIC.
+
+```{r}
+model_comparison$individuen %>%
+  kable()
+```
+
+We vergelijken de geobserveerde distributie met de gemodelleerde.
+
+```{r}
+#| cache: true
+#| message: false
+#| warning: false
+set.seed(123)
+dc_individuen <- distribution_check(best_models$individuen$model)
+plot(dc_individuen)
+```
+
+We controleren ook over- of onderdispersie.
+
+```{r}
+#| cache: true
+#| message: false
+#| warning: false
+disp_individuen <- dispersion_check(best_models$individuen$model)
+plot(disp_individuen)
+```
+
+### Nesten
+
+Het '`r best_models$nesten$name`' model heeft de laagste WAIC.
+
+```{r}
+model_comparison$nesten %>%
+  kable()
+```
+
+We vergelijken de geobserveerde distributie met de gemodelleerde.
+
+```{r}
+#| cache: true
+#| message: false
+#| warning: false
+set.seed(123)
+dc_nesten <- distribution_check(best_models$nesten$model)
+plot(dc_nesten)
+```
+
+We controleren ook over- of onderdispersie.
+
+```{r}
+#| cache: true
+#| message: false
+#| warning: false
+disp_nesten <- dispersion_check(best_models$nesten$model)
+plot(disp_nesten)
+```
+
+## Resultaten
+
+```{r}
+# Define tresholds
+min_threshold <- log(0.75)
+max_threshold <- log(1.33)
+```
+
+```{r}
+# Summarise model outputs
+model_summaries <- lapply(best_models, function(final_model) {
+  # Get model summary
+  m <- final_model$model
+  summary_model <- summary(m)
+
+  as.data.frame(summary_model$fixed) %>%
+    tibble::rownames_to_column("param") %>%
+    filter_out(grepl("Intercept", param)) %>%
+    
+    # Add effect classification
+    add_effect_classification(
+      cl_columns = c("0.025quant", "0.975quant"),
+      threshold = c(min_threshold, max_threshold),
+      reference = 0,
+      coarse = FALSE
+    ) %>%
+    select(-c("mode", "kld", "effect_code"))
+})
+```
+
+### Individuen
+
+We vatten de resultaten samen van het finale model.
+De referentie is: jaar 2021, telperiode T1 en boscluster 1.
+
+```{r}
+model_summaries$individuen %>%
+  mutate(param = gsub("^boscluster", "", param)) %>%
+  kable()
+```
+
+We kunnen dit ook visualiseren met effect classificatie.
+Als schatting rapporteren we de posterior mediaan en als geloofwaardigheidsintervallen de 2.5 en 97.5 % quantielen.
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries$individuen,
+  effect_label = "fjaar",
+  ref_label    = "2021",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(-log(3.3), log(3.3))
+)
+```
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries$individuen,
+  effect_label = "telperiode",
+  ref_label    = "T1",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(-log(3.3), log(3.3))
+)
+```
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries$individuen,
+  effect_label = "boscluster",
+  ref_label    = "boscluster1",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(-log(3.3), log(3.3))
+)
+```
+
+```{r}
+# Create lookup table of transect to boscluster
+cluster_info <- analyseset_individuen %>%
+  distinct(transect, boscluster)
+
+# Run with lookup
+plot_caterpillar_inla(
+  inla_model     = best_models$individuen$model,
+  random_var     = "transect",
+  cluster_lookup = cluster_info
+) + 
+  facet_grid(boscluster ~ ., scales = "free_y", space = "free_y")
+```
+
+### Nesten
+
+We vatten de resultaten samen van het finale model.
+
+```{r}
+model_summaries$nesten %>%
+  kable()
+```
+
+We kunnen dit ook visualiseren met effect classificatie.
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries$nesten,
+  effect_label = "fjaar",
+  ref_label    = "2021",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(NA, log(15))
+)
+```
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries$nesten,
+  effect_label = "telperiode",
+  ref_label    = "T1",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(-log(4), log(4))
+)
+```
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries$nesten,
+  effect_label = "boscluster",
+  ref_label    = "boscluster1",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(-log(2.1), log(2.1))
+)
+```
+
+```{r}
+# Run with lookup
+plot_caterpillar_inla(
+  inla_model     = best_models$nesten$model,
+  random_var     = "transect",
+  cluster_lookup = cluster_info
+) + 
+  facet_grid(boscluster ~ ., scales = "free_y", space = "free_y")
+```
+
+# Trends per boscluster
+
+## Model fit
+
+```{r}
+#| cache: true
+# 1. Base formula (without fixed boscluster effect, with formula offset)
+formula_hazelmuis_cluster <- aantal ~ 
+  fjaar + 
+  telperiode + 
+  f(transect, model = "iid") +
+  offset(log(n_nestbuizen))
+
+# 2. Named list of datasets, INLA families, and forest clusters
+analysis_datasets <- list(
+  individuen = analyseset_individuen,
+  nesten     = analyseset_nesten
+)
+
+clusters <- setNames(paste0("boscluster", 1:3), paste0("boscluster", 1:3))
+
+families <- c(
+  Poisson             = "poisson",
+  ZIP                 = "zeroinflatedpoisson0",
+  `Negative binomial` = "nbinomial",
+  ZINB                = "zeroinflatednbinomial0"
+)
+
+# 3. Fit models: models_cluster$<dataset>$<cluster>$<distribution>
+models_cluster <- lapply(analysis_datasets, function(df) {
+  lapply(clusters, function(cl) {
+    # Filter cluster and drop unused factor levels (especially unused transects)
+    sub_df <- df %>%
+      dplyr::filter(boscluster == cl) %>%
+      droplevels()
+    
+    lapply(families, function(fam) {
+      inla(
+        formula = formula_hazelmuis_cluster,
+        family  = fam,
+        data    = sub_df,
+        control.compute = list(
+          config = TRUE,
+          waic   = TRUE,
+          dic    = TRUE
+        )
+      )
+    })
+  })
+})
+```
+
+```{r}
+# Summarise WAIC and DIC
+model_comparison_cluster <- lapply(models_cluster, function(cl_list) {
+  lapply(cl_list, function(fam_list) {
+    model_names <- names(fam_list)
+    
+    model_summary <- lapply(fam_list, function(fam) {
+      data.frame(
+        waic = fam$waic$waic,
+        dic  = fam$dic$dic
+      )
+    }) %>%
+      bind_rows()
+    
+    data.frame(
+      model = model_names
+    ) %>%
+      bind_cols(model_summary) %>%
+      # Replace non-finite or non-positive values (-Inf, NaN, NA, <= 0)
+      # with Inf for valid ranking
+      dplyr::mutate(
+        waic_rank = ifelse(is.finite(waic) & waic > 0, waic, Inf),
+        dic_rank  = ifelse(is.finite(dic)  & dic > 0,  dic,  Inf)
+      ) %>%
+      dplyr::arrange(waic_rank, dic_rank) %>%
+      dplyr::select(-waic_rank, -dic_rank)
+  })
+})
+
+# Select models with lowest WAIC
+best_models_cluster <- lapply(models_cluster, function(cl_list) {
+  lapply(cl_list, function(fam_list) {
+    waic_values <- vapply(fam_list, function(m) {
+      w <- m$waic$waic
+      if (is.finite(w) && w > 0) w else Inf
+    }, numeric(1))
+    
+    best_idx <- which.min(waic_values)
+    
+    list(
+      name  = names(fam_list)[best_idx],
+      model = fam_list[[best_idx]]
+    )
+  })
+})
+```
+
+### Individuen per boscluster
+
+#### Boscluster 1
+
+Het '`r best_models_cluster$individuen$boscluster1$name`' model heeft de laagste WAIC.
+
+```{r}
+model_comparison_cluster$individuen$boscluster1 %>%
+  kable()
+```
+
+We vergelijken de geobserveerde distributie met de gemodelleerde.
+
+```{r}
+#| message: false
+#| warning: false
+set.seed(123)
+dc_ind_cl1 <- distribution_check(best_models_cluster$individuen$boscluster1$model)
+plot(dc_ind_cl1)
+```
+
+We controleren ook over- of onderdispersie.
+
+```{r}
+#| message: false
+#| warning: false
+disp_ind_cl1 <- dispersion_check(best_models_cluster$individuen$boscluster1$model)
+plot(disp_ind_cl1)
+```
+
+#### Boscluster 2
+
+Het '`r best_models_cluster$individuen$boscluster2$name`' model heeft de laagste WAIC.
+
+```{r}
+model_comparison_cluster$individuen$boscluster2 %>%
+  kable()
+```
+
+We vergelijken de geobserveerde distributie met de gemodelleerde.
+
+```{r}
+#| message: false
+#| warning: false
+set.seed(123)
+dc_ind_cl2 <- distribution_check(best_models_cluster$individuen$boscluster2$model)
+plot(dc_ind_cl2)
+```
+
+We controleren ook over- of onderdispersie.
+
+```{r}
+#| message: false
+#| warning: false
+disp_ind_cl2 <- dispersion_check(best_models_cluster$individuen$boscluster2$model)
+plot(disp_ind_cl2)
+```
+
+#### Boscluster 3
+
+Het '`r best_models_cluster$individuen$boscluster3$name`' model heeft de laagste WAIC.
+
+```{r}
+model_comparison_cluster$individuen$boscluster3 %>%
+  kable()
+```
+
+> inlatools not available for ZINB
+
+### Nesten per boscluster
+
+#### Boscluster 1
+
+Het '`r best_models_cluster$nesten$boscluster1$name`' model heeft de laagste WAIC.
+
+```{r}
+model_comparison_cluster$nesten$boscluster1 %>%
+  kable()
+```
+
+We vergelijken de geobserveerde distributie met de gemodelleerde.
+
+```{r}
+#| message: false
+#| warning: false
+set.seed(123)
+dc_ind_cl1 <- distribution_check(best_models_cluster$nesten$boscluster1$model)
+plot(dc_ind_cl1)
+```
+
+We controleren ook over- of onderdispersie.
+
+```{r}
+#| message: false
+#| warning: false
+disp_ind_cl1 <- dispersion_check(best_models_cluster$nesten$boscluster1$model)
+plot(disp_ind_cl1)
+```
+
+#### Boscluster 2
+
+Het '`r best_models_cluster$nesten$boscluster2$name`' model heeft de laagste WAIC.
+
+```{r}
+model_comparison_cluster$nesten$boscluster2 %>%
+  kable()
+```
+
+We vergelijken de geobserveerde distributie met de gemodelleerde.
+
+```{r}
+#| message: false
+#| warning: false
+set.seed(123)
+dc_ind_cl2 <- distribution_check(best_models_cluster$nesten$boscluster2$model)
+plot(dc_ind_cl2)
+```
+
+We controleren ook over- of onderdispersie.
+
+```{r}
+#| message: false
+#| warning: false
+disp_ind_cl2 <- dispersion_check(best_models_cluster$nesten$boscluster2$model)
+plot(disp_ind_cl2)
+```
+
+#### Boscluster 3
+
+Het '`r best_models_cluster$nesten$boscluster3$name`' model heeft de laagste WAIC.
+
+```{r}
+model_comparison_cluster$nesten$boscluster3 %>%
+  kable()
+```
+
+We vergelijken de geobserveerde distributie met de gemodelleerde.
+
+```{r}
+#| message: false
+#| warning: false
+set.seed(123)
+dc_ind_cl3 <- distribution_check(best_models_cluster$nesten$boscluster3$model)
+plot(dc_ind_cl3)
+```
+
+We controleren ook over- of onderdispersie.
+
+```{r}
+#| message: false
+#| warning: false
+disp_ind_cl3 <- dispersion_check(best_models_cluster$nesten$boscluster3$model)
+plot(disp_ind_cl3)
+```
+
+## Resultaten
+
+```{r}
+# Summarise model outputs per dataset across all clusters
+model_summaries_cluster <- lapply(best_models_cluster, function(cluster_list) {
+  # Itereer over alle bosclusters binnen de dataset en combineer ze
+  lapply(cluster_list, function(final_model) {
+    m <- final_model$model
+    summary_model <- summary(m)
+
+    as.data.frame(summary_model$fixed) %>%
+      tibble::rownames_to_column("param") %>%
+      filter_out(grepl("Intercept", param)) %>%
+      
+      # Add effect classification
+      add_effect_classification(
+        cl_columns = c("0.025quant", "0.975quant"),
+        threshold  = c(min_threshold, max_threshold),
+        reference  = 0,
+        coarse     = FALSE
+      ) %>%
+      select(-any_of(c("mode", "kld", "effect_code")))
+  }) %>%
+    # Voeg samen tot 1 dataframe met kolom 'boscluster'
+    bind_rows(.id = "boscluster")
+})
+```
+
+### Individuen
+
+We vatten de resultaten samen van het finale model.
+De referentie is: jaar 2021, telperiode T1
+
+```{r}
+model_summaries_cluster$individuen %>%
+  select(-"boscluster") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE) %>%
+  pack_rows(index = table(model_summaries_cluster$individuen$boscluster))
+```
+
+We kunnen dit ook visualiseren met effect classificatie.
+Als schatting rapporteren we de posterior mediaan en als geloofwaardigheidsintervallen de 2.5 en 97.5 % quantielen.
+
+```{r}
+#| fig.width: 8
+#| fig.heigth: 12
+plot_inla_effects(
+  results      = model_summaries_cluster$individuen,
+  effect_label = "fjaar",
+  ref_label    = "2021",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(NA, NA)
+) +
+  facet_grid(boscluster~.)
+```
+
+```{r}
+#| fig.width: 8
+#| fig.heigth: 12
+plot_inla_effects(
+  results      = model_summaries_cluster$individuen,
+  effect_label = "telperiode",
+  ref_label    = "T1",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(NA, NA)
+) +
+  facet_grid(boscluster~.)
+```
+
+```{r}
+plot_caterpillar_inla(
+  inla_model     = best_models_cluster$individuen$boscluster1$model,
+  random_var     = "transect"
+) +
+  ggtitle("Boscluster 1")
+
+plot_caterpillar_inla(
+  inla_model     = best_models_cluster$individuen$boscluster2$model,
+  random_var     = "transect"
+) +
+  ggtitle("Boscluster 2")
+
+plot_caterpillar_inla(
+  inla_model     = best_models_cluster$individuen$boscluster3$model,
+  random_var     = "transect"
+) +
+  ggtitle("Boscluster 3")
+```
+
+### Nesten
+
+We vatten de resultaten samen van het finale model.
+De referentie is: jaar 2021, telperiode T1
+
+```{r}
+model_summaries_cluster$nesten %>%
+  select(-"boscluster") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE) %>%
+  pack_rows(index = table(model_summaries_cluster$nesten$boscluster))
+```
+
+We kunnen dit ook visualiseren met effect classificatie.
+Als schatting rapporteren we de posterior mediaan en als geloofwaardigheidsintervallen de 2.5 en 97.5 % quantielen.
+
+```{r}
+#| fig.width: 8
+#| fig.heigth: 12
+plot_inla_effects(
+  results      = model_summaries_cluster$nesten,
+  effect_label = "fjaar",
+  ref_label    = "2021",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(NA, NA)
+) +
+  facet_grid(boscluster~.)
+```
+
+```{r}
+#| fig.width: 8
+#| fig.heigth: 12
+plot_inla_effects(
+  results      = model_summaries_cluster$nesten,
+  effect_label = "telperiode",
+  ref_label    = "T1",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(NA, NA)
+) +
+  facet_grid(boscluster~.)
+```
+
+```{r}
+plot_caterpillar_inla(
+  inla_model     = best_models_cluster$nesten$boscluster1$model,
+  random_var     = "transect"
+) +
+  ggtitle("Boscluster 1")
+
+plot_caterpillar_inla(
+  inla_model     = best_models_cluster$nesten$boscluster2$model,
+  random_var     = "transect"
+) +
+  ggtitle("Boscluster 2")
+
+plot_caterpillar_inla(
+  inla_model     = best_models_cluster$nesten$boscluster3$model,
+  random_var     = "transect"
+) +
+  ggtitle("Boscluster 3")
+```
