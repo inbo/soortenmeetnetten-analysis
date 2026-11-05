@@ -473,7 +473,11 @@ sd_buizen <- SharedData$new(sub_loc_occurrence)
 
 We willen nagaan wat de densiteit van nestbuizen per transect is.
 Onderstaande figuur toont de gerealiseerde gemiddelde buisafstand (transectlengte gedeeld door het aantal nestbuizen) per transect, gerangschikt van de hoogste naar de laagste dichtheid.
-Hieruit blijkt dat het merendeel van de transecten nauw aansluit bij de protocolrichtlijn van circa 45 tot 50 meter tussen opeenvolgende buizen.
+Hieruit blijkt dat het merendeel van de transecten iets onder de protocolrichtlijn ligt.
+
+> De onderlinge afstand is ca. 50 m, maar zal in de praktijk variëren van 40 tot 65 m, afhankelijk van waar geschikte plekken (bomen of struweel) zijn om ze aan te brengen.
+
+Maar er is over het algemeen weinig variatie in densiteit aan nestbuizen per transect.
 Zowel in de kortere transecten (10 buizen in o.a. het Veursbos en Vrouwenbos) als in het langere transect van het Konenbos (25 buizen over ruim 1,2 km) blijft de onderlinge ruimtelijke spreiding nagenoeg constant.
 
 ```{r}
@@ -494,7 +498,6 @@ plot_data %>%
     locatie = reorder(locatie, m_per_buis)
   ) %>%
   ggplot(aes(x = m_per_buis, y = locatie)) +
-  geom_vline(xintercept = 45, linetype = "dashed", color = "grey60") +
   geom_segment(aes(x = 0, xend = m_per_buis, y = locatie, yend = locatie), color = "black") +
   geom_point(aes(size = aantal_nestbuizen)) +
   scale_size_continuous(
