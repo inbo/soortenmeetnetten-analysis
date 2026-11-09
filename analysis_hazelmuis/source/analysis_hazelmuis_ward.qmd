@@ -258,9 +258,12 @@ nestbuizen_occupancy <- nestbuizen_base %>%
   rename(sublocatie = sublocatie_volledig)
 ```
 
+Interessante filterkolommen zijn `is_aanwezig` en `aanwezig_algemeen`.
+Verder hebben we ook `aanwezig_vers` en `aanwezig_oud_onzeker`.
+
 ```{r}
 nestbuizen_occupancy %>%
-  distinct(activiteit, is_aanwezig, status_waarneming) %>%
+  distinct(activiteit, is_aanwezig, aanwezig_algemeen, status_waarneming) %>%
   arrange(is_aanwezig, activiteit, status_waarneming) %>%
   kable()
 ```
@@ -1619,7 +1622,7 @@ ggplot(persistence_data, aes(x = factor(opeenvolgende_periodes), fill = cluster)
   theme_minimal() +
   theme(
     legend.position = "bottom",
-    panel.grid.minor = element_blank()
+    panel.grid.minor.x = element_blank()
   )
 ```
 
@@ -1629,6 +1632,7 @@ Boxplot verblijfsduur per cluster en type waarneming.
 #| cache: true
 #| fig-width: 9
 #| fig-height: 4.5
+set.seed(123)
 ggplot(persistence_data, aes(x = cluster, y = opeenvolgende_periodes, fill = cluster)) +
   geom_boxplot(alpha = 0.6, outlier.shape = NA) +
   geom_jitter(width = 0.2, alpha = 0.6, size = 2) +
@@ -1636,13 +1640,12 @@ ggplot(persistence_data, aes(x = cluster, y = opeenvolgende_periodes, fill = clu
   facet_wrap(~activiteit_label, scales = "free") +
   labs(
     title = "Verblijfsduur per boscluster",
-    x = "Boscluster",
+    x = "",
     y = "Opeenvolgende telperiodes bezet"
   ) +
   theme_minimal() +
   theme(
-    legend.position = "none",
-    strip.background = element_rect(fill = "grey95", colour = NA)
+    legend.position = "none"
   )
 ```
 
