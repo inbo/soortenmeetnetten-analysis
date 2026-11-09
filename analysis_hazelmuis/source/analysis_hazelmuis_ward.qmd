@@ -591,6 +591,7 @@ leaflet() %>%
 Er zijn sporen en individuen van andere soorten aangetroffen.
 
 ```{r}
+#| fig-height: 6
 nestbuizen_waarnemingen %>%
   filter(
     aantal > 0,
@@ -606,6 +607,7 @@ nestbuizen_waarnemingen %>%
 ```
 
 ```{r}
+#| fig-height: 6
 nestbuizen_waarnemingen %>%
   filter(
     aantal > 0,
@@ -1081,7 +1083,6 @@ buis_jaar_status <- base_activiteit %>%
       "Niet bezet"
     ))
   ) %>%
-  select(-c("bezet_andere_soort", "visited")) %>%
   ungroup()
 ```
 
@@ -1153,7 +1154,7 @@ occupied_nesting_tubes_period <- nestbuizen_occupancy %>%
     activiteit %in% c("in nestbuis", "nest"),
     is_aanwezig
   ) %>%
-  distinct(jaar, periode, sublocatie) %>%
+  distinct(jaar, periode_code = periode, sublocatie) %>%
   mutate(bezet_andere_soort = TRUE)
 
 visited_nesting_tubes_period <- nestbuizen_occupancy %>%
@@ -1181,6 +1182,7 @@ buis_periode_status <- base_activiteit %>%
     .groups = "drop"
   ) %>%
   mutate(periode_code = factor(periode, levels = paste0("T", 1:4))) %>%
+  select(-"periode") %>%
 
   # Complete matrix over time
   complete(
@@ -1192,7 +1194,7 @@ buis_periode_status <- base_activiteit %>%
 
   # Join occupancy by other species
   left_join(
-    occupied_nesting_tubes_period, by = c("jaar", "periode", "sublocatie")
+    occupied_nesting_tubes_period, by = c("jaar", "periode_code", "sublocatie")
   ) %>%
   mutate(bezet_andere_soort = replace_na(bezet_andere_soort, FALSE)) %>%
 
@@ -1234,7 +1236,6 @@ buis_periode_status <- base_activiteit %>%
     tijd_label = paste(jaar, periode_code, sep = " - ")
   ) %>%
   ungroup() %>%
-  select(-c("bezet_andere_soort", "visited")) %>%
   mutate(tijd_label = factor(tijd_label, levels = unique(tijd_label)))
 ```
 
@@ -1340,7 +1341,9 @@ buis_periode_status %>%
 
 ### Transitiestromen van individuele nestbuizen
 
-Met een alluvial diagram volgen we de toestand (*Bezet* vs. *Leeg*) van elke individuele nestbuis doorheen opeenvolgende jaren of telrondes.
+Met een alluvial diagram volgen we de toestand van elke individuele nestbuis doorheen opeenvolgende jaren of telrondes.
+We groeperen lege en niet bezochte nestbuizen.
+Zoals we zagen in de vorige figuren is er maar een zeer klein percentage nestbuizen niet bezocht.
 
 Per jaar:
 
@@ -1349,7 +1352,24 @@ Per jaar:
 #| fig-width: 10
 #| fig-height: 5
 alluvial_jaar_data <- buis_jaar_status %>%
-  mutate(status_label = factor(if_else(bezet, "Bezet", "Leeg"), levels = c("Bezet", "Leeg")))
+  mutate(
+    status_label = factor(
+      if_else(
+        bezet,
+        "Bezet",
+        ifelse(
+          bezet_andere_soort,
+          "Bezet andere soort",
+          "Leeg/niet bezocht"
+        )
+      ),
+      levels = c(
+        "Bezet",
+        "Bezet andere soort",
+        "Leeg/niet bezocht"
+      )
+    )
+  )
 
 ggplot(
   alluvial_jaar_data %>%
@@ -1362,8 +1382,19 @@ ggplot(
     label = status_label
   )
 ) +
-  scale_fill_manual(values = c("Bezet" = "#2e7d32", "Leeg" = "red")) +
-  geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray", alpha = 0.5) +
+  scale_fill_manual(
+    values = c(
+      "Bezet" = "#2e7d32",
+      "Bezet andere soort" = "purple",
+      "Leeg/niet bezocht" = "red"
+    )
+  ) +
+  geom_flow(
+    stat = "alluvium",
+    lode.guidance = "rightleft",
+    color = "darkgray",
+    alpha = 0.5
+  ) +
   geom_stratum(stat = "alluvium") +
   labs(
     title = "Spreiding en stroom van individuen over de jaren",
@@ -1385,8 +1416,19 @@ ggplot(
     label = status_label
   )
 ) +
-  scale_fill_manual(values = c("Bezet" = "#2e7d32", "Leeg" = "red")) +
-  geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray", alpha = 0.5) +
+  scale_fill_manual(
+    values = c(
+      "Bezet" = "#2e7d32",
+      "Bezet andere soort" = "purple",
+      "Leeg/niet bezocht" = "red"
+    )
+  ) +
+  geom_flow(
+    stat = "alluvium",
+    lode.guidance = "rightleft",
+    color = "darkgray",
+    alpha = 0.5
+  ) +
   geom_stratum(stat = "alluvium") +
   labs(
     title = "Spreiding en stroom van nesten over de jaren",
@@ -1405,7 +1447,24 @@ Per telperiode:
 #| fig-width: 12
 #| fig-height: 6.5
 alluvial_periode_data <- buis_periode_status %>%
-  mutate(status_label = factor(if_else(bezet, "Bezet", "Leeg"), levels = c("Bezet", "Leeg")))
+  mutate(
+    status_label = factor(
+      if_else(
+        bezet,
+        "Bezet",
+        ifelse(
+          bezet_andere_soort,
+          "Bezet andere soort",
+          "Leeg/niet bezocht"
+        )
+      ),
+      levels = c(
+        "Bezet",
+        "Bezet andere soort",
+        "Leeg/niet bezocht"
+      )
+    )
+  )
 
 ggplot(
   alluvial_periode_data %>%
@@ -1418,8 +1477,19 @@ ggplot(
     label = status_label
   )
 ) +
-  scale_fill_manual(values = c("Bezet" = "#2e7d32", "Leeg" = "red")) +
-  geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray", alpha = 0.5) +
+  scale_fill_manual(
+    values = c(
+      "Bezet" = "#2e7d32",
+      "Bezet andere soort" = "purple",
+      "Leeg/niet bezocht" = "red"
+    )
+  ) +
+  geom_flow(
+    stat = "alluvium",
+    lode.guidance = "rightleft",
+    color = "darkgray",
+    alpha = 0.5
+  ) +
   geom_stratum(stat = "alluvium") +
   labs(
     title = "Verloop van nestbuisbezetting over alle opeenvolgende telperiodes",
@@ -1444,8 +1514,19 @@ ggplot(
     label = status_label
   )
 ) +
-  scale_fill_manual(values = c("Bezet" = "#2e7d32", "Leeg" = "red")) +
-  geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray", alpha = 0.5) +
+  scale_fill_manual(
+    values = c(
+      "Bezet" = "#2e7d32",
+      "Bezet andere soort" = "purple",
+      "Leeg/niet bezocht" = "red"
+    )
+  ) +
+  geom_flow(
+    stat = "alluvium",
+    lode.guidance = "rightleft",
+    color = "darkgray",
+    alpha = 0.5
+  ) +
   geom_stratum(stat = "alluvium") +
   labs(
     title = "Verloop van nesten over alle opeenvolgende telperiodes",
@@ -1462,15 +1543,39 @@ ggplot(
 
 ### Verblijfsduur (Persistence time)
 
-We berekenen de lengte van ononderbroken periodes waarin een buis bezet blijft (`bezet == TRUE`), uitgedrukt in opeenvolgende telrondes (T-stappen).
+We berekenen de lengte van ononderbroken periodes waarin een nestbuis bezet blijft (`bezet == TRUE`), uitgedrukt in opeenvolgende telrondes (T-stappen).
+Om vertekening door incidentele data-hiaten te beperken, passen we een conservatieve overbruggingsregel toe: enkel wanneer een buis gedurende precies één telronde niet werd bezocht (`visited == FALSE`), maar in zowel de direct voorafgaande als de direct opvolgende ronde bewezen bezet was (`bezet == TRUE`), beschouwen we deze tussenliggende ronde als bezet.
+In alle andere situaties (waaronder reeksen van meerdere gemiste bezoeken of bezoeken grenzend aan afwezigheid) worden niet-bezochte rondes als niet-bezet behandeld.
 
 ```{r}
 #| message: false
-# Identificeer ononderbroken reeksen met data.table::rleid
+# Identify consecutive occupied episodes using data.table::rleid
 persistence_data <- buis_periode_status %>%
-  group_by(sublocatie, activiteit_label) %>%
+  # Order rows chronologically and group by tube and activity type
   arrange(jaar, periode_code) %>%
+  group_by(sublocatie, activiteit_label) %>%
+  
+  # Bridge single unvisited periods when flanked by confirmed occupancies:
+  # - T1 (TRUE), T2 (unvisited), T3 (TRUE)  --> T2 is imputed as TRUE
+  # - T1 (TRUE), T2 (unvisited), T3 (FALSE) --> T2 remains FALSE
+  # - T1 (TRUE), T2 (unvisited), T3 (unvisited), T4 (TRUE) --> Both remain FALSE
+  mutate(
+    bezet = if_else(
+      !visited & dplyr::lag(bezet, default = FALSE) &
+        dplyr::lead(bezet, default = FALSE),
+      TRUE,
+      bezet
+    )
+  ) %>%
+
+
+  # Assign a unique run ID (rleid) that increments whenever the logical value of
+  # 'bezet' changes
+  # (e.g., FALSE, FALSE -> 1, 1; TRUE, TRUE -> 2, 2; FALSE -> 3)
   mutate(episode_id = data.table::rleid(bezet)) %>%
+  
+  # Count the number of consecutive periods (rows) within each occupied run
+  # where the tube was actually occupied
   filter(bezet == TRUE) %>%
   group_by(cluster, locatie, sublocatie, activiteit_label, episode_id) %>%
   summarise(
@@ -1478,7 +1583,7 @@ persistence_data <- buis_periode_status %>%
     .groups = "drop"
   )
 
-# Statistische samenvatting per type waarneming en cluster
+# Calculate summary statistics per observation type
 statistieken_persistence <- persistence_data %>%
   group_by(activiteit_label) %>%
   summarise(
@@ -1489,6 +1594,7 @@ statistieken_persistence <- persistence_data %>%
     .groups          = "drop"
   )
 
+# Summary table
 kable(
   statistieken_persistence,
   digits = 2,
@@ -1499,8 +1605,8 @@ kable(
 
 ```{r}
 #| cache: true
-#| fig-width: 10
-#| fig-height: 4.5
+#| fig-width: 9
+#| fig-height: 5
 ggplot(persistence_data, aes(x = factor(opeenvolgende_periodes), fill = cluster)) +
   geom_bar(position = "dodge", color = "black", alpha = 0.85) +
   facet_wrap(~activiteit_label, scales = "free") +
@@ -1547,7 +1653,7 @@ We zullen dit doen door zowel het aantal individuen als het aantal nesten per tr
 
 ## Model specificatie
 
-We modelleren het aantal individuen/nesten van hazelmuis $Y_i$ per telling op transect $i$ met een negatief-binomiaal model:
+We modelleren het aantal individuen/nesten van hazelmuis $Y_i$ per telling op transect $i$ met een negatief-binomiaal model (we vergelijken eigenlijk telkens Poisson, negatief-binomiaal + zero-inflation):
 
 $$
 Y_i \sim \operatorname{NegBin}(\mu_i, \nu)
@@ -1576,7 +1682,7 @@ $$
 
 We selecteren de data als volgt:
 
-- apart model voor aantallen en (verse) nesten in nestbuis (geen sporen)
+- apart model voor aantal (1) individuen en (2) (verse) nesten in nestbuis (geen sporen)
 - enkel zekere identificatie hazelmuis
 - jaar is een factorvariabele, we nemen 2021 als referentiejaar
 - we beschouwen 3 bosclusters
@@ -1588,7 +1694,15 @@ We selecteren de data als volgt:
   - T2: mei
   - T3: 12 september t/m 18 oktober (uitzondering Konenbos 2024: t/m 10 okt.)
   - T4: 19 oktober t/m 20 november (uitzondering Konenbos 2024: vanaf 11 okt.)
-- als offset nemen we het aantal vrije nestbuizen per transect. D.w.z. aantal bezochte nestbuizen waar geen andere diersoort aanwezig was
+- als offset nemen we het aantal vrije nestbuizen per transect. D.w.z. aantal bezochte nestbuizen waar geen andere diersoort aanwezig was (ook keutels of vraatsporen, zowel oud als vers).
+
+```{r}
+nestbuizen_occupancy %>%
+    distinct(activiteit, aanwezig_algemeen, status_waarneming) %>%
+    filter(aanwezig_algemeen) %>%
+    arrange(aanwezig_algemeen, activiteit, status_waarneming) %>%
+    kable()
+```
 
 ```{r}
 # Calculate offset
@@ -2342,6 +2456,7 @@ max_threshold <- log(1.33)
 ```
 
 ```{r}
+#| message: false
 # Summarise model outputs
 model_summaries <- lapply(best_models, function(final_model) {
   # Get model summary
@@ -2877,3 +2992,228 @@ plot_caterpillar_inla(
 ) +
   ggtitle("Boscluster 3")
 ```
+
+# Discussie
+
+## Data exploratie
+
+### Bezettingsgraad over tijd en ruimte
+
+> Dit is op basis van een intermediaire dataset. Ik moet dit nakijken en de figuren opnieuw maken o.b.v. de finale dataset.
+
+### Verblijfsduur
+
+Om vertekening door incidentele data-hiaten te beperken, passen we een conservatieve overbruggingsregel toe: enkel wanneer een buis gedurende precies één telronde niet werd bezocht, maar in zowel de direct voorafgaande als de direct opvolgende ronde bewezen bezet was, beschouwen we deze tussenliggende ronde als bezet.
+In alle andere situaties (waaronder reeksen van meerdere gemiste bezoeken of bezoeken grenzend aan afwezigheid) worden niet-bezochte rondes als niet-bezet behandeld.
+
+> OK? Moeten we strenger of minder streng zijn i.v.m. missing data?
+
+## Trends via statistische modellen
+
+### Referentiejaar
+
+Bij de interpretatie van de langetermijntrends (2020–2025) spelen twee methodologische artefacten in het opstartjaar een doorslaggevende rol: een ecologisch gewenningsproces (kolonisatie-effect) en een verstoorde data-inwinning door de COVID-19-restricties.
+
+**Gewenning en kolonisatie van kunstmatige nestbuizen**
+
+In 2020 lag de bezetting in zowel ronde T1 als T2 zeer laag (niets in T1 en slechts 1 bezette nestbuis (individu+nest) van de 200 in T2).
+Dit zou eventueel een 'leer- en kolonisatie-effect' kunnen weerspiegelen in plaats van een daadwerkelijk dieptepunt in de populatiegrootte.
+Wanneer nieuwe nestkasten of nestbuizen in een leefgebied worden geïntroduceerd, duurt het enige tijd voordat lokale individuen:
+
+* De buizen toevallig ontdekken tijdens hun foerageeractiviteiten;
+* De geur van menselijke handelingen en nieuwe kunststof materialen voldoende is vervlogen;
+* De buizen als een veilige dagrust-, nest- of voortplantingsplaats gaan accepteren en integreren in hun vaste territorium.
+
+Als we 2020 als ijkpunt nemen, dan riskeert een toename in bezettingsgraad tussen 2020 en 2021 ten onrechte geïnterpreteerd te worden als populatiegroei, terwijl het primair om een toename in detectiekans en nestbuisacceptatie gaat.
+
+**Onevenwichtige bemonstering door COVID-19 in 2020**
+
+Daarnaast werd de eerste telronde (2020-T1) verstoord doordat meerdere locaties door de toenmalige COVID-19-maatregelen niet bezocht konden worden.
+Het combineren van een incomplete bemonstering met een vrijwel afwezige detectie maakt het jaar 2020 kwetsbaar voor modelleringsartefacten (zoals problemen met modelconvergentie of onevenredig zware invloed van enkele datapunten bij log-link functies).
+
+**Discussie**
+
+Om deze redenen lijkt het methodologisch robuuster om 2021 als referentiejaar te hanteren voor de populatietrend.
+
+Daarnaast stelt zich de vraag of de data van 2020 niet beter volledig uit de trendmodellen worden geweerd om verstoring van de modelparameters (zoals random effects en seizoenscorrecties) te vermijden.
+Om de invloed hiervan na te kijken, voeren we een sensitiviteitsanalyse uit waarbij de modellen ook eens zonder de data van 2020 fitten.
+Indien de relatieve jaartrends stabiel blijven ongeacht het weglaten van 2020, toont dit aan dat de gerapporteerde populatieontwikkeling niet gestuurd wordt door het opstart- en kolonisatie-effect van het eerste meetjaar.
+
+```{r}
+#| message: false
+#| cache: true
+# Named list of datasets and INLA families
+analysis_datasets2 <- list(
+  individuen = analyseset_individuen %>%
+    filter(fjaar != 2020) %>%
+    droplevels(),
+  nesten     = analyseset_nesten %>%
+    filter(fjaar != 2020) %>%
+    droplevels()
+)
+
+# Fit all models into a nested list: models$<dataset>$<distribution>
+models2 <- lapply(analysis_datasets2, function(df) {
+  lapply(families, function(fam) {
+    inla(
+      formula = formula_hazelmuis,
+      family  = fam,
+      data    = df,
+      control.compute = list(
+        config = TRUE,
+        waic   = TRUE,
+        dic    = TRUE
+      )
+    )
+  })
+})
+
+# Select models with lowest WAIC
+best_models2 <- lapply(models2, function(fam_list) {
+  waic_values <- vapply(fam_list, function(m) m$waic$waic, numeric(1))
+  best_idx    <- which.min(waic_values)
+  
+  list(
+    name  = names(fam_list)[best_idx],
+    model = fam_list[[best_idx]]
+  )
+})
+
+# Summarise model outputs
+model_summaries2 <- lapply(best_models2, function(final_model) {
+  # Get model summary
+  m <- final_model$model
+  summary_model <- summary(m)
+
+  as.data.frame(summary_model$fixed) %>%
+    tibble::rownames_to_column("param") %>%
+    filter_out(grepl("Intercept", param)) %>%
+    
+    # Add effect classification
+    add_effect_classification(
+      cl_columns = c("0.025quant", "0.975quant"),
+      threshold = c(min_threshold, max_threshold),
+      reference = 0,
+      coarse = FALSE
+    ) %>%
+    select(-c("mode", "kld", "effect_code"))
+})
+```
+
+**Individuen**
+
+We hebben een significante toename in 2025 in plaats van een onzekere toename in vergelijking met het model o.b.v. de volledige dataset.
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries2$individuen,
+  effect_label = "fjaar",
+  ref_label    = "2021",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(-log(3.3), log(3.3))
+)
+```
+
+De verschillen in T3 en T4 met T1 zijn minder groot dan voordien.
+Waarschijnlijk omdat het gemiddelde van de referentie nu hoger is (T1 en T2 van 2020 hadden bijna enkel nullen).
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries2$individuen,
+  effect_label = "telperiode",
+  ref_label    = "T1",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(-log(3.3), log(3.3))
+)
+```
+
+We zien geen verschillen tussen bosclusters zoals voordien.
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries2$individuen,
+  effect_label = "boscluster",
+  ref_label    = "boscluster1",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(-log(3.3), log(3.3))
+)
+```
+
+Er zijn kleine verschillen in de random effecten.
+
+```{r}
+# Run with lookup
+plot_caterpillar_inla(
+  inla_model     = best_models2$individuen$model,
+  random_var     = "transect",
+  cluster_lookup = cluster_info
+) + 
+  facet_grid(boscluster ~ ., scales = "free_y", space = "free_y")
+```
+
+**Nesten**
+
+Voor de jaareffecten zien we geen verschil met het model o.b.v. de volledige dataset.
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries2$nesten,
+  effect_label = "fjaar",
+  ref_label    = "2021",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(NA, log(15))
+)
+```
+
+Voor de telperiodes zijn de effecten van T3, T4 ook lager dan voordien maar nog altijd sterk significant.
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries2$nesten,
+  effect_label = "telperiode",
+  ref_label    = "T1",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(-log(4), log(4))
+)
+```
+
+Het verschil van boscluster 2 met boscluster 1 is groter dan met het model o.b.v. de volledige dataset.
+
+```{r}
+plot_inla_effects(
+  results      = model_summaries2$nesten,
+  effect_label = "boscluster",
+  ref_label    = "boscluster1",
+  threshold    = c(min_threshold, max_threshold),
+  y_limits     = c(-log(2.5), log(2.5))
+)
+```
+
+```{r}
+# Run with lookup
+plot_caterpillar_inla(
+  inla_model     = best_models2$nesten$model,
+  random_var     = "transect",
+  cluster_lookup = cluster_info
+) + 
+  facet_grid(boscluster ~ ., scales = "free_y", space = "free_y")
+```
+
+Er zijn kleine verschillen in de random effecten.
+
+> Zijn dit genoeg redenen om de data van 2020 niet mee te nemen?
+
+### Offset
+
+De densiteit van nestbuizen per transect is in het veldprotocol gestandaardiseerd en over de transecten heen nagenoeg constant.
+Daarom is het niet nodig om de fysieke lengte van het transect afzonderlijk in de offset op te nemen.
+Het aantal gecontroleerde nestbuizen per transect volstaat als maat voor de bemonsteringsinspanning.
+
+Binnen deze inspanning kiezen we er specifiek voor om te corrigeren voor het aantal beschikbare ('vrije') nestbuizen.
+Een nestbuis wordt als niet-beschikbaar beschouwd wanneer deze bezet is door andere soorten of sporen van een andere soort aanwezig zijn (nest, keutels, vraatsporen (zowel vers als oud/onzeker)), beschadigd of verdwenen is, of om praktische redenen niet gecontroleerd kon worden tijdens de betreffende ronde.
+De interpretatie van de modelparameters blijft intuïtief en ecologisch betekenisvol: we modelleren de verwachte densiteit per beschikbare nestbuis, gecorrigeerd voor seizoens-, boscluster- en jaareffecten.
+
+Echter, uit de data exploratie blijkt wel dat hazelmuizen soms worden aangetroffen samen met andere soorten of sporen tijdens eenzelfde telling.
+De exclusie van alle data van andere soorten en/of sporen (zowel verse als oude/onzekere) lijkt dus vrij strikt.
+
+> We zouden bijvoorbeeld kunnen besluiten enkel de data van verse nesten/sporen te gebruiken i.p.v. ook de oude/onzekere. Of we zouden enkel individuen en verse nesten van andere soorten kunnen verwijderen.
