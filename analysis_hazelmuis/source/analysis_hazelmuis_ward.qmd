@@ -1032,6 +1032,8 @@ kleuren_4_tinten <- c(
 
 # Create activity labels
 base_activiteit <- nestbuizen_occupancy %>%
+  filter(soort_groep == "Hazelmuis") %>%
+  
   mutate(
     activiteit_label = case_when(
       activiteit == "in nestbuis" ~ "individuen",
@@ -1084,7 +1086,7 @@ visited_nesting_tubes_year <- nestbuizen_occupancy %>%
 buis_jaar_status <- base_activiteit %>%
   group_by(meetnet, cluster, locatie, sublocatie, jaar, activiteit_label) %>%
   summarise(
-    bezet = any(is_aanwezig == TRUE | totaal_aantal > 0), # Only keeps fresh nests
+    bezet = any(is_aanwezig == TRUE), # Only count fresh nests
     .groups = "drop"
   ) %>%
 
@@ -1225,7 +1227,7 @@ buis_periode_status <- base_activiteit %>%
   filter(periode %in% paste0("T", 1:4)) %>%
   group_by(meetnet, cluster, locatie, sublocatie, jaar, periode, activiteit_label) %>%
   summarise(
-    bezet = any(is_aanwezig == TRUE | totaal_aantal > 0),
+    bezet = any(is_aanwezig == TRUE),
     .groups = "drop"
   ) %>%
   mutate(periode_code = factor(periode, levels = paste0("T", 1:4))) %>%
