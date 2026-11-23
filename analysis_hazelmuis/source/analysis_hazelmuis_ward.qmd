@@ -632,6 +632,26 @@ Komen (sporen van) andere soorten gelijktijdig voor met hazelmuis?
 Voor hazelmuis selecteren we enkel levende individuen en verse nesten.
 
 ```{r}
+presence_others <- nestbuizen_occupancy %>%
+    # 1. Apply presence definitions per group
+    mutate(
+        group = case_when(
+            soort_groep == "Hazelmuis" & 
+                activiteit %in% c("nest") & 
+                is_aanwezig == TRUE ~ "hazelmuis (nest)",
+            soort_groep == "Hazelmuis" & 
+                activiteit %in% c("in nestbuis") & 
+                is_aanwezig == TRUE ~ "hazelmuis",
+            
+            soort_groep %in% c("andere_soorten", "Hazelmuis/andere_soorten") & 
+                aanwezig_algemeen == TRUE ~ "andere soorten - aanwezig",
+            
+            TRUE ~ NA_character_
+        )
+    ) %>%
+    filter(!is.na(group)) %>%
+    count(group)
+
 co_occurring_crosstab <- nestbuizen_occupancy %>%
   # 1. Apply presence definitions per group
   mutate(
@@ -684,8 +704,19 @@ co_occurring_crosstab %>%
   kable()
 ```
 
+In totaal hebben we `r subset(presence_others, group == "hazelmuis", "n", drop = TRUE)` observaties van hazelmuis en `r subset(presence_others, group == "hazelmuis (nest)", "n", drop = TRUE)` observaties van verse nesten.
+We zien de aanwezigheid van andere soorten in een aantal gevallen:
+
+```{r}
+co_occurring_crosstab %>%
+  count(hazelmuis) %>%
+  arrange(desc(n)) %>%
+  kable()
+```
+
 Het is dus mogelijk om tegelijkertijd individuen of verse nesten van hazelmuis te vinden met (sporen van) andere soorten.
 Enkel levende individuen worden niet samen aangetroffen.
+Een getal van 97 wil zeggen dat bij 97 tellingen (dus uniek nestbuis telperiode) zowel verse nesten van hazelmuis als oude of onzeker nesten van andere soorten worden aangetroffen.
 
 ```{r}
 # 1. Expand combined strings into distinct pair occurrences and count frequencies
@@ -724,6 +755,12 @@ heatmap_full <- heatmap_data %>%
     hazelmuis_activity,
     other_activity,
     fill = list(n_visits = 0)
+  ) %>%
+  mutate(
+    versheid = factor(
+      ifelse(grepl("oud", other_activity), "oud/onzeker", "vers"),
+      levels = c("vers", "oud/onzeker")
+    )
   )
 
 # 4. Heatmap plot
@@ -745,6 +782,7 @@ ggplot(heatmap_full,
     direction = -1,
     name = "Aantal\nbezoeken"
   ) +
+  facet_grid(versheid~., scales = "free") +
   labs(
     x = "Activiteit hazelmuis",
     y = "Activiteit andere soorten"
@@ -837,6 +875,12 @@ heatmap_full_split <- heatmap_data_split %>%
     hazelmuis_activity,
     other_activity,
     fill = list(n_visits = 0)
+  ) %>%
+  mutate(
+    versheid = factor(
+      ifelse(grepl("oud", other_activity), "oud/onzeker", "vers"),
+      levels = c("vers", "oud/onzeker")
+    )
   )
 
 # 5. Twee figuren naast elkaar via facet_wrap
@@ -854,13 +898,13 @@ ggplot(
     size = 4.5,
     show.legend = FALSE
   ) +
-  facet_wrap(~ soort_groep_other) +
   scale_color_manual(values = c("TRUE" = "white", "FALSE" = "grey20")) +
   scale_fill_viridis_c(
     option    = "viridis",
     direction = -1,
     name      = "Aantal\nbezoeken"
   ) +
+  facet_grid(versheid ~ soort_groep_other, scales = "free") +
   labs(
     x = "Activiteit hazelmuis",
     y = "Activiteit andere soorten"
@@ -1697,7 +1741,7 @@ We selecteren de data als volgt:
   - T2: mei
   - T3: 12 september t/m 18 oktober (uitzondering Konenbos 2024: t/m 10 okt.)
   - T4: 19 oktober t/m 20 november (uitzondering Konenbos 2024: vanaf 11 okt.)
-- als offset nemen we het aantal vrije nestbuizen per transect. D.w.z. aantal bezochte nestbuizen waar geen andere diersoort aanwezig was (ook keutels of vraatsporen, zowel oud als vers).
+- als offset nemen we het aantal vrije nestbuizen per transect. D.w.z. aantal bezochte nestbuizen waar geen andere diersoort aanwezig was (ook keutels of vraatsporen, enkel vers).
 
 ```{r}
 nestbuizen_occupancy %>%
@@ -1711,7 +1755,7 @@ nestbuizen_occupancy %>%
 # Calculate offset
 occupied_nesting_tubes <- nestbuizen_occupancy %>%
   filter(
-    soort_groep != "Hazelmuis" & aanwezig_algemeen
+    soort_groep != "Hazelmuis" & is_aanwezig
   ) %>%
   distinct(jaar, locatie, sublocatie, periode)
 
@@ -1739,6 +1783,11 @@ analyseset_individuen  <- nestbuizen_occupancy %>%
   filter(
    activiteit == "in nestbuis", # Select individual count
    soort_groep == "Hazelmuis"   # Select species of interest
+  ) %>%
+  # Filter out other species
+  anti_join(
+    occupied_nesting_tubes,
+    by = join_by(locatie, sublocatie, jaar, periode)
   ) %>%
   select(boscluster = cluster, transect = locatie, jaar, telperiode = periode,
          totaal_aantal) %>%
@@ -1782,6 +1831,11 @@ analyseset_nesten  <- nestbuizen_occupancy %>%
       0
     )
   ) %>% 
+  # Filter out other species
+  anti_join(
+    occupied_nesting_tubes,
+    by = join_by(locatie, sublocatie, jaar, periode)
+  ) %>%
   select(boscluster = cluster, transect = locatie, jaar, telperiode = periode,
          totaal_aantal) %>%
   # Count number per transect per visit
@@ -3105,7 +3159,7 @@ model_summaries2 <- lapply(best_models2, function(final_model) {
 
 **Individuen**
 
-We hebben een significante toename in 2025 in plaats van een onzekere toename in vergelijking met het model o.b.v. de volledige dataset.
+Voor de jaareffecten zien we geen verschil met het model o.b.v. de volledige dataset.
 
 ```{r}
 plot_inla_effects(
@@ -3168,7 +3222,7 @@ plot_inla_effects(
 )
 ```
 
-Voor de telperiodes zijn de effecten van T3, T4 ook lager dan voordien maar nog altijd sterk significant.
+Voor de telperiodes zijn de effecten van T3, T4 ook lager dan voordien maar nog altijd significant.
 
 ```{r}
 plot_inla_effects(
@@ -3180,7 +3234,7 @@ plot_inla_effects(
 )
 ```
 
-Het verschil van boscluster 2 met boscluster 1 is groter dan met het model o.b.v. de volledige dataset.
+Het verschil van boscluster 2 met boscluster 1 is iets groter dan met het model o.b.v. de volledige dataset.
 
 ```{r}
 plot_inla_effects(
