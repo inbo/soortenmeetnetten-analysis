@@ -3009,7 +3009,7 @@ plot_caterpillar_inla(
 Om vertekening door incidentele data-hiaten te beperken, passen we een conservatieve overbruggingsregel toe: enkel wanneer een buis gedurende precies één telronde niet werd bezocht, maar in zowel de direct voorafgaande als de direct opvolgende ronde bewezen bezet was, beschouwen we deze tussenliggende ronde als bezet.
 In alle andere situaties (waaronder reeksen van meerdere gemiste bezoeken of bezoeken grenzend aan afwezigheid) worden niet-bezochte rondes als niet-bezet behandeld.
 
-> OK? Moeten we strenger of minder streng zijn i.v.m. missing data?
+> OK. Meeting 19-11-2026
 
 ## Trends via statistische modellen
 
