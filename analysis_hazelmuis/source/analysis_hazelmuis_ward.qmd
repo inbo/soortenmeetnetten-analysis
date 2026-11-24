@@ -51,6 +51,7 @@ data_path <- fileman_up("soortenmeetnetten-queries")
 source(file.path(fileman_up("soortenmeetnetten-analysis"),
                  "source/functions_smp.R"))
 source(file.path(here::here(), "source", "R", "add_effect_classification.R"))
+source(file.path(here::here(), "source", "R", "refit_consecutive_years.R"))
 source(file.path(here::here(), "source", "R", "plot_inla_effects.R"))
 source(file.path(here::here(), "source", "R", "plot_caterpillar_inla.R"))
 ```
@@ -2537,6 +2538,19 @@ model_summaries <- lapply(best_models, function(final_model) {
 })
 ```
 
+
+```{r}
+# Calculate differences between consequtive years
+consecutive_year_refits <- lapply(
+  best_models,
+  refit_consecutive_years,
+    year_val  = "fjaar",
+    threshold = c(min_threshold, max_threshold),
+    reference = 0,
+    coarse    = FALSE
+)
+```
+
 ### Individuen
 
 We vatten de resultaten samen van het finale model.
@@ -2558,6 +2572,16 @@ plot_inla_effects(
   ref_label    = "2021",
   threshold    = c(min_threshold, max_threshold),
   y_limits     = c(-log(3.3), log(3.3))
+)
+```
+
+We visualiseren ook de verschillen tussen opeenvolgende jaren.
+
+```{r}
+plot_inla_effects(
+  results   = consecutive_year_refits$individuen,
+  threshold = c(min_threshold, max_threshold),
+  y_limits  = c(-log(3.3), log(3.3))
 )
 ```
 
@@ -2612,7 +2636,17 @@ plot_inla_effects(
   effect_label = "fjaar",
   ref_label    = "2021",
   threshold    = c(min_threshold, max_threshold),
-  y_limits     = c(NA, log(15))
+  y_limits     = c(NA, log(9))
+)
+```
+
+We visualiseren ook de verschillen tussen opeenvolgende jaren.
+
+```{r}
+plot_inla_effects(
+  results   = consecutive_year_refits$nesten,
+  threshold = c(min_threshold, max_threshold),
+  y_limits  = c(-log(NA), log(5))
 )
 ```
 
@@ -2812,7 +2846,7 @@ model_comparison_cluster$individuen$boscluster3 %>%
   kable()
 ```
 
-> inlatools not available for ZINB
+> inlatools not available for ZI
 
 ### Nesten per boscluster
 

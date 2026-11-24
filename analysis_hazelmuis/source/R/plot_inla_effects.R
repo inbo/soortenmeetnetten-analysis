@@ -38,6 +38,44 @@ prepare_plot_data <- function(summary_df, effect_label, ref_label) {
 }
 
 
+#' Prepare Consecutive Year Contrasts for Effect Visualization
+#'
+#' @description
+#' Formats a data frame of consecutive year-over-year contrasts (produced by
+#' \code{\link{refit_consecutive_years}}) into the list structure required by
+#' \code{\link{plot_inla_effects}}. Because each contrast already compares
+#' year \eqn{t} against year \eqn{t-1}, an empty reference table is returned so
+#' that no baseline "R" marker is drawn on the x-axis.
+#'
+#' @param consecutive_df A \code{data.frame} or \code{tibble} containing consecutive
+#'   year estimates, including the columns \code{contrast}, \code{mean},
+#'   \code{0.5quant}, \code{0.025quant}, and \code{0.975quant}.
+#'
+#' @return A named \code{list} with two components:
+#' \describe{
+#'   \item{plot_data}{A \code{tibble} with \code{label} ordered chronologically as a factor.}
+#'   \item{ref_data}{An empty zero-row \code{tibble} matching the structure expected by \code{\link{plot_inla_effects}}.}
+#' }
+prepare_consecutive_plot_data <- function(consecutive_df) {
+  # Preserve chronological order of contrast labels on the x-axis
+  plot_data <- consecutive_df %>%
+    dplyr::mutate(
+      label = factor(.data$contrast, levels = .data$contrast)
+    )
+  
+  # Create an empty reference data frame so no 'R' marker is rendered
+  ref_data <- tibble::tibble(
+    label = factor(character(), levels = levels(plot_data$label)),
+    mean  = numeric()
+  )
+  
+  list(
+    plot_data = plot_data,
+    ref_data  = ref_data
+  )
+}
+
+
 #' Plot INLA Fixed Effects with a Reference Level Indicator
 #'
 #' @description
@@ -72,14 +110,18 @@ plot_inla_effects <- function(
 ) {
   # Normalize input structure
   if (is.data.frame(results)) {
-    if (is.null(effect_label) || is.null(ref_label)) {
-      stop("When 'results' is a data.frame, both 'effect_label' and 'ref_label' must be supplied.")
+    if ("contrast" %in% names(results)) {
+      plot_data_results <- prepare_consecutive_plot_data(results)
+    } else {
+      if (is.null(effect_label) || is.null(ref_label)) {
+        stop("When 'results' is a standard summary data.frame, both 'effect_label' and 'ref_label' must be supplied.")
+      }
+      plot_data_results <- prepare_plot_data(
+        summary_df   = results,
+        effect_label = effect_label,
+        ref_label    = ref_label
+      )
     }
-    plot_data_results <- prepare_plot_data(
-      summary_df   = results,
-      effect_label = effect_label,
-      ref_label    = ref_label
-    )
   } else if (is.list(results) && all(c("plot_data", "ref_data") %in% names(results))) {
     plot_data_results <- results
   } else {
@@ -119,10 +161,13 @@ plot_inla_effects <- function(
     exp(index_breaks())
   }
   
-  index_labels_rev <- function(digits = 1) {
+  index_labels_rev <- function(digits = 2) {
     vals <- exp(index_breaks())
-    # Format cleanly: omit decimal places for large numbers (>= 10)
-    ifelse(vals >= 10, sprintf("%.0f", vals), format(round(vals, digits), nsmall = digits))
+    ifelse(
+      vals >= 10,
+      sprintf("%.1f", vals),
+      sprintf(paste0("%.", digits, "f"), vals)
+    )
   }
   
   # Build ggplot visualization
