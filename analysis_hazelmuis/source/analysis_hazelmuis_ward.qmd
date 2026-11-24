@@ -3257,8 +3257,8 @@ continuous_cluster_ind <- lapply(
 ```
 
 ```{r}
-#| fig.width: 8
-#| fig.heigth: 14
+#| fig.width: 6
+#| fig.heigth: 16
 
 # Plot faceted by boscluster
 plot_response_trends(
@@ -3348,8 +3348,8 @@ continuous_cluster_nest <- lapply(
 ```
 
 ```{r}
-#| fig.width: 8
-#| fig.heigth: 14
+#| fig.width: 6
+#| fig.heigth: 16
 
 # Plot faceted by boscluster
 plot_response_trends(
