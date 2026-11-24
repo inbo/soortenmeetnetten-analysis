@@ -52,6 +52,7 @@ source(file.path(fileman_up("soortenmeetnetten-analysis"),
                  "source/functions_smp.R"))
 source(file.path(here::here(), "source", "R", "add_effect_classification.R"))
 source(file.path(here::here(), "source", "R", "refit_consecutive_years.R"))
+source(file.path(here::here(), "source", "R", "refit_year_slope.R"))
 source(file.path(here::here(), "source", "R", "plot_inla_effects.R"))
 source(file.path(here::here(), "source", "R", "plot_caterpillar_inla.R"))
 ```
@@ -2538,7 +2539,6 @@ model_summaries <- lapply(best_models, function(final_model) {
 })
 ```
 
-
 ```{r}
 # Calculate differences between consequtive years
 consecutive_year_refits <- lapply(
@@ -3084,6 +3084,86 @@ plot_caterpillar_inla(
   random_var     = "transect"
 ) +
   ggtitle("Boscluster 3")
+```
+
+# Gemiddelde jaartrends
+
+Om een gemiddelde jaarlijkse trend (*slope*) te schatten, wordt de jaarfactor in het best geselecteerde model vervangen door een continue jaarvariabele (gecentreerd op het startjaar).
+De geschatte helling op de log-schaal wordt vertaald naar een jaarlijkse vermenigvuldigingsfactor (`factor_jaar`): het getal waarmee het verwachte aantal individuen of nesten elk jaar wordt vermenigvuldigd ten opzichte van het voorgaande jaar; en het bijbehorende jaarlijkse groeipercentage (`pct_jaar`).
+
+Omdat een continue trend de samengestelde verandering per één enkel jaar uitdrukt in plaats van het cumulatieve verschil over de volledige meetperiode, worden de referentiedrempels (`min_threshold` en `max_threshold`) op de log-schaal gedeeld door het aantal jaarstappen in de tijdreeks ($T = 5$ jaarstappen over 6 meetjaren, van 2020 tot 2025). Een geleidelijke jaarlijkse toe- of afname die over de volledige periode de oorspronkelijke drempel overschrijdt, wordt zo correct als relevante trend geclassificeerd.
+
+> logisch?
+
+```{r}
+# Define tresholds per year
+n_jaren <- max(as.numeric(levels(analyseset_individuen$fjaar))) -
+  min(as.numeric(levels(analyseset_individuen$fjaar)))
+threshold_jaar <- c(min_threshold, max_threshold) / n_jaren
+```
+
+```{r}
+all_year_slopes <- lapply(names(best_models), function(ds) {
+  df_full <- refit_year_slope(
+    best_models[[ds]],
+    year_val  = "fjaar",
+    threshold = threshold_jaar,
+    reference = 0,
+    coarse    = FALSE
+  ) %>%
+    dplyr::mutate(boscluster = NA_character_, .before = 1)
+  
+  df_clusters <- lapply(
+    best_models_cluster[[ds]],
+    refit_year_slope,
+    year_val  = "fjaar",
+    threshold = threshold_jaar,
+    reference = 0,
+    coarse    = FALSE
+  ) %>%
+    dplyr::bind_rows(.id = "boscluster")
+  
+  dplyr::bind_rows(df_full, df_clusters)
+}) %>%
+  setNames(names(best_models))
+```
+
+## Individuen
+
+```{r}
+all_year_slopes$individuen %>%
+  select(-c("term", "start_jaar", "gecentreerd")) %>%
+  mutate(boscluster = ifelse(is.na(boscluster), "Totaal", boscluster)) %>%
+  rename("model" = "boscluster") %>%
+  kable()
+```
+
+```{r}
+plot_inla_effects(
+  results    = all_year_slopes$individuen,
+  threshold  = threshold_jaar,
+  y_limits   = c(-log(1.5), log(1.5)),
+  horizontal = TRUE
+)
+```
+
+## Nesten
+
+```{r}
+all_year_slopes$nesten %>%
+  select(-c("term", "start_jaar", "gecentreerd")) %>%
+  mutate(boscluster = ifelse(is.na(boscluster), "Totaal", boscluster)) %>%
+  rename("model" = "boscluster") %>%
+  kable()
+```
+
+```{r}
+plot_inla_effects(
+  results    = all_year_slopes$nesten,
+  threshold  = threshold_jaar,
+  y_limits   = c(-log(1.6), log(1.6)),
+  horizontal = TRUE
+)
 ```
 
 # Discussie
