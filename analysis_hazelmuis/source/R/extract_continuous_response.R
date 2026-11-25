@@ -14,7 +14,7 @@
 #'   (default `100`).
 #' @param marginalize_others Logical; if `TRUE` (default), averages over the
 #'   levels of other fixed factors in the model (e.g., `boscluster`, `telperiode`).
-#' @param seed Optional integer random seed for reproducibility (default `123`).
+#' @param seed Optional integer random seed for reproducibility (default `NULL`).
 #'
 #' @return A `tibble` with `jaar`, `trend_median`, `trend_lwr`, and `trend_upr`.
 
@@ -24,7 +24,7 @@ extract_continuous_response <- function(
   n_samples          = 1000,
   n_grid             = 100,
   marginalize_others = TRUE,
-  seed               = 123
+  seed               = NULL
 ) {
   require("dplyr")
   require("tibble")

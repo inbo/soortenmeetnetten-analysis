@@ -13,7 +13,7 @@
 #' @param marginalize_others Logical; if `TRUE` (default), averages over the
 #'   levels of other fixed factors in the model (e.g. `boscluster`, `telperiode`)
 #'   rather than conditioning solely on their reference levels.
-#' @param seed Optional integer random seed for reproducibility (default `123`).
+#' @param seed Optional integer random seed for reproducibility (default `NULL`).
 #'
 #' @return A `tibble` with one row per year on the original response scale
 #'   containing `jaar`, `mean`, `sd`, `0.025quant`, `0.5quant`, and `0.975quant`.
@@ -23,7 +23,7 @@ extract_annual_response <- function(
   year_val           = "fjaar",
   n_samples          = 1000,
   marginalize_others = TRUE,
-  seed               = 123
+  seed               = NULL
 ) {
   require("dplyr")
   require("tibble")

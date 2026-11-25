@@ -44,9 +44,13 @@ library(effectclass)    # Classification and standardized plotting of effect siz
 # --- Ecological reference data ---
 library(n2khab)         # Reference data and preprocessing for Natura 2000 habitats in Flanders
 
+# Settings
+set.seed(123)
+
 conflicted::conflicts_prefer(dplyr::filter)
 conflicted::conflicts_prefer(dplyr::pull)
 
+# Globals
 data_path <- fileman_up("soortenmeetnetten-queries")
 source(file.path(fileman_up("soortenmeetnetten-analysis"),
                  "source/functions_smp.R"))
@@ -2552,7 +2556,6 @@ We vergelijken de geobserveerde distributie met de gemodelleerde.
 #| cache: true
 #| message: false
 #| warning: false
-set.seed(123)
 dc_individuen <- distribution_check(best_models$individuen$model)
 plot(dc_individuen)
 ```
@@ -2582,7 +2585,6 @@ We vergelijken de geobserveerde distributie met de gemodelleerde.
 #| cache: true
 #| message: false
 #| warning: false
-set.seed(123)
 dc_nesten <- distribution_check(best_models$nesten$model)
 plot(dc_nesten)
 ```
@@ -2884,7 +2886,6 @@ We vergelijken de geobserveerde distributie met de gemodelleerde.
 ```{r}
 #| message: false
 #| warning: false
-set.seed(123)
 dc_ind_cl1 <- distribution_check(best_models_cluster$individuen$boscluster1$model)
 plot(dc_ind_cl1)
 ```
@@ -2912,7 +2913,6 @@ We vergelijken de geobserveerde distributie met de gemodelleerde.
 ```{r}
 #| message: false
 #| warning: false
-set.seed(123)
 dc_ind_cl2 <- distribution_check(best_models_cluster$individuen$boscluster2$model)
 plot(dc_ind_cl2)
 ```
@@ -2953,7 +2953,6 @@ We vergelijken de geobserveerde distributie met de gemodelleerde.
 ```{r}
 #| message: false
 #| warning: false
-set.seed(123)
 dc_ind_cl1 <- distribution_check(best_models_cluster$nesten$boscluster1$model)
 plot(dc_ind_cl1)
 ```
@@ -2981,7 +2980,6 @@ We vergelijken de geobserveerde distributie met de gemodelleerde.
 ```{r}
 #| message: false
 #| warning: false
-set.seed(123)
 dc_ind_cl2 <- distribution_check(best_models_cluster$nesten$boscluster2$model)
 plot(dc_ind_cl2)
 ```
@@ -3009,7 +3007,6 @@ We vergelijken de geobserveerde distributie met de gemodelleerde.
 ```{r}
 #| message: false
 #| warning: false
-set.seed(123)
 dc_ind_cl3 <- distribution_check(best_models_cluster$nesten$boscluster3$model)
 plot(dc_ind_cl3)
 ```
@@ -3224,8 +3221,7 @@ annual_response <- lapply(
   extract_annual_response,
   year_val           = "fjaar",
   n_samples          = 1000,
-  marginalize_others = TRUE,
-  seed               = 123
+  marginalize_others = TRUE
 )
 
 # Calculate annual estimates using bootstrap
@@ -3233,8 +3229,7 @@ boot_estimates <- lapply(
   analysis_datasets,
   bootstrap_annual_observed,
   year_val = "fjaar",
-  n_boot   = 1000,
-  seed     = 123
+  n_boot   = 1000
 )
 
 # Combine model predictions and bootstrap estimates for all datasets
@@ -3259,8 +3254,7 @@ continuous_response <- lapply(
   extract_continuous_response,
   year_val           = "fjaar",
   n_samples          = 1000,
-  marginalize_others = TRUE,
-  seed               = 123
+  marginalize_others = TRUE
 )
 ```
 
