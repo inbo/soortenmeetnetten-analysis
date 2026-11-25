@@ -1707,7 +1707,6 @@ kable(
 ```
 
 ```{r}
-#| cache: true
 #| fig-width: 9
 #| fig-height: 5
 ggplot(persistence_data, aes(x = factor(opeenvolgende_periodes), fill = cluster)) +
