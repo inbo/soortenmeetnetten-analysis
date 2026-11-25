@@ -1708,11 +1708,11 @@ kable(
 #| fig-height: 5
 ggplot(persistence_data, aes(x = factor(opeenvolgende_periodes), fill = cluster)) +
   geom_bar(position = "dodge", color = "black", alpha = 0.85) +
-  facet_wrap(~activiteit_label, scales = "free") +
+  facet_wrap(~activiteit_label, scales = "free_y") +
   labs(
     title = "Verdeling van de verblijfsduur (Persistence Time)",
     x = "Aantal opeenvolgende telperiodes bezet",
-    y = "Aantal episodes",
+    y = "Aantal waarnemingen",
     fill = "Boscluster"
   ) +
   theme_minimal() +
@@ -1722,27 +1722,66 @@ ggplot(persistence_data, aes(x = factor(opeenvolgende_periodes), fill = cluster)
   )
 ```
 
-Boxplot verblijfsduur per cluster en type waarneming.
+Relatieve verdeling van de verblijfsduur per boscluster:
 
 ```{r}
-#| cache: true
-#| fig-width: 9
-#| fig-height: 4.5
-set.seed(123)
-ggplot(persistence_data, aes(x = cluster, y = opeenvolgende_periodes, fill = cluster)) +
-  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
-  geom_jitter(width = 0.2, alpha = 0.6, size = 2) +
-  scale_y_continuous(limits = c(0, NA)) +
-  facet_wrap(~activiteit_label, scales = "free") +
+persistence_rel <- persistence_data %>%
+  count(activiteit_label, cluster, opeenvolgende_periodes) %>%
+  group_by(activiteit_label, cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ungroup()
+
+ggplot(persistence_rel, aes(x = factor(opeenvolgende_periodes),
+                            y = prop, color = cluster, group = cluster)) +
+  geom_line(linewidth = 0.8, alpha = 0.7) +
+  geom_point(size = 3) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  facet_wrap(~activiteit_label) +
   labs(
-    title = "Verblijfsduur per boscluster",
-    x = "",
-    y = "Opeenvolgende telperiodes bezet"
+    x     = "Aantal opeenvolgende telperiodes bezet",
+    y     = "Percentage van episodes",
+    color = "Boscluster"
   ) +
   theme_minimal() +
-  theme(
-    legend.position = "none"
-  )
+  theme(legend.position = "top")
+```
+
+Verblijfsduur per boscluster (proportionele verdeling):
+
+```{r}
+persistence_prop <- persistence_data %>%
+  mutate(
+    duur_klasse = case_when(
+      opeenvolgende_periodes == 1 ~ "1 periode",
+      opeenvolgende_periodes == 2 ~ "2 periodes",
+      opeenvolgende_periodes >= 3 ~ "3+ periodes"
+    ),
+    duur_klasse = factor(duur_klasse, levels = c("3+ periodes", "2 periodes", "1 periode"))
+  ) %>%
+  count(activiteit_label, cluster, duur_klasse) %>%
+  group_by(activiteit_label, cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ungroup()
+
+ggplot(persistence_prop, aes(x = cluster, y = prop, fill = duur_klasse)) +
+  geom_col(position = "fill", color = "white", width = 0.7) +
+  geom_text(
+    aes(label = ifelse(prop >= 0.06, sprintf("%.0f%% (n=%d)", prop * 100, n), "")),
+    position = position_fill(vjust = 0.5),
+    size = 3.2,
+    color = "black",
+    fontface = "bold"
+  ) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_brewer(palette = "Blues", direction = -1) +
+  facet_wrap(~activiteit_label) +
+  labs(
+    x     = "",
+    y     = "Aandeel bezettingsepisodes",
+    fill  = "Duur bezetting"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top")
 ```
 
 # Algemene trends
