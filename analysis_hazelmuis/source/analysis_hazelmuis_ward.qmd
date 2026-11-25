@@ -86,7 +86,7 @@ Het meetnet bestaat uit 2 delen:
 
 We focussen ons in dit rapport op de nestbuistellingen.
 
-Concreet willen we een model voor (1) het aantal individuen en (2) het aantal nesten waaruit we jaarlijkse trends kunnen afleiden.
+Concreet willen we een model voor (1) het aantal individuen en (2) het aantal (verse) nesten waaruit we jaarlijkse trends kunnen afleiden.
 
 ## Uitgevoerde analyses
 
@@ -3587,3 +3587,65 @@ Echter, uit de data exploratie blijkt wel dat hazelmuizen soms worden aangetroff
 De exclusie van alle data van andere soorten en/of sporen (zowel verse als oude/onzekere) lijkt dus vrij strikt.
 
 > We zouden bijvoorbeeld kunnen besluiten enkel de data van verse nesten/sporen te gebruiken i.p.v. ook de oude/onzekere. Of we zouden enkel individuen en verse nesten van andere soorten kunnen verwijderen.
+
+**Alternatieve benadering: bezetting door andere soorten als covariaat**
+
+Een methodologisch alternatief voor het wegfilteren van bezette buizen is om alle gecontroleerde nestbuizen in de offset op te nemen ($\log(n_{\text{totaal}})$), analoog aan Goodwin et al. (2017), en het aandeel buizen dat bezet is door andere soorten (`prop_andere_soort`, op basis van individuen en verse nesten) als verklarende variabele aan het model toe te voegen. 
+
+* **Voordeel:** Er gaan geen waarnemingen verloren (ook niet wanneer een hazelmuis samen met sporen van een andere soort wordt aangetroffen) en de relatie met interspecifieke competitie wordt expliciet geschat in plaats van a priori als een 1-op-1 capaciteitsbeperking opgelegd.
+* **Aandachtspunten bij toekomstige implementatie:** 
+  1. *Collineariteit:* Als het aandeel andere soorten een sterke meerjarige trend vertoont, kan deze covariaat een deel van het jaareffect (`fjaar`) absorberen. Voor de SVI-rapportage blijft de ongecorrigeerde (gerealiseerde) populatietrend leidend, dus moeten modellen mét en zonder deze covariaat steeds vergeleken worden.
+  2. *Causaliteit:* Een negatief effect kan zowel wijzen op actieve verdringing door concurrenten als op het opportunistisch innemen van vrijgekomen buizen na achteruitgang van de hazelmuis.
+  
+* **Aanpak:** Fit het model op alle gecontroleerde nestbuizen (`offset(log(n_totaal_buizen))`) en voeg `prop_andere_soort` (gebaseerd op individuen + verse nesten van andere soorten) toe als covariaat.
+Toets vervolgens via WAIC of de toevoeging het model verbetert en check of de geschatte jaartrends (`fjaar`) stabiel blijven ten opzichte van het model zonder deze covariaat.
+
+# Vergelijking literatuur
+## Goodwin et al. 2017
+
+[doi: 10.1111/mam.12091](https://doi.org/10.1111/mam.12091)
+
+Jouw aanpak sluit qua statistische basis (negatief-binomiaal telmodel op transectniveau met het aantal kasten/buizen als log-offset) sterk aan bij Goodwin et al. (2017), maar wijkt op cruciale punten af omdat jullie meetnet korter loopt (6 jaar i.p.v. 22 jaar) en gestandaardiseerde telrondes met nestbuizen gebruikt.
+
+### Datafiltering & selectie
+
+| Aspect | Goodwin et al. (2017) | Onze analyse | Belangrijkste verschil & implicatie |
+| --- | --- | --- | --- |
+| **Responsvariabele** | Enkel **adulte individuen** (juvenielen/jongen weggelaten wegens inconsistente registratie en hoge wintersterfte).
+
+ | Twee aparte modellen: **(1) alle individuen** (adult, subadult, juveniel samen) en **(2) verse nesten**. | Wij nemen ook subadulten/juvenielen mee (wat door de telperiode-correctie voor T3/T4 prima kan) én modelleren verse nesten als onafhankelijke indicator. |
+| **Locatieselectie (nullen)** | Strikte filter: enkel locaties met $\ge 2$ meetjaren én **$> 1$ adulte hazelmuis** over de hele looptijd (400 van 640 locaties) om lege/ongeschikte locaties uit te sluiten.
+
+ | **Alle 17 transecten** (in de Voerstreek) worden behouden, inclusief transecten met veel nultellingen. | In Vlaanderen liggen de transecten in een afgebakend kerngebied (Voerstreek); alle transecten bevatten minstens 1 waarneming. |
+| **Opstartjaar / Gewenning** | Eerste 5 jaar (1988–1992) geschrapt wegens te weinig locaties ($n < 30$). Daarnaast expliciet getest of de **meetduur per locatie** (*year of survey*) de aantallen beïnvloedde (bleek niet significant).
+
+ | Alle jaren (2020–2025) meegenomen, met een **sensitiviteitsanalyse zonder 2020** wegens COVID-hiaten en gewenning aan nieuwe nestbuizen. | In tegenstelling tot het VK (waar kasten al jaren hingen op de meeste sites), zijn alle Vlaamse buizen tegelijk nieuw opgehangen in 2020. |
+| **Onderzoeksinspanning (Offset)** | Totaal aantal gecontroleerde nestkasten per bezoek ($\log(\text{n\_kasten})$).
+
+ | Aantal **vrije** nestbuizen per bezoek: gecontroleerde buizen minus buizen met (verse én oude) sporen/individuen van andere soorten. | Onze offset is veel strenger. Hazelmuizen komen soms samen voor met oude nesten/keutels van andere soorten. |
+| **Seizoen / Telperiodes** | Alle maandelijkse bezoeken van mei t/m oktober zonder maand-hoofdeffect (wel maand-interactie getest).
+
+ | Strikte filter op 4 telvensters (**T1–T4**) én `telperiode` als **fixed effect** in het model. | Onze aanpak is hier zuiverder: doordat T3 en T4 (najaar) veel hogere aantallen opleveren dan T1 (voorjaar), vangt `telperiode` de seizoensvariatie op als een transect een ronde mist. |
+
+
+### Modelstructuur & trendberekening
+
+| Aspect | Goodwin et al. (2017) | Onze analyse | Belangrijkste verschil & implicatie |
+| --- | --- | --- | --- |
+| **Modeltype** | Frequentistische **GAM** (`mgcv`), negatief-binomiaal met log-link.
+
+ | Bayesiaanse **GLMM** (`INLA`), vergelijking van Poisson, ZIP, NegBin en ZINB via WAIC/DIC. | Zelfde familie (NegBin met log-link), maar INLA biedt directe posterior kansverdelingen voor effectclassificatie (`effectclass`). |
+| **Tijdscomponent (Index)** | Continue **penalised regression spline** $s(\text{jaar})$ met 7 vrijheidsgraden; index berekend t.o.v. 1993.
+
+ | **Factorvariabele** `fjaar` (ref = 2020) voor jaarlijkse indexen + opeenvolgende jaarverschillen (`refit_consecutive_years`). | Over 22 jaar is een spline nodig om ruis glad te strijken; over 6 jaar (2020–2025) is een factor `fjaar` veel geschikter omdat een spline over 6 punten snel over- of ondervlakt.
+
+ |
+| **Lineaire jaartrend** | Geen aparte lineaire helling in het hoofdmodel (wel achteraf afgeleid voor de site-specifieke *Trend Index*).
+
+ | Aparte modelrun waarbij `fjaar` wordt vervangen door een **continue, gecentreerde jaarvariabele** (`refit_year_slope`). | Onze aanpak geeft een directe schatting van de gemiddelde jaarlijkse groeivoet ($\text{pct\_jaar}$) met geloofwaardigheidsinterval. |
+| **Locatie- en regio-effect** | `Site` als **fixed effect**; regio (Oost vs. West) via een aparte interactie-GAM getest.
+
+ | `transect` als **random effect** (`iid`) + `boscluster` als **fixed effect** (én aparte modellen per boscluster). | Random effect voor transect is bij 17 transecten veel efficiënter qua vrijheidsgraden dan 17 fixed parameters. |
+| **Onzekerheid** | Niet-parametrische **bootstrap** op locatieniveau (1000 replicaten).
+
+ | **Posterior quantielen** (2,5% – 97,5%) uit INLA + Monte Carlo sampling (`inla.posterior.sample` in `extract_annual_response`). | INLA propageert de onzekerheid van zowel de fixed als random effects analytisch/via posterior samples zonder zware herberekeningen. |
