@@ -443,55 +443,53 @@ nestbuizen_occupancy %>%
 ```
 
 ```{r}
-# Aggregate presence/absence of hazel dormouse per tube, year, and activity
-occurrence_nestbuizen <- nestbuizen_base %>%
-  # Focus only on target species (Hazel dormouse)
-  filter(primaire_soort) %>%
-  group_by(meetnet, bos, cluster, locatie, sublocatie_volledig, jaar,
-           observation_type, activiteit) %>%
+# 1. Aggregate annual presence/absence from the cleaned occupancy dataset
+occurrence_nestbuizen <- nestbuizen_occupancy %>%
+  filter(
+    soort_groep == "Hazelmuis",
+    periode != "Buiten periode"
+  ) %>%
+  group_by(meetnet, bos, cluster, locatie, sublocatie, jaar, activiteit) %>%
   summarise(
-    aanwezig_algemeen = sum(aantal, na.rm = TRUE) > 0,
-    aanwezig_vers     = "F" %in% code,
-    .groups           = "drop"
+    aanwezig = any(is_aanwezig, na.rm = TRUE),
+    .groups  = "drop"
   ) %>%
   mutate(
-    # Presence rule: any observation for individuals inside tube; fresh signs only for nests
-    aanwezig = if_else(activiteit == "in nestbuis", aanwezig_algemeen, aanwezig_vers),
     activiteit_label = case_when(
       activiteit == "in nestbuis" ~ "individuen",
       activiteit == "nest"        ~ "nest (vers)",
+      activiteit == "keutels"     ~ "keutels (vers)",
+      activiteit == "vraatsporen" ~ "vraatsporen (vers)",
       TRUE                        ~ activiteit
     )
   )
-```
 
-```{r}
-# Main transect lines / areas
+# 2. Main transect lines / areas
 hoofd_loc <- get_locations_smp() %>%
   filter(meetnet == "Hazelmuis - Nestbuizen", locatie_type == "locatie") %>%
   select(meetnet, locatie, parent_id = id)
 
-# Sublocations (individual nesting tubes)
+# 3. Sublocations (individual nesting tubes)
 sub_loc <- get_locations_smp() %>%
   filter(meetnet == "Hazelmuis - Nestbuizen", locatie_type == "sublocatie") %>%
   select(meetnet, nestbuis_naam = locatie, parent_id) %>%
   left_join(st_drop_geometry(hoofd_loc), by = c("meetnet", "parent_id")) %>%
-  mutate(sublocatie_volledig = str_c(locatie, "-", nestbuis_naam))
+  mutate(sublocatie = str_c(locatie, "-", nestbuis_naam))
 
-# Join observation occurrences to spatial tube points
+# 4. Join observation occurrences to spatial tube points
 sub_loc_occurrence <- sub_loc %>%
-  inner_join(occurrence_nestbuizen, by = c("meetnet", "locatie", "sublocatie_volledig")) %>%
+  inner_join(occurrence_nestbuizen, by = c("meetnet", "locatie", "sublocatie")) %>%
   mutate(
     show_color = if_else(aanwezig, "yellow", "red"),
     showlabel  = str_c(
-      nestbuis_naam, ": ", 
-      activiteit_label, 
+      nestbuis_naam, " (", jaar, "): ",
+      activiteit_label,
       if_else(aanwezig, " aanwezig", " afwezig")
     ),
     showradius = 7
   )
 
-# Wrap into SharedData for dynamic Crosstalk filtering
+# 5. Wrap into SharedData for dynamic Crosstalk filtering
 sd_buizen <- SharedData$new(sub_loc_occurrence)
 ```
 
@@ -601,37 +599,83 @@ Er zijn sporen en individuen van andere soorten aangetroffen.
 
 ```{r}
 #| fig-height: 6
-nestbuizen_waarnemingen %>%
+# 1. Apply the exact same quality and period filters as in nestbuizen_occupancy
+filtered_traces <- nestbuizen_base %>%
   filter(
+    !niet_geteld,
+    periode != "Buiten periode",
     aantal > 0,
-    type_waarneming != "individu"
+    observation_type != "exact count" # traces only (exclude individuals)
   ) %>%
-  ggplot(aes(x = soort_nl)) +
-  geom_bar(aes(fill = type_waarneming )) +
-  labs(x = "", y = "Aantal waarnemingen", fill = "Type waarneming") +
-  facet_grid(jaar~sporen_versheid, scales = "free") +
+  # Deduplicate 2020 T3 (keep only the latest inspection per tube and period)
+  group_by(jaar, cluster, locatie, sublocatie_volledig, periode) %>%
+  filter(!(jaar == 2020 & periode == "T3") | datum == max(datum)) %>%
+  ungroup() %>%
+  # Create readable labels for trace freshness and observation type
+  mutate(
+    sporen_versheid = case_when(
+      code == "O" ~ "oud",
+      code == "F" ~ "vers",
+      code == "U" ~ "onzeker",
+      TRUE        ~ "onbekend"
+    ),
+    type_waarneming = activiteit
+  )
+
+# 2. Plot all species (including non-target species) faceted by year and trace freshness
+ggplot(filtered_traces, aes(x = soort_nl)) +
+  geom_bar(aes(fill = type_waarneming)) +
+  labs(
+    title = "Sporen",
+    x    = "",
+    y    = "Aantal waarnemingen",
+    fill = "Type waarneming"
+  ) +
+  facet_grid(jaar ~ sporen_versheid, scales = "free") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
-        legend.position = "top")
+  theme(
+    axis.text.x     = element_text(angle = 45, vjust = 1, hjust = 1),
+    legend.position = "top"
+  )
 ```
 
 ```{r}
 #| fig-height: 6
-nestbuizen_waarnemingen %>%
+# 1. Apply the same quality, period, and deduplication filters as in nestbuizen_occupancy
+filtered_individuals <- nestbuizen_base %>%
   filter(
+    !niet_geteld,
+    periode != "Buiten periode",
     aantal > 0,
-    type_waarneming == "individu"
+    observation_type == "exact count" # individuals only
   ) %>%
+  # Deduplicate 2020 T3 (keep only the latest inspection per tube and period)
+  group_by(jaar, cluster, locatie, sublocatie_volledig, periode) %>%
+  filter(!(jaar == 2020 & periode == "T3") | datum == max(datum)) %>%
+  ungroup() %>%
+  # Set factor order for life stage
   mutate(
-    levensstadium = factor(levensstadium, levels = c("juveniel", "subadult", "adult/subadult", "adult"))
-  ) %>%
-  ggplot(aes(x = soort_nl)) +
-  geom_bar(aes(fill = levensstadium )) +
-  labs(x = "", fill = "Levensstadium") +
-  facet_grid(jaar~., scales = "free") +
+    levensstadium = factor(
+      levensstadium,
+      levels = c("juveniel", "subadult", "adult/subadult", "adult")
+    )
+  )
+
+# 2. Plot individual observations by species, life stage, and year
+ggplot(filtered_individuals, aes(x = soort_nl)) +
+  geom_bar(aes(fill = levensstadium)) +
+  labs(
+    title = "Individuen",
+    x    = "",
+    y    = "Aantal waarnemingen",
+    fill = "Levensstadium"
+  ) +
+  facet_grid(jaar ~ ., scales = "free") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
-        legend.position = "top")
+  theme(
+    axis.text.x     = element_text(angle = 45, vjust = 1, hjust = 1),
+    legend.position = "top"
+  )
 ```
 
 Komen (sporen van) andere soorten gelijktijdig voor met hazelmuis?
@@ -925,22 +969,22 @@ We berekenen per jaar de bezettingsgraad van de nestbuizen: enerzijds het aandee
 ```{r}
 #| message: false
 
-# 1. Proportie aanwezigheid per transectlocatie en jaar
+# 1. Proportion of occupied tubes per transect location and year
 occurrence_locatie <- occurrence_nestbuizen %>%
   group_by(meetnet, cluster, bos, locatie, jaar, activiteit_label) %>%
   summarise(
     n_buizen_aanwezig = sum(aanwezig, na.rm = TRUE),
-    n_totaal_buizen   = n_distinct(sublocatie_volledig),
+    n_totaal_buizen   = n_distinct(sublocatie),
     prop_aanwezig     = n_buizen_aanwezig / n_totaal_buizen,
     .groups           = "drop"
   )
 
-# 2. Proportie aanwezigheid over het volledige meetnet per jaar
+# 2. Proportion of occupied tubes across the entire monitoring network per year
 occurrence_jaar <- occurrence_nestbuizen %>%
   group_by(meetnet, jaar, activiteit_label) %>%
   summarise(
     n_buizen_aanwezig = sum(aanwezig, na.rm = TRUE),
-    n_totaal_buizen   = n_distinct(sublocatie_volledig),
+    n_totaal_buizen   = n_distinct(sublocatie),
     prop_aanwezig     = n_buizen_aanwezig / n_totaal_buizen,
     .groups           = "drop"
   )
@@ -3366,10 +3410,6 @@ plot_response_trends(
 # Discussie
 
 ## Data exploratie
-
-### Bezettingsgraad over tijd en ruimte
-
-> Dit is op basis van een intermediaire dataset. Ik moet dit nakijken en de figuren opnieuw maken o.b.v. de finale dataset.
 
 ### Verblijfsduur
 
