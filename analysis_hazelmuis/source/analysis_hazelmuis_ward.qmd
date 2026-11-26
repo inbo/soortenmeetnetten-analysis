@@ -778,7 +778,7 @@ Als we besluiten de nestbuizen weg te laten verliezen we dus vooral afwezigheid 
 
 ```{r}
 #| fig.width: 10
-#| fig.height: 5
+#| fig.height: 6
 # 1. Standardize visit-level presence per species group and activity
 visit_activities <- nestbuizen_occupancy %>%
   mutate(
