@@ -760,7 +760,7 @@ co_occurring_crosstab %>%
   kable()
 ```
 
-In totaal hebben we `r subset(presence_others, group == "hazelmuis", "n", drop = TRUE)` observaties van hazelmuis en `r subset(presence_others, group == "hazelmuis (nest)", "n", drop = TRUE)` observaties van verse nesten.
+In totaal hebben we `r subset(presence_others, group == "hazelmuis", "n", drop = TRUE)` observaties van individuen en `r subset(presence_others, group == "hazelmuis (nest)", "n", drop = TRUE)` observaties van verse nesten van hazelmuis.
 We zien de aanwezigheid van andere soorten in een aantal gevallen:
 
 ```{r}
@@ -897,7 +897,7 @@ ggplot(tile_bar_data, aes(x = prop, y = other_activity, fill = type)) +
   )
 ```
 
-Dit ligt niet per se aan onzekere waarnemingen.
+Het overlap ligt niet per se aan onzekere waarnemingen.
 
 ```{r}
 #| fig.width: 10
@@ -1168,21 +1168,43 @@ base_activiteit <- nestbuizen_occupancy %>%
 We bepalen per nestbuis, jaar en type waarneming of er minstens één bezettingsregistratie was, en vergelijken die met het voorgaande jaar.
 Afwezigheid van hazelmuis splitsen we op in:
 
-- Bezet andere soort: vers nest of individu andere soort aangetroffen
+- Bezet andere soort
+  - Inviduen hazelmuis: vers nest of individu andere soort aangetroffen
+  - Verse nesten hazelmuis: vers nest andere soort aangetroffen
 - Niet bezocht: nestbuis niet geteld (niet gevonden, kapot ...)
 - Niet bezet: overige
 
 ```{r}
 #| message: false
-# 1. Distinct nesting tubes occupied by other species at the yearly level
-occupied_nesting_tubes_year <- nestbuizen_occupancy %>%
-  filter(
-    soort_groep != "Hazelmuis",
-    activiteit %in% c("in nestbuis", "nest"),
-    is_aanwezig
-  ) %>%
-  distinct(jaar, sublocatie) %>%
-  mutate(bezet_andere_soort = TRUE)
+# 1. Distinct nesting tubes occupied by other species at the yearly level,
+#    matched to the specific hazelmuis activity label
+occupied_nesting_tubes_year <- bind_rows(
+  # Individuen hazelmuis: vers nest OF individu van andere soort aangetroffen
+  nestbuizen_occupancy %>%
+    filter(
+      soort_groep != "Hazelmuis",
+      activiteit %in% c("in nestbuis", "nest"),
+      is_aanwezig
+    ) %>%
+    distinct(jaar, sublocatie) %>%
+    mutate(
+      activiteit_label   = "individuen",
+      bezet_andere_soort = TRUE
+    ),
+
+  # Verse nesten hazelmuis: ENKEL vers nest van andere soort aangetroffen
+  nestbuizen_occupancy %>%
+    filter(
+      soort_groep != "Hazelmuis",
+      activiteit == "nest",
+      is_aanwezig
+    ) %>%
+    distinct(jaar, sublocatie) %>%
+    mutate(
+      activiteit_label   = "nest (vers)",
+      bezet_andere_soort = TRUE
+    )
+)
 
 visited_nesting_tubes_year <- nestbuizen_occupancy %>%
   # Filter out visits outside target inspection windows
@@ -1217,8 +1239,11 @@ buis_jaar_status <- base_activiteit %>%
     fill = list(bezet = FALSE)
   ) %>%
 
-  # Join occupancy by other species
-  left_join(occupied_nesting_tubes_year, by = c("jaar", "sublocatie")) %>%
+  # Join occupancy by other species (now specific to activiteit_label)
+  left_join(
+    occupied_nesting_tubes_year,
+    by = c("jaar", "sublocatie", "activiteit_label")
+  ) %>%
   mutate(bezet_andere_soort = replace_na(bezet_andere_soort, FALSE)) %>%
   
   # Join occupancy by visits
@@ -1233,7 +1258,7 @@ buis_jaar_status <- base_activiteit %>%
   mutate(
     bezet_vorig_jaar = dplyr::lag(bezet),
     dynamiek = case_when(
-      is.na(bezet_vorig_jaar)          ~ "Nieuw bezet (Eerste jaar data)",
+      is.na(bezet_vorig_jaar)          ~ "Eerste jaar data",
       !bezet_vorig_jaar & bezet        ~ "Nieuw bezet (Kolonisatie)",
       bezet_vorig_jaar & bezet         ~ "Aanhoudend bezet",
       bezet_vorig_jaar & !bezet        ~ "Verlaten (Uitstroom)",
@@ -1242,7 +1267,7 @@ buis_jaar_status <- base_activiteit %>%
       TRUE                             ~ "Niet bezet"
     ),
     dynamiek = factor(dynamiek, levels = c(
-      "Nieuw bezet (Eerste jaar data)",
+      "Eerste jaar data",
       "Nieuw bezet (Kolonisatie)",
       "Aanhoudend bezet",
       "Verlaten (Uitstroom)",
@@ -1315,32 +1340,55 @@ We visualiseren dit ook per telperiode. In telperiode 1 van het eerste jaar is n
 
 ```{r}
 #| message: false
-# Distinct nesting tubes occupied by other species at the yearly level
-occupied_nesting_tubes_period <- nestbuizen_occupancy %>%
-  filter(
-    soort_groep != "Hazelmuis",
-    activiteit %in% c("in nestbuis", "nest"),
-    is_aanwezig
-  ) %>%
-  distinct(jaar, periode_code = periode, sublocatie) %>%
-  mutate(bezet_andere_soort = TRUE)
+# 1. Distinct nesting tubes occupied by other species at the period level,
+#    matched to the specific hazelmuis activity label
+occupied_nesting_tubes_period <- bind_rows(
+  # Individuen hazelmuis: vers nest OF individu van andere soort aangetroffen
+  nestbuizen_occupancy %>%
+    filter(
+      soort_groep != "Hazelmuis",
+      activiteit %in% c("in nestbuis", "nest"),
+      is_aanwezig
+    ) %>%
+    distinct(jaar, periode, sublocatie) %>%
+    mutate(
+      periode_code       = factor(periode, levels = paste0("T", 1:4)),
+      activiteit_label   = "individuen",
+      bezet_andere_soort = TRUE
+    ) %>%
+    select(-periode),
+
+  # Verse nesten hazelmuis: ENKEL vers nest van andere soort aangetroffen
+  nestbuizen_occupancy %>%
+    filter(
+      soort_groep != "Hazelmuis",
+      activiteit == "nest",
+      is_aanwezig
+    ) %>%
+    distinct(jaar, periode, sublocatie) %>%
+    mutate(
+      periode_code       = factor(periode, levels = paste0("T", 1:4)),
+      activiteit_label   = "nest (vers)",
+      bezet_andere_soort = TRUE
+    ) %>%
+    select(-periode)
+)
 
 visited_nesting_tubes_period <- nestbuizen_occupancy %>%
   # Filter out visits outside target inspection windows
   filter(periode != "Buiten periode") %>%
-  
-  # Fill in missing combinations of transects and survey windows
   mutate(
-    visited = TRUE
+    visited      = TRUE,
+    periode_code = factor(periode, levels = paste0("T", 1:4))
   ) %>%
   complete(
     nesting(cluster, sublocatie),
-    nesting(jaar, periode),
+    nesting(jaar, periode_code),
     fill = list(
       visited = FALSE
     )
   ) %>%
-  distinct(jaar, periode_code = periode, sublocatie, visited)
+  distinct(jaar, periode_code, sublocatie, visited)
 
 buis_periode_status <- base_activiteit %>%
   filter(periode %in% paste0("T", 1:4)) %>%
@@ -1350,7 +1398,7 @@ buis_periode_status <- base_activiteit %>%
     .groups = "drop"
   ) %>%
   mutate(periode_code = factor(periode, levels = paste0("T", 1:4))) %>%
-  select(-"periode") %>%
+  select(-periode) %>%
 
   # Complete matrix over time
   complete(
@@ -1360,9 +1408,10 @@ buis_periode_status <- base_activiteit %>%
     fill = list(bezet = FALSE)
   ) %>%
 
-  # Join occupancy by other species
+  # Join occupancy by other species (matched on activiteit_label)
   left_join(
-    occupied_nesting_tubes_period, by = c("jaar", "periode_code", "sublocatie")
+    occupied_nesting_tubes_period,
+    by = c("jaar", "periode_code", "sublocatie", "activiteit_label")
   ) %>%
   mutate(bezet_andere_soort = replace_na(bezet_andere_soort, FALSE)) %>%
 
@@ -1372,28 +1421,28 @@ buis_periode_status <- base_activiteit %>%
     by = c("jaar", "periode_code", "sublocatie")
   ) %>%
 
-  # Decide dynamics compared to last year
+  # Decide dynamics compared to previous period
   arrange(sublocatie, activiteit_label, jaar, periode_code) %>%
-  
+
   filter_out(
     jaar == 2020,
     periode_code == "T1"
   ) %>%
-  
+
   group_by(sublocatie, activiteit_label) %>%
   mutate(
     bezet_vorige_periode = dplyr::lag(bezet),
     dynamiek = case_when(
-      is.na(bezet_vorige_periode)          ~ "Nieuw bezet (Eerste periode)",
-      !bezet_vorige_periode & bezet        ~ "Nieuw bezet (Kolonisatie)",
-      bezet_vorige_periode & bezet         ~ "Aanhoudend bezet",
-      bezet_vorige_periode & !bezet        ~ "Verlaten (Uitstroom)",
-      !bezet & bezet_andere_soort      ~ "Bezet andere soort",
-      !bezet & !visited                ~ "Niet bezocht",      
-      TRUE                             ~ "Niet bezet"
+      is.na(bezet_vorige_periode)     ~ "Eerste periode",
+      !bezet_vorige_periode & bezet   ~ "Nieuw bezet (Kolonisatie)",
+      bezet_vorige_periode & bezet    ~ "Aanhoudend bezet",
+      bezet_vorige_periode & !bezet   ~ "Verlaten (Uitstroom)",
+      !bezet & bezet_andere_soort     ~ "Bezet andere soort",
+      !bezet & !visited               ~ "Niet bezocht",
+      TRUE                            ~ "Niet bezet"
     ),
     dynamiek = factor(dynamiek, levels = c(
-      "Nieuw bezet (Eerste periode)",
+      "Eerste periode",
       "Nieuw bezet (Kolonisatie)",
       "Aanhoudend bezet",
       "Verlaten (Uitstroom)",
