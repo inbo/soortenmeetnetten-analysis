@@ -772,24 +772,34 @@ co_occurring_crosstab %>%
 
 Het is dus mogelijk om tegelijkertijd individuen of verse nesten van hazelmuis te vinden met (sporen van) andere soorten.
 Enkel levende individuen worden niet samen aangetroffen.
-Een getal van 97 wil zeggen dat bij 97 tellingen (dus uniek nestbuis telperiode) zowel verse nesten van hazelmuis als oude of onzeker nesten van andere soorten worden aangetroffen.
+Een overlap van 97 wil zeggen dat bij 97 tellingen (dus uniek nestbuis telperiode) zowel verse nesten van hazelmuis als oude of onzeker nesten van andere soorten worden aangetroffen.
+
+Als we besluiten de nestbuizen weg te laten verliezen we dus vooral afwezigheid hazelmuis (enkel andere soorten) en in beperkte mate aanwezigheid (overlap).
 
 ```{r}
-# 1. Expand combined strings into distinct pair occurrences and count frequencies
-heatmap_data <- co_occurring_crosstab %>%
-  tidyr::separate_rows(hazelmuis, sep = ",\\s*") %>%
-  tidyr::separate_rows(other, sep = ",\\s*") %>%
-  count(
-    hazelmuis_activity = hazelmuis,
-    other_activity     = other,
-    name               = "n_visits"
-  )
+#| fig.width: 10
+#| fig.height: 5
+# 1. Standardize visit-level presence per species group and activity
+visit_activities <- nestbuizen_occupancy %>%
+  mutate(
+    activiteit_label = case_when(
+      activiteit == "in nestbuis" ~ "individu",
+      TRUE ~ paste(activiteit, ifelse(aanwezig_vers, "(vers)", "(oud/onzeker)"))
+    ),
+    soort_cat = case_when(
+      soort_groep == "Hazelmuis" &
+        activiteit %in% c("in nestbuis", "nest") &
+        is_aanwezig ~ "hazelmuis",
+      soort_groep %in% c("andere_soorten", "Hazelmuis/andere_soorten") &
+        aanwezig_algemeen ~ "other",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(soort_cat)) %>%
+  distinct(sublocatie, jaar, periode, soort_cat, activiteit_label)
 
-# 2. Define fixed order for axes
-hazelmuis_levels <- c(
-  "individu",
-  "nest (vers)"
-)
+# 2. Define fixed levels for both axes
+hazelmuis_levels <- c("individu", "nest (vers)")
 
 other_levels <- c(
   "individu",
@@ -801,109 +811,119 @@ other_levels <- c(
   "vraatsporen (oud/onzeker)"
 )
 
-# 3. Complete the grid so zero-count cells display correctly
-heatmap_full <- heatmap_data %>%
+# 3. Evaluate overlap status for every pair of (hazelmuis_activity x other_activity)
+tile_bar_data <- tidyr::expand_grid(
+  hazelmuis_activity = hazelmuis_levels,
+  other_activity     = other_levels
+) %>%
+  purrr::pmap_dfr(function(hazelmuis_activity, other_activity) {
+    hm_visits <- visit_activities %>%
+      filter(soort_cat == "hazelmuis", activiteit_label == hazelmuis_activity) %>%
+      distinct(sublocatie, jaar, periode) %>%
+      mutate(has_hm = TRUE)
+
+    oth_visits <- visit_activities %>%
+      filter(soort_cat == "other", activiteit_label == other_activity) %>%
+      distinct(sublocatie, jaar, periode) %>%
+      mutate(has_oth = TRUE)
+
+    dplyr::full_join(hm_visits, oth_visits, by = c("sublocatie", "jaar", "periode")) %>%
+      mutate(
+        has_hm  = tidyr::replace_na(has_hm, FALSE),
+        has_oth = tidyr::replace_na(has_oth, FALSE),
+        type = case_when(
+          has_hm & has_oth  ~ "overlap",
+          has_hm & !has_oth ~ "enkel hazelmuis",
+          !has_hm & has_oth ~ "enkel andere soorten"
+        )
+      ) %>%
+      count(type, name = "n_visits") %>%
+      tidyr::complete(
+        type = c("enkel hazelmuis", "overlap", "enkel andere soorten"),
+        fill = list(n_visits = 0)
+      ) %>%
+      mutate(
+        hazelmuis_activity = hazelmuis_activity,
+        other_activity     = other_activity
+      )
+  }) %>%
+  group_by(hazelmuis_activity, other_activity) %>%
+  mutate(
+    total_visits = sum(n_visits),
+    prop         = ifelse(total_visits > 0, n_visits / total_visits, 0)
+  ) %>%
+  ungroup() %>%
   mutate(
     hazelmuis_activity = factor(hazelmuis_activity, levels = hazelmuis_levels),
-    other_activity     = factor(other_activity, levels = rev(other_levels))
-  ) %>%
-  tidyr::complete(
-    hazelmuis_activity,
-    other_activity,
-    fill = list(n_visits = 0)
-  ) %>%
-  mutate(
-    versheid = factor(
+    other_activity     = factor(other_activity, levels = rev(other_levels)),
+    type               = factor(type, levels = c("enkel hazelmuis", "overlap", "enkel andere soorten")),
+    versheid           = factor(
       ifelse(grepl("oud", other_activity), "oud/onzeker", "vers"),
       levels = c("vers", "oud/onzeker")
     )
   )
 
-# 4. Heatmap plot
-ggplot(heatmap_full,
-       aes(x = hazelmuis_activity, y = other_activity, fill = n_visits)) +
-  geom_tile(color = "white", linewidth = 0.8) +
+ggplot(tile_bar_data, aes(x = prop, y = other_activity, fill = type)) +
+  geom_col(position = "fill", color = "black", linewidth = 0.5, width = 0.78) +
   geom_text(
     aes(
-      label = n_visits,
-      color = n_visits > (max(n_visits, na.rm = TRUE) / 2)
+      label = ifelse(prop > 0, sprintf("%.0f%%\n(%d)", prop * 100, n_visits), "")
     ),
+    position = position_fill(vjust = 0.5),
+    size     = 3,
+    color    = "white",
     fontface = "bold",
-    size = 4.5,
-    show.legend = FALSE
+    lineheight = 0.9
   ) +
-  scale_color_manual(values = c("TRUE" = "white", "FALSE" = "grey20")) +
-  scale_fill_viridis_c(
-    option = "viridis",
-    direction = -1,
-    name = "Aantal\nbezoeken"
+  scale_x_continuous(
+    labels = scales::percent_format(),
+    expand = c(0, 0)
   ) +
-  facet_grid(versheid~., scales = "free") +
+  facet_grid(
+    versheid ~ hazelmuis_activity,
+    scales = "free_y",
+    space  = "free_y"
+  ) +
   labs(
-    x = "Activiteit hazelmuis",
-    y = "Activiteit andere soorten"
+    x    = "Proportie van de bezoeken",
+    y    = "Activiteit andere soorten",
+    fill = "Aanwezigheid"
   ) +
-  theme_minimal()
+  theme_minimal() +
+  theme(
+    legend.position  = "top",
+    panel.grid.minor = element_blank(),
+    strip.text       = element_text(face = "bold")
+  )
 ```
 
 Dit ligt niet per se aan onzekere waarnemingen.
 
 ```{r}
-# 1. Bereid co-occurrence data voor per type 'andere soort'
-co_occurring_split <- nestbuizen_occupancy %>%
+#| fig.width: 10
+#| fig.height: 8
+
+# 1. Standardize visit-level presence, keeping exact species group for non-target traces
+visit_activities_split <- nestbuizen_occupancy %>%
   mutate(
-    group = case_when(
-      soort_groep == "Hazelmuis" & 
-        activiteit %in% c("in nestbuis", "nest") & 
-        is_aanwezig == TRUE ~ "hazelmuis",
-      soort_groep %in% c("andere_soorten", "Hazelmuis/andere_soorten") & 
-        aanwezig_algemeen == TRUE ~ soort_groep,
+    activiteit_label = case_when(
+      activiteit == "in nestbuis" ~ "individu",
+      TRUE ~ paste(activiteit, ifelse(aanwezig_vers, "(vers)", "(oud/onzeker)"))
+    ),
+    soort_cat = case_when(
+      soort_groep == "Hazelmuis" &
+        activiteit %in% c("in nestbuis", "nest") &
+        is_aanwezig ~ "hazelmuis",
+      soort_groep %in% c("andere_soorten", "Hazelmuis/andere_soorten") &
+        aanwezig_algemeen ~ soort_groep,
       TRUE ~ NA_character_
     )
   ) %>%
-  filter(!is.na(group)) %>%
-  mutate(
-    activiteit = paste(
-      activiteit, ifelse(aanwezig_vers, "(vers)", "(oud/onzeker)")
-    ),
-    activiteit = ifelse(
-      grepl("^in nestbuis", activiteit),
-      "individu",
-      activiteit
-    )
-  ) %>%
-  group_by(sublocatie, jaar, periode, group) %>%
-  summarise(
-    activities = paste(sort(unique(activiteit)), collapse = ", "),
-    .groups = "drop"
-  ) %>%
-  pivot_wider(
-    names_from  = group,
-    values_from = activities
-  ) %>%
-  pivot_longer(
-    cols      = any_of(c("andere_soorten", "Hazelmuis/andere_soorten")),
-    names_to  = "soort_groep_other",
-    values_to = "other"
-  ) %>%
-  filter(!is.na(hazelmuis) & !is.na(other))
+  filter(!is.na(soort_cat)) %>%
+  distinct(sublocatie, jaar, periode, soort_cat, activiteit_label)
 
-# 2. Splits gecombineerde activiteiten en tel frequenties per soortgroep
-heatmap_data_split <- co_occurring_split %>%
-  tidyr::separate_rows(hazelmuis, sep = ",\\s*") %>%
-  tidyr::separate_rows(other, sep = ",\\s*") %>%
-  count(
-    soort_groep_other,
-    hazelmuis_activity = hazelmuis,
-    other_activity     = other,
-    name               = "n_visits"
-  )
-
-# 3. Factorniveaus vastleggen
-hazelmuis_levels <- c(
-  "individu",
-  "nest (vers)"
-)
+# 2. Define fixed levels for axes and species groups
+hazelmuis_levels <- c("individu", "nest (vers)")
 
 other_levels <- c(
   "individu",
@@ -915,8 +935,52 @@ other_levels <- c(
   "vraatsporen (oud/onzeker)"
 )
 
-# 4. Volledig rooster maken zodat ook 0-tellingen meegenomen worden in beide panelen
-heatmap_full_split <- heatmap_data_split %>%
+other_groups <- c("andere_soorten", "Hazelmuis/andere_soorten")
+
+# 3. Evaluate overlap status for every (soort_groep_other x hazelmuis_activity x other_activity)
+tile_bar_data_split <- tidyr::expand_grid(
+  soort_groep_other  = other_groups,
+  hazelmuis_activity = hazelmuis_levels,
+  other_activity     = other_levels
+) %>%
+  purrr::pmap_dfr(function(soort_groep_other, hazelmuis_activity, other_activity) {
+    hm_visits <- visit_activities_split %>%
+      filter(soort_cat == "hazelmuis", activiteit_label == hazelmuis_activity) %>%
+      distinct(sublocatie, jaar, periode) %>%
+      mutate(has_hm = TRUE)
+
+    oth_visits <- visit_activities_split %>%
+      filter(soort_cat == soort_groep_other, activiteit_label == other_activity) %>%
+      distinct(sublocatie, jaar, periode) %>%
+      mutate(has_oth = TRUE)
+
+    dplyr::full_join(hm_visits, oth_visits, by = c("sublocatie", "jaar", "periode")) %>%
+      mutate(
+        has_hm  = tidyr::replace_na(has_hm, FALSE),
+        has_oth = tidyr::replace_na(has_oth, FALSE),
+        type = case_when(
+          has_hm & has_oth  ~ "overlap",
+          has_hm & !has_oth ~ "enkel hazelmuis",
+          !has_hm & has_oth ~ "enkel andere soorten"
+        )
+      ) %>%
+      count(type, name = "n_visits") %>%
+      tidyr::complete(
+        type = c("enkel hazelmuis", "overlap", "enkel andere soorten"),
+        fill = list(n_visits = 0)
+      ) %>%
+      mutate(
+        soort_groep_other  = soort_groep_other,
+        hazelmuis_activity = hazelmuis_activity,
+        other_activity     = other_activity
+      )
+  }) %>%
+  group_by(soort_groep_other, hazelmuis_activity, other_activity) %>%
+  mutate(
+    total_visits = sum(n_visits),
+    prop         = ifelse(total_visits > 0, n_visits / total_visits, 0)
+  ) %>%
+  ungroup() %>%
   mutate(
     hazelmuis_activity = factor(hazelmuis_activity, levels = hazelmuis_levels),
     other_activity     = factor(other_activity, levels = rev(other_levels)),
@@ -924,48 +988,47 @@ heatmap_full_split <- heatmap_data_split %>%
       soort_groep_other,
       levels = c("andere_soorten", "Hazelmuis/andere_soorten"),
       labels = c("andere soorten", "hazelmuis/andere soorten")
-    )
-  ) %>%
-  tidyr::complete(
-    soort_groep_other,
-    hazelmuis_activity,
-    other_activity,
-    fill = list(n_visits = 0)
-  ) %>%
-  mutate(
+    ),
+    type     = factor(type, levels = c("enkel hazelmuis", "overlap", "enkel andere soorten")),
     versheid = factor(
       ifelse(grepl("oud", other_activity), "oud/onzeker", "vers"),
       levels = c("vers", "oud/onzeker")
     )
   )
 
-# 5. Twee figuren naast elkaar via facet_wrap
-ggplot(
-  heatmap_full_split,
-  aes(x = hazelmuis_activity, y = other_activity, fill = n_visits)
-) +
-  geom_tile(color = "white", linewidth = 0.8) +
+ggplot(tile_bar_data_split, aes(x = prop, y = other_activity, fill = type)) +
+  geom_col(position = "fill", color = "black", linewidth = 0.5, width = 0.78) +
   geom_text(
     aes(
-      label = n_visits,
-      color = n_visits > (max(n_visits, na.rm = TRUE) / 2)
+      label = ifelse(prop > 0, sprintf("%.0f%%\n(%d)", prop * 100, n_visits), "")
     ),
-    fontface = "bold",
-    size = 4.5,
-    show.legend = FALSE
+    position   = position_fill(vjust = 0.5),
+    size       = 2.6,
+    color      = "white",
+    fontface   = "bold",
+    lineheight = 0.85
   ) +
-  scale_color_manual(values = c("TRUE" = "white", "FALSE" = "grey20")) +
-  scale_fill_viridis_c(
-    option    = "viridis",
-    direction = -1,
-    name      = "Aantal\nbezoeken"
+  scale_x_continuous(
+    labels = scales::percent_format(),
+    expand = c(0, 0)
   ) +
-  facet_grid(versheid ~ soort_groep_other, scales = "free") +
+  facet_grid(
+    versheid ~ soort_groep_other + hazelmuis_activity,
+    scales = "free_y",
+    space  = "free_y"
+  ) +
   labs(
-    x = "Activiteit hazelmuis",
-    y = "Activiteit andere soorten"
+    x    = "Proportie van de bezoeken",
+    y    = "Activiteit andere soorten",
+    fill = "Aanwezigheid"
   ) +
-  theme_minimal()
+  theme_minimal() +
+  theme(
+    legend.position  = "top",
+    panel.grid.minor = element_blank(),
+    axis.text.x      = element_text(size = 7.5),
+    strip.text       = element_text(face = "bold")
+  )
 ```
 
 ## Bezettingsgraad over tijd en ruimte
