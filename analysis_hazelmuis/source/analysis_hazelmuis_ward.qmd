@@ -372,6 +372,8 @@ nestbuizen_occupancy %>%
     periode      = str_remove(periode, "^T")
   ) %>%
   
+  mutate(locatie = paste0(locatie, " (N = ", totaal_nestbuizen, ")")) %>%
+  
   # Visualization
   ggplot(aes(x = periode, y = locatie)) +
   
@@ -2007,6 +2009,8 @@ nestbuizen_occupancy %>%
     periode      = str_remove(periode, "^T")
   ) %>%
   
+  mutate(locatie = paste0(locatie, " (N = ", totaal_nestbuizen, ")")) %>%
+  
   # Visualization
   ggplot(aes(x = periode, y = locatie)) +
   
@@ -2130,7 +2134,10 @@ plot_data_individuen <- analyseset_individuen %>%
     is_bezocht   = !is_onbezocht,
     is_nul       = is_bezocht & aantal == 0,
     heeft_aantal = is_bezocht & aantal > 0
-  )
+  ) %>%
+  # Join expected total tubes per transect
+  left_join(max_buizen_per_locatie, by = c("transect" = "locatie")) %>%
+  mutate(transect = paste0(transect, " (N = ", totaal_nestbuizen, ")"))
 
 # 2. Breaks en kleuren alleen voor positieve waarnemingen (vanaf 1)
 count_breaks <- c(1, 4, 8, 12, 16)
@@ -2223,7 +2230,10 @@ plot_data_individuen2 <- analyseset_individuen %>%
     is_nul       = is_bezocht & aantal == 0,
     heeft_aantal = is_bezocht & aantal > 0,
     prop         = aantal / n_nestbuizen
-  )
+  ) %>%
+  # Join expected total tubes per transect
+  left_join(max_buizen_per_locatie, by = c("transect" = "locatie")) %>%
+  mutate(transect = paste0(transect, " (N = ", totaal_nestbuizen, ")"))
 
 # 2. Breaks reflecting the actual data distribution (starting from minimum observed ~0.04)
 prop_breaks <- c(0.05, 0.1, 0.2, 0.35, 0.6, 1.0, 1.5, 2.0)
@@ -2309,7 +2319,10 @@ plot_data_nesten <- analyseset_nesten %>%
     is_bezocht   = !is_onbezocht,
     is_nul       = is_bezocht & aantal == 0,
     heeft_aantal = is_bezocht & aantal > 0
-  )
+  ) %>%
+  # Join expected total tubes per transect
+  left_join(max_buizen_per_locatie, by = c("transect" = "locatie")) %>%
+  mutate(transect = paste0(transect, " (N = ", totaal_nestbuizen, ")"))
 
 # 2. Breaks en kleuren alleen voor positieve waarnemingen (vanaf 1)
 count_breaks <- c(1, 4, 8, 12, 16)
@@ -2402,7 +2415,10 @@ plot_data_nesten2 <- analyseset_nesten %>%
     is_nul       = is_bezocht & aantal == 0,
     heeft_aantal = is_bezocht & aantal > 0,
     prop         = aantal / n_nestbuizen
-  )
+  ) %>%
+  # Join expected total tubes per transect
+  left_join(max_buizen_per_locatie, by = c("transect" = "locatie")) %>%
+  mutate(transect = paste0(transect, " (N = ", totaal_nestbuizen, ")"))
 
 # 2. Breaks reflecting the actual data distribution (starting from minimum observed ~0.04)
 prop_breaks <- c(0.05, 0.1, 0.2, 0.35, 0.6, 1.0, 1.5, 2.0)
